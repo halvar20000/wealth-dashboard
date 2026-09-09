@@ -346,10 +346,70 @@ check("an unknown state is refused",
       b"not one this app started" in r.data, True)
 
 # ---------------------------------------------------------------------------
+print("\n8b. Finishing by hand when the callback cannot fire")
+# ---------------------------------------------------------------------------
+from app.main import _parse_pasted_redirect as parse            # noqa: E402
+
+check("a full redirect URL", parse("https://example.org/cb?code=AAA&state=BBB"),
+      ("AAA", "BBB"))
+check("...with other parameters around it",
+      parse("https://example.org/cb?foo=1&code=AAA&state=BBB&bar=2"), ("AAA", "BBB"))
+check("...and a fragment on the end",
+      parse("https://example.org/cb?code=AAA&state=BBB#done"), ("AAA", "BBB"))
+check("a bare query string", parse("code=AAA&state=BBB"), ("AAA", "BBB"))
+check("a URL-encoded code is decoded", parse("https://x/cb?code=A%2FB&state=S"),
+      ("A/B", "S"))
+check("just the code, no state", parse("AAA"), ("AAA", None))
+check("nothing pasted", parse(""), (None, None))
+check("a sentence is not a code", parse("it did not work"), (None, None))
+check("a URL with no code at all",
+      parse("https://example.org/cb?error=access_denied"), (None, None))
+
+# The real flow: start a connection, never let the callback fire, finish
+# it from the paste page instead.
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM bank_links")
+    conn.execute("DELETE FROM transactions")
+    conn.execute("DELETE FROM balances")
+    cur = conn.execute("INSERT INTO accounts (name, type, currency) "
+                       "VALUES ('Second DKB', 'bank', 'EUR')")
+    second_id = int(cur.lastrowid)
+
+c.post(f"/connect/{second_id}/start",
+       data={"aspsp_name": "DKB", "aspsp_country": "DE"})
+with db.get_conn() as conn:
+    st = conn.execute("SELECT state FROM auth_states").fetchone()["state"]
+
+r = c.get("/connect/paste")
+check("the paste page lists what is waiting", b"DKB" in r.data, True)
+
+r = c.post("/connect/paste", data={"pasted": "this is not a url"},
+           follow_redirects=True)
+check("junk is refused with an instruction",
+      b"Paste the whole URL" in r.data, True)
+
+r = c.post("/connect/paste",
+           data={"pasted": f"https://example.org/dead?code=THE-CODE&state={st}"},
+           follow_redirects=False)
+check("a pasted URL finishes the connection",
+      r.headers["Location"], f"/accounts/{second_id}")
+with db.get_conn() as conn:
+    linked = conn.execute("SELECT COUNT(*) n FROM bank_links").fetchone()["n"]
+    imported = conn.execute("SELECT COUNT(*) n FROM transactions").fetchone()["n"]
+check("...and links the account", linked, 1)
+check("...and syncs it, exactly as the callback would", imported, 4)
+
+r = c.get("/connect/paste")
+check("nothing is left waiting afterwards",
+      b"No connection is waiting" in r.data, True)
+
+# ---------------------------------------------------------------------------
 print("\n9. When the bank fails")
 # ---------------------------------------------------------------------------
+# The connection now lives on the account finished by hand in 8b, which
+# is the point: the two paths produce the same thing.
 shared.fail_next = (403, "consent expired")
-result = banksync.sync_account(account_id)
+result = banksync.sync_account(second_id)
 check("a failed sync reports the error", "consent expired" in result["error"], True)
 with db.get_conn() as conn:
     kept = conn.execute("SELECT COUNT(*) n FROM transactions").fetchone()["n"]
@@ -357,7 +417,7 @@ with db.get_conn() as conn:
 check("...keeps the history it already had", kept, 4)
 check("...and records it on the link, not as a broken page",
       "consent expired" in stored, True)
-r = c.get(f"/accounts/{account_id}")
+r = c.get(f"/accounts/{second_id}")
 check("the account page still renders", r.status_code, 200)
 check("...and shows the error", b"consent expired" in r.data, True)
 

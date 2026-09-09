@@ -49,6 +49,8 @@
        own Enable Banking credentials.</p>
     {% if configured %}
       <p><a class="btn" href="{{ url_for('connect_pick', account_id=account.id) }}">Connect a bank</a></p>
+      <p class="sub">Started one already and landed on a dead page?
+         <a href="{{ url_for('connect_paste') }}">Paste the code here</a>.</p>
     {% else %}
       <p class="sub">Add your Enable Banking Application ID and private key in
          <a href="{{ url_for('settings_page') }}">Settings</a> first.</p>

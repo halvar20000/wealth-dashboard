@@ -10,6 +10,10 @@ you tick, for {{ 90 }} days at a time, and you can revoke it at your bank.</p>
 
 {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
 
+<p class="sub">If your bank leaves you on a page that will not load, that is
+expected with an https-only redirect URL —
+<a href="{{ url_for('connect_paste') }}">finish the connection by hand</a>.</p>
+
 <form class="card form inline" method="get"
       action="{{ url_for('connect_pick', account_id=account_id) }}">
   <label for="country">Country</label>

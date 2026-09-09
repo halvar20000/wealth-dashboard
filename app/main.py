@@ -13,6 +13,7 @@ The route list is the whole product so far, in order of first use:
     /connect/<id>       choose a bank
     /connect/<id>/start begin authorisation — leaves for the bank
     /connect/callback   the bank sends the user back here
+    /connect/paste      finish by hand when the callback cannot fire
     /accounts/<id>/sync pull balance and transactions
 
 Every page except /setup and /login requires a signed-in user.
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import urllib.parse
 from pathlib import Path
 
 from flask import (Flask, flash, redirect, render_template, request, session,
@@ -313,6 +315,27 @@ def connect_start(account_id: int):
     return redirect(url)
 
 
+def _finish_connection(code: str, state: str):
+    """Shared by the automatic callback and the manual paste. One function,
+    so the two paths cannot drift into behaving differently."""
+    try:
+        result = banksync.complete_connect(code, state)
+    except Exception as exc:                        # noqa: BLE001
+        flash(str(exc), "error")
+        return None
+
+    flash("Connected: " + ", ".join(result["linked"]), "ok")
+    # Pull straight away. A connection that lands on an empty page gives
+    # the user no evidence it worked, and "did it work?" is the only
+    # question they have at this moment.
+    outcome = banksync.sync_account(result["account_id"])
+    if outcome and outcome.get("error"):
+        flash(f"Connected, but the first sync failed: {outcome['error']}", "error")
+    elif outcome:
+        flash(f"Imported {outcome['inserted']} transaction(s).", "ok")
+    return result
+
+
 @app.route("/connect/callback")
 @auth.login_required
 def connect_callback():
@@ -324,23 +347,84 @@ def connect_callback():
         return redirect(url_for("index"))
     if not code or not state:
         flash("The bank sent us back without an authorisation code.", "error")
-        return redirect(url_for("index"))
-    try:
-        result = banksync.complete_connect(code, state)
-    except Exception as exc:                        # noqa: BLE001
-        flash(str(exc), "error")
-        return redirect(url_for("index"))
-
-    flash("Connected: " + ", ".join(result["linked"]), "ok")
-    # Pull straight away. A connection that lands on an empty page gives
-    # the user no evidence it worked, and "did it work?" is the only
-    # question they have at this moment.
-    outcome = banksync.sync_account(result["account_id"])
-    if outcome and outcome.get("error"):
-        flash(f"Connected, but the first sync failed: {outcome['error']}", "error")
-    elif outcome:
-        flash(f"Imported {outcome['inserted']} transaction(s).", "ok")
+        return redirect(url_for("connect_paste"))
+    result = _finish_connection(code, state)
+    if result is None:
+        return redirect(url_for("connect_paste"))
     return redirect(url_for("account_detail", account_id=result["account_id"]))
+
+
+@app.route("/connect/paste", methods=["GET", "POST"])
+@auth.login_required
+def connect_paste():
+    """Finish a connection by hand, when the callback cannot fire.
+
+    This is not only a workaround for a rejected redirect URL. A provider
+    that requires an https redirect cannot send anyone back to a NAS on
+    a LAN address, and a self-hosted app has no business demanding a
+    public hostname and a certificate before it will read a bank
+    balance. So the supported answer is: let the bank bounce the user to
+    a URL that goes nowhere, and paste the address bar in here.
+
+    What gets pasted is the whole URL, because that is what a person can
+    actually copy — asking someone to find `code=` inside a 300-character
+    query string and stop at the `&` is asking for a support thread.
+    """
+    with get_conn() as conn:
+        pending = [dict(r) for r in conn.execute(
+            "SELECT s.*, a.name AS account_name FROM auth_states s "
+            "LEFT JOIN accounts a ON a.id = s.account_id "
+            "ORDER BY s.created_at DESC").fetchall()]
+
+    if request.method == "POST":
+        raw = (request.form.get("pasted") or "").strip()
+        code, state = _parse_pasted_redirect(raw)
+        if not state and len(pending) == 1:
+            # Only one connection is in flight, so a bare code is
+            # unambiguous. Refusing it would be pedantry.
+            state = pending[0]["state"]
+        if not code:
+            flash("No authorisation code in that. Paste the whole URL from "
+                  "the address bar, including the ?code=… part.", "error")
+        elif not state:
+            flash("That code could belong to any of several connections in "
+                  "progress. Paste the full URL, which carries the state.",
+                  "error")
+        else:
+            result = _finish_connection(code, state)
+            if result is not None:
+                return redirect(url_for("account_detail",
+                                        account_id=result["account_id"]))
+        return redirect(url_for("connect_paste"))
+
+    return render_template("connect_paste.html", pending=pending)
+
+
+def _parse_pasted_redirect(raw: str) -> tuple[str | None, str | None]:
+    """Pull (code, state) out of whatever was pasted.
+
+    Accepts a full redirect URL, a bare query string, or just the code.
+    A URL the bank produced may well be http on a host that does not
+    resolve — it is never fetched, only parsed, so that is fine.
+    """
+    if not raw:
+        return None, None
+    query = raw
+    if "?" in raw:
+        query = raw.split("?", 1)[1]
+    if "#" in query:
+        query = query.split("#", 1)[0]
+    if "=" in query:
+        params = dict(urllib.parse.parse_qsl(query))
+        code = params.get("code")
+        if code:
+            return code.strip(), (params.get("state") or "").strip() or None
+    # No key=value pairs at all: treat the whole thing as a bare code,
+    # but only if it looks like one rather than like a sentence.
+    token = raw.strip()
+    if token and " " not in token and "/" not in token:
+        return token, None
+    return None, None
 
 
 @app.errorhandler(404)
