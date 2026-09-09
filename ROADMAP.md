@@ -19,7 +19,10 @@ it does not do yet.
 - [x] Overview page: net worth, cash vs securities, breakdown charts,
       holdings across accounts, latest activity.
 - [x] Edit and delete an account.
-- [x] 202 offline checks covering the whole flow.
+- [x] Portfolio, Cash Flow, Budget, Subscriptions, Transactions and
+      Categorize pages.
+- [x] Categories with learned rules that apply retroactively.
+- [x] 288 offline checks covering the whole flow.
 
 ## Next
 
@@ -30,16 +33,20 @@ nobody can see. The ECB publishes daily reference rates free and without
 a key; that, plus a decision about which day's rate a historical balance
 is worth, closes it.
 
-**2. Balance history.**
+**2. The pages that are still blocked.** Each waits on one thing:
+
+| Page | Needs |
+|---|---|
+| Monthly Gains | a price feed — "what did the assets earn by themselves" is unanswerable without prices you did not pay |
+| Why It Moved | daily per-holding snapshots; there is no history to decompose until the app has been running |
+| Share Ideas | a fundamentals source and a nightly refresh job; independent of everything else here |
+| Income | a payslip importer, which is employer-specific in a way no generic parser fixes |
+| Expenses | more than one household member, and a per-transaction owner |
+
+**3. Balance history.**
 `balances` already stores every reading with its date. A chart over time
 is nearly free once there is more than one point, and it is the first
 screen that rewards using the app for a month.
-
-**3. Categorisation.**
-Transactions arrive with a description and a counterparty and nothing
-else. Rules the user can correct, where a correction becomes a rule that
-applies to past *and* future imports — otherwise the same shop has to be
-fixed every month.
 
 **4. Live prices.**
 Holdings are valued at the price of your last trade, which is honest and

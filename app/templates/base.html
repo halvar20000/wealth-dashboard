@@ -20,6 +20,12 @@
     {% if user %}
     <nav>
       <a class="navlink {{ 'active' if active_page == 'overview' }}" href="{{ url_for('index') }}">Overview</a>
+      <a class="navlink {{ 'active' if active_page == 'portfolio' }}" href="{{ url_for('portfolio_page') }}">Portfolio</a>
+      <a class="navlink {{ 'active' if active_page == 'cashflow' }}" href="{{ url_for('cashflow_page') }}">Cash Flow</a>
+      <a class="navlink {{ 'active' if active_page == 'budget' }}" href="{{ url_for('budget_page') }}">Budget</a>
+      <a class="navlink {{ 'active' if active_page == 'subscriptions' }}" href="{{ url_for('subscriptions_page') }}">Subscriptions</a>
+      <a class="navlink {{ 'active' if active_page == 'transactions' }}" href="{{ url_for('transactions') }}">Transactions</a>
+      <a class="navlink {{ 'active' if active_page == 'categorize' }}" href="{{ url_for('categorize') }}">Categorize</a>
       <a class="navlink {{ 'active' if active_page == 'accounts' }}" href="{{ url_for('accounts') }}">Accounts</a>
       <a class="navlink {{ 'active' if active_page == 'settings' }}" href="{{ url_for('settings_page') }}">Settings</a>
       <span class="who">{{ user.username }}</span>

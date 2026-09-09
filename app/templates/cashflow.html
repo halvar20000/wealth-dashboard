@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Cash Flow · Wealth Dashboard{% endblock %}
+{% block heading %}Cash Flow{% endblock %}
+{% block lede %}
+<p class="lede">Money in against money out, per month. Internal transfers are
+excluded — moving money between your own accounts is not income and not
+spending, and counting it would inflate both by the same amount. Investment is
+separated for the same reason: a month you invested €3,000 is not a month you
+overspent.</p>
+{% endblock %}
+{% block content %}
+
+<section class="stat-strip">
+  <div class="stat-card stat-green">
+    <div class="stat-label">Income</div>
+    <div class="stat-value gain">{{ money(data.average_income, data.base_currency) }}</div>
+    <div class="stat-sub">a month, over {{ data.months_covered }} month(s)</div>
+  </div>
+  <div class="stat-card stat-purple">
+    <div class="stat-label">Spending</div>
+    <div class="stat-value">{{ money(data.average_spending, data.base_currency) }}</div>
+    <div class="stat-sub">a month</div>
+  </div>
+  <div class="stat-card stat-blue">
+    <div class="stat-label">Invested</div>
+    <div class="stat-value">{{ money(data.total_investment, data.base_currency) }}</div>
+    <div class="stat-sub">over the period</div>
+  </div>
+  <div class="stat-card stat-gold">
+    <div class="stat-label">Kept</div>
+    {% set kept = data.total_income - data.total_spending %}
+    <div class="stat-value {{ 'gain' if kept >= 0 else 'loss' }}">{{ money(kept, data.base_currency) }}</div>
+    <div class="stat-sub">income less spending</div>
+  </div>
+</section>
+
+{% if data.months %}
+<section class="card">
+  <div class="card-header"><h2>By month</h2>
+    <span class="card-subtitle">{{ data.base_currency }} only</span></div>
+  <div class="chart-wrap" style="height:290px"><canvas id="chart-months"></canvas></div>
+</section>
+
+<section class="grid-2">
+  <div class="card">
+    <div class="card-header"><h2>Where it goes</h2></div>
+    <div class="chart-wrap"><canvas id="chart-cats"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h2>By category</h2>
+      <span class="card-subtitle">per month on average</span></div>
+    <div class="table-wrap">
+      <table class="grid">
+        <thead><tr><th>Category</th><th class="num">Per month</th><th class="num">Total</th></tr></thead>
+        <tbody>
+        {% for c in data.by_category %}
+          <tr>
+            <td><span class="tag tag-muted" style="color:{{ c.colour }};border-color:{{ c.colour }}44">{{ c.label }}</span></td>
+            <td class="num">{{ money(c.per_month, data.base_currency) }}</td>
+            <td class="num sub">{{ money(c.total, data.base_currency) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% else %}
+<section class="card empty">
+  <p>No transactions in the base currency yet.</p>
+  <p class="sub">Connect a bank or import a statement, then categorise on the
+     <a href="{{ url_for('categorize') }}">Categorize</a> page — until things
+     have categories, this page has nothing to add up.</p>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const D = {{ data.months | tojson }};
+const CATS = {{ data.by_category | tojson }};
+const GRID = '#232c44', TICK = '#95a0b9';
+
+if (D.length) {
+  new Chart(document.getElementById('chart-months'), {
+    type: 'bar',
+    data: {
+      labels: D.map(m => m.month),
+      datasets: [
+        { label: 'Income', data: D.map(m => m.income), backgroundColor: '#34d399' },
+        { label: 'Spending', data: D.map(m => -m.spending), backgroundColor: '#f87171' },
+        { label: 'Invested', data: D.map(m => -m.investment), backgroundColor: '#5b9dff' },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { stacked: false, grid: { color: GRID }, ticks: { color: TICK } },
+        y: { grid: { color: GRID }, ticks: { color: TICK } },
+      },
+      plugins: { legend: { labels: { color: TICK } } },
+    },
+  });
+}
+
+if (CATS.length) {
+  new Chart(document.getElementById('chart-cats'), {
+    type: 'doughnut',
+    data: {
+      labels: CATS.map(c => c.label),
+      datasets: [{ data: CATS.map(c => c.total),
+                   backgroundColor: CATS.map(c => c.colour),
+                   borderColor: '#131826', borderWidth: 2 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: { legend: { position: 'right',
+                 labels: { color: TICK, boxWidth: 12, padding: 10, font: { size: 12 } } } },
+    },
+  });
+}
+</script>
+{% endblock %}

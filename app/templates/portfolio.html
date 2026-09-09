@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Portfolio · Wealth Dashboard{% endblock %}
+{% block heading %}Portfolio{% endblock %}
+{% block lede %}
+<p class="lede">Everything you hold, aggregated by ISIN across accounts — the
+same fund at two brokers is one position from where you are standing. Values use
+the price of your last trade, which is not a market price; a price feed is the
+next thing to build.</p>
+{% endblock %}
+{% block content %}
+
+<section class="stat-strip">
+  <div class="stat-card stat-purple">
+    <div class="stat-label">Securities</div>
+    <div class="stat-value">{{ money(s.securities, s.base_currency) }}</div>
+    <div class="stat-sub">{{ s.holdings | length }} position(s)</div>
+  </div>
+  <div class="stat-card stat-blue">
+    <div class="stat-label">Cash</div>
+    <div class="stat-value">{{ money(s.cash, s.base_currency) }}</div>
+    <div class="stat-sub">across all accounts</div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-label">Net invested</div>
+    {% set invested = s.holdings | selectattr('currency', 'equalto', s.base_currency) | sum(attribute='net_invested') %}
+    <div class="stat-value">{{ money(invested, s.base_currency) }}</div>
+    <div class="stat-sub">what you put in, {{ s.base_currency }} positions</div>
+  </div>
+  <div class="stat-card stat-gold">
+    <div class="stat-label">Difference</div>
+    {% set diff = s.securities - invested %}
+    <div class="stat-value {{ 'gain' if diff >= 0 else 'loss' }}">{{ money(diff, s.base_currency) }}</div>
+    <div class="stat-sub">at last traded prices, not market</div>
+  </div>
+</section>
+
+{% if s.holdings %}
+<section class="card">
+  <div class="card-header"><h2>Holdings</h2>
+    <span class="card-subtitle">largest first</span></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>Security</th><th>ISIN</th><th>Where</th><th class="num">Quantity</th>
+                 <th class="num">Last price</th><th class="num">Net invested</th>
+                 <th class="num">Value</th><th class="num">Difference</th></tr></thead>
+      <tbody>
+      {% for h in s.holdings %}
+        {% set d = (h.value - h.net_invested) if h.value else None %}
+        <tr>
+          <td>{{ h.name or h.isin }}<span class="sub">last trade {{ h.last_trade }}</span></td>
+          <td class="sub nowrap">{{ h.isin }}</td>
+          <td class="sub">{{ h.accounts | unique | join(', ') }}</td>
+          <td class="num {{ 'neg' if h.incomplete_history }}">{{ qty(h.quantity) }}</td>
+          <td class="num sub">{{ '%.4f'|format(h.last_price) if h.last_price else '—' }}</td>
+          <td class="num">{{ money(h.net_invested, h.currency) }}</td>
+          <td class="num">{{ money(h.value, h.currency) if h.value else '—' }}</td>
+          <td class="num {{ 'pos' if d and d > 0 else ('neg' if d else '') }}">
+            {{ money(d, h.currency) if d is not none else '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if s.unconverted %}
+  <p class="sub">Positions in another currency are not added into the totals
+     above: {% for u in s.unconverted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}.
+     There is no exchange-rate source yet.</p>
+  {% endif %}
+</section>
+{% else %}
+<section class="card empty">
+  <p>No holdings yet.</p>
+  <p class="sub">Import a broker export from an account and the positions are
+     computed from its trades.</p>
+</section>
+{% endif %}
+{% endblock %}

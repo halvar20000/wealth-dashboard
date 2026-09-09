@@ -33,7 +33,7 @@ from flask import (Flask, flash, redirect, render_template, request, session,
 from . import auth, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import importers, overview
+from . import cashflow, categories, importers, overview, subscriptions
 from .db import get_conn, has_users, init_db
 
 APP_DIR = Path(__file__).resolve().parent
@@ -125,6 +125,7 @@ def _globals():
     return {"user": auth.current_user(),
             "base_currency": settings.get("base_currency", "EUR"),
             "money": _money, "qty": _qty,
+            "categories": categories,
             "asset_version": _ASSET_VERSION}
 
 
@@ -391,6 +392,140 @@ def account_sync(account_id: int):
 
 
 # ─── Settings ────────────────────────────────────────────────────────
+
+# ─── Spending ────────────────────────────────────────────────────────
+
+@app.route("/transactions")
+@auth.login_required
+def transactions():
+    """Everything, filterable. The page people go to when a number
+    elsewhere looks wrong, so the filters are the feature."""
+    q = (request.args.get("q") or "").strip()
+    category = request.args.get("category") or ""
+    account_id = request.args.get("account") or ""
+    kind = request.args.get("kind") or ""
+
+    where, params = ["1=1"], []
+    if q:
+        where.append("(LOWER(t.description) LIKE ? OR LOWER(COALESCE(t.counterparty,'')) LIKE ?)")
+        params += [f"%{q.lower()}%"] * 2
+    if category:
+        where.append("COALESCE(NULLIF(t.category,''),'other') = ?")
+        params.append(category)
+    if account_id.isdigit():
+        where.append("t.account_id = ?")
+        params.append(int(account_id))
+    if kind:
+        where.append("t.kind = ?")
+        params.append(kind)
+    clause = " AND ".join(where)
+
+    with get_conn() as conn:
+        rows = [dict(r) for r in conn.execute(
+            f"SELECT t.*, a.name AS account_name FROM transactions t "
+            f"JOIN accounts a ON a.id = t.account_id WHERE {clause} "
+            f"ORDER BY t.txn_date DESC, t.id DESC LIMIT 400", params).fetchall()]
+        total = conn.execute(
+            f"SELECT COUNT(*) n, SUM(t.amount) s FROM transactions t "
+            f"WHERE {clause}", params).fetchone()
+        accounts_list = [dict(r) for r in conn.execute(
+            "SELECT id, name FROM accounts ORDER BY name").fetchall()]
+        kinds = [r["kind"] for r in conn.execute(
+            "SELECT DISTINCT kind FROM transactions ORDER BY kind").fetchall()]
+
+    return render_template("transactions.html", active_page="transactions",
+                           rows=rows, matched=total["n"], total=total["s"] or 0,
+                           accounts=accounts_list, kinds=kinds,
+                           q=q, category=category, account_id=account_id, kind=kind)
+
+
+@app.route("/transactions/<int:txn_id>/category", methods=["POST"])
+@auth.login_required
+def transaction_category(txn_id: int):
+    """Set one transaction's category, and optionally remember it.
+
+    The "remember" half is the whole design: a correction that does not
+    become a rule means fixing the same merchant every month.
+    """
+    category = request.form.get("category") or "other"
+    pattern = (request.form.get("pattern") or "").strip()
+    try:
+        categories.set_category(txn_id, category)
+        if pattern:
+            applied = categories.add_rule(pattern, category)
+            flash(f"Rule saved — {applied} transaction(s) matched "
+                  f"“{pattern}”.", "ok")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(request.form.get("back") or url_for("categorize"))
+
+
+@app.route("/categorize", methods=["GET", "POST"])
+@auth.login_required
+def categorize():
+    if request.method == "POST":
+        if request.form.get("action") == "seed":
+            changed = categories.seed_from_kind()
+            flash(f"{changed} transaction(s) categorised from what the "
+                  f"importer already knew.", "ok")
+        elif request.form.get("action") == "delete_rule":
+            categories.delete_rule(int(request.form["rule_id"]))
+            categories.apply_all()
+            flash("Rule deleted and the remaining rules re-applied.", "ok")
+        return redirect(url_for("categorize"))
+
+    queue, remaining = categories.uncategorised()
+    return render_template("categorize.html", active_page="categorize",
+                           queue=queue, remaining=remaining,
+                           rules=categories.rules())
+
+
+@app.route("/cashflow")
+@auth.login_required
+def cashflow_page():
+    months = int(request.args.get("months") or 13)
+    return render_template(
+        "cashflow.html", active_page="cashflow",
+        data=cashflow.monthly(months, settings.get("base_currency", "EUR")),
+        months=months)
+
+
+@app.route("/budget", methods=["GET", "POST"])
+@auth.login_required
+def budget_page():
+    if request.method == "POST":
+        for key, value in request.form.items():
+            if not key.startswith("budget_"):
+                continue
+            category = key[len("budget_"):]
+            try:
+                amount = float(value.replace(",", ".")) if value.strip() else None
+            except ValueError:
+                amount = None
+            cashflow.set_budget(category, amount)
+        flash("Budget saved.", "ok")
+        return redirect(url_for("budget_page"))
+    return render_template(
+        "budget.html", active_page="budget",
+        report=cashflow.budget_report(settings.get("base_currency", "EUR")),
+        spending=categories.SPENDING)
+
+
+@app.route("/subscriptions")
+@auth.login_required
+def subscriptions_page():
+    return render_template(
+        "subscriptions.html", active_page="subscriptions",
+        data=subscriptions.detect(settings.get("base_currency", "EUR")))
+
+
+@app.route("/portfolio")
+@auth.login_required
+def portfolio_page():
+    return render_template(
+        "portfolio.html", active_page="portfolio",
+        s=overview.summary(settings.get("base_currency", "EUR")))
+
 
 @app.route("/settings", methods=["GET", "POST"])
 @auth.login_required

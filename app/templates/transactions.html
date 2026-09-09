@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Transactions · Wealth Dashboard{% endblock %}
+{% block heading %}Transactions{% endblock %}
+{% block content %}
+
+<form class="card form inline" method="get">
+  <div><label for="q">Search</label>
+    <input id="q" name="q" value="{{ q }}" placeholder="merchant or text"></div>
+  <div><label for="category">Category</label>
+    <select id="category" name="category">
+      <option value="">any</option>
+      {% for slug, meta in categories.ALL.items() %}
+      <option value="{{ slug }}" {{ 'selected' if category == slug }}>{{ meta[0] }}</option>
+      {% endfor %}
+    </select></div>
+  <div><label for="account">Account</label>
+    <select id="account" name="account">
+      <option value="">any</option>
+      {% for a in accounts %}
+      <option value="{{ a.id }}" {{ 'selected' if account_id == a.id|string }}>{{ a.name }}</option>
+      {% endfor %}
+    </select></div>
+  <div><label for="kind">Kind</label>
+    <select id="kind" name="kind">
+      <option value="">any</option>
+      {% for k in kinds %}<option value="{{ k }}" {{ 'selected' if kind == k }}>{{ k }}</option>{% endfor %}
+    </select></div>
+  <button type="submit">Filter</button>
+  {% if q or category or account_id or kind %}
+  <a class="btn btn-ghost" href="{{ url_for('transactions') }}">Clear</a>
+  {% endif %}
+</form>
+
+<section class="card">
+  <div class="card-header">
+    <h2>{{ '{:,}'.format(matched).replace(',', ' ') }} transaction(s)</h2>
+    <span class="card-subtitle">
+      net {{ money(total, base_currency) }}{% if matched > rows|length %} ·
+      showing the {{ rows|length }} most recent{% endif %}
+    </span>
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>Date</th><th>Description</th><th>Account</th>
+                 <th>Category</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+      {% for t in rows %}
+        <tr>
+          <td class="sub nowrap">{{ t.txn_date }}</td>
+          <td>{{ t.description[:80] }}
+            {% if t.counterparty %}<span class="sub">{{ t.counterparty }}</span>{% endif %}</td>
+          <td class="sub">{{ t.account_name }}</td>
+          <td>
+            <form method="post" action="{{ url_for('transaction_category', txn_id=t.id) }}">
+              <input type="hidden" name="back" value="{{ request.full_path }}">
+              <select name="category" onchange="this.form.submit()"
+                      style="padding:4px 8px;font-size:12px;width:auto;">
+                {% for slug, meta in categories.ALL.items() %}
+                <option value="{{ slug }}" {{ 'selected' if (t.category or 'other') == slug }}>{{ meta[0] }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </td>
+          <td class="num {{ 'pos' if t.amount > 0 else 'neg' }}">{{ money(t.amount, t.currency) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if not rows %}<p class="sub">Nothing matches those filters.</p>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Budget · Wealth Dashboard{% endblock %}
+{% block heading %}Budget{% endblock %}
+{% block lede %}
+<p class="lede">Measured against how far through the month you are, not against
+the whole month. Halfway through, everyone is under budget — the useful question
+is whether you are ahead of the pace.</p>
+{% endblock %}
+{% block content %}
+
+<section class="hero-block">
+  <div class="hero-top">
+    <div>
+      <div class="hero-label">Spent in {{ report.month }}</div>
+      <div class="hero-value">{{ money(report.total_spent, report.base_currency) }}</div>
+      <div class="hero-sub">
+        {% if report.has_budgets %}of <strong>{{ money(report.total_budget, report.base_currency) }}</strong> budgeted
+        · {{ (report.through_month * 100) | round | int }}% through the month
+        {% else %}No budgets set yet — fill some in below.{% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<form method="post" class="card">
+  <div class="card-header"><h2>Monthly budget per category</h2>
+    <span class="card-subtitle">leave blank for no budget</span></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>Category</th><th class="num">Budget</th>
+                 <th class="num">Spent</th><th class="num">Typical</th><th>Pace</th></tr></thead>
+      <tbody>
+      {% for r in report.rows %}
+        <tr>
+          <td><span class="tag tag-muted" style="color:{{ r.colour }};border-color:{{ r.colour }}44">{{ r.label }}</span></td>
+          <td class="num">
+            <input name="budget_{{ r.category }}" value="{{ '%.0f'|format(r.budget) if r.budget else '' }}"
+                   style="width:90px;padding:5px 8px;font-size:12.5px;text-align:right;">
+          </td>
+          <td class="num {{ 'loss' if r.over else '' }}">{{ money(r.spent, report.base_currency) }}</td>
+          <td class="num sub">{{ money(r.typical, report.base_currency) if r.typical else '—' }}</td>
+          <td>
+            {% if r.budget %}
+              {% if r.over %}<span class="tag" style="background:var(--loss-soft);color:var(--loss);border-color:rgba(248,113,113,.4)">over budget</span>
+              {% elif r.ahead_of_pace %}<span class="tag" style="background:var(--warn-soft);color:var(--warn);border-color:rgba(251,191,36,.4)">ahead of pace</span>
+              {% else %}<span class="tag">on track</span>{% endif %}
+              <span class="sub">{{ r.pct | round | int }}% used</span>
+            {% else %}<span class="sub">—</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <button type="submit">Save budget</button>
+</form>
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Categorize · Wealth Dashboard{% endblock %}
+{% block heading %}Categorize{% endblock %}
+{% block lede %}
+<p class="lede">Correcting a transaction here can leave a <strong>rule</strong>
+behind. A rule applies to what is already imported as well as to what arrives
+next — otherwise the same shop has to be fixed every month for a year before it
+stops asking.</p>
+{% endblock %}
+{% block content %}
+
+<section class="stat-strip">
+  <div class="stat-card stat-gold">
+    <div class="stat-label">Waiting</div>
+    <div class="stat-value">{{ remaining }}</div>
+    <div class="stat-sub">largest amounts first</div>
+  </div>
+  <div class="stat-card stat-blue">
+    <div class="stat-label">Rules</div>
+    <div class="stat-value">{{ rules | length }}</div>
+    <div class="stat-sub">applied to past and future</div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-label">Quick start</div>
+    <form method="post" style="margin:0">
+      <input type="hidden" name="action" value="seed">
+      <button type="submit" style="margin-top:8px">Categorise what is obvious</button>
+    </form>
+    <div class="stat-sub">fees, interest, dividends, known merchants</div>
+  </div>
+</section>
+
+{% if queue %}
+<section class="card">
+  <div class="card-header">
+    <h2>The queue</h2>
+    <span class="card-subtitle">tick “remember” to turn a choice into a rule</span>
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th>
+                 <th>Category</th><th>Remember as</th><th></th></tr></thead>
+      <tbody>
+      {% for t in queue %}
+        <tr>
+          <form method="post" action="{{ url_for('transaction_category', txn_id=t.id) }}">
+          <input type="hidden" name="back" value="{{ url_for('categorize') }}">
+          <td class="sub nowrap">{{ t.txn_date }}</td>
+          <td>{{ t.description[:70] }}<span class="sub">{{ t.account_name }}</span></td>
+          <td class="num {{ 'pos' if t.amount > 0 else 'neg' }}">{{ money(t.amount, t.currency) }}</td>
+          <td>
+            <select name="category" style="padding:5px 8px;font-size:12.5px;width:auto;">
+              {% for slug, meta in categories.ALL.items() %}
+              <option value="{{ slug }}" {{ 'selected' if t.suggestion == slug }}>{{ meta[0] }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <input name="pattern" placeholder="text to match, optional"
+                   value="{{ (t.counterparty or '')[:30] }}"
+                   style="padding:5px 8px;font-size:12.5px;">
+          </td>
+          <td class="num"><button type="submit">Apply</button></td>
+          </form>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<section class="card empty">
+  <p>Nothing waiting.</p>
+  <p class="sub">Every transaction has a category. Import more, or adjust one
+     from the <a href="{{ url_for('transactions') }}">Transactions</a> page.</p>
+</section>
+{% endif %}
+
+{% if rules %}
+<section class="card">
+  <div class="card-header"><h2>Rules</h2>
+    <span class="card-subtitle">newest wins where two match</span></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>When the text contains</th><th>Category</th><th>Added</th><th></th></tr></thead>
+      <tbody>
+      {% for r in rules %}
+        <tr>
+          <td><code>{{ r.pattern }}</code></td>
+          <td><span class="tag tag-muted">{{ categories.label(r.category) }}</span></td>
+          <td class="sub nowrap">{{ r.created_at[:10] }}</td>
+          <td class="num">
+            <form method="post">
+              <input type="hidden" name="action" value="delete_rule">
+              <input type="hidden" name="rule_id" value="{{ r.id }}">
+              <button class="btn-danger" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

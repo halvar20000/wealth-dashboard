@@ -791,5 +791,178 @@ check("...and the stock nets buy minus sell",
       round(tr_pos["DE0007236101"]["quantity"], 6), -3.0)
 
 # ---------------------------------------------------------------------------
+print("\n14. Categories and rules")
+# ---------------------------------------------------------------------------
+from app import cashflow as cf, categories as cat, subscriptions as subs  # noqa: E402
+
+check("a supermarket is guessed", cat.suggest("CARREFOUR MARKET 1234"), "food")
+check("a streaming service is guessed", cat.suggest("NETFLIX.COM"), "subscription")
+check("an unknown merchant is not guessed at", cat.suggest("ZQX BLORP"), None)
+check("the counterparty is read too",
+      cat.suggest("card payment", "Lidl Sarl"), "food")
+
+seeded = cat.seed_from_kind()
+check("the obvious rows are categorised without a human", seeded > 0, True)
+with db.get_conn() as conn:
+    fee_cat = conn.execute(
+        "SELECT category FROM transactions WHERE kind='fee' LIMIT 1").fetchone()
+check("a broker fee needs no rule", fee_cat["category"] if fee_cat else "fee", "fee")
+
+# What a kind MEANS depends on the account. Money arriving in a broker is
+# your own, from your own bank; calling it income inflates income by
+# everything you have ever invested, and double-counts the bank side.
+with db.get_conn() as conn:
+    broker_deposits = conn.execute(
+        "SELECT DISTINCT category FROM transactions t "
+        " JOIN accounts a ON a.id = t.account_id "
+        " WHERE t.kind = 'deposit' AND a.type = 'broker'").fetchall()
+check("a deposit into a broker is an internal transfer, not income",
+      {r["category"] for r in broker_deposits} <= {"transfer"}, True)
+
+# A rule must reach what is ALREADY imported, or the same shop has to be
+# fixed every month for a year before it stops.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "amount, currency, kind, external_id) VALUES "
+                 "(?, '2026-06-01', 'ZQX BLORP STORE 8891', -12.0, 'EUR', "
+                 "'withdrawal', 'rule-test-1')", (broker_id,))
+applied = cat.add_rule("zqx blorp", "shopping")
+check("a new rule applies retroactively", applied >= 1, True)
+with db.get_conn() as conn:
+    got = conn.execute("SELECT category FROM transactions "
+                       "WHERE external_id='rule-test-1'").fetchone()["category"]
+check("...to the row that was already there", got, "shopping")
+
+try:
+    cat.add_rule("ab", "shopping")
+    tooshort = False
+except ValueError:
+    tooshort = True
+check("a two-character rule is refused as too broad", tooshort, True)
+try:
+    cat.add_rule("something", "not_a_category")
+    badcat = False
+except ValueError:
+    badcat = True
+check("an unknown category is refused", badcat, True)
+
+# A trade must never be swept up by a spending rule: a share purchase is
+# not shopping, and counting it would double it against the holding.
+cat.add_rule("ishares", "shopping")
+with db.get_conn() as conn:
+    trades = conn.execute("SELECT COUNT(*) n FROM transactions "
+                          "WHERE kind='buy' AND category='shopping'").fetchone()["n"]
+check("a rule does not recategorise a trade", trades, 0)
+
+# ---------------------------------------------------------------------------
+print("\n15. Cash flow")
+# ---------------------------------------------------------------------------
+flow = cf.monthly(months=24)
+check("months come back in order",
+      [m["month"] for m in flow["months"]] == sorted(m["month"] for m in flow["months"]), True)
+check("spending is reported as a positive size",
+      all(m["spending"] >= 0 for m in flow["months"]), True)
+
+# The rule the whole page rests on.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "amount, currency, kind, category, external_id) VALUES "
+                 "(?, '2026-06-02', 'To savings', -5000.0, 'EUR', 'transfer', "
+                 "'transfer', 'xfer-out')", (broker_id,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "amount, currency, kind, category, external_id) VALUES "
+                 "(?, '2026-06-02', 'From current', 5000.0, 'EUR', 'transfer', "
+                 "'transfer', 'xfer-in')", (broker_id,))
+after = cf.monthly(months=24)
+june = next((m for m in after["months"] if m["month"] == "2026-06"), None)
+before_june = next((m for m in flow["months"] if m["month"] == "2026-06"), None)
+check("an internal transfer is not income",
+      june["income"], before_june["income"] if before_june else 0)
+check("...and not spending either",
+      june["spending"], before_june["spending"] if before_june else 0)
+
+cf.set_budget("shopping", 200.0)
+rep = cf.budget_report()
+check("a budget is stored", rep["has_budgets"], True)
+shopping = next(r for r in rep["rows"] if r["category"] == "shopping")
+check("...and reported against", shopping["budget"], 200.0)
+check("...with a pace, not just a total",
+      shopping["expected_by_now"] is not None, True)
+cf.set_budget("shopping", None)
+check("a budget can be cleared", cf.budget_report()["has_budgets"], False)
+
+# ---------------------------------------------------------------------------
+print("\n16. Subscriptions")
+# ---------------------------------------------------------------------------
+# Dates are computed backwards from today, not hard-coded. A fixture
+# pinned to fixed dates passes today and fails in three months, when the
+# "probably ended" rule starts firing on it — and the failure looks like
+# a detection bug rather than a stale test.
+from datetime import date as _date, timedelta as _timedelta            # noqa: E402
+
+_today = _date.today()
+_monthly_dates = [(_today - _timedelta(days=30 * i)).isoformat() for i in (4, 3, 2, 1, 0)]
+
+with db.get_conn() as conn:
+    # A monthly charge, a wandering one, and a pair. Only the first is
+    # a subscription; announcing the others would make the page useless.
+    for i, day in enumerate(_monthly_dates):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                     "counterparty, amount, currency, kind, category, external_id) "
+                     "VALUES (?, ?, 'ABO', 'Streamly', -9.99, 'EUR', 'withdrawal', "
+                     "'subscription', ?)", (broker_id, day, f"sub-{i}"))
+    for i, day in enumerate([(_today - _timedelta(days=d)).isoformat()
+                             for d in (190, 172, 74)]):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                     "counterparty, amount, currency, kind, category, external_id) "
+                     "VALUES (?, ?, 'SHOP', 'Randomshop', ?, 'EUR', 'withdrawal', "
+                     "'shopping', ?)", (broker_id, day, -20.0 - i * 35, f"rnd-{i}"))
+    for i, day in enumerate([(_today - _timedelta(days=d)).isoformat()
+                             for d in (60, 30)]):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                     "counterparty, amount, currency, kind, category, external_id) "
+                     "VALUES (?, ?, 'PAIR', 'Twiceonly', -30.0, 'EUR', 'withdrawal', "
+                     "'shopping', ?)", (broker_id, day, f"pair-{i}"))
+
+found = subs.detect()
+names = {s["name"] for s in found["confirmed"]}
+check("a monthly charge is found", "Streamly" in names, True)
+streamly = next(s for s in found["confirmed"] if s["name"] == "Streamly")
+check("...its rhythm is named", streamly["rhythm"], "monthly")
+check("...and the yearly cost follows from it",
+      round(streamly["yearly"], 2), round(9.99 * 12, 2))
+check("two payments are not a subscription", "Twiceonly" in names, False)
+check("a wandering amount is not promoted", "Randomshop" in names, False)
+check("a current subscription is not marked ended",
+      streamly["likely_ended"], False)
+check("the monthly total is the sum of the active ones",
+      round(found["monthly_total"], 2), 9.99)
+
+# ---------------------------------------------------------------------------
+print("\n17. Every page in the nav actually renders")
+# ---------------------------------------------------------------------------
+for path in ["/", "/portfolio", "/cashflow", "/budget", "/subscriptions",
+             "/transactions", "/categorize", "/accounts", "/settings"]:
+    r = c.get(path)
+    check(f"{path}", r.status_code, 200)
+
+r = c.get("/transactions?q=ishares&category=investment")
+check("the transactions filters work together", r.status_code, 200)
+r = c.get("/transactions?account=999999")
+check("an account that does not exist filters to nothing, not an error",
+      r.status_code, 200)
+
+# The seam that has broken twice: a block a page defines and base.html
+# does not render is silently dropped.
+base_src = pathlib.Path("app/templates/base.html").read_text()
+for tpl in sorted(pathlib.Path("app/templates").glob("*.html")):
+    if tpl.name == "base.html":
+        continue
+    for block in ("scripts", "head", "content", "heading", "lede"):
+        if "{% block " + block + " %}" in tpl.read_text():
+            check(f"base.html renders {block!r} for {tpl.name}",
+                  "block " + block in base_src, True)
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

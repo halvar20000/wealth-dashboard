@@ -90,6 +90,10 @@ CREATE TABLE IF NOT EXISTS transactions (
     -- Set only on rows that concern a security. `isin` is the join key
     -- across brokers: Degiro gives it in its own column and Trade
     -- Republic puts it in one called `symbol`.
+    -- Assigned by a rule or by hand. Separate from `kind`: kind is what
+    -- the broker or bank called the event, category is what it means to
+    -- the household. A card payment is one kind and a dozen categories.
+    category     TEXT,
     isin          TEXT,
     security_name TEXT,
     quantity      REAL,
@@ -101,6 +105,23 @@ CREATE TABLE IF NOT EXISTS transactions (
     -- from the old parser.
     source       TEXT
 );
+-- A correction the user made, kept as a rule so it applies to what is
+-- already imported as well as to what arrives next. Plain substrings,
+-- not regexes: a rule nobody can read is a rule nobody can correct.
+CREATE TABLE IF NOT EXISTS category_rules (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern    TEXT NOT NULL,
+    category   TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- What the user budgeted for a category, per month. One row per
+-- category; a month with no row simply has no budget.
+CREATE TABLE IF NOT EXISTS budgets (
+    category TEXT PRIMARY KEY,
+    monthly  REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS balances (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -133,6 +154,7 @@ CREATE INDEX IF NOT EXISTS idx_txn_account_date
     ON transactions(account_id, txn_date);
 CREATE INDEX IF NOT EXISTS idx_txn_isin
     ON transactions(account_id, isin) WHERE isin IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_txn_category ON transactions(category, txn_date);
 
 CREATE INDEX IF NOT EXISTS idx_balances_account
     ON balances(account_id, as_of DESC);
@@ -189,6 +211,7 @@ _ADDED_COLUMNS = {
         ("fee", "REAL"),
         ("tax", "REAL"),
         ("source", "TEXT"),
+        ("category", "TEXT"),
     ],
 }
 

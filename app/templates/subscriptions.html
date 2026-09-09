@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Subscriptions · Wealth Dashboard{% endblock %}
+{% block heading %}Subscriptions{% endblock %}
+{% block lede %}
+<p class="lede">Charges that repeat on a recognisable rhythm, at a stable amount,
+at least three times. Deliberately cautious: the failure that matters is not
+missing one, it is calling three unrelated payments a €400 commitment — which
+makes the whole page untrustworthy.</p>
+{% endblock %}
+{% block content %}
+
+<section class="stat-strip">
+  <div class="stat-card stat-gold">
+    <div class="stat-label">Per month</div>
+    <div class="stat-value">{{ money(data.monthly_total, data.base_currency) }}</div>
+    <div class="stat-sub">{{ data.active | length }} active</div>
+  </div>
+  <div class="stat-card stat-purple">
+    <div class="stat-label">Per year</div>
+    <div class="stat-value">{{ money(data.yearly_total, data.base_currency) }}</div>
+    <div class="stat-sub">at the current rhythm</div>
+  </div>
+  <div class="stat-card stat-blue">
+    <div class="stat-label">Possibly recurring</div>
+    <div class="stat-value">{{ data.possible | length }}</div>
+    <div class="stat-sub">repeated, but not on a clear rhythm</div>
+  </div>
+</section>
+
+{% if data.confirmed %}
+<section class="card">
+  <div class="card-header"><h2>Recurring</h2></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>What</th><th>Rhythm</th><th class="num">Each</th>
+                 <th class="num">Per year</th><th class="num">Paid so far</th><th>Last seen</th></tr></thead>
+      <tbody>
+      {% for s in data.confirmed %}
+        <tr {% if s.likely_ended %}style="opacity:.55"{% endif %}>
+          <td>{{ s.name }}<span class="sub">{{ s.account }} · {{ s.count }} payments since {{ s.first_seen }}</span></td>
+          <td><span class="tag tag-muted">{{ s.rhythm }}</span>
+            {% if s.likely_ended %}<span class="tag" style="background:var(--warn-soft);color:var(--warn);border-color:rgba(251,191,36,.4)">probably ended</span>{% endif %}</td>
+          <td class="num">{{ money(s.amount, s.currency) }}</td>
+          <td class="num">{{ money(s.yearly, s.currency) }}</td>
+          <td class="num sub">{{ money(s.total_paid, s.currency) }}</td>
+          <td class="sub nowrap">{{ s.last_seen }}<span class="sub">{{ s.days_since }} days ago</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<section class="card empty">
+  <p>Nothing detected yet.</p>
+  <p class="sub">A charge has to appear at least three times, on a recognisable
+     rhythm, at a stable amount. Import a longer history and it will find more.</p>
+</section>
+{% endif %}
+
+{% if data.possible %}
+<section class="card">
+  <div class="card-header"><h2>Possibly recurring</h2>
+    <span class="card-subtitle">repeats, but the rhythm or the amount wanders</span></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>What</th><th class="num">Times</th><th class="num">Typical</th>
+                 <th class="num">Total</th><th>Last seen</th></tr></thead>
+      <tbody>
+      {% for s in data.possible %}
+        <tr>
+          <td>{{ s.name }}<span class="sub">{{ s.account }}</span></td>
+          <td class="num">{{ s.count }}</td>
+          <td class="num">{{ money(s.amount, s.currency) }}</td>
+          <td class="num sub">{{ money(s.total_paid, s.currency) }}</td>
+          <td class="sub nowrap">{{ s.last_seen }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
