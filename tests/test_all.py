@@ -288,7 +288,24 @@ try:
     rejected = False
 except ValueError as exc:
     rejected = "private key" in str(exc).lower()
-check("a public key pasted by mistake is caught", rejected, True)
+check("junk in the key box is caught", rejected, True)
+
+# The most likely mistake by far: pasting the half you uploaded to them.
+try:
+    banksync.save_credentials(
+        fake_bank.APP_ID,
+        "-----BEGIN PUBLIC KEY-----\nMIIB...\n-----END PUBLIC KEY-----")
+    rejected = False
+except ValueError as exc:
+    rejected = "PUBLIC half" in str(exc)
+check("the public half is named as the mistake it is", rejected, True)
+
+try:
+    banksync.save_credentials("", PRIVATE_KEY.decode())
+    rejected = False
+except ValueError as exc:
+    rejected = "Application ID" in str(exc)
+check("a missing Application ID is refused", rejected, True)
 
 # Point the app's client at the fake for the rest of the flow.
 shared = fake_bank.FakeBank()

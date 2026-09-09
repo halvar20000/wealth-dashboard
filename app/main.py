@@ -243,8 +243,12 @@ def settings_page():
             try:
                 banksync.save_credentials(request.form.get("app_id", ""),
                                           request.form.get("private_key", ""))
-                flash("Enable Banking credentials saved.", "ok")
-                return redirect(url_for("settings_page"))
+                flash("Credentials saved. Checking them with Enable Banking…", "ok")
+                # Straight into the check. "Saved" answers a question
+                # nobody asked; "your key works and these redirect URLs
+                # are registered" answers the real one, at the only
+                # moment the user is looking.
+                return redirect(url_for("settings_page", check=1))
             except ValueError as exc:
                 error = str(exc)
         else:

@@ -32,6 +32,12 @@ def save_credentials(app_id: str, private_key_pem: str) -> None:
     if not app_id:
         raise ValueError("An Application ID is required.")
     pem = (private_key_pem or "").strip()
+    if "BEGIN PUBLIC KEY" in pem or "BEGIN CERTIFICATE" in pem:
+        raise ValueError(
+            "That is the PUBLIC half — the file you uploaded to Enable "
+            "Banking. You need the private one: if you chose 'Generate' when "
+            "creating the application, it is the <application-id>.pem your "
+            "browser downloaded.")
     if "PRIVATE KEY" not in pem:
         # Catching this here is worth a line: the same mistake made
         # silently produces a signature failure on every later call,

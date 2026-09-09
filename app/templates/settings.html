@@ -23,17 +23,56 @@
 <div class="card">
   <h2>Enable Banking</h2>
   {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
-  <p class="sub">
-    Your own application, your own key. Register at
-    <a href="https://enablebanking.com" rel="noreferrer">enablebanking.com</a>,
-    create an application, and generate a key pair:
-  </p>
-  <pre>openssl genrsa -out enablebanking_private.key 4096
+  <p class="sub">Your own application, your own key. Nothing here is shared
+     with anyone — the key never leaves this machine and is only used to sign
+     your own requests.</p>
+
+  <ol class="steps">
+    <li>
+      <strong>Create an application</strong> at
+      <a href="https://enablebanking.com/cp/applications" rel="noreferrer">enablebanking.com/cp/applications</a>.
+      Environment <strong>Production</strong> (restricted mode is a state of a
+      production app, not a separate environment).
+    </li>
+    <li>
+      <strong>Find your Application ID.</strong> It is on the application's page
+      in the Control Panel — a UUID like
+      <code>0f3a…-…-…</code>. If you chose <em>Generate</em> for the key, it is
+      also the <em>filename</em> of the file your browser downloaded:
+      <code>&lt;application-id&gt;.pem</code>.
+    </li>
+    <li>
+      <strong>Find your private key.</strong> Which file depends on the choice
+      you made when creating the application:
+      <ul>
+        <li><strong>You chose “Generate”</strong> (the usual case) — your
+          browser downloaded <code>&lt;application-id&gt;.pem</code>. <em>That
+          file is the private key.</em> Open it in a text editor and copy
+          everything, including the <code>-----BEGIN</code> and
+          <code>-----END</code> lines. There is nothing to generate yourself.</li>
+        <li><strong>You provided your own key</strong> — then you already ran
+          the commands below and want <code>enablebanking_private.key</code>.</li>
+      </ul>
+      <p class="sub">Do <strong>not</strong> paste
+         <code>enablebanking_public.pem</code>, or anything you uploaded
+         <em>to</em> Enable Banking. That is the public half; they have it, you
+         need the other one.</p>
+    </li>
+    <li><strong>Paste both below</strong> and save. The app checks them
+        immediately against Enable Banking and tells you what it finds.</li>
+  </ol>
+
+  <details>
+    <summary class="sub">Only if you want to supply your own key instead of
+      letting the Control Panel generate one</summary>
+    <pre>openssl genrsa -out enablebanking_private.key 4096
 openssl rsa -in enablebanking_private.key -pubout -out enablebanking_public.pem</pre>
-  <p class="sub">Upload the <strong>public</strong> half in their Control Panel.
-     Paste the <strong>private</strong> half below — it is stored at
-     <code>{{ secrets_dir }}</code> with permissions 0600 and is never sent
-     anywhere except as a signature on your own requests.</p>
+    <p class="sub">Upload <code>enablebanking_public.pem</code> in the Control
+       Panel; paste <code>enablebanking_private.key</code> below.</p>
+  </details>
+
+  <p class="sub">The key is stored at <code>{{ secrets_dir }}</code> with
+     permissions 0600.</p>
 
   {% if secrets_inside_data %}
   <div class="flash flash-warn">Your credentials live inside the data folder, so

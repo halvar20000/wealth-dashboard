@@ -74,30 +74,48 @@ this app.
 
 ### Once, to set up
 
-1. Create an account at <https://enablebanking.com> and add an
-   application in the Control Panel.
-2. Generate a key pair and upload the **public** half there:
+1. Create an account at <https://enablebanking.com> and add an application
+   in the Control Panel. Environment **Production** — "restricted mode" is
+   a state of a production application, not a separate environment, and it
+   skips the manual review. Placeholders are fine for the privacy and
+   terms URLs.
+
+2. When it asks about the key, the easy answer is **Generate**: your
+   browser downloads a file called `<application-id>.pem`.
+   **That file is your private key.** There is nothing to run yourself.
+
+   The alternative is to supply your own, in which case:
 
    ```bash
    openssl genrsa -out enablebanking_private.key 4096
    openssl rsa -in enablebanking_private.key -pubout -out enablebanking_public.pem
    ```
 
-3. Register your **redirect URL** in the Control Panel. It must match the
-   one in Settings *character for character*:
+   Upload `enablebanking_public.pem` to them; keep the other one.
 
-   ```
-   http://localhost:8000/connect/callback
-   ```
+3. Register your **redirect URL**. Many providers only accept `https`, and
+   an app on your own network cannot have one — so if `http://…/connect/callback`
+   is refused, register a URL that goes nowhere (for example
+   `https://example.org/callback`) and use the paste route described below.
 
-   If you reach the app on a LAN address instead of localhost, register
-   that URL and set it in Settings. A mismatch here is the single most
-   common failure, and the error the bank shows names nothing useful.
+4. **Link your bank accounts to the application** in the Control Panel
+   ("Activate by linking accounts"). Skipping this is what produces "no
+   accounts returned" later, which reads like a bug in this app and is not.
 
-4. In the app: **Settings → Enable Banking**. Paste the Application ID
-   and the **private** key. It is written to your secrets folder with
-   permissions 0600 and never leaves the machine — it is only ever used
-   to sign your own requests. Use **Test them** to confirm.
+5. In this app: **Settings → Enable Banking**.
+   - *Application ID* — shown on the application's page in the Control
+     Panel. It is also the filename of the key you downloaded, minus
+     `.pem`.
+   - *Private key* — open `<application-id>.pem` in a text editor and paste
+     everything, including the `-----BEGIN` and `-----END` lines.
+
+   Do **not** paste `enablebanking_public.pem`, or anything you uploaded
+   *to* Enable Banking — that is the public half. They have it; you need
+   the other one.
+
+   Saving checks the credentials immediately and shows which redirect URLs
+   are actually registered on your application. Compare them with the
+   Redirect URL field, character for character.
 
 ### Every time you connect an account
 
@@ -111,6 +129,27 @@ this app.
 If the consent covers several accounts, the first is linked to the
 account you started from and the rest are created alongside it — two
 balances added together is not a balance.
+
+### If the bank leaves you on a page that will not load
+
+Expected, when your redirect URL points somewhere that does not exist.
+The authorisation code is in the address bar of that dead page. Copy the
+whole address, open **Connect → finish by hand** (`/connect/paste`), and
+paste it. It links and syncs exactly as the automatic callback does.
+
+### Test with a sandbox first
+
+Enable Banking flags its test banks, and this app sorts them to the top of
+the bank list with a `sandbox` tag. A sandbox walks the identical path —
+redirect, consent, session, balances, transactions — with the provider's
+own test credentials, and creates no consent at a real bank. Use one to
+find out whether your redirect URL is registered correctly, rather than
+spending an authorisation you depend on.
+
+A PSD2 consent belongs to the licensed TPP, and Enable Banking is the TPP
+for every application under it. Whether a second authorisation for the
+same bank sits beside your first one or replaces it is the bank's choice,
+not this app's — so do not find out on an account you rely on.
 
 ### Consent expires
 

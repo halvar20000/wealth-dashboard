@@ -124,3 +124,10 @@ footer {
   background: rgba(53,201,138,.14); color: var(--pos);
   border: 1px solid rgba(53,201,138,.4);
 }
+
+/* Numbered setup steps. Prose loses people at step 3; a list does not. */
+.steps { margin: 0 0 6px; padding-left: 20px; font-size: 13.5px; line-height: 1.6; }
+.steps li { margin-bottom: 10px; }
+.steps ul { margin: 6px 0; padding-left: 18px; }
+.steps p.sub { margin: 6px 0 0; }
+details summary { cursor: pointer; margin: 10px 0 6px; }
