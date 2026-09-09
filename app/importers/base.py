@@ -52,6 +52,11 @@ class ParsedTxn:
 class ParseResult:
     rows: list[ParsedTxn] = field(default_factory=list)
     skipped: int = 0
+    # Some exports carry a running balance, in which case the newest row
+    # states the account's cash balance outright. That is worth taking:
+    # a broker has no API here, so this is the only balance the app will
+    # ever get for it. {amount, currency, as_of} or None.
+    closing_balance: dict | None = None
     # Lines the parser could not read. Kept and shown rather than
     # counted: "3 rows skipped" tells the user nothing they can act on.
     problems: list[str] = field(default_factory=list)

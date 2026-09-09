@@ -66,9 +66,24 @@ def store(account_id: int, parsed: ParseResult, source: str) -> dict:
                 inserted += 1
             else:
                 duplicates += 1
+        if parsed.closing_balance:
+            cb = parsed.closing_balance
+            # Only if it is newer than what is already recorded. Importing
+            # an OLD export after a recent one must not wind the balance
+            # backwards — and people do import their files out of order.
+            newest = conn.execute(
+                "SELECT MAX(as_of) AS as_of FROM balances WHERE account_id = ?",
+                (account_id,)).fetchone()["as_of"]
+            if newest is None or cb["as_of"] >= newest:
+                conn.execute(
+                    "INSERT INTO balances (account_id, amount, currency, "
+                    "balance_type, as_of) VALUES (?, ?, ?, 'statement', ?)",
+                    (account_id, cb["amount"], cb["currency"], cb["as_of"]))
+
     return {"inserted": inserted, "duplicates": duplicates,
             "skipped": parsed.skipped, "problems": parsed.problems,
-            "parsed": len(parsed.rows)}
+            "parsed": len(parsed.rows),
+            "closing_balance": parsed.closing_balance}
 
 
 def positions(account_id: int) -> list[dict]:

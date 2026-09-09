@@ -16,15 +16,19 @@ it does not do yet.
 - [x] Broker CSV import (Degiro, Trade Republic), recognised by columns
       rather than chosen from a list.
 - [x] Holdings computed from imported trades.
-- [x] 182 offline checks covering the whole flow.
+- [x] Overview page: net worth, cash vs securities, breakdown charts,
+      holdings across accounts, latest activity.
+- [x] Edit and delete an account.
+- [x] 202 offline checks covering the whole flow.
 
 ## Next
 
-**1. More than one account, meaningfully.**
-Net worth across accounts needs currency conversion — an account in CHF
-and one in EUR cannot be added. That means an FX rate source (the ECB
-daily reference rates are free and need no key) and a decision about
-which day's rate a historical balance is worth.
+**1. Exchange rates.** The most visible gap. A balance or holding in a
+currency other than the base one is reported beside the total rather
+than inside it, because adding 100 USD to 100 EUR is wrong in a way
+nobody can see. The ECB publishes daily reference rates free and without
+a key; that, plus a decision about which day's rate a historical balance
+is worth, closes it.
 
 **2. Balance history.**
 `balances` already stores every reading with its date. A chart over time

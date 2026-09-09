@@ -33,7 +33,7 @@ from flask import (Flask, flash, redirect, render_template, request, session,
 from . import auth, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import importers
+from . import importers, overview
 from .db import get_conn, has_users, init_db
 
 APP_DIR = Path(__file__).resolve().parent
@@ -46,6 +46,14 @@ app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 # disk: it is so that a mis-chosen file — a database dump, a video — is
 # refused with a sentence instead of being read into memory first.
 MAX_IMPORT_BYTES = 16 * 1024 * 1024
+
+# Stamped onto the stylesheet URL. A cached stylesheet against a new
+# template is indistinguishable from a broken page: the markup changes,
+# the styling does not, and the reader blames the markup.
+try:
+    _ASSET_VERSION = int((APP_DIR / "static" / "css" / "app.css").stat().st_mtime)
+except OSError:
+    _ASSET_VERSION = 0
 app.config["MAX_CONTENT_LENGTH"] = MAX_IMPORT_BYTES + 1024
 
 
@@ -92,10 +100,32 @@ def _no_store(response):
     return response
 
 
+def _money(amount, currency=None) -> str:
+    """One place that formats money, so two pages cannot disagree about
+    what a thousand euros looks like."""
+    if amount is None:
+        return "—"
+    currency = (currency or settings.get("base_currency", "EUR")).upper()
+    sign = "-" if amount < 0 else ""
+    whole = f"{abs(amount):,.2f}".replace(",", "\u00a0")
+    return f"{sign}{whole}\u00a0{currency}"
+
+
+def _qty(value) -> str:
+    """Share counts. Fractional shares are normal now, and trailing
+    zeroes on a whole number are noise."""
+    if value is None:
+        return "—"
+    text = f"{value:,.4f}".rstrip("0").rstrip(".")
+    return (text or "0").replace(",", "\u00a0")
+
+
 @app.context_processor
 def _globals():
     return {"user": auth.current_user(),
-            "base_currency": settings.get("base_currency", "EUR")}
+            "base_currency": settings.get("base_currency", "EUR"),
+            "money": _money, "qty": _qty,
+            "asset_version": _ASSET_VERSION}
 
 
 @app.route("/healthz")
@@ -157,18 +187,17 @@ def logout():
 @app.route("/")
 @auth.login_required
 def index():
-    with get_conn() as conn:
-        rows = conn.execute("""
-            SELECT a.*,
-                   (SELECT amount FROM balances b WHERE b.account_id = a.id
-                     ORDER BY b.as_of DESC, b.id DESC LIMIT 1) AS balance,
-                   (SELECT as_of  FROM balances b WHERE b.account_id = a.id
-                     ORDER BY b.as_of DESC, b.id DESC LIMIT 1) AS balance_as_of,
-                   (SELECT COUNT(*) FROM transactions t WHERE t.account_id = a.id) AS txn_count,
-                   (SELECT aspsp_name FROM bank_links bl WHERE bl.account_id = a.id LIMIT 1) AS bank
-              FROM accounts a ORDER BY a.name
-        """).fetchall()
-    return render_template("index.html", accounts=[dict(r) for r in rows])
+    return render_template(
+        "overview.html", active_page="overview",
+        s=overview.summary(settings.get("base_currency", "EUR")))
+
+
+@app.route("/accounts")
+@auth.login_required
+def accounts():
+    return render_template(
+        "accounts.html", active_page="accounts",
+        s=overview.summary(settings.get("base_currency", "EUR")))
 
 
 @app.route("/accounts/new", methods=["GET", "POST"])
@@ -221,6 +250,74 @@ def account_detail(account_id: int):
                            transactions=[dict(t) for t in txns],
                            total_transactions=total,
                            configured=banksync.credentials_present())
+
+
+@app.route("/accounts/<int:account_id>/edit", methods=["GET", "POST"])
+@auth.login_required
+def account_edit(account_id: int):
+    with get_conn() as conn:
+        account = conn.execute("SELECT * FROM accounts WHERE id = ?",
+                               (account_id,)).fetchone()
+        if account is None:
+            return render_template("missing.html",
+                                   what="That account does not exist."), 404
+        counts = {
+            "transactions": conn.execute(
+                "SELECT COUNT(*) n FROM transactions WHERE account_id = ?",
+                (account_id,)).fetchone()["n"],
+            "balances": conn.execute(
+                "SELECT COUNT(*) n FROM balances WHERE account_id = ?",
+                (account_id,)).fetchone()["n"],
+            "links": conn.execute(
+                "SELECT COUNT(*) n FROM bank_links WHERE account_id = ?",
+                (account_id,)).fetchone()["n"],
+        }
+
+    error = None
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        if not name:
+            error = "The account needs a name."
+        else:
+            with get_conn() as conn:
+                conn.execute(
+                    "UPDATE accounts SET name = ?, type = ?, currency = ? "
+                    "WHERE id = ?",
+                    (name, request.form.get("type") or "bank",
+                     (request.form.get("currency") or "EUR").upper()[:3],
+                     account_id))
+            flash("Account updated.", "ok")
+            return redirect(url_for("account_detail", account_id=account_id))
+
+    return render_template("account_edit.html", account=dict(account),
+                           counts=counts, error=error, active_page="accounts")
+
+
+@app.route("/accounts/<int:account_id>/delete", methods=["POST"])
+@auth.login_required
+def account_delete(account_id: int):
+    """Delete an account and everything hanging off it.
+
+    Confirmed by typing the name, not by an "are you sure" dialog. The
+    dialog is clicked through without reading; typing the name cannot be
+    done by accident, and it is the difference between removing the
+    duplicate account you created by mistake and removing the one with
+    six years of history in it.
+    """
+    with get_conn() as conn:
+        account = conn.execute("SELECT * FROM accounts WHERE id = ?",
+                               (account_id,)).fetchone()
+        if account is None:
+            return render_template("missing.html",
+                                   what="That account does not exist."), 404
+        if (request.form.get("confirm") or "").strip() != account["name"]:
+            flash("Type the account name exactly to confirm the deletion.",
+                  "error")
+            return redirect(url_for("account_edit", account_id=account_id))
+        # ON DELETE CASCADE takes the transactions, balances and links.
+        conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
+    flash(f"Deleted {account['name']}.", "ok")
+    return redirect(url_for("accounts"))
 
 
 @app.route("/accounts/<int:account_id>/import", methods=["GET", "POST"])

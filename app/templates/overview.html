@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}Overview · Wealth Dashboard{% endblock %}
+{% block content %}
+
+<section class="hero-block">
+  <div class="hero-top">
+    <div>
+      <div class="hero-label">Net worth</div>
+      <div class="hero-value">{{ money(s.net_worth, s.base_currency) }}</div>
+      <div class="hero-sub">
+        Cash <strong>{{ money(s.cash, s.base_currency) }}</strong>
+        · Securities <strong>{{ money(s.securities, s.base_currency) }}</strong>
+      </div>
+      {% if s.unconverted %}
+      <div class="hero-sub">
+        Not included, because there are no exchange rates yet:
+        {% for u in s.unconverted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="hero-side">
+      <div class="stat-label">Accounts</div>
+      <div class="stat-value">{{ s.account_count }}</div>
+      <div class="stat-sub">
+        {{ s.connected_count }} connected to a bank
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="stat-strip">
+  <div class="stat-card stat-blue">
+    <div class="stat-label">Cash</div>
+    <div class="stat-value">{{ money(s.cash, s.base_currency) }}</div>
+    <div class="stat-sub">across {{ s.accounts | selectattr('balance') | list | length }} account(s) with a balance</div>
+  </div>
+  <div class="stat-card stat-purple">
+    <div class="stat-label">Securities</div>
+    <div class="stat-value">{{ money(s.securities, s.base_currency) }}</div>
+    <div class="stat-sub">
+      {{ s.holdings | length }} holding(s)
+      {%- if s.holdings_unpriced %}, {{ s.holdings_unpriced }} with no price{% endif %}
+    </div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-label">Transactions</div>
+    <div class="stat-value">{{ '{:,}'.format(s.transaction_count).replace(',', ' ') }}</div>
+    <div class="stat-sub">imported and synced</div>
+  </div>
+  <div class="stat-card stat-gold">
+    <div class="stat-label">Largest holding</div>
+    {% if s.holdings and s.holdings[0].value %}
+    <div class="stat-value">{{ money(s.holdings[0].value, s.holdings[0].currency) }}</div>
+    <div class="stat-sub">{{ s.holdings[0].name or s.holdings[0].isin }}</div>
+    {% else %}
+    <div class="stat-value">—</div>
+    <div class="stat-sub">import a broker export to see holdings</div>
+    {% endif %}
+  </div>
+</section>
+
+{% if s.by_class or s.by_account %}
+<section class="grid-2">
+  <div class="card">
+    <div class="card-header"><h2>Cash vs securities</h2></div>
+    <div class="chart-wrap"><canvas id="chart-class"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <h2>Where it is</h2>
+      <span class="card-subtitle">by account</span>
+    </div>
+    <div class="chart-wrap"><canvas id="chart-account"></canvas></div>
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <div class="card-header">
+    <h2>Accounts</h2>
+    <span class="card-subtitle"><a href="{{ url_for('account_new') }}">Add an account</a></span>
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>Account</th><th>Source</th><th class="num">Balance</th>
+            <th class="num">Transactions</th><th>As of</th></tr>
+      </thead>
+      <tbody>
+      {% for a in s.accounts %}
+        <tr>
+          <td><a href="{{ url_for('account_detail', account_id=a.id) }}">{{ a.name }}</a>
+              <span class="sub">{{ a.type }}</span></td>
+          <td>{% if a.bank %}{{ a.bank }}<span class="sub">connected</span>
+              {% elif a.transactions %}<span class="sub">imported file</span>
+              {% else %}<span class="sub">nothing yet</span>{% endif %}</td>
+          <td class="num">{% if a.balance is not none %}{{ money(a.balance, a.balance_currency) }}{% else %}—{% endif %}</td>
+          <td class="num">{{ a.transactions or '—' }}</td>
+          <td class="sub nowrap">{{ a.balance_as_of or '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if s.holdings %}
+<section class="card">
+  <div class="card-header">
+    <h2>Holdings</h2>
+    <span class="card-subtitle">valued at your last traded price, not a market price</span>
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>Security</th><th>Where</th><th class="num">Quantity</th>
+            <th class="num">Net invested</th><th class="num">Value</th></tr>
+      </thead>
+      <tbody>
+      {% for h in s.holdings %}
+        <tr>
+          <td>{{ h.name or h.isin }}<span class="sub">{{ h.isin }}</span></td>
+          <td class="sub">{{ h.accounts | unique | join(', ') }}</td>
+          <td class="num {{ 'neg' if h.incomplete_history }}">
+            {{ qty(h.quantity) }}
+            {% if h.incomplete_history %}<span class="sub">export starts too late</span>{% endif %}
+          </td>
+          <td class="num">{{ money(h.net_invested, h.currency) }}</td>
+          <td class="num">{% if h.value %}{{ money(h.value, h.currency) }}
+              {% else %}<span class="sub">no price</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if s.holdings | selectattr('incomplete_history') | list %}
+  <p class="sub">A negative quantity is not a short position: it is a sale whose
+     purchase is older than the file you imported. Export from the account
+     opening and re-import — overlap is free.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if s.recent %}
+<section class="card">
+  <div class="card-header"><h2>Latest activity</h2></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>Date</th><th>Account</th><th>Description</th>
+                 <th>Kind</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+      {% for t in s.recent %}
+        <tr>
+          <td class="sub nowrap">{{ t.txn_date }}</td>
+          <td class="sub">{{ t.account_name }}</td>
+          <td>{{ t.description[:70] }}</td>
+          <td><span class="tag tag-muted">{{ t.kind }}</span></td>
+          <td class="num {{ 'pos' if t.amount > 0 else 'neg' }}">{{ money(t.amount, t.currency) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if not s.accounts %}
+<section class="card empty">
+  <p>Nothing here yet.</p>
+  <p class="sub">Add an account, then connect it to your bank or import a
+     broker export. Both routes end in the same place.</p>
+  <p><a class="btn" href="{{ url_for('account_new') }}">Add an account</a></p>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PALETTE = ['#5b9dff','#a78bfa','#34d399','#f5d76e','#ff8c42',
+                 '#f87171','#22d3ee','#fb7185','#84cc16','#c084fc'];
+
+function donut(id, rows) {
+  const el = document.getElementById(id);
+  if (!el || !rows.length) return;
+  new Chart(el, {
+    type: 'doughnut',
+    data: {
+      labels: rows.map(r => r.name),
+      datasets: [{
+        data: rows.map(r => Math.abs(r.value)),
+        backgroundColor: PALETTE,
+        borderColor: '#131826',
+        borderWidth: 2,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color: '#95a0b9', boxWidth: 12, padding: 12,
+                    font: { size: 12 } },
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              const pct = total ? (ctx.parsed / total * 100).toFixed(1) : '0';
+              return ` ${ctx.label}: ${FMT.format(ctx.parsed)} (${pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+const FMT = new Intl.NumberFormat(undefined, {
+  style: 'currency', currency: {{ s.base_currency | tojson }},
+  maximumFractionDigits: 0,
+});
+
+donut('chart-class', {{ s.by_class | tojson }});
+donut('chart-account', {{ s.by_account | tojson }});
+</script>
+{% endblock %}

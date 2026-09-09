@@ -16,6 +16,7 @@ import base64
 import json
 import os
 import sys
+import pathlib
 import tempfile
 from pathlib import Path
 
@@ -362,7 +363,32 @@ check("syncing again imports nothing new — the ids dedupe", after, 4)
 check("...and says so", b"Imported 0 new" in r.data, True)
 
 r = c.get("/")
-check("the account list shows the balance", b"1428.55" in r.data, True)
+check("the overview renders", r.status_code, 200)
+check("...with a net worth headline", b"Net worth" in r.data, True)
+check("...counting the synced balance into it", b"428.55" in r.data, True)
+check("...and listing the account", b"DKB Girokonto" in r.data, True)
+check("the accounts page renders", c.get("/accounts").status_code, 200)
+
+# base.html silently drops a child's {% block scripts %} if it has no
+# matching block. The page renders perfectly and nothing happens — the
+# charts were dead exactly this way and no status code showed it.
+for tpl in sorted(pathlib.Path("app/templates").glob("*.html")):
+    if tpl.name == "base.html":
+        continue
+    body = tpl.read_text()
+    for block in ("scripts", "head"):
+        if "{% block " + block + " %}" in body:
+            check(f"base.html renders the {block!r} block {tpl.name} defines",
+                  "{% block " + block + " %}" in
+                  (pathlib.Path("app/templates/base.html").read_text()), True)
+
+r = c.get("/")
+check("the overview's chart code reaches the page",
+      b"donut('chart-class'" in r.data, True)
+# At this point in the run only the synced bank balance exists; the
+# broker imports come later. So "Cash" is what must be in the chart data.
+check("...carrying real data, not an empty array",
+      b'"Cash"' in r.data, True)
 
 # A stale or replayed callback must not silently attach to something.
 r = c.get("/connect/callback?code=X&state=not-a-real-state", follow_redirects=True)
@@ -426,6 +452,40 @@ check("...and syncs it, exactly as the callback would", imported, 4)
 r = c.get("/connect/paste")
 check("nothing is left waiting afterwards",
       b"No connection is waiting" in r.data, True)
+
+# ---------------------------------------------------------------------------
+print("\n8c. Editing and deleting an account")
+# ---------------------------------------------------------------------------
+r = c.post("/accounts/new", data={"name": "Typo Acount", "type": "bank",
+                                  "currency": "EUR"})
+spare_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+
+r = c.post(f"/accounts/{spare_id}/edit",
+           data={"name": "Renamed", "type": "broker", "currency": "chf"},
+           follow_redirects=True)
+check("an account can be renamed and retyped", b"Renamed" in r.data, True)
+with db.get_conn() as conn:
+    row = conn.execute("SELECT * FROM accounts WHERE id = ?", (spare_id,)).fetchone()
+check("...the type is stored", row["type"], "broker")
+check("...and the currency is upper-cased", row["currency"], "CHF")
+
+# Confirmed by typing the name, not by a dialog. A dialog is clicked
+# through without reading; a name cannot be typed by accident.
+r = c.post(f"/accounts/{spare_id}/delete", data={"confirm": "wrong"},
+           follow_redirects=True)
+check("a mistyped confirmation does not delete", b"Type the account name" in r.data, True)
+with db.get_conn() as conn:
+    still = conn.execute("SELECT COUNT(*) n FROM accounts WHERE id = ?",
+                         (spare_id,)).fetchone()["n"]
+check("...the account is still there", still, 1)
+
+r = c.post(f"/accounts/{spare_id}/delete", data={"confirm": "Renamed"},
+           follow_redirects=True)
+check("the right name deletes it", b"Deleted Renamed" in r.data, True)
+with db.get_conn() as conn:
+    gone = conn.execute("SELECT COUNT(*) n FROM accounts WHERE id = ?",
+                        (spare_id,)).fetchone()["n"]
+check("...and it is gone", gone, 0)
 
 # ---------------------------------------------------------------------------
 print("\n9. When the bank fails")

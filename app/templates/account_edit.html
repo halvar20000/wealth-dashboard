@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ account.name }}{% endblock %}
+{% block heading %}Edit {{ account.name }}{% endblock %}
+{% block content %}
+<form method="post" class="card form">
+  {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+  <label for="name">Name</label>
+  <input id="name" name="name" value="{{ account.name }}" required>
+
+  <label for="type">Type</label>
+  <select id="type" name="type">
+    {% for value, label in [('bank','Bank account'), ('savings','Savings'),
+                            ('card','Credit card'), ('broker','Broker'),
+                            ('other','Other')] %}
+    <option value="{{ value }}" {{ 'selected' if account.type == value }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+
+  <label for="currency">Currency</label>
+  <input id="currency" name="currency" value="{{ account.currency }}" maxlength="3">
+
+  <button type="submit">Save</button>
+</form>
+
+<div class="card">
+  <div class="card-header"><h2>Delete this account</h2></div>
+  <p class="sub">
+    {% if counts.transactions or counts.balances %}
+    This removes <strong>{{ counts.transactions }}</strong> transaction(s) and
+    <strong>{{ counts.balances }}</strong> balance reading(s) with it, and
+    cannot be undone.
+    {% if counts.links %}It also drops the bank connection — the consent stays
+    alive at your bank until it expires or you revoke it there.{% endif %}
+    {% else %}
+    This account holds nothing, so there is nothing to lose.
+    {% endif %}
+  </p>
+  <form method="post" action="{{ url_for('account_delete', account_id=account.id) }}">
+    <label for="confirm">Type the account name to confirm</label>
+    <input id="confirm" name="confirm" placeholder="{{ account.name }}" autocomplete="off">
+    <button class="btn-danger" type="submit">Delete permanently</button>
+  </form>
+</div>
+{% endblock %}

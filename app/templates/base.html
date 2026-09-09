@@ -4,17 +4,26 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Wealth Dashboard{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ asset_version }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  {% block head %}{% endblock %}
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="{{ url_for('index') }}">Wealth&nbsp;Dashboard</a>
+    <a class="brand" href="{{ url_for('index') }}">
+      <span class="brand-mark">€</span>
+      Wealth&nbsp;Dashboard
+    </a>
     {% if user %}
     <nav>
-      <a href="{{ url_for('index') }}">Accounts</a>
-      <a href="{{ url_for('settings_page') }}">Settings</a>
+      <a class="navlink {{ 'active' if active_page == 'overview' }}" href="{{ url_for('index') }}">Overview</a>
+      <a class="navlink {{ 'active' if active_page == 'accounts' }}" href="{{ url_for('accounts') }}">Accounts</a>
+      <a class="navlink {{ 'active' if active_page == 'settings' }}" href="{{ url_for('settings_page') }}">Settings</a>
       <span class="who">{{ user.username }}</span>
-      <a class="ghost" href="{{ url_for('logout') }}">Sign out</a>
+      <a class="navlink" href="{{ url_for('logout') }}">Sign out</a>
     </nav>
     {% endif %}
   </header>
@@ -26,11 +35,21 @@
       {% endfor %}
     {% endwith %}
 
-    <h1>{% block heading %}{% endblock %}</h1>
+    {% block heading_block %}
+      {% if self.heading() | trim %}
+      <h1>{% block heading %}{% endblock %}</h1>
+      {% endif %}
+    {% endblock %}
     {% block lede %}{% endblock %}
     {% block content %}{% endblock %}
   </main>
 
   <footer>Runs on your machine. Your data never leaves it, except to your own bank.</footer>
+
+  {# Page scripts go last, after Chart.js and after the markup they draw
+     into. A child template that defines a scripts block and finds no
+     matching block here is not an error in Jinja — the block is simply
+     dropped, the page renders perfectly, and nothing happens. #}
+  {% block scripts %}{% endblock %}
 </body>
 </html>

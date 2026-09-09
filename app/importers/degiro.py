@@ -218,6 +218,20 @@ def parse(content: bytes | str, account_currency: str = "EUR") -> ParseResult:
 
         result.rows.append(txn)
 
+        # The running balance after this row. Degiro writes newest first,
+        # so the first row that has one is the current cash balance —
+        # but the file is not guaranteed to be sorted, so take the row
+        # with the latest date rather than the first one seen.
+        balance = parse_decimal(row[C_BALANCE_AMT])
+        if balance is not None:
+            current = result.closing_balance
+            if current is None or date >= current["as_of"]:
+                result.closing_balance = {
+                    "amount": balance,
+                    "currency": (row[C_BALANCE_CCY] or currency).strip().upper()[:3],
+                    "as_of": date,
+                }
+
     return result
 
 

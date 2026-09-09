@@ -58,7 +58,8 @@
   {% endif %}
 </div>
 
-<p><a class="btn" href="{{ url_for('account_import', account_id=account.id) }}">Import a broker CSV</a></p>
+<p><a class="btn" href="{{ url_for('account_import', account_id=account.id) }}">Import a broker CSV</a>
+   <a class="btn btn-ghost" href="{{ url_for('account_edit', account_id=account.id) }}">Edit or delete</a></p>
 
 {% if positions %}
 <h2>Holdings</h2>

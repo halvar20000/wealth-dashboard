@@ -28,6 +28,8 @@ a PSD2 API it connects directly, with credentials that are yours.
   re-importing an overlapping period is harmless.
 - **Holdings**, computed from the trades in those files: what you own,
   how much, and what you put in.
+- **An overview**: net worth, cash against securities, where it sits, and
+  the latest activity across every account.
 
 ## What is not here yet
 

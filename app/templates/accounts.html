@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Accounts · Wealth Dashboard{% endblock %}
+{% block heading %}Accounts{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>Account</th><th>Source</th><th class="num">Balance</th>
+            <th class="num">Transactions</th><th>As of</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for a in s.accounts %}
+        <tr>
+          <td><a href="{{ url_for('account_detail', account_id=a.id) }}">{{ a.name }}</a>
+              <span class="sub">{{ a.type }} · {{ a.currency }}</span></td>
+          <td>{% if a.bank %}{{ a.bank }}<span class="sub">connected</span>
+              {% elif a.transactions %}<span class="sub">imported file</span>
+              {% else %}<span class="sub">nothing yet</span>{% endif %}</td>
+          <td class="num">{% if a.balance is not none %}{{ money(a.balance, a.balance_currency) }}{% else %}—{% endif %}</td>
+          <td class="num">{{ a.transactions or '—' }}</td>
+          <td class="sub nowrap">{{ a.balance_as_of or '—' }}</td>
+          <td class="num"><a class="btn btn-ghost" href="{{ url_for('account_edit', account_id=a.id) }}">Edit</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p><a class="btn" href="{{ url_for('account_new') }}">Add an account</a></p>
+</section>
+{% endblock %}
