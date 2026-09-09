@@ -451,6 +451,74 @@ check("no expiry date is unknown, not expired",
       banksync.days_until_expiry(None), None)
 
 # ---------------------------------------------------------------------------
+print("\n9b. Upgrading a database made by an older version")
+# ---------------------------------------------------------------------------
+# Reported from a real install: starting the new version against a v0.1
+# database died with `sqlite3.OperationalError: no such column: isin`.
+# CREATE TABLE IF NOT EXISTS is a no-op on a table that already exists, so
+# the old columns stayed — and the new index naming a new column ran
+# before the migration that adds it. Tables, then columns, then indexes.
+import sqlite3 as _sqlite3                                            # noqa: E402
+
+OLD_DB = TMP / "v0_1.db"
+_old = _sqlite3.connect(OLD_DB)
+_old.executescript("""
+CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL, salt TEXT NOT NULL, rounds INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'bank', currency TEXT NOT NULL DEFAULT 'EUR',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE bank_links (id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL DEFAULT 'enablebanking', aspsp_name TEXT NOT NULL,
+  aspsp_country TEXT NOT NULL, session_id TEXT, account_uid TEXT,
+  identification_hash TEXT, iban TEXT, valid_until TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')), last_sync_at TEXT, last_error TEXT);
+CREATE TABLE auth_states (state TEXT PRIMARY KEY, account_id INTEGER,
+  aspsp_name TEXT NOT NULL, aspsp_country TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')));
+-- The v0.1 transactions table: no kind, no isin, no quantity.
+CREATE TABLE transactions (id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  txn_date TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', counterparty TEXT,
+  amount REAL NOT NULL, currency TEXT NOT NULL, external_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE balances (id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  amount REAL NOT NULL, currency TEXT NOT NULL, balance_type TEXT,
+  as_of TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')));
+""")
+_old.execute("INSERT INTO accounts (name) VALUES ('Kept')")
+_old.execute("INSERT INTO transactions (account_id, txn_date, amount, currency, "
+             "external_id) VALUES (1, '2026-01-01', -5.0, 'EUR', 'old-row-1')")
+_old.commit()
+_old.close()
+
+try:
+    db.init_db(OLD_DB)
+    upgraded, why = True, ""
+except Exception as exc:                                              # noqa: BLE001
+    upgraded, why = False, str(exc)
+check("an older database upgrades instead of refusing to start", upgraded, True, )
+if not upgraded:
+    print(f"        {why}")
+
+_chk = _sqlite3.connect(OLD_DB)
+cols = {r[1] for r in _chk.execute("PRAGMA table_info(transactions)")}
+check("...the new columns are there", {"kind", "isin", "quantity", "source"} <= cols, True)
+idx = {r[0] for r in _chk.execute(
+    "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='transactions'")}
+check("...and the index on the new column too", "idx_txn_isin" in idx, True)
+check("...the data that was already there survived",
+      _chk.execute("SELECT COUNT(*) FROM transactions").fetchone()[0], 1)
+check("...with a default kind rather than NULL",
+      _chk.execute("SELECT kind FROM transactions").fetchone()[0], "other")
+check("...and running it a second time is a no-op",
+      (db.init_db(OLD_DB), True)[1], True)
+_chk.close()
+
+# ---------------------------------------------------------------------------
 print("\n10. Reading numbers and dates out of a European export")
 # ---------------------------------------------------------------------------
 from app.importers.base import parse_date, parse_decimal, find_isin   # noqa: E402

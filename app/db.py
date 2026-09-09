@@ -61,9 +61,6 @@ CREATE TABLE IF NOT EXISTS bank_links (
     last_sync_at        TEXT,
     last_error          TEXT
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bank_links_uid
-    ON bank_links(account_uid) WHERE account_uid IS NOT NULL;
-
 -- The pending half of an OAuth redirect. The user leaves for the bank
 -- and comes back to a fresh request with nothing but ?code and ?state,
 -- so what we were doing has to be written down before they go.
@@ -104,17 +101,6 @@ CREATE TABLE IF NOT EXISTS transactions (
     -- from the old parser.
     source       TEXT
 );
--- Re-importing an overlapping window is the normal case, not the
--- exception: every sync asks the bank for the longest history it will
--- serve. The unique id is what makes that harmless instead of doubling
--- every balance.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_txn_external
-    ON transactions(external_id) WHERE external_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_txn_account_date
-    ON transactions(account_id, txn_date);
-CREATE INDEX IF NOT EXISTS idx_txn_isin
-    ON transactions(account_id, isin) WHERE isin IS NOT NULL;
-
 CREATE TABLE IF NOT EXISTS balances (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -124,6 +110,30 @@ CREATE TABLE IF NOT EXISTS balances (
     as_of        TEXT NOT NULL,
     created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
+"""
+
+# Indexes live apart from the tables, and the separation is not tidiness.
+# `CREATE TABLE IF NOT EXISTS` is a no-op on a database an older version
+# already made, so that database still has the old columns — and an index
+# naming a new one fails with `no such column`, before the migration that
+# would have added it has had a chance to run. Tables, then columns, then
+# indexes. In that order it works on a fresh database and an upgraded one
+# alike.
+INDEXES = """
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bank_links_uid
+    ON bank_links(account_uid) WHERE account_uid IS NOT NULL;
+
+-- Re-importing an overlapping window is the normal case, not the
+-- exception: every sync asks the bank for the longest history it will
+-- serve, and a broker export is chosen by hand. The unique id is what
+-- makes that harmless instead of doubling every balance.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_txn_external
+    ON transactions(external_id) WHERE external_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_txn_account_date
+    ON transactions(account_id, txn_date);
+CREATE INDEX IF NOT EXISTS idx_txn_isin
+    ON transactions(account_id, isin) WHERE isin IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_balances_account
     ON balances(account_id, as_of DESC);
 """
@@ -154,8 +164,9 @@ def init_db(path: Path | None = None) -> Path:
                 ) from exc
             raise
         conn.execute("PRAGMA foreign_keys=ON")
-        conn.executescript(SCHEMA)
-        _add_missing_columns(conn)
+        conn.executescript(SCHEMA)          # tables
+        _add_missing_columns(conn)          # columns an older version lacks
+        conn.executescript(INDEXES)         # only now can they be indexed
         conn.commit()
     finally:
         conn.close()
