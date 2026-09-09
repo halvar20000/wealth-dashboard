@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Import · {{ account.name }}{% endblock %}
+{% block heading %}Import into {{ account.name }}{% endblock %}
+{% block lede %}
+<p class="lede">Drop in a CSV your broker exported. The file is recognised by
+its columns, so there is nothing to choose — and re-importing a period you
+already loaded is harmless, because every row carries an id.</p>
+{% endblock %}
+{% block content %}
+
+<form method="post" enctype="multipart/form-data" class="card form">
+  <label for="file">CSV file</label>
+  <input id="file" name="file" type="file" accept=".csv,text/csv" required>
+  <button type="submit">Import</button>
+</form>
+
+{% if report %}
+<div class="card">
+  <h2>{{ report.label }}</h2>
+  <table class="grid">
+    <tbody>
+      <tr><td>Rows read</td><td class="num">{{ report.parsed }}</td></tr>
+      <tr><td>Imported</td><td class="num pos">{{ report.inserted }}</td></tr>
+      <tr><td>Already had</td><td class="num sub">{{ report.duplicates }}</td></tr>
+      {% if report.skipped %}
+      <tr><td>No cash movement, skipped</td><td class="num sub">{{ report.skipped }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+  {% if report.problems %}
+  <div class="flash flash-warn">
+    <strong>{{ report.problems|length }} line(s) could not be read.</strong>
+    Everything else was imported. These are listed rather than counted so
+    you can see whether they matter:
+    <ul>
+      {% for p in report.problems[:10] %}<li>{{ p }}</li>{% endfor %}
+      {% if report.problems|length > 10 %}
+      <li class="sub">…and {{ report.problems|length - 10 }} more.</li>
+      {% endif %}
+    </ul>
+  </div>
+  {% endif %}
+  <p><a class="btn" href="{{ url_for('account_detail', account_id=account.id) }}">See the account</a></p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Where to get the file</h2>
+  <ul class="steps">
+    <li><strong>Degiro</strong> — Inbox → Account statement → choose the
+      period → export CSV. That is the cash ledger: deposits, trades,
+      dividends and fees. Set the start date back to when you opened the
+      account and you get the whole history in one go.</li>
+    <li><strong>Trade Republic</strong> — Profile → Transactions → export.</li>
+  </ul>
+  <p class="sub">Export a period that overlaps what you already imported.
+     Overlap costs nothing and a gap costs you transactions.</p>
+</div>
+{% endblock %}

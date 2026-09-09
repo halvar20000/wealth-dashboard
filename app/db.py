@@ -84,7 +84,25 @@ CREATE TABLE IF NOT EXISTS transactions (
     amount       REAL NOT NULL,
     currency     TEXT NOT NULL,
     external_id  TEXT,
-    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    -- What kind of event this is: deposit, withdrawal, buy, sell,
+    -- dividend, interest, fee, tax, transfer, other. A bank statement is
+    -- almost all deposit/withdrawal; a broker statement is mostly the
+    -- rest, and telling them apart is what makes a holding computable.
+    kind         TEXT NOT NULL DEFAULT 'other',
+    -- Set only on rows that concern a security. `isin` is the join key
+    -- across brokers: Degiro gives it in its own column and Trade
+    -- Republic puts it in one called `symbol`.
+    isin          TEXT,
+    security_name TEXT,
+    quantity      REAL,
+    price         REAL,
+    fee           REAL,
+    tax           REAL,
+    -- Which importer produced the row. Worth keeping: when a broker
+    -- changes its export format, the first question is which rows came
+    -- from the old parser.
+    source       TEXT
 );
 -- Re-importing an overlapping window is the normal case, not the
 -- exception: every sync asks the bank for the longest history it will
@@ -94,6 +112,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_txn_external
     ON transactions(external_id) WHERE external_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_txn_account_date
     ON transactions(account_id, txn_date);
+CREATE INDEX IF NOT EXISTS idx_txn_isin
+    ON transactions(account_id, isin) WHERE isin IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS balances (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -135,10 +155,39 @@ def init_db(path: Path | None = None) -> Path:
             raise
         conn.execute("PRAGMA foreign_keys=ON")
         conn.executescript(SCHEMA)
+        _add_missing_columns(conn)
         conn.commit()
     finally:
         conn.close()
     return path
+
+
+# Columns added after v0.1 shipped. CREATE TABLE IF NOT EXISTS is a no-op
+# on a table that already exists, so a database made by an earlier
+# version would keep the old shape and every query naming a new column
+# would fail — with an error about a missing column, not about a version.
+# Adding them here means upgrading is starting the app, which is the only
+# upgrade instruction anyone follows.
+_ADDED_COLUMNS = {
+    "transactions": [
+        ("kind", "TEXT NOT NULL DEFAULT 'other'"),
+        ("isin", "TEXT"),
+        ("security_name", "TEXT"),
+        ("quantity", "REAL"),
+        ("price", "REAL"),
+        ("fee", "REAL"),
+        ("tax", "REAL"),
+        ("source", "TEXT"),
+    ],
+}
+
+
+def _add_missing_columns(conn: sqlite3.Connection) -> None:
+    for table, columns in _ADDED_COLUMNS.items():
+        have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        for name, decl in columns:
+            if name not in have:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
 
 
 @contextmanager

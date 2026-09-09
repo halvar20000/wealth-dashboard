@@ -58,6 +58,43 @@
   {% endif %}
 </div>
 
+<p><a class="btn" href="{{ url_for('account_import', account_id=account.id) }}">Import a broker CSV</a></p>
+
+{% if positions %}
+<h2>Holdings</h2>
+<table class="grid">
+  <thead>
+    <tr><th>Security</th><th>ISIN</th><th class="num">Quantity</th>
+        <th class="num">Net invested</th><th class="num">Last traded at</th>
+        <th class="num">At that price</th></tr>
+  </thead>
+  <tbody>
+  {% for p in positions %}
+    <tr>
+      <td>{{ p.name or '—' }}<span class="sub">{{ p.trades }} trade(s), last {{ p.last_trade }}</span></td>
+      <td class="sub nowrap">{{ p.isin }}</td>
+      <td class="num {{ 'neg' if p.incomplete_history }}">
+        {{ '%.4f'|format(p.quantity)|replace('.0000','') }}
+        {% if p.incomplete_history %}<span class="sub">export starts too late</span>{% endif %}
+      </td>
+      <td class="num">{{ '%.2f'|format(p.net_invested) }} {{ p.currency }}</td>
+      <td class="num sub">{% if p.last_price %}{{ '%.4f'|format(p.last_price) }}{% else %}—{% endif %}</td>
+      <td class="num">{% if p.value_at_last_price %}{{ '%.2f'|format(p.value_at_last_price) }}{% else %}—{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if positions | selectattr('incomplete_history') | list %}
+<p class="sub">A negative quantity is not a short position: it is a sale whose
+   purchase is older than the file you imported. Export a period that starts
+   when you opened the account and re-import — overlap is free.</p>
+{% endif %}
+<p class="sub">Quantities are the running sum of every buy and sell imported.
+   The last two columns use the price of your most recent trade, not a market
+   price — this app has no price feed yet, and a stale number presented as a
+   valuation is worse than none.</p>
+{% endif %}
+
 <h2>Recent transactions</h2>
 {% if transactions %}
 <table class="grid">

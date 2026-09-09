@@ -14,7 +14,8 @@ The route list is the whole product so far, in order of first use:
     /connect/<id>/start begin authorisation — leaves for the bank
     /connect/callback   the bank sends the user back here
     /connect/paste      finish by hand when the callback cannot fire
-    /accounts/<id>/sync pull balance and transactions
+    /accounts/<id>/sync   pull balance and transactions
+    /accounts/<id>/import upload a broker CSV
 
 Every page except /setup and /login requires a signed-in user.
 """
@@ -32,6 +33,7 @@ from flask import (Flask, flash, redirect, render_template, request, session,
 from . import auth, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
+from . import importers
 from .db import get_conn, has_users, init_db
 
 APP_DIR = Path(__file__).resolve().parent
@@ -39,6 +41,12 @@ APP_DIR = Path(__file__).resolve().parent
 app = Flask(__name__, template_folder=str(APP_DIR / "templates"),
             static_folder=str(APP_DIR / "static"))
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+
+# A transaction export is tens of kilobytes. The ceiling is not about
+# disk: it is so that a mis-chosen file — a database dump, a video — is
+# refused with a sentence instead of being read into memory first.
+MAX_IMPORT_BYTES = 16 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = MAX_IMPORT_BYTES + 1024
 
 
 def _secret_key() -> bytes:
@@ -208,10 +216,64 @@ def account_detail(account_id: int):
     if link:
         link["days_left"] = banksync.days_until_expiry(link.get("valid_until"))
     return render_template("account.html", account=dict(account), link=link,
+                           positions=importers.positions(account_id),
                            balance=dict(balance) if balance else None,
                            transactions=[dict(t) for t in txns],
                            total_transactions=total,
                            configured=banksync.credentials_present())
+
+
+@app.route("/accounts/<int:account_id>/import", methods=["GET", "POST"])
+@auth.login_required
+def account_import(account_id: int):
+    """Upload a broker CSV.
+
+    The file is recognised rather than declared. Asking someone to pick
+    the right parser from a list, for a file that says which broker it
+    came from on every line, is asking them to get it wrong — and the
+    wrong parser does not fail, it produces a confident mess.
+    """
+    with get_conn() as conn:
+        account = conn.execute("SELECT * FROM accounts WHERE id = ?",
+                               (account_id,)).fetchone()
+    if account is None:
+        return render_template("missing.html",
+                               what="That account does not exist."), 404
+
+    report = None
+    if request.method == "POST":
+        upload = request.files.get("file")
+        if not upload or not upload.filename:
+            flash("Choose a CSV file first.", "error")
+            return redirect(url_for("account_import", account_id=account_id))
+
+        content = upload.read(MAX_IMPORT_BYTES + 1)
+        if len(content) > MAX_IMPORT_BYTES:
+            flash(f"That file is larger than "
+                  f"{MAX_IMPORT_BYTES // (1024 * 1024)} MB. A transaction "
+                  f"export should be far smaller — is it the right file?",
+                  "error")
+            return redirect(url_for("account_import", account_id=account_id))
+
+        module = importers.sniff(content)
+        if module is None:
+            flash("That file's columns do not match any importer here. "
+                  "Supported: " + ", ".join(m.LABEL for m in importers.IMPORTERS),
+                  "error")
+            return redirect(url_for("account_import", account_id=account_id))
+
+        parsed = module.parse(content, account_currency=account["currency"])
+        if not parsed.rows and parsed.problems:
+            flash(parsed.problems[0], "error")
+            return redirect(url_for("account_import", account_id=account_id))
+
+        report = importers.store(account_id, parsed, module.SLUG)
+        report["label"] = module.LABEL
+        flash(f"{module.LABEL}: {report['inserted']} new, "
+              f"{report['duplicates']} already had.", "ok")
+
+    return render_template("import.html", account=dict(account), report=report,
+                           importers=importers.IMPORTERS)
 
 
 @app.route("/accounts/<int:account_id>/sync", methods=["POST"])

@@ -13,7 +13,10 @@ it does not do yet.
       example): pick bank → bank's own login → session → link.
 - [x] Pull balance and transactions; re-syncing is idempotent.
 - [x] Consent expiry surfaced before it bites, not after.
-- [x] 83 offline checks covering the whole flow.
+- [x] Broker CSV import (Degiro, Trade Republic), recognised by columns
+      rather than chosen from a list.
+- [x] Holdings computed from imported trades.
+- [x] 182 offline checks covering the whole flow.
 
 ## Next
 
@@ -34,10 +37,10 @@ else. Rules the user can correct, where a correction becomes a rule that
 applies to past *and* future imports — otherwise the same shop has to be
 fixed every month.
 
-**4. Accounts with no API.**
-Most of a net worth is not a current account. A manual balance you can
-type in, and CSV/XLSX import for brokers, which is the route that always
-works and cannot be broken by a provider changing its terms.
+**4. Live prices.**
+Holdings are valued at the price of your last trade, which is honest and
+not much use after a month. A price source keyed on ISIN, and a manual
+balance for the accounts no file and no API will ever describe.
 
 **5. Scheduled sync.**
 A consent lasts 90 days; a sync should not need a human. In-container,

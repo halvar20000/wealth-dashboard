@@ -23,11 +23,16 @@ a PSD2 API it connects directly, with credentials that are yours.
 - **Bank connections via [Enable Banking](https://enablebanking.com).**
   One registration covers a few thousand banks across the EEA. Balances
   and transactions are pulled straight from the bank into your database.
+- **Broker CSV import** — Degiro and Trade Republic. The file is
+  recognised by its columns, so there is nothing to choose, and
+  re-importing an overlapping period is harmless.
+- **Holdings**, computed from the trades in those files: what you own,
+  how much, and what you put in.
 
 ## What is not here yet
 
-Net worth across accounts, currency conversion, categorisation, charts,
-CSV/PDF import, forecasting. See [ROADMAP.md](ROADMAP.md).
+Net worth across accounts, currency conversion, live prices,
+categorisation, charts, forecasting. See [ROADMAP.md](ROADMAP.md).
 
 ---
 

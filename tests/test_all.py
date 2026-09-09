@@ -451,5 +451,217 @@ check("no expiry date is unknown, not expired",
       banksync.days_until_expiry(None), None)
 
 # ---------------------------------------------------------------------------
+print("\n10. Reading numbers and dates out of a European export")
+# ---------------------------------------------------------------------------
+from app.importers.base import parse_date, parse_decimal, find_isin   # noqa: E402
+
+check("European decimal comma", parse_decimal("-40,80"), -40.80)
+check("European thousands and decimal", parse_decimal("1.234,56"), 1234.56)
+check("English thousands and decimal", parse_decimal("1,234.56"), 1234.56)
+check("a small European price", parse_decimal("0,011"), 0.011)
+check("Swiss apostrophe thousands", parse_decimal("1'234.50"), 1234.50)
+check("parentheses mean negative", parse_decimal("(25,00)"), -25.0)
+check("blank is None, not zero", parse_decimal(""), None)
+check("text is None, not zero", parse_decimal("n/a"), None)
+
+check("ISO date", parse_date("2026-05-01"), "2026-05-01")
+check("day-first date", parse_date("24-04-2026"), "2026-04-24")
+check("an ISO timestamp", parse_date("2026-05-01T03:49:10.717832Z"), "2026-05-01")
+check("nonsense is None", parse_date("last Tuesday"), None)
+
+check("an ISIN is found in free text",
+      find_isin("Achat 71 iShares (IE00B4L5Y983)"), "IE00B4L5Y983")
+check("a ticker is not mistaken for one", find_isin("AAPL"), None)
+
+# ---------------------------------------------------------------------------
+print("\n11. Degiro")
+# ---------------------------------------------------------------------------
+import fixtures                                                       # noqa: E402
+from app import importers                                             # noqa: E402
+from app.importers import degiro, trade_republic                      # noqa: E402
+
+check("the file is recognised without being told",
+      importers.sniff(fixtures.DEGIRO_CSV).SLUG, "degiro")
+check("a Trade Republic file is not mistaken for it",
+      importers.sniff(fixtures.TRADE_REPUBLIC_CSV).SLUG, "trade_republic")
+check("an unrelated CSV matches nothing",
+      importers.sniff(fixtures.NOT_A_BROKER_CSV), None)
+
+d = degiro.parse(fixtures.DEGIRO_CSV)
+check("no line was unreadable", d.problems, [])
+check("every row was read", len(d.rows), 11)
+
+
+
+def find_row(rows, needle):
+    """Look a row up by a phrase in its description. Slicing the
+    description to a fixed width instead makes the test fragile against
+    its own arithmetic rather than against the parser."""
+    for r in rows:
+        if needle.lower() in r.description.lower():
+            return r
+    raise AssertionError(f"no row containing {needle!r}")
+
+
+buy = find_row(d.rows, "Achat 71 iShares")
+check("a purchase is a buy", buy.kind, "buy")
+check("...the amount is the cash that left", buy.amount, -7987.50)
+check("...the quantity comes out of the description", buy.quantity, 71.0)
+check("...and the price from after the @", buy.price, 112.5)
+check("...with the ISIN from its own column", buy.isin, "IE00B4L5Y983")
+
+sell = find_row(d.rows, "Vente 1 Norwest")
+check("a sale is a sell", sell.kind, "sell")
+check("...and its quantity is negative", sell.quantity, -1.0)
+
+check("a broker fee is a fee", find_row(d.rows, "Frais DEGIRO de courtage").kind, "fee")
+check("a dividend is a dividend", find_row(d.rows, "Dividende").kind, "dividend")
+check("withholding tax is tax, not a fee",
+      find_row(d.rows, "Impôts sur dividende").kind, "tax")
+check("a deposit is a deposit", find_row(d.rows, "Dépôt flatex").kind, "deposit")
+check("a cash sweep is internal, not a withdrawal",
+      find_row(d.rows, "Cash Sweep").kind, "transfer")
+check("an FX conversion is not counted as a fee",
+      find_row(d.rows, "Opération de change").kind, "other")
+
+# The header has two blank column names. A DictReader collapses them and
+# the balance silently overwrites the amount.
+check("the change amount is not the balance amount",
+      find_row(d.rows, "Dépôt flatex").amount, 1000.00)
+
+de = degiro.parse(fixtures.DEGIRO_CSV_GERMAN)
+kinds = {r.kind for r in de.rows}
+check("a German-language export parses identically", kinds, {"buy", "sell"})
+check("...with the same quantity", de.rows[0].quantity, 71.0)
+
+# A description with a raw newline in an unquoted field: one record
+# arrives as two lines. The tail belongs on the row before it.
+split = degiro.parse(fixtures.DEGIRO_CSV_SPLIT_LINE)
+check("a record split across two lines is stitched back", len(split.rows), 1)
+check("...and nothing is reported as a problem", split.problems, [])
+check("...with the whole description",
+      split.rows[0].description.endswith("(New York Stock Exchange - NSY)"), True)
+check("...and the amount intact", split.rows[0].amount, -2.50)
+
+bad = degiro.parse(fixtures.NOT_A_BROKER_CSV)
+check("a foreign file is refused, not half-parsed", bad.rows, [])
+check("...and says what it expected", "Degiro Account.csv" in bad.problems[0], True)
+
+# ---------------------------------------------------------------------------
+print("\n12. Trade Republic")
+# ---------------------------------------------------------------------------
+tr = trade_republic.parse(fixtures.TRADE_REPUBLIC_CSV)
+check("no line was unreadable", tr.problems, [])
+check("every row was read", len(tr.rows), 6)
+by_id = {r.external_id: r for r in tr.rows}
+
+b = by_id["tr:22222222-2222-2222-2222-222222222222"]
+check("a buy is a buy", b.kind, "buy")
+check("...the amount is already signed by the broker", b.amount, -1500.00)
+check("...`symbol` is really an ISIN", b.isin, "IE00BK5BQT80")
+check("...fractional shares survive", b.quantity, 44.709388)
+check("...and the fee is kept", b.fee, 1.0)
+
+s = by_id["tr:33333333-3333-3333-3333-333333333333"]
+check("a sale is a sell", s.kind, "sell")
+check("...with a negative quantity", s.quantity, -5.0)
+
+check("interest is interest",
+      by_id["tr:11111111-1111-1111-1111-111111111111"].kind, "interest")
+check("a top-up is a deposit",
+      by_id["tr:44444444-4444-4444-4444-444444444444"].kind, "deposit")
+div = by_id["tr:55555555-5555-5555-5555-555555555555"]
+check("a dividend is a dividend", div.kind, "dividend")
+check("...and its withholding tax is kept", div.tax, -1.90)
+
+unknown = by_id["tr:66666666-6666-6666-6666-666666666666"]
+check("an unknown type is not dropped", unknown is not None, True)
+check("...it is classified by its category instead", unknown.kind, "buy")
+check("...and the broker's own word is preserved",
+      "[SOMETHING_NEW]" in unknown.description, True)
+
+# A file that has been through Excel or Numbers: every line wrapped in one
+# pair of quotes. Parsed naively it is a one-column file, and the import
+# is refused for a file that plainly is the right export.
+mangled = fixtures.TRADE_REPUBLIC_CSV_SPREADSHEET_MANGLED
+check("a spreadsheet-mangled export is still recognised",
+      importers.sniff(mangled).SLUG, "trade_republic")
+tr_m = trade_republic.parse(mangled)
+check("...and parses to the same rows", len(tr_m.rows), len(tr.rows))
+check("...with the same ids",
+      {r.external_id for r in tr_m.rows}, {r.external_id for r in tr.rows})
+
+# ---------------------------------------------------------------------------
+print("\n13. Importing, through the web app")
+# ---------------------------------------------------------------------------
+import io                                                             # noqa: E402
+
+r = c.post("/accounts/new", data={"name": "Degiro", "type": "broker",
+                                  "currency": "EUR"})
+broker_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+
+
+def upload(account, text, name="export.csv"):
+    return c.post(f"/accounts/{account}/import",
+                  data={"file": (io.BytesIO(text.encode()), name)},
+                  content_type="multipart/form-data", follow_redirects=True)
+
+
+r = upload(broker_id, fixtures.NOT_A_BROKER_CSV)
+check("an unrecognised file is refused",
+      b"do not match any importer" in r.data, True)
+
+r = upload(broker_id, fixtures.DEGIRO_CSV)
+check("a Degiro export imports", b"11 new" in r.data, True)
+
+r = upload(broker_id, fixtures.DEGIRO_CSV)
+check("importing the same file twice adds nothing", b"0 new" in r.data, True)
+
+r = upload(broker_id, fixtures.DEGIRO_CSV_OVERLAPPING)
+check("an overlapping export adds only what is new", b"2 new" in r.data, True)
+
+pos = importers.positions(broker_id)
+holdings = {p["isin"]: p for p in pos}
+check("the ETF is held", "IE00B4L5Y983" in holdings, True)
+check("...at 71 + 4 shares", round(holdings["IE00B4L5Y983"]["quantity"], 6), 75.0)
+check("...with net invested summed over both buys",
+      round(holdings["IE00B4L5Y983"]["net_invested"], 2), 8439.50)
+check("...priced at the most recent trade",
+      holdings["IE00B4L5Y983"]["last_price"], 113.0)
+check("a position bought and sold in full disappears",
+      "LU0000000009" in holdings, False)
+# A sale with no matching purchase is not a short position — it is an
+# export that did not reach back far enough. Hiding it would hide that.
+check("a sale whose purchase predates the export is still shown",
+      "AU0000025280" in holdings, True)
+check("...and is flagged rather than presented as a holding",
+      holdings["AU0000025280"]["incomplete_history"], True)
+check("...while a real holding is not flagged",
+      holdings["IE00B4L5Y983"]["incomplete_history"], False)
+
+degiro_position_count = len(pos)
+
+r = c.get(f"/accounts/{broker_id}")
+check("the account page shows the holding", b"IE00B4L5Y983" in r.data, True)
+check("...and explains a negative quantity rather than hiding it",
+      b"purchase is older than the file" in r.data, True)
+check("...and says the price is not a market price",
+      b"no price feed yet" in r.data, True)
+
+# A second broker into its own account, to prove the ISIN is the join key
+# and that nothing is shared by accident.
+r = c.post("/accounts/new", data={"name": "Trade Republic", "type": "broker",
+                                  "currency": "EUR"})
+tr_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+r = upload(tr_id, fixtures.TRADE_REPUBLIC_CSV)
+check("a Trade Republic export imports", b"6 new" in r.data, True)
+check("it did not land in the other account",
+      len(importers.positions(broker_id)), degiro_position_count)
+tr_pos = {p["isin"]: p for p in importers.positions(tr_id)}
+check("the Trade Republic fund is held", "IE00BK5BQT80" in tr_pos, True)
+check("...and the stock nets buy minus sell",
+      round(tr_pos["DE0007236101"]["quantity"], 6), -3.0)
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)
