@@ -294,9 +294,16 @@ def connect_pick(account_id: int):
             error = str(exc)
     if query:
         banks = [b for b in banks if query in (b.get("name") or "").lower()]
-    banks.sort(key=lambda b: (b.get("name") or "").lower())
+    # Sandbox banks first. They are the only way to walk this flow without
+    # spending a real consent at a real bank, and a real consent is not a
+    # thing to spend while finding out whether a redirect URL was
+    # registered correctly. Enable Banking flags them; surfacing the flag
+    # is the difference between a safe test and a broken connection
+    # somewhere else.
+    banks.sort(key=lambda b: (not b.get("sandbox"), (b.get("name") or "").lower()))
     return render_template("connect_pick.html", account_id=account_id,
                            banks=banks, country=country, q=request.args.get("q", ""),
+                           sandboxes=sum(1 for b in banks if b.get("sandbox")),
                            error=error)
 
 

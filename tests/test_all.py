@@ -300,6 +300,13 @@ check("the bank picker lists DKB", b"DKB" in r.data, True)
 r = c.get(f"/connect/{account_id}?country=DE&q=dkb")
 check("search narrows it", r.data.count(b"Deutsche Bank"), 0)
 
+r = c.get(f"/connect/{account_id}?country=DE")
+check("sandbox banks are marked", b"sandbox</span>" in r.data, True)
+check("...and recommended before a real one",
+      b"Connect a <strong>sandbox</strong> bank first" in r.data, True)
+check("...and listed first, before the real banks",
+      r.data.index(b"Mock ASPSP") < r.data.index(b"Deutsche Bank"), True)
+
 r = c.post(f"/connect/{account_id}/start",
            data={"aspsp_name": "DKB", "aspsp_country": "DE"})
 check("starting the connection redirects to the bank",

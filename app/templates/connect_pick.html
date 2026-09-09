@@ -24,13 +24,22 @@ expected with an https-only redirect URL —
 </form>
 
 {% if banks %}
-<p class="sub">{{ banks|length }} bank(s) in {{ country }}.</p>
+<p class="sub">{{ banks|length }} bank(s) in {{ country }}{% if sandboxes %},
+  including {{ sandboxes }} sandbox{% endif %}.</p>
+{% if sandboxes %}
+<div class="flash flash-ok">Connect a <strong>sandbox</strong> bank first. It
+  walks the identical flow — redirect, consent, session, balances,
+  transactions — with the provider's own test credentials, and creates no
+  consent at a real bank. If your redirect URL is registered wrongly, you find
+  out here instead of by spending an authorisation you rely on.</div>
+{% endif %}
 <table class="grid">
   <thead><tr><th>Bank</th><th>Type</th><th></th></tr></thead>
   <tbody>
   {% for b in banks %}
     <tr>
-      <td>{{ b.name }}</td>
+      <td>{{ b.name }}
+        {% if b.sandbox %}<span class="tag">sandbox</span>{% endif %}</td>
       <td class="sub">{{ (b.psu_types or [])|join(', ') }}</td>
       <td class="num">
         <form method="post" action="{{ url_for('connect_start', account_id=account_id) }}">

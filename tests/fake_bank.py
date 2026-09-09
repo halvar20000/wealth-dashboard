@@ -25,6 +25,11 @@ ASPSPS_DE = {
         {"name": "Deutsche Bank", "country": "DE", "psu_types": ["personal"]},
         {"name": "Sparkasse", "country": "DE", "psu_types": ["personal"]},
         {"name": "N26", "country": "DE", "psu_types": ["personal"]},
+        # Enable Banking flags its test banks. They sort to the top of the
+        # picker: a sandbox and a real bank are indistinguishable in a
+        # table of names, and picking the wrong one spends a consent.
+        {"name": "Mock ASPSP", "country": "DE", "psu_types": ["personal"],
+         "sandbox": True},
     ]
 }
 
