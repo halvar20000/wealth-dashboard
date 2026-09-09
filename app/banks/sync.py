@@ -1,0 +1,250 @@
+"""Between the bank and the database.
+
+`enablebanking.py` knows the protocol and nothing about this app.
+`db.py` knows the tables and nothing about banks. This module is the only
+place that knows both, which is what makes adding a second provider a
+matter of writing one more client rather than touching the schema.
+"""
+
+from __future__ import annotations
+
+import sqlite3
+from datetime import datetime, timezone
+
+from .. import settings
+from ..db import get_conn
+from . import enablebanking as eb
+
+APP_ID_FILE = "enablebanking_app_id"
+KEY_FILE = "enablebanking_private.key"
+
+
+# ─── Credentials ─────────────────────────────────────────────────────
+
+def credentials_present() -> bool:
+    return ((settings.SECRETS_DIR / APP_ID_FILE).exists()
+            and (settings.SECRETS_DIR / KEY_FILE).exists())
+
+
+def save_credentials(app_id: str, private_key_pem: str) -> None:
+    settings.ensure_dirs()
+    app_id = (app_id or "").strip()
+    if not app_id:
+        raise ValueError("An Application ID is required.")
+    pem = (private_key_pem or "").strip()
+    if "PRIVATE KEY" not in pem:
+        # Catching this here is worth a line: the same mistake made
+        # silently produces a signature failure on every later call,
+        # reported by the API as a generic 401 that names nothing.
+        raise ValueError(
+            "That does not look like a private key. Paste the whole file, "
+            "including the -----BEGIN PRIVATE KEY----- line. If you pasted "
+            "the .pem you uploaded to Enable Banking, that is the PUBLIC "
+            "half — you need the other one.")
+
+    (settings.SECRETS_DIR / APP_ID_FILE).write_text(app_id + "\n")
+    key_path = settings.SECRETS_DIR / KEY_FILE
+    key_path.write_text(pem + "\n")
+    for p in (settings.SECRETS_DIR / APP_ID_FILE, key_path):
+        try:
+            p.chmod(0o600)
+        except OSError:
+            pass
+
+
+def client() -> eb.Client:
+    """A configured client, or a readable error saying what is missing."""
+    app_id_path = settings.SECRETS_DIR / APP_ID_FILE
+    if not app_id_path.exists():
+        raise eb.EnableBankingError(
+            "config", str(app_id_path), 0,
+            "Enable Banking is not configured yet — add your Application ID "
+            "and private key in Settings.")
+    return eb.Client(app_id_path.read_text().strip(),
+                     eb.load_private_key(settings.SECRETS_DIR / KEY_FILE))
+
+
+# ─── Connect ─────────────────────────────────────────────────────────
+
+def begin_connect(account_id: int, aspsp_name: str, aspsp_country: str) -> str:
+    """Ask the bank for an authorisation URL and remember why.
+
+    The state row is written BEFORE the user leaves. They come back to a
+    brand-new request carrying nothing but ?code and ?state, so anything
+    not written down first is gone.
+    """
+    cfg = settings.load()
+    state = eb.new_state()
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO auth_states (state, account_id, aspsp_name, aspsp_country) "
+            "VALUES (?, ?, ?, ?)",
+            (state, account_id, aspsp_name, aspsp_country))
+    resp = client().start_auth(
+        aspsp_name=aspsp_name, aspsp_country=aspsp_country,
+        redirect_url=cfg["redirect_url"], state=state)
+    url = resp.get("url")
+    if not url:
+        raise eb.EnableBankingError("POST", "/auth", 0,
+                                    f"no authorisation URL in the response: {resp}")
+    return url
+
+
+def complete_connect(code: str, state: str) -> dict:
+    """Exchange the code, then link the bank's accounts to ours.
+
+    Returns {account_id, linked: [labels], session_id}.
+    """
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM auth_states WHERE state = ?",
+                           (state,)).fetchone()
+        if row is None:
+            # Either a stale bookmark, a second click on the callback, or
+            # someone else's redirect. All three are refusals, not errors
+            # to recover from by guessing which connection was meant.
+            raise ValueError(
+                "This authorisation is not one this app started, or it has "
+                "already been used. Start the connection again.")
+        pending = dict(row)
+        conn.execute("DELETE FROM auth_states WHERE state = ?", (state,))
+
+    session = client().create_session(code)
+    session_id = session.get("session_id")
+    accounts = session.get("accounts") or []
+    if not accounts:
+        raise ValueError(
+            "The bank returned no accounts for that consent. This usually "
+            "means no account was ticked on the bank's own consent screen.")
+
+    linked = []
+    with get_conn() as conn:
+        for i, acct in enumerate(accounts):
+            uid = acct.get("uid") or acct.get("account_uid")
+            if not uid:
+                continue
+            ident = (acct.get("identification_hash")
+                     or acct.get("identification_hashes", [None])[0]
+                     or uid)
+            iban = (acct.get("account_id") or {}).get("iban")
+            label = eb.account_label(acct)
+
+            # The first bank account goes on the account the user was
+            # connecting. A consent covering several — a current account
+            # and its savings account — creates the extra ones rather
+            # than merging them, because two balances added together is
+            # not a balance.
+            if i == 0:
+                target_id = pending["account_id"]
+            else:
+                cur = conn.execute(
+                    "INSERT INTO accounts (name, type, currency) VALUES (?, ?, ?)",
+                    (f"{pending['aspsp_name']} {label}", "bank",
+                     acct.get("currency") or settings.get("base_currency", "EUR")))
+                target_id = int(cur.lastrowid)
+
+            try:
+                conn.execute(
+                    "INSERT INTO bank_links (account_id, provider, aspsp_name, "
+                    "aspsp_country, session_id, account_uid, identification_hash, "
+                    "iban, valid_until) VALUES (?, 'enablebanking', ?, ?, ?, ?, ?, ?, ?)",
+                    (target_id, pending["aspsp_name"], pending["aspsp_country"],
+                     session_id, uid, ident, iban,
+                     session.get("access", {}).get("valid_until")))
+            except sqlite3.IntegrityError:
+                # Re-authorising an account that is already linked: keep
+                # one link and move it to the new session, so the history
+                # attached to it survives.
+                conn.execute(
+                    "UPDATE bank_links SET session_id = ?, valid_until = ?, "
+                    "last_error = NULL WHERE account_uid = ?",
+                    (session_id, session.get("access", {}).get("valid_until"), uid))
+            linked.append(label)
+
+    return {"account_id": pending["account_id"], "linked": linked,
+            "session_id": session_id}
+
+
+# ─── Sync ────────────────────────────────────────────────────────────
+
+def sync_link(link_id: int) -> dict:
+    """Pull balance and transactions for one linked account."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT bl.*, a.currency AS account_currency, a.name AS account_name "
+            "FROM bank_links bl JOIN accounts a ON a.id = bl.account_id "
+            "WHERE bl.id = ?", (link_id,)).fetchone()
+    if row is None:
+        raise ValueError(f"No such connection: {link_id}")
+    link = dict(row)
+    api = client()
+    result = {"account": link["account_name"], "inserted": 0,
+              "balance": None, "error": None}
+
+    try:
+        balance = eb.pick_balance(api.balances(link["account_uid"]))
+        if balance:
+            with get_conn() as conn:
+                conn.execute(
+                    "INSERT INTO balances (account_id, amount, currency, "
+                    "balance_type, as_of) VALUES (?, ?, ?, ?, ?)",
+                    (link["account_id"], balance["amount"],
+                     balance["currency"] or link["account_currency"],
+                     balance["balance_type"], balance["as_of"]))
+            result["balance"] = balance
+
+        rows = []
+        for txn in api.all_transactions(link["account_uid"]):
+            norm = eb.normalise_transaction(
+                txn, link["identification_hash"] or link["account_uid"],
+                default_currency=link["account_currency"])
+            if norm:
+                rows.append(norm)
+
+        with get_conn() as conn:
+            for r in rows:
+                # INSERT OR IGNORE against the unique index is the whole
+                # deduplication strategy: a re-sync of an overlapping
+                # window costs nothing and cannot double a balance.
+                cur = conn.execute(
+                    "INSERT OR IGNORE INTO transactions (account_id, txn_date, "
+                    "description, counterparty, amount, currency, external_id) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (link["account_id"], r["txn_date"], r["description"],
+                     r["counterparty"], r["amount"], r["currency"],
+                     r["external_id"]))
+                result["inserted"] += cur.rowcount
+            conn.execute(
+                "UPDATE bank_links SET last_sync_at = ?, last_error = NULL "
+                "WHERE id = ?",
+                (datetime.now(timezone.utc).isoformat(timespec="seconds"), link_id))
+    except Exception as exc:                        # noqa: BLE001
+        # The error is stored on the link, not raised into the page. A
+        # consent that expired last night is the normal end of a
+        # connection's life; the account must keep its history and say
+        # what happened, not become an error screen.
+        result["error"] = str(exc)
+        with get_conn() as conn:
+            conn.execute("UPDATE bank_links SET last_error = ? WHERE id = ?",
+                         (str(exc)[:500], link_id))
+    return result
+
+
+def sync_account(account_id: int) -> dict | None:
+    """Sync whichever link belongs to this account, if any."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id FROM bank_links WHERE account_id = ? LIMIT 1",
+            (account_id,)).fetchone()
+    return sync_link(int(row["id"])) if row else None
+
+
+def days_until_expiry(valid_until: str | None) -> int | None:
+    if not valid_until:
+        return None
+    try:
+        when = datetime.fromisoformat(str(valid_until).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return (when - datetime.now(timezone.utc)).days

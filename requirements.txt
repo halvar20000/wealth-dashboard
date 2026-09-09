@@ -1,0 +1,4 @@
+# Deliberately short. Every line here is something a person has to
+# install on a NAS, and something that can break on a Python upgrade.
+Flask>=3.0
+cryptography>=42.0     # signs the Enable Banking JWT; no pure-Python RS256

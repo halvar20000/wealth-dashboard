@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Wealth Dashboard{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('index') }}">Wealth&nbsp;Dashboard</a>
+    {% if user %}
+    <nav>
+      <a href="{{ url_for('index') }}">Accounts</a>
+      <a href="{{ url_for('settings_page') }}">Settings</a>
+      <span class="who">{{ user.username }}</span>
+      <a class="ghost" href="{{ url_for('logout') }}">Sign out</a>
+    </nav>
+    {% endif %}
+  </header>
+
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+      <div class="flash flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <h1>{% block heading %}{% endblock %}</h1>
+    {% block lede %}{% endblock %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer>Runs on your machine. Your data never leaves it, except to your own bank.</footer>
+</body>
+</html>

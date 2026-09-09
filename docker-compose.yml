@@ -1,0 +1,21 @@
+services:
+  wealth-dashboard:
+    build: .
+    container_name: wealth-dashboard
+    restart: unless-stopped
+    ports:
+      # Bound to localhost. Change to "8000:8000" to reach it from your
+      # LAN — and set a strong password first.
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./data:/data
+      # Credentials on their own mount, so backing up ./data does not
+      # copy your bank key with it.
+      - ./secrets:/secrets
+    environment:
+      WD_DATA_DIR: /data
+      WD_SECRETS_DIR: /secrets
+      WD_BASE_CURRENCY: EUR
+      # Must match a redirect URL registered in the Enable Banking
+      # Control Panel, exactly.
+      WD_REDIRECT_URL: http://localhost:8000/connect/callback

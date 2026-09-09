@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Connect a bank · Wealth Dashboard{% endblock %}
+{% block heading %}Connect a bank{% endblock %}
+{% block lede %}
+<p class="lede">You will be sent to your bank's own login page. This app never
+sees your banking password — the bank gives it read-only access to the account
+you tick, for {{ 90 }} days at a time, and you can revoke it at your bank.</p>
+{% endblock %}
+{% block content %}
+
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+
+<form class="card form inline" method="get"
+      action="{{ url_for('connect_pick', account_id=account_id) }}">
+  <label for="country">Country</label>
+  <input id="country" name="country" value="{{ country }}" maxlength="2" size="4">
+  <label for="q">Search</label>
+  <input id="q" name="q" value="{{ q }}" placeholder="DKB">
+  <button type="submit">Show banks</button>
+</form>
+
+{% if banks %}
+<p class="sub">{{ banks|length }} bank(s) in {{ country }}.</p>
+<table class="grid">
+  <thead><tr><th>Bank</th><th>Type</th><th></th></tr></thead>
+  <tbody>
+  {% for b in banks %}
+    <tr>
+      <td>{{ b.name }}</td>
+      <td class="sub">{{ (b.psu_types or [])|join(', ') }}</td>
+      <td class="num">
+        <form method="post" action="{{ url_for('connect_start', account_id=account_id) }}">
+          <input type="hidden" name="aspsp_name" value="{{ b.name }}">
+          <input type="hidden" name="aspsp_country" value="{{ b.country or country }}">
+          <button type="submit">Connect</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% elif not error %}
+<div class="card empty"><p>No banks matched. Try a shorter search, or check the country code.</p></div>
+{% endif %}
+{% endblock %}

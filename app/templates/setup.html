@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Create your account · Wealth Dashboard{% endblock %}
+{% block heading %}Create your account{% endblock %}
+{% block lede %}
+<p class="lede">This is the only account on this installation, and it lives in
+your own database. Nothing is sent anywhere, so there is no email to confirm
+and no way for anyone to reset it for you — choose a password you will keep.</p>
+{% endblock %}
+{% block content %}
+<form method="post" class="card form" autocomplete="off">
+  {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+  <label for="username">Username</label>
+  <input id="username" name="username" value="{{ username }}" autofocus required>
+
+  <label for="password">Password <span class="sub">at least 8 characters</span></label>
+  <input id="password" name="password" type="password" autocomplete="new-password" required>
+
+  <label for="password2">Password again</label>
+  <input id="password2" name="password2" type="password" autocomplete="new-password" required>
+
+  <button type="submit">Create account</button>
+</form>
+{% endblock %}

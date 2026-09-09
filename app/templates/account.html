@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ account.name }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ account.name }}{% endblock %}
+{% block content %}
+
+<div class="cards">
+  <div class="card stat">
+    <div class="stat-label">Balance</div>
+    <div class="stat-value">
+      {% if balance %}{{ '%.2f'|format(balance.amount) }} {{ balance.currency }}
+      {% else %}—{% endif %}
+    </div>
+    <div class="sub">
+      {% if balance %}{{ balance.balance_type or 'reported' }} · as of {{ balance.as_of }}
+      {% else %}nothing imported yet{% endif %}
+    </div>
+  </div>
+  <div class="card stat">
+    <div class="stat-label">Transactions</div>
+    <div class="stat-value">{{ total_transactions }}</div>
+    <div class="sub">{{ account.currency }} · {{ account.type }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Bank connection</h2>
+  {% if link %}
+    <p><strong>{{ link.aspsp_name }}</strong> ({{ link.aspsp_country }}){% if link.iban %} · {{ link.iban }}{% endif %}</p>
+    <p class="sub">
+      Last sync: {{ link.last_sync_at or 'never' }}.
+      {% if link.days_left is not none %}
+        {% if link.days_left > 7 %}
+          Consent valid for {{ link.days_left }} more days.
+        {% elif link.days_left >= 0 %}
+          Consent expires in {{ link.days_left }} day(s) — reconnect soon.
+        {% else %}
+          Consent expired. Reconnect to resume syncing.
+        {% endif %}
+      {% endif %}
+    </p>
+    {% if link.last_error %}<div class="flash flash-error">{{ link.last_error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('account_sync', account_id=account.id) }}">
+      <button type="submit">Sync now</button>
+    </form>
+    <p class="sub"><a href="{{ url_for('connect_pick', account_id=account.id) }}">Reconnect or change bank</a></p>
+  {% else %}
+    <p class="sub">This account is not connected to a bank. Connecting it pulls
+       the balance and the transaction history straight from the bank, with your
+       own Enable Banking credentials.</p>
+    {% if configured %}
+      <p><a class="btn" href="{{ url_for('connect_pick', account_id=account.id) }}">Connect a bank</a></p>
+    {% else %}
+      <p class="sub">Add your Enable Banking Application ID and private key in
+         <a href="{{ url_for('settings_page') }}">Settings</a> first.</p>
+    {% endif %}
+  {% endif %}
+</div>
+
+<h2>Recent transactions</h2>
+{% if transactions %}
+<table class="grid">
+  <thead><tr><th>Date</th><th>Description</th><th>Counterparty</th><th class="num">Amount</th></tr></thead>
+  <tbody>
+  {% for t in transactions %}
+    <tr>
+      <td class="nowrap">{{ t.txn_date }}</td>
+      <td>{{ t.description }}</td>
+      <td class="sub">{{ t.counterparty or '' }}</td>
+      <td class="num {{ 'neg' if t.amount < 0 else 'pos' }}">{{ '%.2f'|format(t.amount) }} {{ t.currency }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if total_transactions > transactions|length %}
+<p class="sub">Showing the {{ transactions|length }} most recent of {{ total_transactions }}.</p>
+{% endif %}
+{% else %}
+<div class="card empty"><p>No transactions yet.</p></div>
+{% endif %}
+{% endblock %}

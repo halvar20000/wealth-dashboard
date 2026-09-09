@@ -1,0 +1,18 @@
+# Everything the user owns. "Back up ./data" is then a complete instruction.
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Credentials, wherever they land
+*.key
+*.pem
+secrets/
+.env
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.DS_Store

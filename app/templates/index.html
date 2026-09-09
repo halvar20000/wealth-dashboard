@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Accounts · Wealth Dashboard{% endblock %}
+{% block heading %}Accounts{% endblock %}
+{% block content %}
+{% if accounts %}
+<table class="grid">
+  <thead>
+    <tr><th>Account</th><th>Bank</th><th class="num">Balance</th>
+        <th class="num">Transactions</th><th>As of</th></tr>
+  </thead>
+  <tbody>
+  {% for a in accounts %}
+    <tr>
+      <td><a href="{{ url_for('account_detail', account_id=a.id) }}">{{ a.name }}</a>
+          <span class="sub">{{ a.type }}</span></td>
+      <td>{{ a.bank or '—' }}</td>
+      <td class="num">{% if a.balance is not none %}{{ '%.2f'|format(a.balance) }} {{ a.currency }}{% else %}—{% endif %}</td>
+      <td class="num">{{ a.txn_count }}</td>
+      <td class="sub">{{ a.balance_as_of or '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="card empty">
+  <p>No accounts yet.</p>
+  <p class="sub">Start with one — a current account is the usual first. You can
+     connect it to your bank straight after creating it.</p>
+</div>
+{% endif %}
+<p><a class="btn" href="{{ url_for('account_new') }}">Add an account</a></p>
+{% endblock %}

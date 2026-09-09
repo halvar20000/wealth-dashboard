@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Settings · Wealth Dashboard{% endblock %}
+{% block heading %}Settings{% endblock %}
+{% block content %}
+
+<div class="card">
+  <h2>General</h2>
+  <form method="post" class="form">
+    <label for="base_currency">Base currency</label>
+    <input id="base_currency" name="base_currency" value="{{ cfg.base_currency }}" maxlength="3">
+
+    <label for="redirect_url">Redirect URL</label>
+    <input id="redirect_url" name="redirect_url" value="{{ cfg.redirect_url }}">
+    <p class="sub">Where your bank sends you back after you authorise. This exact
+       string must also be registered in the Enable Banking Control Panel — if the
+       two differ by so much as a trailing slash, the bank refuses the handover
+       and the error it shows names nothing useful.</p>
+
+    <button type="submit">Save</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Enable Banking</h2>
+  {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+  <p class="sub">
+    Your own application, your own key. Register at
+    <a href="https://enablebanking.com" rel="noreferrer">enablebanking.com</a>,
+    create an application, and generate a key pair:
+  </p>
+  <pre>openssl genrsa -out enablebanking_private.key 4096
+openssl rsa -in enablebanking_private.key -pubout -out enablebanking_public.pem</pre>
+  <p class="sub">Upload the <strong>public</strong> half in their Control Panel.
+     Paste the <strong>private</strong> half below — it is stored at
+     <code>{{ secrets_dir }}</code> with permissions 0600 and is never sent
+     anywhere except as a signature on your own requests.</p>
+
+  {% if secrets_inside_data %}
+  <div class="flash flash-warn">Your credentials live inside the data folder, so
+    every backup of that folder carries your bank key with it. Set
+    <code>WD_SECRETS_DIR</code> to a folder outside it if that matters to you.</div>
+  {% endif %}
+
+  <form method="post" class="form">
+    <input type="hidden" name="form" value="credentials">
+    <label for="app_id">Application ID</label>
+    <input id="app_id" name="app_id" placeholder="00000000-0000-0000-0000-000000000000"
+           {% if configured %}placeholder="stored — paste again to replace"{% endif %}>
+    <label for="private_key">Private key (PEM)</label>
+    <textarea id="private_key" name="private_key" rows="6"
+              placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"></textarea>
+    <button type="submit">Save credentials</button>
+  </form>
+
+  {% if configured %}
+    <p class="sub">Credentials are stored.
+       <a href="{{ url_for('settings_page', check=1) }}">Test them</a> —
+       this makes one live call to Enable Banking.</p>
+    {% if check and check.ok %}
+      <div class="flash flash-ok">Working. Registered redirect URLs:
+        {{ (check.application.redirect_urls or ['none'])|join(', ') }}</div>
+    {% elif check %}
+      <div class="flash flash-error">{{ check.error }}</div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
