@@ -1,0 +1,102 @@
+name: Build & publish image
+
+# Builds the Wealth Dashboard image and pushes it to GitHub Container
+# Registry, so people installing it on a NAS pull rather than build.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    # Don't rebuild for changes that cannot affect the running app.
+    # Without this, editing the README republishes the image and Unraid
+    # shows an "update available" for a container that has not changed.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'templates/**'
+      - 'ca_profile.xml'
+      - 'icon.png'
+      - 'LICENSE'
+      - '.gitignore'
+  workflow_dispatch:
+
+# One build of a branch at a time, newest wins. Two pushes in quick
+# succession otherwise race for the `latest` tag and whichever finishes
+# last takes it — which can be the older commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/wealth-dashboard
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      # The suite is offline and brings its own runner — no bank, no
+      # network, no pytest. If it cannot pass here it must not become an
+      # image somebody installs.
+      - run: python3 tests/test_all.py
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    # A wedged build must fail rather than idle for the six-hour default.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          # arm64 as well as amd64: plenty of home servers are ARM, and
+          # an image that only runs on x86 fails at install time with a
+          # message nobody can act on.
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Publish a plain Docker schema-2 manifest list — no OCI media
+          # types, no provenance/SBOM attestations. Unraid's update
+          # checker reads schema-2 (what every Docker Hub multi-arch
+          # image is) but not GHCR's default OCI image index, and the
+          # attestations add platform:"unknown" manifests that confuse
+          # the digest comparison further. Without this the container
+          # sits on "up to date" against a newer image.
+          # `outputs: type=registry` replaces `push: true`; the two are
+          # mutually exclusive.
+          provenance: false
+          sbom: false
+          outputs: type=registry,oci-mediatypes=false
+          cache-from: type=gha
+          # mode=min, not max: max exports every intermediate layer of
+          # both architectures and fills the 10 GB per-repository cache,
+          # at which point the export starts racing eviction and builds
+          # hang. This image's only expensive step is pip install.
+          cache-to: type=gha,mode=min

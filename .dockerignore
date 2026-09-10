@@ -1,0 +1,23 @@
+# Only app/ and requirements.txt belong in the image. Everything here is
+# either the user's data, the repo's furniture, or something that would
+# make the image rebuild — and Unraid claim "update available" — for a
+# change that cannot affect what runs.
+.git
+.github
+.venv
+venv
+data
+secrets
+docs
+templates
+ca_profile.xml
+icon.png
+*.md
+LICENSE
+tests
+docker-compose.yml
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.DS_Store

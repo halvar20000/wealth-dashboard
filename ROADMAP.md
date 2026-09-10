@@ -25,6 +25,8 @@ it does not do yet.
 - [x] Categories the user owns: add, rename, recolour and delete them
       under Settings.
 - [x] 319 offline checks covering the whole flow.
+- [x] Packaged as an Unraid app: multi-arch image on GHCR, a
+      Community Applications template, and an install guide.
 
 ## Next
 

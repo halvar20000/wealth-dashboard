@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>wealth-dashboard</Name>
+  <Repository>ghcr.io/halvar20000/wealth-dashboard:latest</Repository>
+  <Registry>https://github.com/halvar20000/wealth-dashboard/pkgs/container/wealth-dashboard</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/halvar20000/wealth-dashboard/issues</Support>
+  <Project>https://github.com/halvar20000/wealth-dashboard</Project>
+  <Overview>Self-hosted net worth tracking. One SQLite file on your own server &#8212; no account with anybody, no telemetry, and no cloud component that could be switched off.&#13;&#10;&#13;&#10;&#9881; Nothing to configure to start: set a port, keep the Data path on appdata, apply, then open the WebUI and create your login. That login is the only one, and it lives in your database.&#13;&#10;&#13;&#10;&#128202; What it does: accounts you enter by hand, broker CSV import (Degiro and Trade Republic, recognised by their columns), holdings computed from those trades, and an overview with net worth, cash against securities, cash flow, budgets, detected subscriptions, transactions and categories that learn a rule once and apply it retroactively.&#13;&#10;&#13;&#10;&#127974; Optional bank sync over PSD2 via Enable Banking (a few thousand banks across the EEA). You register your own application with them, so the consent is between you and your bank &#8212; nothing passes through a server belonging to whoever wrote this. Read-only: the app cannot move money. Set it up later in the app under Settings; it is not needed to start.&#13;&#10;&#13;&#10;&#128190; Everything you own is under /data &#8212; the database, your settings, and in /data/secrets the bank credentials and the key that signs your sessions. Map it to appdata and it survives updates. Back that folder up: there is no password reset, because there is nobody to reset it.&#13;&#10;&#13;&#10;&#9888; It holds your finances and it has one password. Keep it on your LAN, or behind your own reverse proxy and access control &#8212; do not port-forward it to the internet.&#13;&#10;&#13;&#10;&#128214; Install and setup guide: https://github.com/halvar20000/wealth-dashboard/blob/main/docs/INSTALL.md</Overview>
+  <Description>Self-hosted net worth tracking: one SQLite file on your own server, no account with anybody, no telemetry. Manual accounts, Degiro and Trade Republic CSV import, holdings, cash flow, budgets, subscriptions and self-learning categories &#8212; plus optional read-only bank sync over PSD2 via Enable Banking, with credentials that are yours. Nothing to configure to start: set a port, map /data, open the WebUI and create your login.</Description>
+  <Category>Productivity: Tools:Utilities</Category>
+  <WebUI>http://[IP]:[PORT:8000]</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/halvar20000/wealth-dashboard/main/templates/wealth-dashboard.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/halvar20000/wealth-dashboard/main/icon.png</Icon>
+  <Requires>Nothing. No database container, no API key, no account anywhere &#8212; a browser is all that is needed to use it.&#13;&#10;&#13;&#10;Bank sync is optional and set up inside the app afterwards: it needs a free Enable Banking application (your own application ID and private key) and a bank in the EEA. Broker import, manual accounts and every page of the dashboard work without it.</Requires>
+
+  <Config Name="WebUI Port" Target="8000" Default="8000" Mode="tcp"
+          Description="Port the dashboard is reached on. If you change it, and you use bank sync, the Redirect URL registered with Enable Banking has to match the new one."
+          Type="Port" Display="always" Required="true" Mask="false">8000</Config>
+
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/wealth-dashboard" Mode="rw"
+          Description="Everything you own: the database, your settings, and /data/secrets holding the Enable Banking private key and the key that signs your sessions. Keep it on appdata and back it up &#8212; there is no password reset and no copy of any of this anywhere else."
+          Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/wealth-dashboard</Config>
+
+  <Config Name="Timezone" Target="TZ" Default="Europe/Berlin" Mode=""
+          Description="Your timezone, e.g. Europe/Berlin, Europe/London, America/New_York. It decides when a month rolls over for the cash flow and budget pages. Leave it wrong and 'this month' changes at UTC midnight."
+          Type="Variable" Display="always" Required="false" Mask="false">Europe/Berlin</Config>
+
+  <Config Name="Base currency (optional)" Target="WD_BASE_CURRENCY" Default="" Mode=""
+          Description="Leave BLANK &#8212; set the base currency in the app under Settings. Filling this in pins the value: the Settings page will accept a change and the container will overwrite it again on the next restart."
+          Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+
+  <Config Name="Bank redirect URL (optional)" Target="WD_REDIRECT_URL" Default="" Mode=""
+          Description="Leave BLANK &#8212; set it in the app under Settings, where it can be checked against what Enable Banking has registered. Filling this in pins the value the same way as the base currency above. For reference the value looks like http://YOUR-SERVER-IP:8000/connect/callback and must match a redirect URL registered in the Enable Banking Control Panel exactly."
+          Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+</Container>

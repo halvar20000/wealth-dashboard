@@ -2,3 +2,4 @@
 # install on a NAS, and something that can break on a Python upgrade.
 Flask>=3.0
 cryptography>=42.0     # signs the Enable Banking JWT; no pure-Python RS256
+waitress>=3.0          # the server that actually faces the LAN; pure Python

@@ -796,8 +796,21 @@ def main() -> None:
     if not has_users():
         print("  first run: open the URL above to create your account",
               flush=True)
-    # threaded: one slow bank call must not freeze every other page.
-    app.run(host=host, port=port, threaded=True)
+    # waitress where it is installed — which is everywhere the app is
+    # run from the image. Flask's own server says on every start that it
+    # is not for production use and is right: this one is reachable from
+    # a LAN, and on a NAS it may well be the thing a reverse proxy
+    # points at.
+    #
+    # Threads either way: one slow bank call must not freeze every other
+    # page.
+    try:
+        from waitress import serve
+    except ImportError:
+        app.run(host=host, port=port, threaded=True)
+    else:
+        serve(app, host=host, port=port, threads=8,
+              ident="wealth-dashboard")
 
 
 if __name__ == "__main__":

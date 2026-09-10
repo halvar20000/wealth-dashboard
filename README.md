@@ -40,6 +40,27 @@ categorisation, charts, forecasting. See [ROADMAP.md](ROADMAP.md).
 
 ## Install
 
+### Unraid
+
+**Apps** → search **wealth-dashboard** → **Install**. Set a port, leave the
+Data path on appdata, apply, open the WebUI. Nothing else is required: no
+database container, no API key. The
+[install guide](docs/INSTALL.md) covers backups, exposing it safely and the
+redirect URL, and the container template is in
+[`templates/`](templates/wealth-dashboard.xml).
+
+### Docker, anywhere
+
+```bash
+docker run -d --name wealth-dashboard -p 8000:8000 --restart unless-stopped \
+  -v /srv/wealth-dashboard:/data \
+  -e TZ=Europe/Berlin \
+  ghcr.io/halvar20000/wealth-dashboard:latest
+```
+
+One volume holds everything, credentials included — see *Where your data
+lives* for keeping those separate.
+
 ### From source
 
 ```bash
@@ -52,14 +73,16 @@ python -m app
 
 Then open <http://localhost:8000>.
 
-### Docker
+### From source, with compose
 
 ```bash
 docker compose up -d
 ```
 
-The compose file mounts `./data` for the database and `./secrets` for
-credentials. Keep them on real storage — see *Where your data lives*.
+The compose file builds the image locally and mounts `./data` for the
+database and `./secrets` for credentials — two mounts, so a backup of the
+data folder does not carry your bank key with it. Keep them on real
+storage — see *Where your data lives*.
 
 ---
 
@@ -205,14 +228,23 @@ WD_SECRETS_DIR=/etc/wealth-dashboard/secrets python -m app
 | `WD_PORT` | `8000` | Port |
 | `WD_SECRET_KEY` | generated and stored | Session signing key |
 | `WD_BASE_CURRENCY` | `EUR` | Reporting currency |
+| `WD_REDIRECT_URL` | `http://localhost:8000/connect/callback` | Where the bank sends you back |
+| `TZ` | `UTC` in the image | Which day it is, for the monthly pages |
+
+`WD_BASE_CURRENCY` and `WD_REDIRECT_URL` are also settable in the app under
+Settings — and when the variable is set, it wins on every start. Set one or
+the other, not both, or a change made in Settings will appear to save and
+then be overwritten by the next restart.
 
 ## Security
 
 The app holds a complete picture of your finances. It binds to localhost
 by default on purpose. Before exposing it to your LAN, set a strong
 password; do not expose it to the internet without a reverse proxy and
-TLS in front of it. The bundled server is Flask's development server —
-fine for one user on a home network, not a production web server.
+TLS in front of it. It serves over plain HTTP through waitress — a real
+server, but one with no rate limiting, no lockout and no second factor in
+front of the single password, so the reverse proxy is doing the work that
+matters on anything reachable from outside.
 
 Your Enable Banking private key is the credential. Anyone who can read it
 and knows your Application ID can act as your application. It is stored
@@ -224,7 +256,7 @@ and knows your Application ID can act as your application. It is stored
 python3 tests/test_all.py
 ```
 
-83 checks, no network, no pytest, no credentials. The whole bank flow —
+319 checks, no network, no pytest, no credentials. The whole bank flow —
 JWT signing, pagination, normalisation, connect, sync, dedupe, consent
 expiry — runs against a fake, so it works on a NAS with an unhelpful
 Python and no internet.

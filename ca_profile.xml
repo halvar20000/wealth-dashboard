@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<CommunityApplications>
+  <Profile>
+**Wealth Dashboard** is self-hosted net worth tracking. One SQLite file on your own server — no account with anybody, no telemetry, and no cloud component that could be switched off.
+
+**Highlights**
+- Accounts you enter by hand, because most of a net worth is things no API will ever tell you about.
+- Broker CSV import for Degiro and Trade Republic, recognised by their columns rather than chosen from a list — and re-importing an overlapping period is harmless.
+- Holdings computed from those trades: what you own, how much, and what you put in.
+- Overview, Portfolio, Cash Flow, Budget, Subscriptions, Transactions and Categorize — with categories that learn a rule once and apply it retroactively.
+- Optional read-only bank sync over PSD2 via [Enable Banking](https://enablebanking.com): one registration covers a few thousand banks across the EEA. You register your own application, so the consent is between you and your bank. The app cannot move money.
+
+**Nothing to configure.** No database container, no API key, no account anywhere — set a port, keep the Data path on appdata, start it, open the WebUI and create your login. Bank sync is set up later, inside the app, and nothing else waits on it.
+
+&#128190; **Everything you own is under `/data`** — the database, your settings, and in `/data/secrets` the bank credentials and the key that signs your sessions. Back that folder up. There is no password reset, because there is nobody to reset it.
+
+&#9888; **It holds your finances and it has one password.** Keep it on your LAN, or behind your own reverse proxy and access control. Do not port-forward it to the internet.
+
+&#128214; Install guide: https://github.com/halvar20000/wealth-dashboard/blob/main/docs/INSTALL.md
+
+Issues and support: https://github.com/halvar20000/wealth-dashboard/issues
+  </Profile>
+  <Icon>https://raw.githubusercontent.com/halvar20000/wealth-dashboard/main/icon.png</Icon>
+  <WebPage>https://github.com/halvar20000/wealth-dashboard</WebPage>
+</CommunityApplications>

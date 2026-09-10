@@ -1,5 +1,8 @@
 services:
   wealth-dashboard:
+    # Builds from this checkout. To run the published image instead,
+    # replace this line with:
+    #   image: ghcr.io/halvar20000/wealth-dashboard:latest
     build: .
     container_name: wealth-dashboard
     restart: unless-stopped
@@ -15,6 +18,9 @@ services:
     environment:
       WD_DATA_DIR: /data
       WD_SECRETS_DIR: /secrets
+      # Which day it is, and therefore where a month ends on the cash
+      # flow and budget pages.
+      TZ: Europe/Berlin
       WD_BASE_CURRENCY: EUR
       # Must match a redirect URL registered in the Enable Banking
       # Control Panel, exactly.
