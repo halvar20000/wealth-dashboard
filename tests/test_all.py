@@ -855,6 +855,92 @@ with db.get_conn() as conn:
 check("a rule does not recategorise a trade", trades, 0)
 
 # ---------------------------------------------------------------------------
+print("\n14b. Categories the user owns")
+# ---------------------------------------------------------------------------
+slug = cat.add_category("Childcare", "#ff8800")
+check("a new category gets a slug from its name", slug, "childcare")
+check("...and appears in the catalogue", slug in cat.all_categories(), True)
+check("...counted as spending unless told otherwise",
+      slug in cat.spending(), True)
+
+dup = False
+try:
+    cat.add_category("  childcare ", "#ff8800")
+except ValueError:
+    dup = True
+check("a second category with the same name is refused", dup, True)
+
+badcolour = False
+try:
+    cat.add_category("Nonsense", "puce")
+except ValueError:
+    badcolour = True
+check("a colour that is not a hex colour is refused", badcolour, True)
+
+# Renaming must not re-file anything: the slug is the identity, and it
+# is the slug that sits on every transaction.
+with db.get_conn() as conn:
+    victim = conn.execute("SELECT id FROM transactions LIMIT 1").fetchone()["id"]
+cat.set_category(victim, slug)
+cat.update_category(slug, "Kids", "#ff9900", cat.NON_SPENDING_GROUP)
+check("a rename keeps the slug", cat.label(slug), "Kids")
+check("...and the new colour", cat.colour(slug), "#ff9900")
+check("...and can move it out of spending", slug in cat.non_spending(), True)
+with db.get_conn() as conn:
+    still = conn.execute("SELECT COUNT(*) n FROM transactions "
+                         "WHERE category = ?", (slug,)).fetchone()["n"]
+check("...without re-filing the transactions it holds", still, 1)
+
+renamed_onto = False
+try:
+    cat.update_category(slug, "Housing", "#ff9900", cat.SPENDING_GROUP)
+except ValueError:
+    renamed_onto = True
+check("a rename onto another category's name is refused", renamed_onto, True)
+
+# A built-in can be edited and removed too; removing it must not leave a
+# transaction pointing at a category that no longer exists.
+cat.update_category("food", "Food & drink", "#f5d76e", cat.SPENDING_GROUP)
+check("a built-in can be renamed", cat.label("food"), "Food & drink")
+
+cat.add_rule("kidsclub", slug)
+moved = cat.delete_category(slug)
+check("deleting reports what it moved", moved, 1)
+check("...and the category is gone", slug in cat.all_categories(), False)
+with db.get_conn() as conn:
+    orphan = conn.execute("SELECT COUNT(*) n FROM transactions "
+                          "WHERE category = ?", (slug,)).fetchone()["n"]
+    left = conn.execute("SELECT COUNT(*) n FROM category_rules "
+                        "WHERE category = ?", (slug,)).fetchone()["n"]
+check("...leaving no transaction pointing at it", orphan, 0)
+check("...and no rule filing into it", left, 0)
+
+protected = False
+try:
+    cat.delete_category("other")
+except ValueError:
+    protected = True
+check("the category deleted rows fall back to is itself undeletable",
+      protected, True)
+# Cash flow keys off `income`/`investment`/`transfer` by name, so a form
+# that moves one into spending must be ignored rather than obeyed.
+cat.update_category("income", "Income", "#34d399", cat.SPENDING_GROUP)
+check("the three cash flow knows by name keep their group",
+      "income" in cat.non_spending(), True)
+
+check("nor can 'transfer', which is what keeps a transfer out of spending",
+      any(not c["deletable"] for c in cat.catalogue() if c["slug"] == "transfer"),
+      True)
+
+cat.delete_category("education")
+check("a built-in can be removed", "education" in cat.all_categories(), False)
+restored = cat.add_category("Education", "#38bdf8")
+check("...and adding it again revives the same slug", restored, "education")
+
+check("the catalogue says how much each category holds",
+      all("transactions" in c for c in cat.catalogue()), True)
+
+# ---------------------------------------------------------------------------
 print("\n15. Cash flow")
 # ---------------------------------------------------------------------------
 flow = cf.monthly(months=24)
@@ -962,6 +1048,42 @@ for tpl in sorted(pathlib.Path("app/templates").glob("*.html")):
         if "{% block " + block + " %}" in tpl.read_text():
             check(f"base.html renders {block!r} for {tpl.name}",
                   "block " + block in base_src, True)
+
+# ---------------------------------------------------------------------------
+print("\n18. Managing categories from the Settings page")
+# ---------------------------------------------------------------------------
+r = c.get("/settings")
+check("the settings page offers the category editor", b'id="categories"' in r.data, True)
+import html as _html                                      # noqa: E402
+check("...with every category in it",
+      all(_html.escape(cc["label"]).encode() in r.data
+          for cc in cat.catalogue()), True)
+
+c.post("/settings", data={"form": "category_new", "label": "Hobbies",
+                          "colour": "#123456", "group": "spending"})
+check("a category can be added from the page", cat.label("hobbies"), "Hobbies")
+check("...with the colour that was picked", cat.colour("hobbies"), "#123456")
+
+c.post("/settings", data={"form": "category_edit", "slug": "hobbies",
+                          "label": "Hobbies & sport", "colour": "#abcdef",
+                          "group": "non_spending"})
+check("...edited from the page", cat.label("hobbies"), "Hobbies & sport")
+check("...and moved out of spending", "hobbies" in cat.non_spending(), True)
+
+r = c.post("/settings", data={"form": "category_delete", "slug": "hobbies"},
+           follow_redirects=True)
+check("...and deleted from the page", "hobbies" in cat.all_categories(), False)
+
+r = c.post("/settings", data={"form": "category_delete", "slug": "other"},
+           follow_redirects=True)
+check("deleting a load-bearing category is refused with a sentence",
+      b"cannot be removed" in r.data, True)
+check("...and it is still there", "other" in cat.all_categories(), True)
+
+r = c.post("/settings", data={"form": "category_new", "label": "",
+                              "colour": "#123456", "group": "spending"},
+           follow_redirects=True)
+check("a nameless category is refused", b"needs a name" in r.data, True)
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

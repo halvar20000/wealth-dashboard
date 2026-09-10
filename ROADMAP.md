@@ -22,7 +22,9 @@ it does not do yet.
 - [x] Portfolio, Cash Flow, Budget, Subscriptions, Transactions and
       Categorize pages.
 - [x] Categories with learned rules that apply retroactively.
-- [x] 288 offline checks covering the whole flow.
+- [x] Categories the user owns: add, rename, recolour and delete them
+      under Settings.
+- [x] 319 offline checks covering the whole flow.
 
 ## Next
 

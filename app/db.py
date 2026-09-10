@@ -115,6 +115,23 @@ CREATE TABLE IF NOT EXISTS category_rules (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- The user's own categories, and their edits to the built-in ones. A
+-- row here either overrides a built-in — a new name, a new colour, or
+-- `hidden` for one they removed — or is a category they invented. The
+-- built-in list stays in categories.py: this table is only the delta, so
+-- a category the user never touched picks up a better default colour
+-- when the app ships one.
+CREATE TABLE IF NOT EXISTS categories (
+    slug       TEXT PRIMARY KEY,
+    label      TEXT NOT NULL,
+    colour     TEXT NOT NULL,
+    -- 'spending' or 'non_spending'. Non-spending is what keeps moving
+    -- your own money from being counted as spending it.
+    cat_group  TEXT NOT NULL DEFAULT 'spending',
+    hidden     INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- What the user budgeted for a category, per month. One row per
 -- category; a month with no row simply has no budget.
 CREATE TABLE IF NOT EXISTS budgets (

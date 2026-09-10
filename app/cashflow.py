@@ -19,8 +19,6 @@ from datetime import date
 from . import categories
 from .db import get_conn
 
-SPENDING = set(categories.SPENDING)
-
 
 def _month_floor(months_back: int) -> str:
     today = date.today()
@@ -52,6 +50,10 @@ def monthly(months: int = 13, base_currency: str = "EUR") -> dict:
              ORDER BY month
             """, (since, base_currency)).fetchall()
 
+    # Read once, not per row: the user can change which categories count
+    # as spending, so this cannot be a constant fixed at import time.
+    spending = set(categories.spending())
+
     months_map: dict[str, dict] = {}
     by_category: dict[str, float] = {}
     for r in rows:
@@ -65,7 +67,7 @@ def monthly(months: int = 13, base_currency: str = "EUR") -> dict:
             m["income"] += total
         elif cat == "investment":
             m["investment"] += abs(total)
-        elif cat in SPENDING:
+        elif cat in spending:
             # Spending is stored as a negative amount; report it as a
             # positive size, because "you spent -1,200" reads as income
             # to everyone who is not a bookkeeper.

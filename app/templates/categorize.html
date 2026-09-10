@@ -50,8 +50,8 @@ stops asking.</p>
           <td class="num {{ 'pos' if t.amount > 0 else 'neg' }}">{{ money(t.amount, t.currency) }}</td>
           <td>
             <select name="category" style="padding:5px 8px;font-size:12.5px;width:auto;">
-              {% for slug, meta in categories.ALL.items() %}
-              <option value="{{ slug }}" {{ 'selected' if t.suggestion == slug }}>{{ meta[0] }}</option>
+              {% for slug, meta in categories.all_categories().items() %}
+              <option value="{{ slug }}" {{ 'selected' if t.suggestion == slug }}>{{ meta.label }}</option>
               {% endfor %}
             </select>
           </td>

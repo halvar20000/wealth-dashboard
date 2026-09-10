@@ -9,8 +9,8 @@
   <div><label for="category">Category</label>
     <select id="category" name="category">
       <option value="">any</option>
-      {% for slug, meta in categories.ALL.items() %}
-      <option value="{{ slug }}" {{ 'selected' if category == slug }}>{{ meta[0] }}</option>
+      {% for slug, meta in categories.all_categories().items() %}
+      <option value="{{ slug }}" {{ 'selected' if category == slug }}>{{ meta.label }}</option>
       {% endfor %}
     </select></div>
   <div><label for="account">Account</label>
@@ -55,8 +55,8 @@
               <input type="hidden" name="back" value="{{ request.full_path }}">
               <select name="category" onchange="this.form.submit()"
                       style="padding:4px 8px;font-size:12px;width:auto;">
-                {% for slug, meta in categories.ALL.items() %}
-                <option value="{{ slug }}" {{ 'selected' if (t.category or 'other') == slug }}>{{ meta[0] }}</option>
+                {% for slug, meta in categories.all_categories().items() %}
+                <option value="{{ slug }}" {{ 'selected' if (t.category or 'other') == slug }}>{{ meta.label }}</option>
                 {% endfor %}
               </select>
             </form>

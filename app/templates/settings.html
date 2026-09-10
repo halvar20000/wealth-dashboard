@@ -20,6 +20,75 @@
   </form>
 </div>
 
+<div class="card" id="categories">
+  <div class="card-header">
+    <h2>Categories</h2>
+    <span class="card-subtitle">renaming one keeps every transaction it holds</span>
+  </div>
+  <p class="sub">A category is identified internally by the name it was created
+     with, so renaming or recolouring one never re-files a transaction — the
+     Groceries you already sorted stay sorted whatever you call them. What
+     “counts as” decides is whether Cash Flow and Budget treat the money as
+     spent, or merely as moved: pay for lunch and it is spending, move €500 to
+     your broker and it is not.</p>
+
+  <div class="cat-list">
+  {% for c in catalogue %}
+    <div class="cat-row">
+      <form method="post" class="cat-edit">
+        <input type="hidden" name="form" value="category_edit">
+        <input type="hidden" name="slug" value="{{ c.slug }}">
+        <input type="color" class="swatch" name="colour" value="{{ c.colour }}"
+               aria-label="Colour for {{ c.label }}">
+        <input name="label" value="{{ c.label }}" maxlength="40"
+               aria-label="Name of {{ c.label }}">
+        {% if c.group_locked %}
+        <span class="sub cat-fixed" title="Cash Flow knows this one by name — it is never counted as spending.">not spending</span>
+        {% else %}
+        <select name="group" aria-label="What {{ c.label }} counts as">
+          <option value="spending" {{ 'selected' if c.group == 'spending' }}>Spending</option>
+          <option value="non_spending" {{ 'selected' if c.group == 'non_spending' }}>Not spending</option>
+        </select>
+        {% endif %}
+        <button type="submit" class="btn-ghost">Save</button>
+      </form>
+      <span class="sub cat-usage">
+        {{ c.transactions }} transaction{{ '' if c.transactions == 1 else 's' }}{% if c.rules %} · {{ c.rules }} rule{{ '' if c.rules == 1 else 's' }}{% endif %}
+      </span>
+      {% if c.deletable %}
+        <form method="post" class="cat-delete" onsubmit="return confirm('Delete this category? {{ c.transactions }} transaction(s) move to Uncategorised{% if c.rules %}, and {{ c.rules }} rule(s) are deleted with it{% endif %}.');">
+          <input type="hidden" name="form" value="category_delete">
+          <input type="hidden" name="slug" value="{{ c.slug }}">
+          <button class="btn-danger" type="submit">Delete</button>
+        </form>
+      {% else %}
+        <span class="tag tag-muted" title="The app tells spending from moving your own money by this category, so it cannot be removed.">needed</span>
+      {% endif %}
+    </div>
+  {% endfor %}
+  </div>
+
+  <form method="post" class="form inline cat-new">
+    <input type="hidden" name="form" value="category_new">
+    <div>
+      <label for="new_colour">Colour</label>
+      <input type="color" class="swatch" id="new_colour" name="colour" value="#5b9dff">
+    </div>
+    <div>
+      <label for="new_label">New category</label>
+      <input id="new_label" name="label" maxlength="40" placeholder="Childcare">
+    </div>
+    <div>
+      <label for="new_group">Counts as</label>
+      <select id="new_group" name="group">
+        <option value="spending">Spending</option>
+        <option value="non_spending">Not spending</option>
+      </select>
+    </div>
+    <button type="submit">Add category</button>
+  </form>
+</div>
+
 <div class="card">
   <h2>Enable Banking</h2>
   {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}

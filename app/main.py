@@ -9,7 +9,7 @@ The route list is the whole product so far, in order of first use:
     /                   accounts and their balances
     /accounts/new       create an account by hand
     /accounts/<id>      one account: balance, transactions, connection
-    /settings           Enable Banking credentials and the redirect URL
+    /settings           categories, Enable Banking credentials, redirect URL
     /connect/<id>       choose a bank
     /connect/<id>/start begin authorisation — leaves for the bank
     /connect/callback   the bank sends the user back here
@@ -508,7 +508,7 @@ def budget_page():
     return render_template(
         "budget.html", active_page="budget",
         report=cashflow.budget_report(settings.get("base_currency", "EUR")),
-        spending=categories.SPENDING)
+        spending=categories.spending())
 
 
 @app.route("/subscriptions")
@@ -525,6 +525,42 @@ def portfolio_page():
     return render_template(
         "portfolio.html", active_page="portfolio",
         s=overview.summary(settings.get("base_currency", "EUR")))
+
+
+def _category_form(form) -> None:
+    """Add, edit or remove one category, and say what it did.
+
+    Deleting is the one that needs a sentence rather than a tick: the
+    transactions that carried the category do not disappear with it, they
+    move to Uncategorised, and a user who is not told that will go
+    looking for money that seems to have gone missing.
+    """
+    action = form.get("form")
+    try:
+        if action == "category_new":
+            categories.add_category(form.get("label", ""),
+                                    form.get("colour", ""),
+                                    form.get("group", categories.SPENDING_GROUP))
+            flash(f"Category “{form.get('label').strip()}” added.", "ok")
+        elif action == "category_edit":
+            categories.update_category(form.get("slug", ""),
+                                       form.get("label", ""),
+                                       form.get("colour", ""),
+                                       form.get("group",
+                                                categories.SPENDING_GROUP))
+            flash("Category updated.", "ok")
+        elif action == "category_delete":
+            slug = form.get("slug", "")
+            name = categories.label(slug)
+            moved = categories.delete_category(slug)
+            if moved:
+                flash(f"“{name}” deleted — {moved} transaction(s) moved to "
+                      f"Uncategorised, and its rules were removed with it.",
+                      "ok")
+            else:
+                flash(f"“{name}” deleted.", "ok")
+    except ValueError as exc:
+        flash(str(exc), "error")
 
 
 @app.route("/settings", methods=["GET", "POST"])
@@ -545,6 +581,9 @@ def settings_page():
                 return redirect(url_for("settings_page", check=1))
             except ValueError as exc:
                 error = str(exc)
+        elif request.form.get("form", "").startswith("category"):
+            _category_form(request.form)
+            return redirect(url_for("settings_page") + "#categories")
         else:
             cfg["base_currency"] = (request.form.get("base_currency")
                                     or "EUR").upper()[:3]
@@ -568,6 +607,8 @@ def settings_page():
                            configured=banksync.credentials_present(),
                            secrets_dir=str(settings.SECRETS_DIR),
                            secrets_inside_data=settings.SECRETS_INSIDE_DATA,
+                           catalogue=categories.catalogue(),
+                           groups=categories.GROUPS,
                            check=check)
 
 

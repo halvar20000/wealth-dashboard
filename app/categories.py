@@ -20,10 +20,12 @@ from __future__ import annotations
 
 from .db import get_conn
 
-# The spending categories. Deliberately ordinary — no hobby of one
-# household's is in here, because a category nobody uses still takes a
-# colour and a row in every breakdown. Users add their own.
-SPENDING = {
+# The spending categories a fresh install starts with. Deliberately
+# ordinary — no hobby of one household's is in here, because a category
+# nobody uses still takes a colour and a row in every breakdown. Users
+# add their own under Settings, and may rename, recolour or remove any
+# of these; the built-ins are defaults, not a fixed list.
+_BUILTIN_SPENDING = {
     "housing":        ("Housing", "#a78bfa"),
     "food":           ("Groceries", "#f5d76e"),
     "restaurants":    ("Restaurants & bars", "#f43f5e"),
@@ -45,25 +47,261 @@ SPENDING = {
 # Not spending. The distinction is what stops a transfer between your own
 # accounts from being counted as money you spent — and counted twice,
 # once on each side.
-NON_SPENDING = {
+_BUILTIN_NON_SPENDING = {
     "income":     ("Income", "#34d399"),
     "investment": ("Investment", "#5b9dff"),
     "transfer":   ("Internal transfer", "#64748b"),
 }
 
-ALL = {**SPENDING, **NON_SPENDING}
+SPENDING_GROUP = "spending"
+NON_SPENDING_GROUP = "non_spending"
+GROUPS = (SPENDING_GROUP, NON_SPENDING_GROUP)
+
+BUILTIN: dict[str, tuple[str, str, str]] = {
+    **{slug: (name, col, SPENDING_GROUP)
+       for slug, (name, col) in _BUILTIN_SPENDING.items()},
+    **{slug: (name, col, NON_SPENDING_GROUP)
+       for slug, (name, col) in _BUILTIN_NON_SPENDING.items()},
+}
+
+# Four slugs the code itself reasons about by name: `other` is where a
+# row lands when it has no category and where a deleted category's rows
+# are moved to, and cashflow.py treats `income`, `investment` and
+# `transfer` specially so that moving your own money is not counted as
+# spending it. They can be renamed and recoloured like any other — what
+# they cannot be is deleted, because nothing would replace them.
+PROTECTED = frozenset({"other", "income", "investment", "transfer"})
+
+# Three of those four have their meaning wired into cashflow.py by name:
+# income is income, investment is investment, and a transfer is neither,
+# whatever group the catalogue puts them in. Offering a “counts as”
+# control for them would be offering a control that does nothing, so the
+# UI shows theirs as fixed and a form that says otherwise is ignored.
+GROUP_LOCKED = frozenset({"income", "investment", "transfer"})
+
+
+# ─── The catalogue ───────────────────────────────────────────────────
+# What the user sees is the built-ins overlaid with their own edits. A
+# row in `categories` either overrides a built-in (a new name, a new
+# colour, hidden) or is a category of their own; either way the slug is
+# the identity, and the slug is what every transaction stores. So a
+# rename is a rename — it never re-files a single row — and that is why
+# renaming is offered and changing a slug is not.
+
+_cache: dict[str, dict] | None = None
+
+
+def invalidate() -> None:
+    """Forget the cached catalogue. Called after every write."""
+    global _cache
+    _cache = None
+
+
+def _build() -> dict[str, dict]:
+    with get_conn() as conn:
+        rows = {r["slug"]: dict(r) for r in
+                conn.execute("SELECT * FROM categories").fetchall()}
+
+    entries: dict[str, dict] = {}
+    for slug, (name, col, group) in BUILTIN.items():
+        row = rows.pop(slug, None)
+        if row and row["hidden"]:
+            continue
+        entries[slug] = {
+            "slug": slug,
+            "label": (row or {}).get("label") or name,
+            "colour": (row or {}).get("colour") or col,
+            "group": (row or {}).get("cat_group") or group,
+            "builtin": True,
+        }
+    for slug, row in sorted(rows.items(),
+                            key=lambda kv: (kv[1]["label"] or "").lower()):
+        if row["hidden"]:
+            continue
+        entries[slug] = {
+            "slug": slug, "label": row["label"], "colour": row["colour"],
+            "group": row["cat_group"], "builtin": False,
+        }
+
+    # Spending first, then the rest: every page that lists categories
+    # wants them in that order, and doing it once here means no page has
+    # to think about it.
+    return {slug: e for group in GROUPS
+            for slug, e in entries.items() if e["group"] == group}
+
+
+def all_categories() -> dict[str, dict]:
+    """Every category in use, spending first. Cached — the transactions
+    page asks once per row, and that is 400 queries otherwise."""
+    global _cache
+    if _cache is None:
+        _cache = _build()
+    return _cache
+
+
+def spending() -> dict[str, dict]:
+    return {s: e for s, e in all_categories().items()
+            if e["group"] == SPENDING_GROUP}
+
+
+def non_spending() -> dict[str, dict]:
+    return {s: e for s, e in all_categories().items()
+            if e["group"] == NON_SPENDING_GROUP}
 
 
 def label(slug: str | None) -> str:
     if not slug:
-        return SPENDING["other"][0]
-    if slug in ALL:
-        return ALL[slug][0]
+        slug = "other"
+    entry = all_categories().get(slug)
+    if entry:
+        return entry["label"]
+    # A slug that no longer exists still sits on old rows; show it
+    # rather than pretending the row has no category at all.
     return slug.replace("_", " ").capitalize()
 
 
 def colour(slug: str | None) -> str:
-    return ALL.get(slug or "other", SPENDING["other"])[1]
+    cats = all_categories()
+    entry = cats.get(slug or "other") or cats.get("other")
+    return entry["colour"] if entry else _BUILTIN_SPENDING["other"][1]
+
+
+def usage() -> dict[str, int]:
+    """How many transactions carry each slug — so the delete button can
+    say what it is about to move."""
+    with get_conn() as conn:
+        return {r["category"]: r["n"] for r in conn.execute(
+            "SELECT COALESCE(NULLIF(category, ''), 'other') AS category, "
+            "       COUNT(*) AS n FROM transactions GROUP BY 1").fetchall()}
+
+
+def catalogue() -> list[dict]:
+    """The list the settings page edits: every category, with how many
+    transactions and rules would be affected by removing it."""
+    counts = usage()
+    with get_conn() as conn:
+        rule_counts: dict[str, int] = {r["category"]: r["n"] for r in conn.execute(
+            "SELECT category, COUNT(*) AS n FROM category_rules GROUP BY 1")}
+    out = []
+    for entry in all_categories().values():
+        out.append({**entry,
+                    "transactions": counts.get(entry["slug"], 0),
+                    "rules": rule_counts.get(entry["slug"], 0),
+                    "deletable": entry["slug"] not in PROTECTED,
+                    "group_locked": entry["slug"] in GROUP_LOCKED})
+    return out
+
+
+def _slugify(name: str) -> str:
+    slug = "".join(c if c.isalnum() else "_" for c in (name or "").lower())
+    return "_".join(part for part in slug.split("_") if part)[:40]
+
+
+def _clean(name: str, hex_colour: str, group: str) -> tuple[str, str, str]:
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("A category needs a name.")
+    if len(name) > 40:
+        raise ValueError("Keep the name under 40 characters — it has to fit "
+                         "in a table cell and a chart legend.")
+    hex_colour = (hex_colour or "").strip().lower()
+    if not (len(hex_colour) == 7 and hex_colour[0] == "#"
+            and all(c in "0123456789abcdef" for c in hex_colour[1:])):
+        raise ValueError(f"{hex_colour or 'That'} is not a colour like #a78bfa.")
+    if group not in GROUPS:
+        raise ValueError(f"Unknown group {group!r}")
+    return name, hex_colour, group
+
+
+def add_category(name: str, hex_colour: str,
+                 group: str = SPENDING_GROUP) -> str:
+    """Create a category and return its slug."""
+    name, hex_colour, group = _clean(name, hex_colour, group)
+    slug = _slugify(name)
+    if not slug:
+        raise ValueError("That name has no letters or digits in it, and the "
+                         "name is what the internal id is made from.")
+    existing = all_categories()
+    if slug in existing:
+        raise ValueError(f"“{existing[slug]['label']}” already uses that name.")
+    for entry in existing.values():
+        if entry["label"].casefold() == name.casefold():
+            raise ValueError(f"There is already a category called "
+                             f"“{entry['label']}”.")
+    with get_conn() as conn:
+        # A built-in the user deleted earlier is un-deleted rather than
+        # duplicated: the slug is already on their old transactions, and
+        # a second category with the same slug cannot exist anyway.
+        conn.execute(
+            "INSERT INTO categories (slug, label, colour, cat_group, hidden) "
+            "VALUES (?, ?, ?, ?, 0) "
+            "ON CONFLICT(slug) DO UPDATE SET label = excluded.label, "
+            "  colour = excluded.colour, cat_group = excluded.cat_group, hidden = 0",
+            (slug, name, hex_colour, group))
+    invalidate()
+    return slug
+
+
+def update_category(slug: str, name: str, hex_colour: str, group: str) -> None:
+    """Rename, recolour, or move a category between spending and not.
+
+    The slug never changes, so no transaction is re-filed by an edit.
+    The three slugs cashflow.py knows by name keep their group whatever
+    the form asked for — see GROUP_LOCKED.
+    """
+    existing = all_categories()
+    if slug not in existing:
+        raise ValueError(f"Unknown category {slug!r}")
+    if slug in GROUP_LOCKED:
+        group = BUILTIN[slug][2]
+    name, hex_colour, group = _clean(name, hex_colour, group)
+    for other, entry in existing.items():
+        if other != slug and entry["label"].casefold() == name.casefold():
+            raise ValueError(f"There is already a category called "
+                             f"“{entry['label']}”.")
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO categories (slug, label, colour, cat_group, hidden) "
+            "VALUES (?, ?, ?, ?, 0) "
+            "ON CONFLICT(slug) DO UPDATE SET label = excluded.label, "
+            "  colour = excluded.colour, cat_group = excluded.cat_group, hidden = 0",
+            (slug, name, hex_colour, group))
+    invalidate()
+
+
+def delete_category(slug: str) -> int:
+    """Remove a category and return how many transactions it held.
+
+    Those transactions are moved to “Uncategorised” rather than left
+    pointing at something that no longer exists, and the rules that
+    assigned the category go with it — a rule that files into a deleted
+    category would put every future import back into limbo.
+    """
+    cats = all_categories()
+    if slug not in cats:
+        raise ValueError(f"Unknown category {slug!r}")
+    if slug in PROTECTED:
+        raise ValueError(
+            f"“{cats[slug]['label']}” is one of the four the app itself uses "
+            f"to tell spending from moving your own money. Rename it or give "
+            f"it another colour, but it cannot be removed.")
+    with get_conn() as conn:
+        moved = conn.execute(
+            "UPDATE transactions SET category = 'other' WHERE category = ?",
+            (slug,)).rowcount
+        conn.execute("DELETE FROM category_rules WHERE category = ?", (slug,))
+        conn.execute("DELETE FROM budgets WHERE category = ?", (slug,))
+        if slug in BUILTIN:
+            conn.execute(
+                "INSERT INTO categories (slug, label, colour, cat_group, hidden) "
+                "VALUES (?, ?, ?, ?, 1) "
+                "ON CONFLICT(slug) DO UPDATE SET hidden = 1",
+                (slug, cats[slug]["label"], cats[slug]["colour"],
+                 cats[slug]["group"]))
+        else:
+            conn.execute("DELETE FROM categories WHERE slug = ?", (slug,))
+    invalidate()
+    return moved
 
 
 # ─── Built-in hints ──────────────────────────────────────────────────
@@ -140,7 +378,7 @@ def add_rule(pattern: str, category: str) -> int:
         raise ValueError("A rule needs at least three characters to match on — "
                          "anything shorter will catch transactions you did not "
                          "mean.")
-    if category not in ALL:
+    if category not in all_categories():
         raise ValueError(f"Unknown category {category!r}")
     with get_conn() as conn:
         cur = conn.execute(
@@ -176,7 +414,7 @@ def apply_all() -> int:
 
 
 def set_category(txn_id: int, category: str) -> None:
-    if category not in ALL:
+    if category not in all_categories():
         raise ValueError(f"Unknown category {category!r}")
     with get_conn() as conn:
         conn.execute("UPDATE transactions SET category = ? WHERE id = ?",

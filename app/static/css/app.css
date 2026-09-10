@@ -224,6 +224,30 @@ button:hover, .btn:hover { filter: brightness(1.08); text-decoration: none; }
 .form.inline button { margin-top: 0; }
 .grid button, .grid .btn { margin: 0; padding: 5px 12px; font-size: 12.5px; }
 
+/* ─── The category editor ─────────────────────────────────────── */
+
+.cat-list { display: flex; flex-direction: column; gap: 6px; margin: 18px 0 4px; }
+.cat-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 10px; border-radius: 10px; background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+.cat-edit { display: flex; align-items: center; gap: 8px; flex: 1 1 380px; }
+.cat-edit input[name="label"] { flex: 1 1 150px; min-width: 120px; padding: 6px 10px; font-size: 13px; }
+.cat-edit select { width: auto; padding: 6px 10px; font-size: 12.5px; }
+.cat-row button { margin: 0; padding: 6px 12px; font-size: 12.5px; }
+/* Pushed right so the destructive button is never where Save was a row ago. */
+.cat-usage { margin-left: auto; white-space: nowrap; }
+
+.swatch {
+  width: 34px; height: 30px; flex: 0 0 auto;
+  padding: 2px; border-radius: 8px; cursor: pointer;
+  background: var(--bg-primary); border: 1px solid var(--border-strong);
+}
+.cat-fixed { white-space: nowrap; font-style: italic; }
+.cat-new { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); }
+.cat-new .swatch { height: 38px; }
+
 /* ─── Chips, flashes, misc ────────────────────────────────────── */
 
 .tag {
