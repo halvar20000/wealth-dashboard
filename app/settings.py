@@ -52,6 +52,10 @@ SECRETS_INSIDE_DATA = SECRETS_DIR.resolve() == DATA_DIR.resolve() or \
 DEFAULTS: dict[str, Any] = {
     "version": 1,
     "base_currency": "EUR",
+    # Empty means "whatever the browser asks for, English if it asks for
+    # nothing we speak". A fresh install in a German browser should be
+    # in German before anybody finds a setting to put it there.
+    "language": "",
     # Where the bank sends the user back after they authenticate. It has
     # to match a URL registered in the Enable Banking control panel
     # EXACTLY, so it is a setting rather than something derived from the

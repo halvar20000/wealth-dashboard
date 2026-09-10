@@ -5,116 +5,109 @@
 
 <div class="cards">
   <div class="card stat">
-    <div class="stat-label">Balance</div>
+    <div class="stat-label">{{ _("Balance") }}</div>
     <div class="stat-value">
-      {% if balance %}{{ '%.2f'|format(balance.amount) }} {{ balance.currency }}
+      {% if balance %}{{ money(balance.amount, balance.currency) }}
       {% else %}—{% endif %}
     </div>
     <div class="sub">
-      {% if balance %}{{ balance.balance_type or 'reported' }} · as of {{ balance.as_of }}
-      {% else %}nothing imported yet{% endif %}
+      {% if balance %}{{ balance.balance_type or _("reported") }} · {{ _f("as of {date}", date=d(balance.as_of)) }}
+      {% else %}{{ _("nothing imported yet") }}{% endif %}
     </div>
   </div>
   <div class="card stat">
-    <div class="stat-label">Transactions</div>
+    <div class="stat-label">{{ _("Transactions") }}</div>
     <div class="stat-value">{{ total_transactions }}</div>
-    <div class="sub">{{ account.currency }} · {{ account.type }}</div>
+    <div class="sub">{{ account.currency }} · {{ type_label(account.type) }}</div>
   </div>
 </div>
 
 <div class="card">
-  <h2>Bank connection</h2>
+  <h2>{{ _("Bank connection") }}</h2>
   {% if link %}
     <p><strong>{{ link.aspsp_name }}</strong> ({{ link.aspsp_country }}){% if link.iban %} · {{ link.iban }}{% endif %}</p>
     <p class="sub">
-      Last sync: {{ link.last_sync_at or 'never' }}.
+      {{ _f("Last sync: {when}.", when=(d(link.last_sync_at) if link.last_sync_at else _("never"))) }}
       {% if link.days_left is not none %}
         {% if link.days_left > 7 %}
-          Consent valid for {{ link.days_left }} more days.
+          {{ _n(link.days_left, "Consent valid for {n} more day.", "Consent valid for {n} more days.") }}
         {% elif link.days_left >= 0 %}
-          Consent expires in {{ link.days_left }} day(s) — reconnect soon.
+          {{ _n(link.days_left, "Consent expires in {n} day — reconnect soon.", "Consent expires in {n} days — reconnect soon.") }}
         {% else %}
-          Consent expired. Reconnect to resume syncing.
+          {{ _("Consent expired. Reconnect to resume syncing.") }}
         {% endif %}
       {% endif %}
     </p>
     {% if link.last_error %}<div class="flash flash-error">{{ link.last_error }}</div>{% endif %}
     <form method="post" action="{{ url_for('account_sync', account_id=account.id) }}">
-      <button type="submit">Sync now</button>
+      <button type="submit">{{ _("Sync now") }}</button>
     </form>
-    <p class="sub"><a href="{{ url_for('connect_pick', account_id=account.id) }}">Reconnect or change bank</a></p>
+    <p class="sub"><a href="{{ url_for('connect_pick', account_id=account.id) }}">{{ _("Reconnect or change bank") }}</a></p>
   {% else %}
-    <p class="sub">This account is not connected to a bank. Connecting it pulls
-       the balance and the transaction history straight from the bank, with your
-       own Enable Banking credentials.</p>
+    <p class="sub">{{ _("This account is not connected to a bank. Connecting it pulls the balance and the transaction history straight from the bank, with your own Enable Banking credentials.") }}</p>
     {% if configured %}
-      <p><a class="btn" href="{{ url_for('connect_pick', account_id=account.id) }}">Connect a bank</a></p>
-      <p class="sub">Started one already and landed on a dead page?
-         <a href="{{ url_for('connect_paste') }}">Paste the code here</a>.</p>
+      <p><a class="btn" href="{{ url_for('connect_pick', account_id=account.id) }}">{{ _("Connect a bank") }}</a></p>
+      {% set paste_link %}<a href="{{ url_for('connect_paste') }}">{{ _("Paste the code here") }}</a>{% endset %}
+      <p class="sub">{{ _f("Started one already and landed on a dead page? {paste}.", paste=paste_link) | safe }}</p>
     {% else %}
-      <p class="sub">Add your Enable Banking Application ID and private key in
-         <a href="{{ url_for('settings_page') }}">Settings</a> first.</p>
+      {% set settings_link %}<a href="{{ url_for('settings_page') }}">{{ _("Settings") }}</a>{% endset %}
+      <p class="sub">{{ _f("Add your Enable Banking Application ID and private key in {settings} first.", settings=settings_link) | safe }}</p>
     {% endif %}
   {% endif %}
 </div>
 
-<p><a class="btn" href="{{ url_for('account_import', account_id=account.id) }}">Import a broker CSV</a>
-   <a class="btn btn-ghost" href="{{ url_for('account_edit', account_id=account.id) }}">Edit or delete</a></p>
+<p><a class="btn" href="{{ url_for('account_import', account_id=account.id) }}">{{ _("Import a broker CSV") }}</a>
+   <a class="btn btn-ghost" href="{{ url_for('account_edit', account_id=account.id) }}">{{ _("Edit or delete") }}</a></p>
 
 {% if positions %}
-<h2>Holdings</h2>
+<h2>{{ _("Holdings") }}</h2>
 <table class="grid">
   <thead>
-    <tr><th>Security</th><th>ISIN</th><th class="num">Quantity</th>
-        <th class="num">Net invested</th><th class="num">Last traded at</th>
-        <th class="num">At that price</th></tr>
+    <tr><th>{{ _("Security") }}</th><th>{{ _("ISIN") }}</th><th class="num">{{ _("Quantity") }}</th>
+        <th class="num">{{ _("Net invested") }}</th><th class="num">{{ _("Last traded at") }}</th>
+        <th class="num">{{ _("At that price") }}</th></tr>
   </thead>
   <tbody>
   {% for p in positions %}
     <tr>
-      <td>{{ p.name or '—' }}<span class="sub">{{ p.trades }} trade(s), last {{ p.last_trade }}</span></td>
+      <td>{{ p.name or '—' }}<span class="sub">{{ _n(p.trades, "{n} trade", "{n} trades") }}, {{ _f("last {date}", date=d(p.last_trade)) }}</span></td>
       <td class="sub nowrap">{{ p.isin }}</td>
       <td class="num {{ 'neg' if p.incomplete_history }}">
-        {{ '%.4f'|format(p.quantity)|replace('.0000','') }}
-        {% if p.incomplete_history %}<span class="sub">export starts too late</span>{% endif %}
+        {{ qty(p.quantity) }}
+        {% if p.incomplete_history %}<span class="sub">{{ _("export starts too late") }}</span>{% endif %}
       </td>
-      <td class="num">{{ '%.2f'|format(p.net_invested) }} {{ p.currency }}</td>
-      <td class="num sub">{% if p.last_price %}{{ '%.4f'|format(p.last_price) }}{% else %}—{% endif %}</td>
-      <td class="num">{% if p.value_at_last_price %}{{ '%.2f'|format(p.value_at_last_price) }}{% else %}—{% endif %}</td>
+      <td class="num">{{ money(p.net_invested, p.currency) }}</td>
+      <td class="num sub">{% if p.last_price %}{{ qty(p.last_price) }}{% else %}—{% endif %}</td>
+      <td class="num">{% if p.value_at_last_price %}{{ money(p.value_at_last_price, p.currency) }}{% else %}—{% endif %}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
 {% if positions | selectattr('incomplete_history') | list %}
-<p class="sub">A negative quantity is not a short position: it is a sale whose
-   purchase is older than the file you imported. Export a period that starts
-   when you opened the account and re-import — overlap is free.</p>
+<p class="sub">{{ _("A negative quantity is not a short position: it is a sale whose purchase is older than the file you imported. Export a period that starts when you opened the account and re-import — overlap is free.") }}</p>
 {% endif %}
-<p class="sub">Quantities are the running sum of every buy and sell imported.
-   The last two columns use the price of your most recent trade, not a market
-   price — this app has no price feed yet, and a stale number presented as a
-   valuation is worse than none.</p>
+<p class="sub">{{ _("Quantities are the running sum of every buy and sell imported. The last two columns use the price of your most recent trade, not a market price — this app has no price feed yet, and a stale number presented as a valuation is worse than none.") }}</p>
 {% endif %}
 
-<h2>Recent transactions</h2>
+<h2>{{ _("Recent transactions") }}</h2>
 {% if transactions %}
 <table class="grid">
-  <thead><tr><th>Date</th><th>Description</th><th>Counterparty</th><th class="num">Amount</th></tr></thead>
+  <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Description") }}</th><th>{{ _("Counterparty") }}</th><th class="num">{{ _("Amount") }}</th></tr></thead>
   <tbody>
   {% for t in transactions %}
     <tr>
-      <td class="nowrap">{{ t.txn_date }}</td>
+      <td class="nowrap">{{ d(t.txn_date) }}</td>
       <td>{{ t.description }}</td>
       <td class="sub">{{ t.counterparty or '' }}</td>
-      <td class="num {{ 'neg' if t.amount < 0 else 'pos' }}">{{ '%.2f'|format(t.amount) }} {{ t.currency }}</td>
+      <td class="num {{ 'neg' if t.amount < 0 else 'pos' }}">{{ money(t.amount, t.currency) }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
 {% if total_transactions > transactions|length %}
-<p class="sub">Showing the {{ transactions|length }} most recent of {{ total_transactions }}.</p>
+<p class="sub">{{ _f("Showing the {shown} most recent of {total}.", shown=transactions|length, total=total_transactions) }}</p>
 {% endif %}
 {% else %}
-<div class="card empty"><p>No transactions yet.</p></div>
+<div class="card empty"><p>{{ _("No transactions yet.") }}</p></div>
 {% endif %}
 {% endblock %}

@@ -1,29 +1,25 @@
 {% extends "base.html" %}
-{% block title %}New account · Wealth Dashboard{% endblock %}
-{% block heading %}Add an account{% endblock %}
+{% block title %}{{ _("New account") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Add an account") }}{% endblock %}
 {% block lede %}
-<p class="lede">An account exists whether or not a bank is ever connected to it.
-Name it something you will recognise — you can connect it to your bank on the
-next screen, or type the balance in yourself and never connect it at all.</p>
+<p class="lede">{{ _("An account exists whether or not a bank is ever connected to it. Name it something you will recognise — you can connect it to your bank on the next screen, or type the balance in yourself and never connect it at all.") }}</p>
 {% endblock %}
 {% block content %}
 <form method="post" class="card form">
   {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
-  <label for="name">Name</label>
+  <label for="name">{{ _("Name") }}</label>
   <input id="name" name="name" placeholder="DKB Girokonto" autofocus required>
 
-  <label for="type">Type</label>
+  <label for="type">{{ _("Type") }}</label>
   <select id="type" name="type">
-    <option value="bank">Bank account</option>
-    <option value="savings">Savings</option>
-    <option value="card">Credit card</option>
-    <option value="broker">Broker</option>
-    <option value="other">Other</option>
+    {% for value, label in account_types.items() %}
+    <option value="{{ value }}">{{ _(label) }}</option>
+    {% endfor %}
   </select>
 
-  <label for="currency">Currency</label>
+  <label for="currency">{{ _("Currency") }}</label>
   <input id="currency" name="currency" value="{{ base_currency }}" maxlength="3">
 
-  <button type="submit">Create account</button>
+  <button type="submit">{{ _("Create account") }}</button>
 </form>
 {% endblock %}

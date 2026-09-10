@@ -1,36 +1,40 @@
 {% extends "base.html" %}
-{% block title %}Settings · Wealth Dashboard{% endblock %}
-{% block heading %}Settings{% endblock %}
+{% block title %}{{ _("Settings") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Settings") }}{% endblock %}
 {% block content %}
 
 <div class="card">
-  <h2>General</h2>
+  <h2>{{ _("General") }}</h2>
   <form method="post" class="form">
-    <label for="base_currency">Base currency</label>
+    <label for="language">{{ _("Language") }}</label>
+    <select id="language" name="language">
+      {# Each language names itself. Somebody looking for their own
+         language is looking for the word they call it by, not for the
+         word English calls it by. #}
+      <option value="" {{ 'selected' if not cfg.language }}>{{ _("Follow my browser") }}</option>
+      {% for code, name in languages.items() %}
+      <option value="{{ code }}" {{ 'selected' if cfg.language == code }}>{{ name }}</option>
+      {% endfor %}
+    </select>
+    <p class="sub">{{ _("Changes the language of the app, and with it how numbers and dates are written. It does not touch what your bank sent: a transaction described in German stays in German.") }}</p>
+
+    <label for="base_currency">{{ _("Base currency") }}</label>
     <input id="base_currency" name="base_currency" value="{{ cfg.base_currency }}" maxlength="3">
 
-    <label for="redirect_url">Redirect URL</label>
+    <label for="redirect_url">{{ _("Redirect URL") }}</label>
     <input id="redirect_url" name="redirect_url" value="{{ cfg.redirect_url }}">
-    <p class="sub">Where your bank sends you back after you authorise. This exact
-       string must also be registered in the Enable Banking Control Panel — if the
-       two differ by so much as a trailing slash, the bank refuses the handover
-       and the error it shows names nothing useful.</p>
+    <p class="sub">{{ _("Where your bank sends you back after you authorise. This exact string must also be registered in the Enable Banking Control Panel — if the two differ by so much as a trailing slash, the bank refuses the handover and the error it shows names nothing useful.") }}</p>
 
-    <button type="submit">Save</button>
+    <button type="submit">{{ _("Save") }}</button>
   </form>
 </div>
 
 <div class="card" id="categories">
   <div class="card-header">
-    <h2>Categories</h2>
-    <span class="card-subtitle">renaming one keeps every transaction it holds</span>
+    <h2>{{ _("Categories") }}</h2>
+    <span class="card-subtitle">{{ _("renaming one keeps every transaction it holds") }}</span>
   </div>
-  <p class="sub">A category is identified internally by the name it was created
-     with, so renaming or recolouring one never re-files a transaction — the
-     Groceries you already sorted stay sorted whatever you call them. What
-     “counts as” decides is whether Cash Flow and Budget treat the money as
-     spent, or merely as moved: pay for lunch and it is spending, move €500 to
-     your broker and it is not.</p>
+  <p class="sub">{{ _("A category is identified internally by the name it was created with, so renaming or recolouring one never re-files a transaction — the Groceries you already sorted stay sorted whatever you call them. What “counts as” decides is whether Cash Flow and Budget treat the money as spent, or merely as moved: pay for lunch and it is spending, move €500 to your broker and it is not.") }}</p>
 
   <div class="cat-list">
   {% for c in catalogue %}
@@ -39,30 +43,32 @@
         <input type="hidden" name="form" value="category_edit">
         <input type="hidden" name="slug" value="{{ c.slug }}">
         <input type="color" class="swatch" name="colour" value="{{ c.colour }}"
-               aria-label="Colour for {{ c.label }}">
+               aria-label="{{ _f('Colour for {name}', name=c.label) }}">
         <input name="label" value="{{ c.label }}" maxlength="40"
-               aria-label="Name of {{ c.label }}">
+               aria-label="{{ _f('Name of {name}', name=c.label) }}">
         {% if c.group_locked %}
-        <span class="sub cat-fixed" title="Cash Flow knows this one by name — it is never counted as spending.">not spending</span>
+        <span class="sub cat-fixed" title="{{ _('Cash Flow knows this one by name — it is never counted as spending.') }}">{{ _("not spending") }}</span>
         {% else %}
-        <select name="group" aria-label="What {{ c.label }} counts as">
-          <option value="spending" {{ 'selected' if c.group == 'spending' }}>Spending</option>
-          <option value="non_spending" {{ 'selected' if c.group == 'non_spending' }}>Not spending</option>
+        <select name="group" aria-label="{{ _f('What {name} counts as', name=c.label) }}">
+          <option value="spending" {{ 'selected' if c.group == 'spending' }}>{{ _("Spending") }}</option>
+          <option value="non_spending" {{ 'selected' if c.group == 'non_spending' }}>{{ _("Not spending") }}</option>
         </select>
         {% endif %}
-        <button type="submit" class="btn-ghost">Save</button>
+        <button type="submit" class="btn-ghost">{{ _("Save") }}</button>
       </form>
       <span class="sub cat-usage">
-        {{ c.transactions }} transaction{{ '' if c.transactions == 1 else 's' }}{% if c.rules %} · {{ c.rules }} rule{{ '' if c.rules == 1 else 's' }}{% endif %}
+        {{ _n(c.transactions, "{n} transaction", "{n} transactions") }}{% if c.rules %} · {{ _n(c.rules, "{n} rule", "{n} rules") }}{% endif %}
       </span>
       {% if c.deletable %}
-        <form method="post" class="cat-delete" onsubmit="return confirm('Delete this category? {{ c.transactions }} transaction(s) move to Uncategorised{% if c.rules %}, and {{ c.rules }} rule(s) are deleted with it{% endif %}.');">
+        {% set warning = _n(c.transactions, "Delete this category? {n} transaction moves to Uncategorised.", "Delete this category? {n} transactions move to Uncategorised.") %}
+        {% if c.rules %}{% set warning = warning ~ " " ~ _n(c.rules, "{n} rule is deleted with it.", "{n} rules are deleted with it.") %}{% endif %}
+        <form method="post" class="cat-delete" onsubmit="return confirm({{ warning | tojson }});">
           <input type="hidden" name="form" value="category_delete">
           <input type="hidden" name="slug" value="{{ c.slug }}">
-          <button class="btn-danger" type="submit">Delete</button>
+          <button class="btn-danger" type="submit">{{ _("Delete") }}</button>
         </form>
       {% else %}
-        <span class="tag tag-muted" title="The app tells spending from moving your own money by this category, so it cannot be removed.">needed</span>
+        <span class="tag tag-muted" title="{{ _('The app tells spending from moving your own money by this category, so it cannot be removed.') }}">{{ _("needed") }}</span>
       {% endif %}
     </div>
   {% endfor %}
@@ -71,102 +77,88 @@
   <form method="post" class="form inline cat-new">
     <input type="hidden" name="form" value="category_new">
     <div>
-      <label for="new_colour">Colour</label>
+      <label for="new_colour">{{ _("Colour") }}</label>
       <input type="color" class="swatch" id="new_colour" name="colour" value="#5b9dff">
     </div>
     <div>
-      <label for="new_label">New category</label>
-      <input id="new_label" name="label" maxlength="40" placeholder="Childcare">
+      <label for="new_label">{{ _("New category") }}</label>
+      <input id="new_label" name="label" maxlength="40" placeholder="{{ _('Childcare') }}">
     </div>
     <div>
-      <label for="new_group">Counts as</label>
+      <label for="new_group">{{ _("Counts as") }}</label>
       <select id="new_group" name="group">
-        <option value="spending">Spending</option>
-        <option value="non_spending">Not spending</option>
+        <option value="spending">{{ _("Spending") }}</option>
+        <option value="non_spending">{{ _("Not spending") }}</option>
       </select>
     </div>
-    <button type="submit">Add category</button>
+    <button type="submit">{{ _("Add category") }}</button>
   </form>
 </div>
 
 <div class="card">
   <h2>Enable Banking</h2>
   {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
-  <p class="sub">Your own application, your own key. Nothing here is shared
-     with anyone — the key never leaves this machine and is only used to sign
-     your own requests.</p>
+  <p class="sub">{{ _("Your own application, your own key. Nothing here is shared with anyone — the key never leaves this machine and is only used to sign your own requests.") }}</p>
 
   <ol class="steps">
+    {% set cp_link %}<a href="https://enablebanking.com/cp/applications" rel="noreferrer">enablebanking.com/cp/applications</a>{% endset %}
+    {% set pem_file %}<code>&lt;application-id&gt;.pem</code>{% endset %}
     <li>
-      <strong>Create an application</strong> at
-      <a href="https://enablebanking.com/cp/applications" rel="noreferrer">enablebanking.com/cp/applications</a>.
-      Environment <strong>Production</strong> (restricted mode is a state of a
-      production app, not a separate environment).
+      <strong>{{ _("Create an application") }}</strong>
+      {{ _f("at {control_panel}.", control_panel=cp_link) | safe }}
+      {{ _("Environment Production — restricted mode is a state of a production app, not a separate environment.") }}
     </li>
     <li>
-      <strong>Find your Application ID.</strong> It is on the application's page
-      in the Control Panel — a UUID like
-      <code>0f3a…-…-…</code>. If you chose <em>Generate</em> for the key, it is
-      also the <em>filename</em> of the file your browser downloaded:
-      <code>&lt;application-id&gt;.pem</code>.
+      <strong>{{ _("Find your Application ID.") }}</strong>
+      {{ _f("It is on the application's page in the Control Panel — a UUID like {example}.", example="<code>0f3a…-…-…</code>") | safe }}
+      {{ _f("If you chose Generate for the key, it is also the filename of the file your browser downloaded: {file}.", file=pem_file) | safe }}
     </li>
     <li>
-      <strong>Find your private key.</strong> Which file depends on the choice
-      you made when creating the application:
+      <strong>{{ _("Find your private key.") }}</strong>
+      {{ _("Which file depends on the choice you made when creating the application:") }}
       <ul>
-        <li><strong>You chose “Generate”</strong> (the usual case) — your
-          browser downloaded <code>&lt;application-id&gt;.pem</code>. <em>That
-          file is the private key.</em> Open it in a text editor and copy
-          everything, including the <code>-----BEGIN</code> and
-          <code>-----END</code> lines. There is nothing to generate yourself.</li>
-        <li><strong>You provided your own key</strong> — then you already ran
-          the commands below and want <code>enablebanking_private.key</code>.</li>
+        <li><strong>{{ _("You chose “Generate”") }}</strong> ({{ _("the usual case") }}) —
+          {{ _f("your browser downloaded {file}.", file=pem_file) | safe }}
+          <em>{{ _("That file is the private key.") }}</em>
+          {{ _("Open it in a text editor and copy everything, including the BEGIN and END lines. There is nothing to generate yourself.") }}</li>
+        <li><strong>{{ _("You provided your own key") }}</strong> —
+          {{ _f("then you already ran the commands below and want {file}.", file="<code>enablebanking_private.key</code>") | safe }}</li>
       </ul>
-      <p class="sub">Do <strong>not</strong> paste
-         <code>enablebanking_public.pem</code>, or anything you uploaded
-         <em>to</em> Enable Banking. That is the public half; they have it, you
-         need the other one.</p>
+      <p class="sub">{{ _("Do not paste enablebanking_public.pem, or anything you uploaded to Enable Banking. That is the public half; they have it, you need the other one.") }}</p>
     </li>
-    <li><strong>Paste both below</strong> and save. The app checks them
-        immediately against Enable Banking and tells you what it finds.</li>
+    <li><strong>{{ _("Paste both below") }}</strong> {{ _("and save. The app checks them immediately against Enable Banking and tells you what it finds.") }}</li>
   </ol>
 
   <details>
-    <summary class="sub">Only if you want to supply your own key instead of
-      letting the Control Panel generate one</summary>
+    <summary class="sub">{{ _("Only if you want to supply your own key instead of letting the Control Panel generate one") }}</summary>
     <pre>openssl genrsa -out enablebanking_private.key 4096
 openssl rsa -in enablebanking_private.key -pubout -out enablebanking_public.pem</pre>
-    <p class="sub">Upload <code>enablebanking_public.pem</code> in the Control
-       Panel; paste <code>enablebanking_private.key</code> below.</p>
+    <p class="sub">{{ _("Upload enablebanking_public.pem in the Control Panel; paste enablebanking_private.key below.") }}</p>
   </details>
 
-  <p class="sub">The key is stored at <code>{{ secrets_dir }}</code> with
-     permissions 0600.</p>
+  <p class="sub">{{ _f("The key is stored at {path} with permissions 0600.", path=secrets_dir) }}</p>
 
   {% if secrets_inside_data %}
-  <div class="flash flash-warn">Your credentials live inside the data folder, so
-    every backup of that folder carries your bank key with it. Set
-    <code>WD_SECRETS_DIR</code> to a folder outside it if that matters to you.</div>
+  <div class="flash flash-warn">{{ _("Your credentials live inside the data folder, so every backup of that folder carries your bank key with it. Set WD_SECRETS_DIR to a folder outside it if that matters to you.") }}</div>
   {% endif %}
 
   <form method="post" class="form">
     <input type="hidden" name="form" value="credentials">
-    <label for="app_id">Application ID</label>
+    <label for="app_id">{{ _("Application ID") }}</label>
     <input id="app_id" name="app_id" placeholder="00000000-0000-0000-0000-000000000000"
-           {% if configured %}placeholder="stored — paste again to replace"{% endif %}>
-    <label for="private_key">Private key (PEM)</label>
+           {% if configured %}placeholder="{{ _('stored — paste again to replace') }}"{% endif %}>
+    <label for="private_key">{{ _("Private key (PEM)") }}</label>
     <textarea id="private_key" name="private_key" rows="6"
               placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"></textarea>
-    <button type="submit">Save credentials</button>
+    <button type="submit">{{ _("Save credentials") }}</button>
   </form>
 
   {% if configured %}
-    <p class="sub">Credentials are stored.
-       <a href="{{ url_for('settings_page', check=1) }}">Test them</a> —
-       this makes one live call to Enable Banking.</p>
+    {% set test_link %}<a href="{{ url_for('settings_page', check=1) }}">{{ _("Test them") }}</a>{% endset %}
+    <p class="sub">{{ _f("Credentials are stored. {test} — this makes one live call to Enable Banking.", test=test_link) | safe }}</p>
     {% if check and check.ok %}
-      <div class="flash flash-ok">Working. Registered redirect URLs:
-        {{ (check.application.redirect_urls or ['none'])|join(', ') }}</div>
+      <div class="flash flash-ok">{{ _("Working. Registered redirect URLs:") }}
+        {{ (check.application.redirect_urls or [_('none')])|join(', ') }}</div>
     {% elif check %}
       <div class="flash flash-error">{{ check.error }}</div>
     {% endif %}

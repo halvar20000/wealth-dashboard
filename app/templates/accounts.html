@@ -1,31 +1,36 @@
 {% extends "base.html" %}
-{% block title %}Accounts · Wealth Dashboard{% endblock %}
-{% block heading %}Accounts{% endblock %}
+{% block title %}{{ _("Accounts") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Accounts") }}{% endblock %}
 {% block content %}
 <section class="card">
   <div class="table-wrap">
     <table class="grid">
       <thead>
-        <tr><th>Account</th><th>Source</th><th class="num">Balance</th>
-            <th class="num">Transactions</th><th>As of</th><th></th></tr>
+        <tr><th>{{ _("Account") }}</th><th>{{ _("Source") }}</th><th class="num">{{ _("Balance") }}</th>
+            <th class="num">{{ _("Transactions") }}</th><th>{{ _("As of") }}</th><th></th></tr>
       </thead>
       <tbody>
       {% for a in s.accounts %}
         <tr>
           <td><a href="{{ url_for('account_detail', account_id=a.id) }}">{{ a.name }}</a>
-              <span class="sub">{{ a.type }} · {{ a.currency }}</span></td>
-          <td>{% if a.bank %}{{ a.bank }}<span class="sub">connected</span>
-              {% elif a.transactions %}<span class="sub">imported file</span>
-              {% else %}<span class="sub">nothing yet</span>{% endif %}</td>
+              <span class="sub">{{ type_label(a.type) }} · {{ a.currency }}</span></td>
+          <td>{% if a.bank %}{{ a.bank }}<span class="sub">{{ _("connected") }}</span>
+              {% elif a.transactions %}<span class="sub">{{ _("imported file") }}</span>
+              {% else %}<span class="sub">{{ _("nothing yet") }}</span>{% endif %}</td>
           <td class="num">{% if a.balance is not none %}{{ money(a.balance, a.balance_currency) }}{% else %}—{% endif %}</td>
           <td class="num">{{ a.transactions or '—' }}</td>
-          <td class="sub nowrap">{{ a.balance_as_of or '—' }}</td>
-          <td class="num"><a class="btn btn-ghost" href="{{ url_for('account_edit', account_id=a.id) }}">Edit</a></td>
+          <td class="sub nowrap">{{ d(a.balance_as_of) }}</td>
+          <td class="num nowrap">
+            <a class="btn btn-ghost" href="{{ url_for('account_edit', account_id=a.id) }}">{{ _("Edit") }}</a>
+            {# Straight to the delete card, because a delete nobody can find
+               is a delete that gets asked for. #}
+            <a class="btn btn-ghost" href="{{ url_for('account_edit', account_id=a.id) }}#delete">{{ _("Delete") }}</a>
+          </td>
         </tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
-  <p><a class="btn" href="{{ url_for('account_new') }}">Add an account</a></p>
+  <p><a class="btn" href="{{ url_for('account_new') }}">{{ _("Add an account") }}</a></p>
 </section>
 {% endblock %}

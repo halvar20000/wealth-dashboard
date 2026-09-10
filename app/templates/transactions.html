@@ -1,52 +1,52 @@
 {% extends "base.html" %}
-{% block title %}Transactions · Wealth Dashboard{% endblock %}
-{% block heading %}Transactions{% endblock %}
+{% block title %}{{ _("Transactions") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Transactions") }}{% endblock %}
 {% block content %}
 
 <form class="card form inline" method="get">
-  <div><label for="q">Search</label>
-    <input id="q" name="q" value="{{ q }}" placeholder="merchant or text"></div>
-  <div><label for="category">Category</label>
+  <div><label for="q">{{ _("Search") }}</label>
+    <input id="q" name="q" value="{{ q }}" placeholder="{{ _('merchant or text') }}"></div>
+  <div><label for="category">{{ _("Category") }}</label>
     <select id="category" name="category">
-      <option value="">any</option>
+      <option value="">{{ _("any") }}</option>
       {% for slug, meta in categories.all_categories().items() %}
       <option value="{{ slug }}" {{ 'selected' if category == slug }}>{{ meta.label }}</option>
       {% endfor %}
     </select></div>
-  <div><label for="account">Account</label>
+  <div><label for="account">{{ _("Account") }}</label>
     <select id="account" name="account">
-      <option value="">any</option>
+      <option value="">{{ _("any") }}</option>
       {% for a in accounts %}
       <option value="{{ a.id }}" {{ 'selected' if account_id == a.id|string }}>{{ a.name }}</option>
       {% endfor %}
     </select></div>
-  <div><label for="kind">Kind</label>
+  <div><label for="kind">{{ _("Kind") }}</label>
     <select id="kind" name="kind">
-      <option value="">any</option>
-      {% for k in kinds %}<option value="{{ k }}" {{ 'selected' if kind == k }}>{{ k }}</option>{% endfor %}
+      <option value="">{{ _("any") }}</option>
+      {% for k in kinds %}<option value="{{ k }}" {{ 'selected' if kind == k }}>{{ kind_label(k) }}</option>{% endfor %}
     </select></div>
-  <button type="submit">Filter</button>
+  <button type="submit">{{ _("Filter") }}</button>
   {% if q or category or account_id or kind %}
-  <a class="btn btn-ghost" href="{{ url_for('transactions') }}">Clear</a>
+  <a class="btn btn-ghost" href="{{ url_for('transactions') }}">{{ _("Clear") }}</a>
   {% endif %}
 </form>
 
 <section class="card">
   <div class="card-header">
-    <h2>{{ '{:,}'.format(matched).replace(',', ' ') }} transaction(s)</h2>
+    <h2>{{ _n(matched, "{n} transaction", "{n} transactions") }}</h2>
     <span class="card-subtitle">
-      net {{ money(total, base_currency) }}{% if matched > rows|length %} ·
-      showing the {{ rows|length }} most recent{% endif %}
+      {{ _f("net {amount}", amount=money(total, base_currency)) }}{% if matched > rows|length %} ·
+      {{ _f("showing the {n} most recent", n=rows|length) }}{% endif %}
     </span>
   </div>
   <div class="table-wrap">
     <table class="grid">
-      <thead><tr><th>Date</th><th>Description</th><th>Account</th>
-                 <th>Category</th><th class="num">Amount</th></tr></thead>
+      <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Description") }}</th><th>{{ _("Account") }}</th>
+                 <th>{{ _("Category") }}</th><th class="num">{{ _("Amount") }}</th></tr></thead>
       <tbody>
       {% for t in rows %}
         <tr>
-          <td class="sub nowrap">{{ t.txn_date }}</td>
+          <td class="sub nowrap">{{ d(t.txn_date) }}</td>
           <td>{{ t.description[:80] }}
             {% if t.counterparty %}<span class="sub">{{ t.counterparty }}</span>{% endif %}</td>
           <td class="sub">{{ t.account_name }}</td>
@@ -67,6 +67,6 @@
       </tbody>
     </table>
   </div>
-  {% if not rows %}<p class="sub">Nothing matches those filters.</p>{% endif %}
+  {% if not rows %}<p class="sub">{{ _("Nothing matches those filters.") }}</p>{% endif %}
 </section>
 {% endblock %}

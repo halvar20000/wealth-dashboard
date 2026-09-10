@@ -1,44 +1,57 @@
 {% extends "base.html" %}
-{% block title %}Edit {{ account.name }}{% endblock %}
-{% block heading %}Edit {{ account.name }}{% endblock %}
+{% block title %}{{ _("Edit") }} {{ account.name }}{% endblock %}
+{% block heading %}{{ _("Edit") }} {{ account.name }}{% endblock %}
 {% block content %}
 <form method="post" class="card form">
   {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
-  <label for="name">Name</label>
+  <label for="name">{{ _("Name") }}</label>
   <input id="name" name="name" value="{{ account.name }}" required>
 
-  <label for="type">Type</label>
+  <label for="type">{{ _("Type") }}</label>
   <select id="type" name="type">
-    {% for value, label in [('bank','Bank account'), ('savings','Savings'),
-                            ('card','Credit card'), ('broker','Broker'),
-                            ('other','Other')] %}
-    <option value="{{ value }}" {{ 'selected' if account.type == value }}>{{ label }}</option>
+    {% for value, label in account_types.items() %}
+    <option value="{{ value }}" {{ 'selected' if account.type == value }}>{{ _(label) }}</option>
     {% endfor %}
   </select>
 
-  <label for="currency">Currency</label>
+  <label for="currency">{{ _("Currency") }}</label>
   <input id="currency" name="currency" value="{{ account.currency }}" maxlength="3">
 
-  <button type="submit">Save</button>
+  <button type="submit">{{ _("Save") }}</button>
 </form>
 
-<div class="card">
-  <div class="card-header"><h2>Delete this account</h2></div>
-  <p class="sub">
-    {% if counts.transactions or counts.balances %}
-    This removes <strong>{{ counts.transactions }}</strong> transaction(s) and
-    <strong>{{ counts.balances }}</strong> balance reading(s) with it, and
-    cannot be undone.
-    {% if counts.links %}It also drops the bank connection — the consent stays
-    alive at your bank until it expires or you revoke it there.{% endif %}
-    {% else %}
-    This account holds nothing, so there is nothing to lose.
-    {% endif %}
-  </p>
+<div class="card" id="delete">
+  <div class="card-header"><h2>{{ _("Delete this account") }}</h2></div>
+  {% if counts.empty %}
+  {# Nothing to lose, so nothing to confirm. A ceremony in front of an
+     empty account is what teaches people to click through the one in
+     front of a full one. #}
+  <p class="sub">{{ _("This account holds nothing — no transactions, no balance readings, no bank connection. There is nothing to lose by removing it.") }}</p>
   <form method="post" action="{{ url_for('account_delete', account_id=account.id) }}">
-    <label for="confirm">Type the account name to confirm</label>
-    <input id="confirm" name="confirm" placeholder="{{ account.name }}" autocomplete="off">
-    <button class="btn-danger" type="submit">Delete permanently</button>
+    <button class="btn-danger" type="submit">{{ _("Delete this account") }}</button>
   </form>
+  {% else %}
+  <div class="flash flash-warn">
+    <strong>{{ _("This cannot be undone.") }}</strong>
+    {%- set parts = [] %}
+    {%- if counts.transactions %}{% set _x = parts.append(_n(counts.transactions, "{n} transaction", "{n} transactions")) %}{% endif %}
+    {%- if counts.balances %}{% set _x = parts.append(_n(counts.balances, "{n} balance reading", "{n} balance readings")) %}{% endif %}
+    {% if parts %}
+      {{ _f("Deleting {name} also removes {what}.", name=account.name,
+            what=(_f("{a} and {b}", a=parts[0], b=parts[1]) if parts|length > 1 else parts[0])) }}
+    {% else %}
+      {{ _f("Deleting {name} removes everything on it.", name=account.name) }}
+    {% endif %}
+    {% if counts.links %}
+    {{ _("The bank connection goes with it. The consent itself stays alive at your bank until it expires or you revoke it there, and re-connecting means going through your bank's login again.") }}
+    {% endif %}
+    {{ _("There is no undo and no copy of this anywhere else.") }}
+  </div>
+  <form method="post" action="{{ url_for('account_delete', account_id=account.id) }}">
+    <label for="confirm">{{ _f("Type {name} to confirm", name=account.name) }}</label>
+    <input id="confirm" name="confirm" placeholder="{{ account.name }}" autocomplete="off">
+    <button class="btn-danger" type="submit">{{ _("Delete permanently") }}</button>
+  </form>
+  {% endif %}
 </div>
 {% endblock %}

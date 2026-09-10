@@ -18,6 +18,7 @@ rule they cannot correct, and this list is meant to be looked at.
 
 from __future__ import annotations
 
+from . import i18n
 from .db import get_conn
 
 # The spending categories a fresh install starts with. Deliberately
@@ -88,13 +89,13 @@ GROUP_LOCKED = frozenset({"income", "investment", "transfer"})
 # rename is a rename — it never re-files a single row — and that is why
 # renaming is offered and changing a slug is not.
 
-_cache: dict[str, dict] | None = None
+# The catalogue, per language code. See all_categories().
+_cache: dict[str, dict[str, dict]] = {}
 
 
 def invalidate() -> None:
     """Forget the cached catalogue. Called after every write."""
-    global _cache
-    _cache = None
+    _cache.clear()
 
 
 def _build() -> dict[str, dict]:
@@ -109,7 +110,10 @@ def _build() -> dict[str, dict]:
             continue
         entries[slug] = {
             "slug": slug,
-            "label": (row or {}).get("label") or name,
+            # A built-in nobody has touched is translated; one the user
+            # renamed is theirs, and is shown exactly as they typed it in
+            # whatever language they typed it in.
+            "label": (row or {}).get("label") or i18n.t(name),
             "colour": (row or {}).get("colour") or col,
             "group": (row or {}).get("cat_group") or group,
             "builtin": True,
@@ -131,12 +135,17 @@ def _build() -> dict[str, dict]:
 
 
 def all_categories() -> dict[str, dict]:
-    """Every category in use, spending first. Cached — the transactions
-    page asks once per row, and that is 400 queries otherwise."""
-    global _cache
-    if _cache is None:
-        _cache = _build()
-    return _cache
+    """Every category in use, spending first.
+
+    Cached — the transactions page asks once per row, and that is 400
+    queries otherwise. Cached *per language*, because the labels of the
+    built-ins are translated in here: one cache shared across languages
+    hands a German page to the next English reader.
+    """
+    lang = i18n.active()
+    if lang not in _cache:
+        _cache[lang] = _build()
+    return _cache[lang]
 
 
 def spending() -> dict[str, dict]:
@@ -200,14 +209,15 @@ def _slugify(name: str) -> str:
 def _clean(name: str, hex_colour: str, group: str) -> tuple[str, str, str]:
     name = (name or "").strip()
     if not name:
-        raise ValueError("A category needs a name.")
+        raise ValueError(i18n.t("A category needs a name."))
     if len(name) > 40:
-        raise ValueError("Keep the name under 40 characters — it has to fit "
-                         "in a table cell and a chart legend.")
+        raise ValueError(i18n.t("Keep the name under 40 characters — it has "
+                                "to fit in a table cell and a chart legend."))
     hex_colour = (hex_colour or "").strip().lower()
     if not (len(hex_colour) == 7 and hex_colour[0] == "#"
             and all(c in "0123456789abcdef" for c in hex_colour[1:])):
-        raise ValueError(f"{hex_colour or 'That'} is not a colour like #a78bfa.")
+        raise ValueError(i18n.f("{given} is not a colour like #a78bfa.",
+                                given=hex_colour or i18n.t("That")))
     if group not in GROUPS:
         raise ValueError(f"Unknown group {group!r}")
     return name, hex_colour, group
@@ -219,15 +229,17 @@ def add_category(name: str, hex_colour: str,
     name, hex_colour, group = _clean(name, hex_colour, group)
     slug = _slugify(name)
     if not slug:
-        raise ValueError("That name has no letters or digits in it, and the "
-                         "name is what the internal id is made from.")
+        raise ValueError(i18n.t("That name has no letters or digits in it, "
+                                "and the name is what the internal id is "
+                                "made from."))
     existing = all_categories()
     if slug in existing:
-        raise ValueError(f"“{existing[slug]['label']}” already uses that name.")
+        raise ValueError(i18n.f("“{name}” already uses that name.",
+                                name=existing[slug]["label"]))
     for entry in existing.values():
         if entry["label"].casefold() == name.casefold():
-            raise ValueError(f"There is already a category called "
-                             f"“{entry['label']}”.")
+            raise ValueError(i18n.f("There is already a category called "
+                                    "“{name}”.", name=entry["label"]))
     with get_conn() as conn:
         # A built-in the user deleted earlier is un-deleted rather than
         # duplicated: the slug is already on their old transactions, and
@@ -257,8 +269,8 @@ def update_category(slug: str, name: str, hex_colour: str, group: str) -> None:
     name, hex_colour, group = _clean(name, hex_colour, group)
     for other, entry in existing.items():
         if other != slug and entry["label"].casefold() == name.casefold():
-            raise ValueError(f"There is already a category called "
-                             f"“{entry['label']}”.")
+            raise ValueError(i18n.f("There is already a category called "
+                                    "“{name}”.", name=entry["label"]))
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO categories (slug, label, colour, cat_group, hidden) "

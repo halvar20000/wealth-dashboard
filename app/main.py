@@ -27,10 +27,10 @@ import secrets
 import urllib.parse
 from pathlib import Path
 
-from flask import (Flask, flash, redirect, render_template, request, session,
-                   url_for)
+from flask import (Flask, flash, g, redirect, render_template, request,
+                   session, url_for)
 
-from . import auth, settings
+from . import auth, i18n, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import cashflow, categories, importers, overview, subscriptions
@@ -100,32 +100,76 @@ def _no_store(response):
     return response
 
 
+# The language lives in i18n, which every layer can reach. These are
+# the names it goes by on a page: `_` rather than `t`, because templates
+# already loop over transactions as `t` and a global shadowed halfway
+# down a table is a bug that only shows up in the rows.
+current_language = i18n.active
+_t, _f, _n = i18n.t, i18n.f, i18n.n
+
+
 def _money(amount, currency=None) -> str:
     """One place that formats money, so two pages cannot disagree about
     what a thousand euros looks like."""
-    if amount is None:
-        return "—"
-    currency = (currency or settings.get("base_currency", "EUR")).upper()
-    sign = "-" if amount < 0 else ""
-    whole = f"{abs(amount):,.2f}".replace(",", "\u00a0")
-    return f"{sign}{whole}\u00a0{currency}"
+    currency = (currency or settings.get("base_currency", "EUR"))
+    return i18n.money(amount, currency, current_language())
 
 
 def _qty(value) -> str:
-    """Share counts. Fractional shares are normal now, and trailing
-    zeroes on a whole number are noise."""
-    if value is None:
-        return "—"
-    text = f"{value:,.4f}".rstrip("0").rstrip(".")
-    return (text or "0").replace(",", "\u00a0")
+    return i18n.qty(value, current_language())
+
+
+def _date(value) -> str:
+    return i18n.fmt_date(value, current_language())
+
+
+def _month(value) -> str:
+    return i18n.fmt_month(value, current_language())
+
+
+# The five account types, and the English of each. Stored as the slug,
+# shown through the catalogue — so a German install lists "Girokonto"
+# while the database still says "bank" and an export still matches.
+ACCOUNT_TYPES = {"bank": "Bank account", "savings": "Savings",
+                 "card": "Credit card", "broker": "Broker",
+                 "other": "Other"}
+
+
+def _type_label(slug: str) -> str:
+    return _t(ACCOUNT_TYPES.get(slug, slug))
+
+
+# What a bank or broker called the event. Stored as the slug the
+# importers assign; shown through the catalogue. A kind this app has
+# never heard of is shown as it arrived rather than swallowed.
+KINDS = {"deposit": "deposit", "withdrawal": "withdrawal", "buy": "buy",
+         "sell": "sell", "dividend": "dividend", "interest": "interest",
+         "fee": "fee", "tax": "tax", "transfer": "transfer",
+         "other": "other"}
+
+
+# How often a subscription repeats, as subscriptions.py names it.
+RHYTHMS = ("weekly", "monthly", "quarterly", "half-yearly", "yearly")
+
+
+def _rhythm_label(name: str) -> str:
+    return _t(f"{name} [rhythm]") if name in RHYTHMS else (name or "")
+
+
+def _kind_label(slug: str) -> str:
+    return _t(f"{KINDS[slug]} [kind]") if slug in KINDS else (slug or "")
 
 
 @app.context_processor
 def _globals():
     return {"user": auth.current_user(),
             "base_currency": settings.get("base_currency", "EUR"),
-            "money": _money, "qty": _qty,
+            "money": _money, "qty": _qty, "d": _date, "mon": _month,
+            "_": _t, "_n": _n, "_f": _f, "lang": current_language(),
+            "languages": i18n.LANGUAGES,
             "categories": categories,
+            "account_types": ACCOUNT_TYPES, "type_label": _type_label,
+            "kind_label": _kind_label, "rhythm_label": _rhythm_label,
             "asset_version": _ASSET_VERSION}
 
 
@@ -161,7 +205,7 @@ def login():
     if request.method == "POST":
         ip = request.remote_addr or "?"
         if auth.throttled(ip):
-            error = "Too many attempts. Wait a few minutes."
+            error = _t("Too many attempts. Wait a few minutes.")
         else:
             user = auth.verify(request.form.get("username", ""),
                                request.form.get("password", ""))
@@ -173,7 +217,7 @@ def login():
             auth.record_failure(ip)
             # One message for both cases. "No such user" tells an
             # attacker which half to keep guessing.
-            error = "Wrong username or password."
+            error = _t("Wrong username or password.")
     return render_template("login.html", error=error)
 
 
@@ -208,7 +252,7 @@ def account_new():
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
         if not name:
-            error = "The account needs a name."
+            error = _t("The account needs a name.")
         else:
             with get_conn() as conn:
                 cur = conn.execute(
@@ -229,7 +273,7 @@ def account_detail(account_id: int):
                                (account_id,)).fetchone()
         if account is None:
             return render_template("missing.html",
-                                   what="That account does not exist."), 404
+                                   what=_t("That account does not exist.")), 404
         link = conn.execute("SELECT * FROM bank_links WHERE account_id = ? LIMIT 1",
                             (account_id,)).fetchone()
         balance = conn.execute(
@@ -253,6 +297,26 @@ def account_detail(account_id: int):
                            configured=banksync.credentials_present())
 
 
+def _account_counts(conn, account_id: int) -> dict:
+    """What an account is holding. The page and the delete both ask
+    this, so they cannot disagree about whether there is anything to
+    lose."""
+    counts = {
+        "transactions": conn.execute(
+            "SELECT COUNT(*) n FROM transactions WHERE account_id = ?",
+            (account_id,)).fetchone()["n"],
+        "balances": conn.execute(
+            "SELECT COUNT(*) n FROM balances WHERE account_id = ?",
+            (account_id,)).fetchone()["n"],
+        "links": conn.execute(
+            "SELECT COUNT(*) n FROM bank_links WHERE account_id = ?",
+            (account_id,)).fetchone()["n"],
+    }
+    counts["empty"] = not (counts["transactions"] or counts["balances"]
+                           or counts["links"])
+    return counts
+
+
 @app.route("/accounts/<int:account_id>/edit", methods=["GET", "POST"])
 @auth.login_required
 def account_edit(account_id: int):
@@ -261,24 +325,14 @@ def account_edit(account_id: int):
                                (account_id,)).fetchone()
         if account is None:
             return render_template("missing.html",
-                                   what="That account does not exist."), 404
-        counts = {
-            "transactions": conn.execute(
-                "SELECT COUNT(*) n FROM transactions WHERE account_id = ?",
-                (account_id,)).fetchone()["n"],
-            "balances": conn.execute(
-                "SELECT COUNT(*) n FROM balances WHERE account_id = ?",
-                (account_id,)).fetchone()["n"],
-            "links": conn.execute(
-                "SELECT COUNT(*) n FROM bank_links WHERE account_id = ?",
-                (account_id,)).fetchone()["n"],
-        }
+                                   what=_t("That account does not exist.")), 404
+        counts = _account_counts(conn, account_id)
 
     error = None
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
         if not name:
-            error = "The account needs a name."
+            error = _t("The account needs a name.")
         else:
             with get_conn() as conn:
                 conn.execute(
@@ -287,7 +341,7 @@ def account_edit(account_id: int):
                     (name, request.form.get("type") or "bank",
                      (request.form.get("currency") or "EUR").upper()[:3],
                      account_id))
-            flash("Account updated.", "ok")
+            flash(_t("Account updated."), "ok")
             return redirect(url_for("account_detail", account_id=account_id))
 
     return render_template("account_edit.html", account=dict(account),
@@ -299,25 +353,41 @@ def account_edit(account_id: int):
 def account_delete(account_id: int):
     """Delete an account and everything hanging off it.
 
-    Confirmed by typing the name, not by an "are you sure" dialog. The
-    dialog is clicked through without reading; typing the name cannot be
-    done by accident, and it is the difference between removing the
-    duplicate account you created by mistake and removing the one with
-    six years of history in it.
+    The friction is proportionate to what is at stake, because friction
+    that is always there is friction nobody reads.
+
+    An account holding nothing — no transactions, no balance readings,
+    no bank connection — goes on one click. It is the account you
+    created with a typo in the name thirty seconds ago, and making
+    somebody type the name of a thing that is empty teaches them that
+    the confirmation is a formality, which is exactly the lesson you do
+    not want them carrying into the next one.
+
+    An account holding anything is confirmed by typing its name, not by
+    an "are you sure" dialog. The dialog is clicked through without
+    reading; a name cannot be typed by accident, and that is the
+    difference between removing the duplicate you made by mistake and
+    removing the one with six years in it.
+
+    Which of the two it is, is decided here from the database and never
+    from the form: a hidden field saying "this one was empty" is a
+    hidden field somebody can send.
     """
     with get_conn() as conn:
         account = conn.execute("SELECT * FROM accounts WHERE id = ?",
                                (account_id,)).fetchone()
         if account is None:
             return render_template("missing.html",
-                                   what="That account does not exist."), 404
-        if (request.form.get("confirm") or "").strip() != account["name"]:
-            flash("Type the account name exactly to confirm the deletion.",
+                                   what=_t("That account does not exist.")), 404
+        counts = _account_counts(conn, account_id)
+        if not counts["empty"] and \
+                (request.form.get("confirm") or "").strip() != account["name"]:
+            flash(_t("Type the account name exactly to confirm the deletion."),
                   "error")
             return redirect(url_for("account_edit", account_id=account_id))
         # ON DELETE CASCADE takes the transactions, balances and links.
         conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
-    flash(f"Deleted {account['name']}.", "ok")
+    flash(_f("Deleted {name}.", name=account["name"]), "ok")
     return redirect(url_for("accounts"))
 
 
@@ -336,27 +406,27 @@ def account_import(account_id: int):
                                (account_id,)).fetchone()
     if account is None:
         return render_template("missing.html",
-                               what="That account does not exist."), 404
+                               what=_t("That account does not exist.")), 404
 
     report = None
     if request.method == "POST":
         upload = request.files.get("file")
         if not upload or not upload.filename:
-            flash("Choose a CSV file first.", "error")
+            flash(_t("Choose a CSV file first."), "error")
             return redirect(url_for("account_import", account_id=account_id))
 
         content = upload.read(MAX_IMPORT_BYTES + 1)
         if len(content) > MAX_IMPORT_BYTES:
-            flash(f"That file is larger than "
-                  f"{MAX_IMPORT_BYTES // (1024 * 1024)} MB. A transaction "
-                  f"export should be far smaller — is it the right file?",
-                  "error")
+            flash(_f("That file is larger than {mb} MB. A transaction export "
+                     "should be far smaller — is it the right file?",
+                     mb=MAX_IMPORT_BYTES // (1024 * 1024)), "error")
             return redirect(url_for("account_import", account_id=account_id))
 
         module = importers.sniff(content)
         if module is None:
-            flash("That file's columns do not match any importer here. "
-                  "Supported: " + ", ".join(m.LABEL for m in importers.IMPORTERS),
+            flash(_f("That file's columns do not match any importer here. "
+                     "Supported: {list}",
+                     list=", ".join(m.LABEL for m in importers.IMPORTERS)),
                   "error")
             return redirect(url_for("account_import", account_id=account_id))
 
@@ -367,8 +437,9 @@ def account_import(account_id: int):
 
         report = importers.store(account_id, parsed, module.SLUG)
         report["label"] = module.LABEL
-        flash(f"{module.LABEL}: {report['inserted']} new, "
-              f"{report['duplicates']} already had.", "ok")
+        flash(_f("{importer}: {new} new, {had} already had.",
+                 importer=module.LABEL, new=report["inserted"],
+                 had=report["duplicates"]), "ok")
 
     return render_template("import.html", account=dict(account), report=report,
                            importers=importers.IMPORTERS)
@@ -381,13 +452,14 @@ def account_sync(account_id: int):
         link = conn.execute("SELECT id FROM bank_links WHERE account_id = ? LIMIT 1",
                             (account_id,)).fetchone()
     if link is None:
-        flash("That account is not connected to a bank.", "error")
+        flash(_t("That account is not connected to a bank."), "error")
     else:
         result = banksync.sync_link(int(link["id"]))
         if result["error"]:
-            flash(f"Sync failed: {result['error']}", "error")
+            flash(_f("Sync failed: {reason}", reason=result["error"]), "error")
         else:
-            flash(f"Imported {result['inserted']} new transaction(s).", "ok")
+            flash(_n(result["inserted"], "Imported {n} new transaction.",
+                     "Imported {n} new transactions."), "ok")
     return redirect(url_for("account_detail", account_id=account_id))
 
 
@@ -453,8 +525,9 @@ def transaction_category(txn_id: int):
         categories.set_category(txn_id, category)
         if pattern:
             applied = categories.add_rule(pattern, category)
-            flash(f"Rule saved — {applied} transaction(s) matched "
-                  f"“{pattern}”.", "ok")
+            flash(_n(applied, "Rule saved — {n} transaction matched “{pattern}”.",
+                     "Rule saved — {n} transactions matched “{pattern}”.",
+                     pattern=pattern), "ok")
     except ValueError as exc:
         flash(str(exc), "error")
     return redirect(request.form.get("back") or url_for("categorize"))
@@ -466,12 +539,15 @@ def categorize():
     if request.method == "POST":
         if request.form.get("action") == "seed":
             changed = categories.seed_from_kind()
-            flash(f"{changed} transaction(s) categorised from what the "
-                  f"importer already knew.", "ok")
+            flash(_n(changed,
+                     "{n} transaction categorised from what the importer "
+                     "already knew.",
+                     "{n} transactions categorised from what the importer "
+                     "already knew."), "ok")
         elif request.form.get("action") == "delete_rule":
             categories.delete_rule(int(request.form["rule_id"]))
             categories.apply_all()
-            flash("Rule deleted and the remaining rules re-applied.", "ok")
+            flash(_t("Rule deleted and the remaining rules re-applied."), "ok")
         return redirect(url_for("categorize"))
 
     queue, remaining = categories.uncategorised()
@@ -503,7 +579,7 @@ def budget_page():
             except ValueError:
                 amount = None
             cashflow.set_budget(category, amount)
-        flash("Budget saved.", "ok")
+        flash(_t("Budget saved."), "ok")
         return redirect(url_for("budget_page"))
     return render_template(
         "budget.html", active_page="budget",
@@ -541,24 +617,27 @@ def _category_form(form) -> None:
             categories.add_category(form.get("label", ""),
                                     form.get("colour", ""),
                                     form.get("group", categories.SPENDING_GROUP))
-            flash(f"Category “{form.get('label').strip()}” added.", "ok")
+            flash(_f("Category “{name}” added.", name=form.get("label").strip()), "ok")
         elif action == "category_edit":
             categories.update_category(form.get("slug", ""),
                                        form.get("label", ""),
                                        form.get("colour", ""),
                                        form.get("group",
                                                 categories.SPENDING_GROUP))
-            flash("Category updated.", "ok")
+            flash(_t("Category updated."), "ok")
         elif action == "category_delete":
             slug = form.get("slug", "")
             name = categories.label(slug)
             moved = categories.delete_category(slug)
             if moved:
-                flash(f"“{name}” deleted — {moved} transaction(s) moved to "
-                      f"Uncategorised, and its rules were removed with it.",
-                      "ok")
+                flash(_n(moved,
+                         "“{name}” deleted — {n} transaction moved to "
+                         "Uncategorised, and its rules were removed with it.",
+                         "“{name}” deleted — {n} transactions moved to "
+                         "Uncategorised, and its rules were removed with it.",
+                         name=name), "ok")
             else:
-                flash(f"“{name}” deleted.", "ok")
+                flash(_f("“{name}” deleted.", name=name), "ok")
     except ValueError as exc:
         flash(str(exc), "error")
 
@@ -573,7 +652,7 @@ def settings_page():
             try:
                 banksync.save_credentials(request.form.get("app_id", ""),
                                           request.form.get("private_key", ""))
-                flash("Credentials saved. Checking them with Enable Banking…", "ok")
+                flash(_t("Credentials saved. Checking them with Enable Banking…"), "ok")
                 # Straight into the check. "Saved" answers a question
                 # nobody asked; "your key works and these redirect URLs
                 # are registered" answers the real one, at the only
@@ -589,8 +668,16 @@ def settings_page():
                                     or "EUR").upper()[:3]
             cfg["redirect_url"] = (request.form.get("redirect_url")
                                    or cfg["redirect_url"]).strip()
+            # Anything that is not a language this app has is "follow the
+            # browser", which is also what the blank option posts.
+            chosen = (request.form.get("language") or "").strip()
+            cfg["language"] = chosen if i18n.known(chosen) else ""
             settings.save(cfg)
-            flash("Settings saved.", "ok")
+            # The language decided at the top of this request is the old
+            # one. Forget it, so the confirmation of the change is
+            # already in the language it changed to.
+            g.pop("_language", None)
+            flash(_t("Settings saved."), "ok")
             return redirect(url_for("settings_page"))
 
     check = None
@@ -670,15 +757,18 @@ def _finish_connection(code: str, state: str):
         flash(str(exc), "error")
         return None
 
-    flash("Connected: " + ", ".join(result["linked"]), "ok")
+    flash(_f("Connected: {accounts}",
+              accounts=", ".join(result["linked"])), "ok")
     # Pull straight away. A connection that lands on an empty page gives
     # the user no evidence it worked, and "did it work?" is the only
     # question they have at this moment.
     outcome = banksync.sync_account(result["account_id"])
     if outcome and outcome.get("error"):
-        flash(f"Connected, but the first sync failed: {outcome['error']}", "error")
+        flash(_f("Connected, but the first sync failed: {reason}",
+                 reason=outcome["error"]), "error")
     elif outcome:
-        flash(f"Imported {outcome['inserted']} transaction(s).", "ok")
+        flash(_n(outcome["inserted"], "Imported {n} transaction.",
+                 "Imported {n} transactions."), "ok")
     return result
 
 
@@ -689,10 +779,11 @@ def connect_callback():
     code = request.args.get("code")
     state = request.args.get("state")
     if error:
-        flash(f"The bank refused the authorisation: {error}", "error")
+        flash(_f("The bank refused the authorisation: {reason}", reason=error),
+              "error")
         return redirect(url_for("index"))
     if not code or not state:
-        flash("The bank sent us back without an authorisation code.", "error")
+        flash(_t("The bank sent us back without an authorisation code."), "error")
         return redirect(url_for("connect_paste"))
     result = _finish_connection(code, state)
     if result is None:
@@ -730,11 +821,11 @@ def connect_paste():
             # unambiguous. Refusing it would be pedantry.
             state = pending[0]["state"]
         if not code:
-            flash("No authorisation code in that. Paste the whole URL from "
-                  "the address bar, including the ?code=… part.", "error")
+            flash(_t("No authorisation code in that. Paste the whole URL from "
+                     "the address bar, including the ?code=… part."), "error")
         elif not state:
-            flash("That code could belong to any of several connections in "
-                  "progress. Paste the full URL, which carries the state.",
+            flash(_t("That code could belong to any of several connections in "
+                     "progress. Paste the full URL, which carries the state."),
                   "error")
         else:
             result = _finish_connection(code, state)
@@ -775,7 +866,7 @@ def _parse_pasted_redirect(raw: str) -> tuple[str | None, str | None]:
 
 @app.errorhandler(404)
 def _not_found(_e):
-    return render_template("missing.html", what="No such page."), 404
+    return render_template("missing.html", what=_t("No such page.")), 404
 
 
 def main() -> None:

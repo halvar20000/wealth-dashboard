@@ -1,49 +1,43 @@
 {% extends "base.html" %}
-{% block title %}Finish connecting · Wealth Dashboard{% endblock %}
-{% block heading %}Finish connecting by hand{% endblock %}
+{% block title %}{{ _("Finish connecting") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Finish connecting by hand") }}{% endblock %}
 {% block lede %}
-<p class="lede">Some providers only accept an <code>https</code> redirect URL,
-which an app on your own network cannot have. Then the bank sends you to a page
-that does not exist — and that is fine. The authorisation code is in the address
-bar of that dead page. Copy the whole address and paste it here.</p>
+<p class="lede">{{ _("Some providers only accept an https redirect URL, which an app on your own network cannot have. Then the bank sends you to a page that does not exist — and that is fine. The authorisation code is in the address bar of that dead page. Copy the whole address and paste it here.") }}</p>
 {% endblock %}
 {% block content %}
 
 {% if pending %}
 <div class="card">
-  <h2>Waiting to be finished</h2>
+  <h2>{{ _("Waiting to be finished") }}</h2>
   <table class="grid">
-    <thead><tr><th>Bank</th><th>Account</th><th>Started</th></tr></thead>
+    <thead><tr><th>{{ _("Bank") }}</th><th>{{ _("Account") }}</th><th>{{ _("Started") }}</th></tr></thead>
     <tbody>
     {% for p in pending %}
       <tr>
         <td>{{ p.aspsp_name }} <span class="sub">{{ p.aspsp_country }}</span></td>
         <td>{{ p.account_name or '—' }}</td>
-        <td class="sub">{{ p.created_at }}</td>
+        <td class="sub">{{ d(p.created_at) }}</td>
       </tr>
     {% endfor %}
     </tbody>
   </table>
   {% if pending|length == 1 %}
-  <p class="sub">One connection is in progress, so pasting just the code works
-     too — but the whole URL is easier and always right.</p>
+  <p class="sub">{{ _("One connection is in progress, so pasting just the code works too — but the whole URL is easier and always right.") }}</p>
   {% endif %}
 </div>
 
 <form method="post" class="card form">
-  <label for="pasted">The address the bank sent you to</label>
+  <label for="pasted">{{ _("The address the bank sent you to") }}</label>
   <textarea id="pasted" name="pasted" rows="3" autofocus
             placeholder="https://example.org/callback?code=abc123&amp;state=..."></textarea>
-  <p class="sub">Nothing is fetched from this address — it is only read for the
-     <code>code</code> and <code>state</code> it carries.</p>
-  <button type="submit">Finish connecting</button>
+  <p class="sub">{{ _("Nothing is fetched from this address — it is only read for the code and state it carries.") }}</p>
+  <button type="submit">{{ _("Finish connecting") }}</button>
 </form>
 {% else %}
 <div class="card empty">
-  <p>No connection is waiting to be finished.</p>
-  <p class="sub">Start one from an account, then come back here if the bank
-     leaves you on a page that will not load.</p>
-  <p><a class="btn" href="{{ url_for('index') }}">Back to accounts</a></p>
+  <p>{{ _("No connection is waiting to be finished.") }}</p>
+  <p class="sub">{{ _("Start one from an account, then come back here if the bank leaves you on a page that will not load.") }}</p>
+  <p><a class="btn" href="{{ url_for('index') }}">{{ _("Back to accounts") }}</a></p>
 </div>
 {% endif %}
 {% endblock %}

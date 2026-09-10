@@ -1,57 +1,53 @@
 {% extends "base.html" %}
-{% block title %}Cash Flow · Wealth Dashboard{% endblock %}
-{% block heading %}Cash Flow{% endblock %}
+{% block title %}{{ _("Cash Flow") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Cash Flow") }}{% endblock %}
 {% block lede %}
-<p class="lede">Money in against money out, per month. Internal transfers are
-excluded — moving money between your own accounts is not income and not
-spending, and counting it would inflate both by the same amount. Investment is
-separated for the same reason: a month you invested €3,000 is not a month you
-overspent.</p>
+<p class="lede">{{ _("Money in against money out, per month. Internal transfers are excluded — moving money between your own accounts is not income and not spending, and counting it would inflate both by the same amount. Investment is separated for the same reason: a month you invested €3,000 is not a month you overspent.") }}</p>
 {% endblock %}
 {% block content %}
 
 <section class="stat-strip">
   <div class="stat-card stat-green">
-    <div class="stat-label">Income</div>
+    <div class="stat-label">{{ _("Income") }}</div>
     <div class="stat-value gain">{{ money(data.average_income, data.base_currency) }}</div>
-    <div class="stat-sub">a month, over {{ data.months_covered }} month(s)</div>
+    <div class="stat-sub">{{ _n(data.months_covered, "a month, over {n} month", "a month, over {n} months") }}</div>
   </div>
   <div class="stat-card stat-purple">
-    <div class="stat-label">Spending</div>
+    <div class="stat-label">{{ _("Spending") }}</div>
     <div class="stat-value">{{ money(data.average_spending, data.base_currency) }}</div>
-    <div class="stat-sub">a month</div>
+    <div class="stat-sub">{{ _("a month") }}</div>
   </div>
   <div class="stat-card stat-blue">
-    <div class="stat-label">Invested</div>
+    <div class="stat-label">{{ _("Invested") }}</div>
     <div class="stat-value">{{ money(data.total_investment, data.base_currency) }}</div>
-    <div class="stat-sub">over the period</div>
+    <div class="stat-sub">{{ _("over the period") }}</div>
   </div>
   <div class="stat-card stat-gold">
-    <div class="stat-label">Kept</div>
+    <div class="stat-label">{{ _("Kept") }}</div>
     {% set kept = data.total_income - data.total_spending %}
     <div class="stat-value {{ 'gain' if kept >= 0 else 'loss' }}">{{ money(kept, data.base_currency) }}</div>
-    <div class="stat-sub">income less spending</div>
+    <div class="stat-sub">{{ _("income less spending") }}</div>
   </div>
 </section>
 
 {% if data.months %}
 <section class="card">
-  <div class="card-header"><h2>By month</h2>
-    <span class="card-subtitle">{{ data.base_currency }} only</span></div>
+  <div class="card-header"><h2>{{ _("By month") }}</h2>
+    <span class="card-subtitle">{{ _f("{currency} only", currency=data.base_currency) }}</span></div>
   <div class="chart-wrap" style="height:290px"><canvas id="chart-months"></canvas></div>
 </section>
 
 <section class="grid-2">
   <div class="card">
-    <div class="card-header"><h2>Where it goes</h2></div>
+    <div class="card-header"><h2>{{ _("Where it goes") }}</h2></div>
     <div class="chart-wrap"><canvas id="chart-cats"></canvas></div>
   </div>
   <div class="card">
-    <div class="card-header"><h2>By category</h2>
-      <span class="card-subtitle">per month on average</span></div>
+    <div class="card-header"><h2>{{ _("By category") }}</h2>
+      <span class="card-subtitle">{{ _("per month on average") }}</span></div>
     <div class="table-wrap">
       <table class="grid">
-        <thead><tr><th>Category</th><th class="num">Per month</th><th class="num">Total</th></tr></thead>
+        <thead><tr><th>{{ _("Category") }}</th><th class="num">{{ _("Per month") }}</th><th class="num">{{ _("Total") }}</th></tr></thead>
         <tbody>
         {% for c in data.by_category %}
           <tr>
@@ -67,10 +63,9 @@ overspent.</p>
 </section>
 {% else %}
 <section class="card empty">
-  <p>No transactions in the base currency yet.</p>
-  <p class="sub">Connect a bank or import a statement, then categorise on the
-     <a href="{{ url_for('categorize') }}">Categorize</a> page — until things
-     have categories, this page has nothing to add up.</p>
+  <p>{{ _("No transactions in the base currency yet.") }}</p>
+  {% set cat_link %}<a href="{{ url_for('categorize') }}">{{ _("Categorize") }}</a>{% endset %}
+  <p class="sub">{{ _f("Connect a bank or import a statement, then categorise on the {page} page — until things have categories, this page has nothing to add up.", page=cat_link) | safe }}</p>
 </section>
 {% endif %}
 {% endblock %}
@@ -80,16 +75,19 @@ overspent.</p>
 const D = {{ data.months | tojson }};
 const CATS = {{ data.by_category | tojson }};
 const GRID = '#232c44', TICK = '#95a0b9';
+{# Month names come from the server, so the chart is in the same language
+   as the page around it rather than the browser's. #}
+const MONTH_LABELS = [{% for m in data.months %}{{ mon(m.month) | tojson }}{{ "," if not loop.last }}{% endfor %}];
 
 if (D.length) {
   new Chart(document.getElementById('chart-months'), {
     type: 'bar',
     data: {
-      labels: D.map(m => m.month),
+      labels: MONTH_LABELS,
       datasets: [
-        { label: 'Income', data: D.map(m => m.income), backgroundColor: '#34d399' },
-        { label: 'Spending', data: D.map(m => -m.spending), backgroundColor: '#f87171' },
-        { label: 'Invested', data: D.map(m => -m.investment), backgroundColor: '#5b9dff' },
+        { label: {{ _("Income") | tojson }}, data: D.map(m => m.income), backgroundColor: '#34d399' },
+        { label: {{ _("Spending") | tojson }}, data: D.map(m => -m.spending), backgroundColor: '#f87171' },
+        { label: {{ _("Invested") | tojson }}, data: D.map(m => -m.investment), backgroundColor: '#5b9dff' },
       ],
     },
     options: {

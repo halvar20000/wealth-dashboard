@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,17 +19,17 @@
     </a>
     {% if user %}
     <nav>
-      <a class="navlink {{ 'active' if active_page == 'overview' }}" href="{{ url_for('index') }}">Overview</a>
-      <a class="navlink {{ 'active' if active_page == 'portfolio' }}" href="{{ url_for('portfolio_page') }}">Portfolio</a>
-      <a class="navlink {{ 'active' if active_page == 'cashflow' }}" href="{{ url_for('cashflow_page') }}">Cash Flow</a>
-      <a class="navlink {{ 'active' if active_page == 'budget' }}" href="{{ url_for('budget_page') }}">Budget</a>
-      <a class="navlink {{ 'active' if active_page == 'subscriptions' }}" href="{{ url_for('subscriptions_page') }}">Subscriptions</a>
-      <a class="navlink {{ 'active' if active_page == 'transactions' }}" href="{{ url_for('transactions') }}">Transactions</a>
-      <a class="navlink {{ 'active' if active_page == 'categorize' }}" href="{{ url_for('categorize') }}">Categorize</a>
-      <a class="navlink {{ 'active' if active_page == 'accounts' }}" href="{{ url_for('accounts') }}">Accounts</a>
-      <a class="navlink {{ 'active' if active_page == 'settings' }}" href="{{ url_for('settings_page') }}">Settings</a>
+      <a class="navlink {{ 'active' if active_page == 'overview' }}" href="{{ url_for('index') }}">{{ _("Overview") }}</a>
+      <a class="navlink {{ 'active' if active_page == 'portfolio' }}" href="{{ url_for('portfolio_page') }}">{{ _("Portfolio") }}</a>
+      <a class="navlink {{ 'active' if active_page == 'cashflow' }}" href="{{ url_for('cashflow_page') }}">{{ _("Cash Flow") }}</a>
+      <a class="navlink {{ 'active' if active_page == 'budget' }}" href="{{ url_for('budget_page') }}">{{ _("Budget") }}</a>
+      <a class="navlink {{ 'active' if active_page == 'subscriptions' }}" href="{{ url_for('subscriptions_page') }}">{{ _("Subscriptions") }}</a>
+      <a class="navlink {{ 'active' if active_page == 'transactions' }}" href="{{ url_for('transactions') }}">{{ _("Transactions") }}</a>
+      <a class="navlink {{ 'active' if active_page == 'categorize' }}" href="{{ url_for('categorize') }}">{{ _("Categorize") }}</a>
+      <a class="navlink {{ 'active' if active_page == 'accounts' }}" href="{{ url_for('accounts') }}">{{ _("Accounts") }}</a>
+      <a class="navlink {{ 'active' if active_page == 'settings' }}" href="{{ url_for('settings_page') }}">{{ _("Settings") }}</a>
       <span class="who">{{ user.username }}</span>
-      <a class="navlink" href="{{ url_for('logout') }}">Sign out</a>
+      <a class="navlink" href="{{ url_for('logout') }}">{{ _("Sign out") }}</a>
     </nav>
     {% endif %}
   </header>
@@ -50,7 +50,7 @@
     {% block content %}{% endblock %}
   </main>
 
-  <footer>Runs on your machine. Your data never leaves it, except to your own bank.</footer>
+  <footer>{{ _("Runs on your machine. Your data never leaves it, except to your own bank.") }}</footer>
 
   {# Page scripts go last, after Chart.js and after the markup they draw
      into. A child template that defines a scripts block and finds no

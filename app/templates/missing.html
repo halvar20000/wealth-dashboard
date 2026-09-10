@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block heading %}Not found{% endblock %}
+{% block heading %}{{ _("Not found") }}{% endblock %}
 {% block content %}
-<div class="card"><p>{{ what }}</p><p><a class="btn" href="{{ url_for('index') }}">Back to accounts</a></p></div>
+<div class="card"><p>{{ what }}</p><p><a class="btn" href="{{ url_for('index') }}">{{ _("Back to accounts") }}</a></p></div>
 {% endblock %}

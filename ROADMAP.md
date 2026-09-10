@@ -25,6 +25,9 @@ it does not do yet.
 - [x] Categories the user owns: add, rename, recolour and delete them
       under Settings.
 - [x] 319 offline checks covering the whole flow.
+- [x] English, German, French and Spanish, with the number and date
+      shapes that go with each.
+- [x] Deleting an account asks only when there is something to lose.
 - [x] Packaged as an Unraid app: multi-arch image on GHCR, a
       Community Applications template, and an install guide.
 

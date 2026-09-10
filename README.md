@@ -218,6 +218,24 @@ To keep credentials out of your data backups, point them elsewhere:
 WD_SECRETS_DIR=/etc/wealth-dashboard/secrets python -m app
 ```
 
+## Languages
+
+English, German, French and Spanish. Set it under **Settings**, or leave it
+on *Follow my browser* — a fresh install opened in a German browser is in
+German before anybody goes looking for the setting.
+
+The language also decides how numbers and dates are written: `1.234,56 EUR`
+and `08.09.2026` in German, `1 234,56 EUR` and `08/09/2026` in French,
+`1 234.56 EUR` and ISO dates in English. What your bank sent is left alone —
+a transaction the bank described in German stays in German, in every language.
+
+Built-in category names are translated; one you renamed is yours and is shown
+exactly as you typed it. Translations are plain Python dicts in
+[`app/lang/`](app/lang/) keyed on the English string, so fixing a wording or
+adding a language is editing one file — there is no gettext toolchain and
+nothing to compile. A missing entry falls back to English rather than
+breaking the page.
+
 ## Configuration
 
 | Variable | Default | What it is |
@@ -230,6 +248,9 @@ WD_SECRETS_DIR=/etc/wealth-dashboard/secrets python -m app
 | `WD_BASE_CURRENCY` | `EUR` | Reporting currency |
 | `WD_REDIRECT_URL` | `http://localhost:8000/connect/callback` | Where the bank sends you back |
 | `TZ` | `UTC` in the image | Which day it is, for the monthly pages |
+
+Language is a Settings-page choice only, deliberately: it has no environment
+variable to be pinned by, so the picker in the app always wins.
 
 `WD_BASE_CURRENCY` and `WD_REDIRECT_URL` are also settable in the app under
 Settings — and when the variable is set, it wins on every start. Set one or

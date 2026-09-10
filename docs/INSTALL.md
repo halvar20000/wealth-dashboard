@@ -18,6 +18,10 @@ subscriptions, categories — works without it.
 4. Set **Timezone** to yours (it decides when a month rolls over).
 5. **Apply**, then click the container's **WebUI**.
 
+The app speaks **English, German, French and Spanish** and follows your
+browser, so it is probably already in your language. Pin one under
+**Settings** if you would rather it did not follow.
+
 The first page asks you to **create your user**. That account is the only one,
 it lives in your database, and there is no password reset — see
 [Back this up](#back-this-up).

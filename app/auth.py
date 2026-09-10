@@ -22,6 +22,7 @@ from functools import wraps
 
 from flask import g, jsonify, redirect, request, session, url_for
 
+from . import i18n
 from .db import get_conn
 
 ROUNDS = 240_000
@@ -43,10 +44,11 @@ def hash_password(password: str, salt: str, rounds: int = ROUNDS) -> str:
 def create_user(username: str, password: str) -> int:
     username = (username or "").strip()
     if not username:
-        raise ValueError("A username is required.")
+        raise ValueError(i18n.t("A username is required."))
     if len(password or "") < MIN_PASSWORD_LEN:
         raise ValueError(
-            f"The password must be at least {MIN_PASSWORD_LEN} characters.")
+            i18n.f("The password must be at least {n} characters.",
+                   n=MIN_PASSWORD_LEN))
     salt = secrets.token_bytes(16).hex()
     with get_conn() as conn:
         try:
@@ -55,7 +57,8 @@ def create_user(username: str, password: str) -> int:
                 "VALUES (?, ?, ?, ?)",
                 (username, hash_password(password, salt), salt, ROUNDS))
         except sqlite3.IntegrityError:
-            raise ValueError(f"The username {username!r} is already taken.")
+            raise ValueError(i18n.f("The username “{name}” is already taken.",
+                                name=username))
         return int(cur.lastrowid)
 
 

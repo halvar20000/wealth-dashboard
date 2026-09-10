@@ -12,8 +12,10 @@ tooling is a suite nobody runs.
 
 from __future__ import annotations
 
+import ast
 import base64
 import json
+import re
 import os
 import sys
 import pathlib
@@ -321,7 +323,7 @@ check("search narrows it", r.data.count(b"Deutsche Bank"), 0)
 r = c.get(f"/connect/{account_id}?country=DE")
 check("sandbox banks are marked", b"sandbox</span>" in r.data, True)
 check("...and recommended before a real one",
-      b"Connect a <strong>sandbox</strong> bank first" in r.data, True)
+      b"<strong>Connect a sandbox bank first.</strong>" in r.data, True)
 check("...and listed first, before the real banks",
       r.data.index(b"Mock ASPSP") < r.data.index(b"Deutsche Bank"), True)
 
@@ -469,23 +471,72 @@ with db.get_conn() as conn:
 check("...the type is stored", row["type"], "broker")
 check("...and the currency is upper-cased", row["currency"], "CHF")
 
-# Confirmed by typing the name, not by a dialog. A dialog is clicked
-# through without reading; a name cannot be typed by accident.
-r = c.post(f"/accounts/{spare_id}/delete", data={"confirm": "wrong"},
-           follow_redirects=True)
-check("a mistyped confirmation does not delete", b"Type the account name" in r.data, True)
-with db.get_conn() as conn:
-    still = conn.execute("SELECT COUNT(*) n FROM accounts WHERE id = ?",
-                         (spare_id,)).fetchone()["n"]
-check("...the account is still there", still, 1)
+# An empty account is the one you made with a typo thirty seconds ago.
+# It goes on one click: no warning, and nothing to type.
+r = c.get(f"/accounts/{spare_id}/edit")
+check("an empty account is not asked to be typed out",
+      b"to confirm" in r.data, False)
+check("...and says why there is nothing to confirm",
+      b"holds nothing" in r.data, True)
 
-r = c.post(f"/accounts/{spare_id}/delete", data={"confirm": "Renamed"},
-           follow_redirects=True)
-check("the right name deletes it", b"Deleted Renamed" in r.data, True)
+r = c.post(f"/accounts/{spare_id}/delete", data={}, follow_redirects=True)
+check("an empty account deletes on one click", b"Deleted Renamed" in r.data, True)
 with db.get_conn() as conn:
     gone = conn.execute("SELECT COUNT(*) n FROM accounts WHERE id = ?",
                         (spare_id,)).fetchone()["n"]
 check("...and it is gone", gone, 0)
+
+# An account holding anything is confirmed by typing the name, not by a
+# dialog. A dialog is clicked through without reading; a name cannot be
+# typed by accident.
+r = c.post("/accounts/new", data={"name": "Has History", "type": "bank",
+                                  "currency": "EUR"})
+held_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, external_id, txn_date, "
+                 "amount, currency, description, kind) "
+                 "VALUES (?, 'test-1', '2026-01-02', -12.50, 'EUR', 'A shop', "
+                 "'withdrawal')",
+                 (held_id,))
+
+r = c.get(f"/accounts/{held_id}/edit")
+# Tags and Jinja's whitespace out, so the check is on the sentence a
+# person reads rather than on the markup it happens to arrive in.
+warning = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "",
+                 r.get_data(as_text=True)[r.get_data(as_text=True).index('id="delete"'):]))
+check("an account with history warns before it is deleted",
+      "cannot be undone" in warning, True)
+check("...counting what goes with it", "removes 1 transaction." in warning, True)
+check("...and counting it in the singular",
+      "1 transactions" in warning, False)
+
+r = c.post(f"/accounts/{held_id}/delete", data={"confirm": "wrong"},
+           follow_redirects=True)
+check("a mistyped confirmation does not delete", b"Type the account name" in r.data, True)
+with db.get_conn() as conn:
+    still = conn.execute("SELECT COUNT(*) n FROM accounts WHERE id = ?",
+                         (held_id,)).fetchone()["n"]
+check("...the account is still there", still, 1)
+
+# The decision is made from the database, never from the form: a hidden
+# field claiming the account is empty is a field anybody can send.
+r = c.post(f"/accounts/{held_id}/delete", data={"empty": "1", "confirm": ""},
+           follow_redirects=True)
+with db.get_conn() as conn:
+    still = conn.execute("SELECT COUNT(*) n FROM accounts WHERE id = ?",
+                         (held_id,)).fetchone()["n"]
+check("...and the form cannot claim it is empty", still, 1)
+
+r = c.post(f"/accounts/{held_id}/delete", data={"confirm": "Has History"},
+           follow_redirects=True)
+check("the right name deletes it", b"Deleted Has History" in r.data, True)
+with db.get_conn() as conn:
+    gone = conn.execute("SELECT COUNT(*) n FROM accounts WHERE id = ?",
+                        (held_id,)).fetchone()["n"]
+    orphans = conn.execute("SELECT COUNT(*) n FROM transactions WHERE account_id = ?",
+                           (held_id,)).fetchone()["n"]
+check("...and it is gone", gone, 0)
+check("...taking its transactions with it", orphans, 0)
 
 # ---------------------------------------------------------------------------
 print("\n9. When the bank fails")
@@ -1084,6 +1135,196 @@ r = c.post("/settings", data={"form": "category_new", "label": "",
                               "colour": "#123456", "group": "spending"},
            follow_redirects=True)
 check("a nameless category is refused", b"needs a name" in r.data, True)
+
+# ---------------------------------------------------------------------------
+print("\n13. Four languages")
+# ---------------------------------------------------------------------------
+# The catalogues are checked against the strings the code actually asks
+# for, because the failure mode of a hand-kept catalogue is not a crash:
+# it is one sentence in English in the middle of a German page, which
+# nobody notices until a user does.
+from app import i18n, main                                 # noqa: E402
+
+TEMPLATES = pathlib.Path(__file__).resolve().parent.parent / "app" / "templates"
+SOURCES = [pathlib.Path(__file__).resolve().parent.parent / "app" / f
+           for f in ("main.py", "categories.py", "auth.py")]
+
+
+def wanted_keys() -> set:
+    """Every string the app can ask to have translated."""
+    keys = set()
+    for f in sorted(TEMPLATES.glob("*.html")):
+        text = f.read_text()
+        keys |= set(re.findall(r'_\("([^"]+)"\)', text))
+        keys |= set(re.findall(r"_\('([^']+)'\)", text))
+        keys |= set(re.findall(r'_f\(\s*"([^"]+)"', text))
+        keys |= set(re.findall(r"_f\(\s*'([^']+)'", text))
+        for one, many in re.findall(r'_n\([^,]+,\s*"([^"]+)",\s*"([^"]+)"', text):
+            keys |= {one, many}
+    join = lambda chunk: "".join(re.findall(r'"([^"]*)"', chunk))
+    for f in SOURCES:
+        text = f.read_text()
+        for m in re.findall(r'(?:_t|i18n\.t)\(\s*((?:"[^"]*"\s*)+)\)', text):
+            keys.add(join(m))
+        for m in re.findall(r'(?:_f|i18n\.f)\(\s*((?:"[^"]*"\s*)+),', text):
+            keys.add(join(m))
+        for one, many in re.findall(
+                r'(?:_n|i18n\.n)\(\s*[^,]+,\s*((?:"[^"]*"\s*)+),\s*((?:"[^"]*"\s*)+)[,)]',
+                text):
+            keys |= {join(one), join(many)}
+    # The label tables, which are data rather than calls.
+    keys |= set(main.ACCOUNT_TYPES.values())
+    keys |= {f"{k} [kind]" for k in main.KINDS}
+    keys |= {f"{r} [rhythm]" for r in main.RHYTHMS}
+    keys |= {name for name, _colour, _group in cat.BUILTIN.values()}
+    return keys
+
+
+WANTED = wanted_keys()
+check("the extractor found the strings to translate", len(WANTED) > 300, True)
+
+for code, catalogue in sorted(i18n.CATALOGUES.items()):
+    missing = WANTED - set(catalogue)
+    check(f"{code} translates every string the app uses", sorted(missing), [])
+    stale = set(catalogue) - WANTED
+    check(f"...and carries none the app no longer has", sorted(stale), [])
+
+# A translation that drops a placeholder renders "Deleted ." — worse than
+# English, because it looks like data went missing rather than a word.
+for code, catalogue in sorted(i18n.CATALOGUES.items()):
+    wrong = [src for src, dst in catalogue.items()
+             if set(re.findall(r"\{(\w+)\}", src))
+             != set(re.findall(r"\{(\w+)\}", dst))]
+    check(f"{code} keeps every placeholder", wrong, [])
+
+# Duplicate keys in a dict literal are silent: the last one wins and the
+# earlier translation is simply never used.
+for code in sorted(i18n.CATALOGUES):
+    path = pathlib.Path(__file__).resolve().parent.parent / "app" / "lang" / f"{code}.py"
+    literals = [ast.literal_eval(k)
+                for node in ast.walk(ast.parse(path.read_text()))
+                if isinstance(node, ast.Dict)
+                for k in node.keys if isinstance(k, ast.Constant)]
+    dupes = sorted({k for k in literals if literals.count(k) > 1})
+    check(f"{code} defines each key once", dupes, [])
+
+check("an unknown string falls back to English",
+      i18n.translate("Not in any catalogue", "de"), "Not in any catalogue")
+check("a context marker never reaches the page",
+      i18n.translate("Balance [somewhere]", "de"), "Balance")
+check("...even when the catalogue has no entry for it",
+      "[" in i18n.translate("buy [kind]", "en"), False)
+
+# Numbers and dates follow the language, not the machine's locale.
+# The space before the currency is non-breaking on purpose: an amount
+# that wraps between the number and its currency is unreadable, and it
+# happens on a phone in a table cell.
+check("English groups with a comma and a dot",
+      i18n.money(1234.5, "EUR", "en"), "1\u00a0234.50\u00a0EUR")
+check("German swaps both separators",
+      i18n.money(1234.5, "EUR", "de"), "1.234,50\u00a0EUR")
+check("French groups with a narrow space",
+      i18n.money(1234.5, "EUR", "fr"), "1\u202f234,50\u00a0EUR")
+check("Spanish writes it like German",
+      i18n.money(1234.5, "EUR", "es"), "1.234,50\u00a0EUR")
+check("a negative keeps its sign in front",
+      i18n.money(-99.9, "EUR", "de"), "-99,90\u00a0EUR")
+check("the number never wraps away from its currency",
+      " " in i18n.money(1234.5, "EUR", "de"), False)
+check("no amount is a dash, not a zero", i18n.money(None, "EUR", "de"), "—")
+check("English keeps ISO dates", i18n.fmt_date("2026-09-08", "en"), "2026-09-08")
+check("German writes them with dots", i18n.fmt_date("2026-09-08", "de"), "08.09.2026")
+check("French with slashes", i18n.fmt_date("2026-09-08", "fr"), "08/09/2026")
+check("a timestamp is cut down to its date",
+      i18n.fmt_date("2026-09-08T11:22:33+00:00", "de"), "08.09.2026")
+check("something that is not a date is shown as it is",
+      i18n.fmt_date("whenever", "de"), "whenever")
+check("a month becomes a name", i18n.fmt_month("2026-09", "de"), "Sep 2026")
+check("...in the language's own abbreviation",
+      i18n.fmt_month("2026-09", "fr"), "sept. 2026")
+check("share counts lose their trailing zeroes",
+      i18n.qty(1061.0, "de"), "1.061")
+check("...but keep the fraction when there is one",
+      i18n.qty(0.5432, "fr"), "0,5432")
+
+# Which language a request is in.
+check("a configured language wins", i18n.resolve("fr", "de-DE,de;q=0.9"), "fr")
+check("no setting follows the browser", i18n.resolve("", "de-DE,de;q=0.9"), "de")
+check("...respecting the browser's own order",
+      i18n.resolve("", "en-GB;q=0.7,es-ES;q=0.9"), "es")
+check("a region is dropped, the language is not",
+      i18n.resolve("", "de-AT"), "de")
+check("a language we do not speak is English",
+      i18n.resolve("", "is-IS,is;q=0.9"), "en")
+check("garbage is English", i18n.resolve("", ";;;"), "en")
+check("a nonsense setting is ignored rather than shown",
+      i18n.resolve("klingon", None), "en")
+
+# End to end: the setting changes the page, and the numbers with it.
+r = c.post("/settings", data={"form": "general", "language": "de",
+                              "base_currency": "EUR",
+                              "redirect_url": "http://localhost:8000/connect/callback"},
+           follow_redirects=True)
+check("the language can be set from the page",
+      settings.load()["language"], "de")
+check("...and the confirmation is already in it",
+      "Einstellungen gespeichert".encode() in r.data, True)
+
+r = c.get("/")
+check("the navigation is translated", "Übersicht".encode() in r.data, True)
+check("...and the page says which language it is in",
+      b'<html lang="de">' in r.data, True)
+check("...and built-in category names come with it",
+      "Lebensmittel".encode() in c.get("/settings").data, True)
+
+r = c.get("/accounts")
+check("amounts are punctuated the German way",
+      re.search(rb"\d\.\d{3},\d{2}", r.data) is not None, True)
+
+# The catalogue is cached per language, so one reader's page cannot be
+# served out of another reader's cache.
+r = c.post("/settings", data={"form": "general", "language": "fr",
+                              "base_currency": "EUR",
+                              "redirect_url": "http://localhost:8000/connect/callback"},
+           follow_redirects=True)
+check("switching again switches the catalogue with it",
+      "Courses".encode() in c.get("/settings").data, True)
+check("...and the German labels are gone",
+      "Lebensmittel".encode() in c.get("/settings").data, False)
+
+# A category the user renamed is theirs, in whatever language they typed
+# it. Translating over the top of it would undo their edit on every page.
+c.post("/settings", data={"form": "category_edit", "slug": "food",
+                          "label": "Bouffe", "colour": "#5b9dff",
+                          "group": "spending"})
+c.post("/settings", data={"form": "general", "language": "de",
+                          "base_currency": "EUR",
+                          "redirect_url": "http://localhost:8000/connect/callback"})
+check("a renamed built-in keeps the name the user gave it",
+      cat.label("food"), "Bouffe")
+check("...on every page, in every language",
+      "Bouffe".encode() in c.get("/settings").data, True)
+
+# Eleven sentences interpolate a link and are marked safe so the anchor
+# survives. None of them takes user data — this is the check that keeps
+# it that way, because the day one does, the name of an account becomes
+# a script tag on the page that confirms deleting it.
+r = c.post("/accounts/new", data={"name": "<b>Bold</b> & \"quoted\"",
+                                  "type": "bank", "currency": "EUR"})
+nasty_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+page = c.get(f"/accounts/{nasty_id}/edit").get_data(as_text=True)
+check("a name with markup in it is escaped, not rendered",
+      "<b>Bold</b>" in page, False)
+check("...and arrives on the page as text",
+      "&lt;b&gt;Bold&lt;/b&gt;" in page, True)
+check("...quotes included", "&#34;quoted&#34;" in page or "&quot;quoted&quot;" in page, True)
+c.post(f"/accounts/{nasty_id}/delete", data={})
+
+c.post("/settings", data={"form": "general", "language": "",
+                          "base_currency": "EUR",
+                          "redirect_url": "http://localhost:8000/connect/callback"})
+check("and it can be handed back to the browser",
+      settings.load()["language"], "")
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

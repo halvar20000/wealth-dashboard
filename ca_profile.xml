@@ -10,6 +10,8 @@
 - Overview, Portfolio, Cash Flow, Budget, Subscriptions, Transactions and Categorize — with categories that learn a rule once and apply it retroactively.
 - Optional read-only bank sync over PSD2 via [Enable Banking](https://enablebanking.com): one registration covers a few thousand banks across the EEA. You register your own application, so the consent is between you and your bank. The app cannot move money.
 
+- Speaks **English, German, French and Spanish**, down to how numbers and dates are written. It follows your browser until you pick one.
+
 **Nothing to configure.** No database container, no API key, no account anywhere — set a port, keep the Data path on appdata, start it, open the WebUI and create your login. Bank sync is set up later, inside the app, and nothing else waits on it.
 
 &#128190; **Everything you own is under `/data`** — the database, your settings, and in `/data/secrets` the bank credentials and the key that signs your sessions. Back that folder up. There is no password reset, because there is nobody to reset it.
