@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.8.1] — 2026-09-10
+
+### Fixed
+- **The version check did not actually gate the build.** 0.8.0 added a job that
+  compares the tag, `__version__` and this file, and said it refused a release
+  where they disagree — but the publish step did not wait for it, so it ran
+  alongside and the image would have gone out regardless. It is a dependency of
+  the publish step now, with the condition that lets an ordinary push to `main`
+  through, where that check does not apply.
+
 ## [0.8.0] — 2026-09-10
 
 ### Added
@@ -165,6 +175,7 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 - Consent expiry is surfaced before it bites.
 - Docker image and compose file.
 
+[0.8.1]: https://github.com/halvar20000/wealth-dashboard/releases/tag/v0.8.1
 [0.8.0]: https://github.com/halvar20000/wealth-dashboard/releases/tag/v0.8.0
 [0.7.0]: https://github.com/halvar20000/wealth-dashboard/releases/tag/v0.7.0
 [0.6.0]: https://github.com/halvar20000/wealth-dashboard/releases/tag/v0.6.0

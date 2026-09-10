@@ -71,7 +71,15 @@ jobs:
           echo "$tag is consistent across tag, code and changelog"
 
   build:
-    needs: test
+    # Both, and the `if` is what makes that work: `version` only runs for
+    # a tag, and a skipped job in `needs` skips its dependants unless the
+    # dependant says otherwise. Without the condition, every push to main
+    # would stop here.
+    needs: [test, version]
+    if: >-
+      !cancelled()
+      && needs.test.result == 'success'
+      && (needs.version.result == 'success' || needs.version.result == 'skipped')
     runs-on: ubuntu-latest
     # A wedged build must fail rather than idle for the six-hour default.
     timeout-minutes: 30
