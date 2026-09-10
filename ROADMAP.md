@@ -28,6 +28,8 @@ it does not do yet.
 - [x] English, German, French and Spanish, with the number and date
       shapes that go with each.
 - [x] Deleting an account asks only when there is something to lose.
+- [x] A version the app can state, a changelog it renders itself, and
+      a build that refuses a tag disagreeing with either.
 - [x] Packaged as an Unraid app: multi-arch image on GHCR, a
       Community Applications template, and an install guide.
 

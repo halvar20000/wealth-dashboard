@@ -27,6 +27,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
+# Read at runtime by the changelog page. In the image because a
+# dashboard that cannot say what changed in the version you are
+# running is asking you to go and find out on GitHub.
+COPY CHANGELOG.md ./
 
 # The image holds no data. Everything the user owns is in the volume,
 # which is what makes "back up /data" a complete instruction — the bank

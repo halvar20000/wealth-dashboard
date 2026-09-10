@@ -30,7 +30,7 @@ from pathlib import Path
 from flask import (Flask, flash, g, redirect, render_template, request,
                    session, url_for)
 
-from . import auth, i18n, settings
+from . import __version__, auth, changelog, i18n, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import cashflow, categories, importers, overview, subscriptions
@@ -170,12 +170,29 @@ def _globals():
             "categories": categories,
             "account_types": ACCOUNT_TYPES, "type_label": _type_label,
             "kind_label": _kind_label, "rhythm_label": _rhythm_label,
-            "asset_version": _ASSET_VERSION}
+            "asset_version": _ASSET_VERSION,
+            "version": __version__}
 
 
 @app.route("/healthz")
 def healthz():
-    return {"ok": True, "configured": has_users()}
+    # The version is here so a monitor can see a container that never
+    # restarted after an update — which looks identical to a healthy one
+    # from the outside.
+    return {"ok": True, "configured": has_users(), "version": __version__}
+
+
+@app.route("/changelog")
+@auth.login_required
+def changelog_page():
+    """What changed, read out of CHANGELOG.md.
+
+    Behind the login like every other page: it is not a secret, but an
+    unauthenticated page is a page that tells a stranger which version
+    you are running and therefore which bugs you still have.
+    """
+    return render_template("changelog.html", active_page="changelog",
+                           releases=changelog.load(), version=__version__)
 
 
 # ─── First run and sign-in ───────────────────────────────────────────

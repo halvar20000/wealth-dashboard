@@ -218,6 +218,17 @@ To keep credentials out of your data backups, point them elsewhere:
 WD_SECRETS_DIR=/etc/wealth-dashboard/secrets python -m app
 ```
 
+## Versions
+
+The version is in the header of every page and links to the changelog, rendered
+inside the app. `/healthz` reports it as well.
+
+[CHANGELOG.md](CHANGELOG.md) is the history, newest first. Releases are tagged
+`vX.Y.Z` and published to GHCR under that number as well as `latest`, so
+`:0.8.0` is a version you can pin and stay on. Cutting one is
+[three files that must agree](docs/RELEASING.md), and the build refuses a tag
+where they do not.
+
 ## Languages
 
 English, German, French and Spanish. Set it under **Settings**, or leave it

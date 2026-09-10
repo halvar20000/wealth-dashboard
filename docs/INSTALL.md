@@ -33,7 +33,7 @@ it lives in your database, and there is no password reset — see
 | Field | Value |
 |---|---|
 | Name | `wealth-dashboard` |
-| Repository | `ghcr.io/halvar20000/wealth-dashboard:latest` (or pin one, e.g. `:0.1.0`) |
+| Repository | `ghcr.io/halvar20000/wealth-dashboard:latest` (or pin one, e.g. `:0.8.0`) |
 | Network Type | `Bridge` |
 | WebUI | `http://[IP]:[PORT:8000]` |
 | Port | container `8000` → host `8000` |
@@ -138,7 +138,9 @@ Your data is in the mapped folder, so an update never touches it. The database
 upgrades itself on start: an older schema is migrated in place rather than
 refused.
 
-To stay on a known version, pin a tag (`:0.1.0`) instead of `latest`.
+To stay on a known version, pin a tag (`:0.8.0`) instead of `latest` in the
+container's **Repository** field. Which version you are running is shown in
+the app's header, and clicking it lists what changed in each one.
 
 ---
 

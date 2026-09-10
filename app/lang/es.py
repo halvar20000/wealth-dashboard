@@ -707,6 +707,28 @@ STRINGS: dict[str, str] = {
         "Funciona. URL de redirección registradas:",
     "none": "ninguna",
 
+    # ─── Novedades ───────────────────────────────────────────────────
+    "What changed": "Qué ha cambiado",
+    "You are running version {version}.": "Estás en la versión {version}.",
+    "Release notes are written once, in English, and are not translated — a "
+    "translation of a note about a fix is one more thing that can be wrong "
+    "about the fix.":
+        "Las notas de versión se escriben una vez, en inglés, y no se "
+        "traducen — la traducción de una nota sobre un arreglo es una cosa más "
+        "que puede estar mal sobre ese arreglo.",
+    "you are here": "estás aquí",
+    "Added [changelog]": "Añadido",
+    "Changed [changelog]": "Cambiado",
+    "Fixed [changelog]": "Arreglado",
+    "Removed [changelog]": "Eliminado",
+    "No changelog shipped with this build.":
+        "Con esta versión no vino ninguna lista de cambios.",
+    "CHANGELOG.md is not inside the image — it is in the repository, which is "
+    "where this page reads it from when you run from source.":
+        "CHANGELOG.md no está dentro de la imagen — el archivo está en el "
+        "repositorio, que es de donde lo lee esta página cuando arrancas desde "
+        "el código.",
+
     # ─── Nombres de las categorías de serie ──────────────────────────
     "Housing": "Vivienda",
     "Groceries": "Supermercado",

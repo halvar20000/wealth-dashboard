@@ -258,6 +258,22 @@ button:hover, .btn:hover { filter: brightness(1.08); text-decoration: none; }
   border: 1px solid rgba(52,211,153,0.35);
 }
 .tag-muted { background: var(--bg-elevated); color: var(--text-tertiary); border-color: var(--border-strong); }
+.tag-warn  { background: var(--warn-soft); color: var(--warn); border-color: rgba(251,191,36,0.35); }
+.tag-error { background: var(--loss-soft); color: var(--loss); border-color: rgba(248,113,113,0.35); }
+
+/* The version in the header: readable, but never competing with the
+   navigation beside it. */
+.version-badge {
+  margin-left: 10px; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; font-family: var(--font-mono);
+  color: var(--text-tertiary); background: var(--bg-elevated);
+  border: 1px solid var(--border); text-decoration: none;
+}
+.version-badge:hover { color: var(--accent-gold); border-color: var(--border-strong); }
+
+/* One changelog section — "Added", "Fixed" — above its bullets. */
+.change-heading { margin: 18px 0 8px; font-size: 13px; }
+.change-heading .tag { margin-left: 0; }
 
 .flash {
   border-radius: 10px; padding: 11px 14px; margin: 0 0 16px;

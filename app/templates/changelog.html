@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ _("What changed") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("What changed") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _f("You are running version {version}.", version=version) }}
+   {{ _("Release notes are written once, in English, and are not translated — a translation of a note about a fix is one more thing that can be wrong about the fix.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% if releases %}
+{% for r in releases %}
+<section class="card">
+  <div class="card-header">
+    <h2>{{ r.version }}{% if r.version == version %}
+      <span class="tag">{{ _("you are here") }}</span>{% endif %}</h2>
+    {% if r.date %}<span class="card-subtitle">{{ d(r.date) }}</span>{% endif %}
+  </div>
+  {% for s in r.sections %}
+  <h3 class="change-heading">
+    <span class="tag {{ 'tag-' ~ s.tone if s.tone }}">{{ _(s.name ~ " [changelog]") }}</span>
+  </h3>
+  <ul class="steps">
+    {# Already escaped and marked safe by the parser, which is the only
+       place release-note markup is allowed to come from. #}
+    {% for item in s['items'] %}<li>{{ item }}</li>{% endfor %}
+  </ul>
+  {% endfor %}
+</section>
+{% endfor %}
+{% else %}
+<section class="card empty">
+  <p>{{ _("No changelog shipped with this build.") }}</p>
+  <p class="sub">{{ _("CHANGELOG.md is not inside the image — it is in the repository, which is where this page reads it from when you run from source.") }}</p>
+</section>
+{% endif %}
+{% endblock %}

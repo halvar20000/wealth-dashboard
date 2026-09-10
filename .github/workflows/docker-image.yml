@@ -9,8 +9,12 @@ on:
     # Don't rebuild for changes that cannot affect the running app.
     # Without this, editing the README republishes the image and Unraid
     # shows an "update available" for a container that has not changed.
+    # CHANGELOG.md is deliberately absent from this list: it ships in
+    # the image and the app renders it, so editing it does change what
+    # runs.
     paths-ignore:
-      - '**.md'
+      - 'README.md'
+      - 'ROADMAP.md'
       - 'docs/**'
       - 'templates/**'
       - 'ca_profile.xml'
@@ -42,6 +46,29 @@ jobs:
       # network, no pytest. If it cannot pass here it must not become an
       # image somebody installs.
       - run: python3 tests/test_all.py
+
+  # A release tag has to mean something. Three places carry the version
+  # — the tag, __version__, and the changelog — and any two of them
+  # agreeing while the third does not is how you end up shipping 0.8.0
+  # twice with different contents.
+  version:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag, __version__ and CHANGELOG must agree
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          code=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' app/__init__.py)
+          if [ "$tag" != "$code" ]; then
+            echo "::error::tag $GITHUB_REF_NAME says $tag, app/__init__.py says $code"
+            exit 1
+          fi
+          if ! grep -q "^## \[$tag\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$tag]' entry"
+            exit 1
+          fi
+          echo "$tag is consistent across tag, code and changelog"
 
   build:
     needs: test

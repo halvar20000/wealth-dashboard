@@ -3,4 +3,7 @@
 `python -m app` starts the server. See README.md.
 """
 
-__version__ = "0.1.0"
+# The one place the version is written. CHANGELOG.md must have an
+# entry matching it, and a release tag must agree with both — the build
+# refuses the tag otherwise.
+__version__ = "0.8.0"

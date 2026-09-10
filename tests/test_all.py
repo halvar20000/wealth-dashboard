@@ -1143,7 +1143,7 @@ print("\n13. Four languages")
 # for, because the failure mode of a hand-kept catalogue is not a crash:
 # it is one sentence in English in the middle of a German page, which
 # nobody notices until a user does.
-from app import i18n, main                                 # noqa: E402
+from app import changelog, i18n, main                      # noqa: E402
 
 TEMPLATES = pathlib.Path(__file__).resolve().parent.parent / "app" / "templates"
 SOURCES = [pathlib.Path(__file__).resolve().parent.parent / "app" / f
@@ -1176,6 +1176,7 @@ def wanted_keys() -> set:
     keys |= set(main.ACCOUNT_TYPES.values())
     keys |= {f"{k} [kind]" for k in main.KINDS}
     keys |= {f"{r} [rhythm]" for r in main.RHYTHMS}
+    keys |= {f"{s} [changelog]" for s in changelog.SECTIONS}
     keys |= {name for name, _colour, _group in cat.BUILTIN.values()}
     return keys
 
@@ -1325,6 +1326,85 @@ c.post("/settings", data={"form": "general", "language": "",
                           "redirect_url": "http://localhost:8000/connect/callback"})
 check("and it can be handed back to the browser",
       settings.load()["language"], "")
+
+# ---------------------------------------------------------------------------
+print("\n14. Saying which version this is")
+# ---------------------------------------------------------------------------
+from app import __version__                                 # noqa: E402
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+entries = changelog.load(REPO / "CHANGELOG.md")
+check("the changelog parses", len(entries) >= 8, True)
+check("newest release first", entries[0]["version"], __version__)
+check("...and the code agrees with the file", changelog.latest(), __version__)
+check("every release carries a date",
+      [e["version"] for e in entries if not e["date"]], [])
+
+versions = [tuple(int(p) for p in e["version"].split(".")) for e in entries]
+check("versions are in descending order", versions, sorted(versions, reverse=True))
+check("...and none is listed twice", len(set(versions)), len(versions))
+check("every release says something",
+      [e["version"] for e in entries if not e["sections"]], [])
+check("every section has at least one bullet",
+      [(e["version"], s["name"]) for e in entries for s in e["sections"]
+       if not s["items"]], [])
+check("only the four known section names are used",
+      sorted({s["name"] for e in entries for s in e["sections"]}
+             - set(changelog.SECTIONS)), [])
+
+# The parser turns markdown into markup, which means it decides what is
+# allowed to be HTML on that page.
+sample = changelog._inline("`code` and **bold** and [a link](https://example.org)")
+check("backticks become code", "<code>code</code>" in sample, True)
+check("stars become strong", "<strong>bold</strong>" in sample, True)
+check("a full link becomes an anchor",
+      '<a href="https://example.org" rel="noreferrer">a link</a>' in sample, True)
+nasty = changelog._inline("a <script>alert(1)</script> in a release note")
+check("markup in a note is escaped, not run", "<script>" in nasty, False)
+check("...and shown as text", "&lt;script&gt;" in nasty, True)
+relative = changelog._inline("see [the readme](../README.md)")
+check("a relative link is left as text, because it would 404 here",
+      "<a href" in relative, False)
+
+check("a missing changelog is empty, not an error",
+      changelog.load(REPO / "no-such-file.md"), [])
+
+# A bullet wrapped over three lines is one bullet.
+wrapped = pathlib.Path(TMP) / "wrapped.md"
+wrapped.write_text("# Changelog\n\n## [9.9.9] — 2026-01-01\n\n### Added\n"
+                   "- one bullet that\n  carries on over\n  three lines\n"
+                   "- and a second\n")
+one = changelog.load(wrapped)
+check("a wrapped bullet is joined back up",
+      str(one[0]["sections"][0]["items"][0]),
+      "one bullet that carries on over three lines")
+check("...without swallowing the next one",
+      len(one[0]["sections"][0]["items"]), 2)
+
+# What the app reports about itself.
+r = c.get("/healthz")
+check("the health check names the version",
+      r.get_json()["version"], __version__)
+
+r = c.get("/changelog")
+check("the changelog page renders", r.status_code, 200)
+check("...naming the running version", __version__.encode() in r.data, True)
+check("...and the oldest release too", b"0.1.0" in r.data, True)
+check("...with the section names translated",
+      "Behoben".encode() in r.data or b"Fixed" in r.data, True)
+
+r = c.get("/")
+check("the version is in the header", b"version-badge" in r.data, True)
+
+# The changelog ships in the image, so the page is not empty for the
+# people who install it rather than clone it.
+dockerignore = (REPO / ".dockerignore").read_text()
+check("the build context keeps CHANGELOG.md", "!CHANGELOG.md" in dockerignore, True)
+check("...and the Dockerfile copies it",
+      "COPY CHANGELOG.md" in (REPO / "Dockerfile").read_text(), True)
+workflow = (REPO / ".github" / "workflows" / "docker-image.yml").read_text()
+check("...and editing it rebuilds the image",
+      "'**.md'" in workflow, False)
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

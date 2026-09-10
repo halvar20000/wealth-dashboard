@@ -708,6 +708,28 @@ STRINGS: dict[str, str] = {
         "Funktioniert. Hinterlegte Redirect-URLs:",
     "none": "keine",
 
+    # ─── Änderungen ──────────────────────────────────────────────────
+    "What changed": "Was sich geändert hat",
+    "You are running version {version}.": "Du läufst auf Version {version}.",
+    "Release notes are written once, in English, and are not translated — a "
+    "translation of a note about a fix is one more thing that can be wrong "
+    "about the fix.":
+        "Die Versionshinweise werden einmal geschrieben, auf Englisch, und "
+        "nicht übersetzt — die Übersetzung einer Notiz über einen Fix ist noch "
+        "eine Sache, die an diesem Fix falsch sein kann.",
+    "you are here": "du bist hier",
+    "Added [changelog]": "Neu",
+    "Changed [changelog]": "Geändert",
+    "Fixed [changelog]": "Behoben",
+    "Removed [changelog]": "Entfernt",
+    "No changelog shipped with this build.":
+        "Mit diesem Build kam keine Änderungsliste mit.",
+    "CHANGELOG.md is not inside the image — it is in the repository, which is "
+    "where this page reads it from when you run from source.":
+        "CHANGELOG.md steckt nicht im Image — die Datei liegt im Repository, "
+        "und von dort liest diese Seite sie, wenn du aus dem Quellcode "
+        "startest.",
+
     # ─── Kategorienamen der Grundausstattung ─────────────────────────
     "Housing": "Wohnen",
     "Groceries": "Lebensmittel",

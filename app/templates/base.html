@@ -18,6 +18,12 @@
       Wealth&nbsp;Dashboard
     </a>
     {% if user %}
+    {# Which version is in front of you, without going to GitHub to find
+       out whether this container has the fix you read about. #}
+    <a class="version-badge" href="{{ url_for('changelog_page') }}"
+       title="{{ _('What changed') }}">{{ version }}</a>
+    {% endif %}
+    {% if user %}
     <nav>
       <a class="navlink {{ 'active' if active_page == 'overview' }}" href="{{ url_for('index') }}">{{ _("Overview") }}</a>
       <a class="navlink {{ 'active' if active_page == 'portfolio' }}" href="{{ url_for('portfolio_page') }}">{{ _("Portfolio") }}</a>
