@@ -132,6 +132,32 @@ CREATE TABLE IF NOT EXISTS categories (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Machine-written state, as opposed to settings.json, which is the
+-- user's. "When did we last ask the ECB" belongs nowhere near a file
+-- somebody edits by hand — and the next thing to need this is the price
+-- feed, which will have exactly the same question.
+CREATE TABLE IF NOT EXISTS app_state (
+    key        TEXT PRIMARY KEY,
+    value      TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ECB euro foreign exchange reference rates: one row per currency per
+-- publication day, holding what one euro buys. That is the direction
+-- the ECB publishes in, and storing it in any other direction means
+-- deciding how to round a reciprocal before anybody has asked a
+-- question.
+--
+-- Rows are kept rather than replaced. A rate is a fact about a day, the
+-- day does not change, and the history is what a balance chart will
+-- need the moment there is one.
+CREATE TABLE IF NOT EXISTS fx_rates (
+    as_of    TEXT NOT NULL,       -- the ECB publication date, ISO
+    currency TEXT NOT NULL,       -- ISO 4217, never EUR: EUR is the unit
+    per_eur  REAL NOT NULL,       -- 1 EUR buys this much of `currency`
+    PRIMARY KEY (as_of, currency)
+);
+
 -- What the user budgeted for a category, per month. One row per
 -- category; a month with no row simply has no budget.
 CREATE TABLE IF NOT EXISTS budgets (
@@ -175,6 +201,10 @@ CREATE INDEX IF NOT EXISTS idx_txn_category ON transactions(category, txn_date);
 
 CREATE INDEX IF NOT EXISTS idx_balances_account
     ON balances(account_id, as_of DESC);
+
+-- Every conversion asks the same question: the newest publication day
+-- at or before some date.
+CREATE INDEX IF NOT EXISTS idx_fx_as_of ON fx_rates(as_of DESC);
 """
 
 
@@ -254,6 +284,23 @@ def get_conn(path: Path | None = None) -> Iterator[sqlite3.Connection]:
         raise
     finally:
         conn.close()
+
+
+def get_state(key: str) -> str | None:
+    """Read a machine-written value. See the app_state table."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT value FROM app_state WHERE key = ?",
+                           (key,)).fetchone()
+    return row["value"] if row else None
+
+
+def set_state(key: str, value: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO app_state (key, value, updated_at) "
+            "VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET "
+            "value = excluded.value, updated_at = excluded.updated_at",
+            (key, value))
 
 
 def has_users() -> bool:

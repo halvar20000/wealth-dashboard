@@ -60,10 +60,13 @@
       </tbody>
     </table>
   </div>
+  {% if s.converted %}
+  <p class="sub">{{ _("Amounts in another currency are in the totals above, converted at the ECB reference rate — a published mid-market rate, not one your broker would give you.") }}
+     {{ _f("Rates of {date}.", date=d(s.fx_as_of)) }}</p>
+  {% endif %}
   {% if s.unconverted %}
-  <p class="sub">{{ _("Positions in another currency are not added into the totals above:") }}
-     {% for u in s.unconverted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}.
-     {{ _("There is no exchange-rate source yet.") }}</p>
+  <p class="sub">{{ _("These are not in the totals above, because no rate here covers them:") }}
+     {% for u in s.unconverted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}.</p>
   {% endif %}
 </section>
 {% else %}

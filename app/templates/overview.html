@@ -11,9 +11,16 @@
         {{ _("Cash") }} <strong>{{ money(s.cash, s.base_currency) }}</strong>
         · {{ _("Securities") }} <strong>{{ money(s.securities, s.base_currency) }}</strong>
       </div>
+      {% if s.converted %}
+      {% set amounts %}{% for u in s.converted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}{% endset %}
+      <div class="hero-sub">
+        {{ _f("Includes {amounts}, converted at the ECB rate of {date}.",
+              amounts=amounts, date=d(s.fx_as_of)) | safe }}
+      </div>
+      {% endif %}
       {% if s.unconverted %}
       <div class="hero-sub">
-        {{ _("Not included, because there are no exchange rates yet:") }}
+        {{ _("Not included, because no rate here covers them:") }}
         {% for u in s.unconverted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}
       </div>
       {% endif %}

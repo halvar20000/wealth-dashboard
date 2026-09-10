@@ -33,8 +33,21 @@ a PSD2 API it connects directly, with credentials that are yours.
 
 ## What is not here yet
 
-Net worth across accounts, currency conversion, live prices,
-categorisation, charts, forecasting. See [ROADMAP.md](ROADMAP.md).
+Live prices, balance history, forecasting. See [ROADMAP.md](ROADMAP.md).
+
+## Exchange rates
+
+Amounts in another currency are converted at **ECB euro reference rates** —
+free, no key, no account — and every total built from them names the day they
+were published. Fetched on start-up, at most once a day, in the background;
+there is a button under Settings for doing it now. Ninety days of history are
+kept, so a weekend falls back to Friday's rate rather than to a gap.
+
+Two things this deliberately does not do. It does not use a rate your bank or
+broker would give you — reference rates are mid-market, and the page says so.
+And it does not convert what it has no rate for: an amount in a currency the
+ECB does not publish stays beside the total instead of being folded into it, the
+same as before there were any rates at all.
 
 ---
 

@@ -29,6 +29,28 @@
   </form>
 </div>
 
+<div class="card" id="rates">
+  <div class="card-header">
+    <h2>{{ _("Exchange rates") }}</h2>
+    <span class="card-subtitle">{{ _("European Central Bank") }}</span>
+  </div>
+  <p class="sub">{{ _("The ECB publishes euro reference rates every business day — free, without a key and without an account. They are what converts an amount in another currency into your base currency, and every total built from them names the day they were published.") }}</p>
+
+  {% if rates.as_of %}
+  <p>{{ _n(rates.count, "{n} currency, published {date}.",
+           "{n} currencies, published {date}.", date=d(rates.as_of)) }}
+     {% if rates.weekend %}<span class="sub">{{ _("The ECB does not publish at the weekend, so this is Friday's — which is also the newest rate there is.") }}</span>{% endif %}</p>
+  {% else %}
+  <div class="flash flash-warn">{{ _("No rates yet, so amounts in another currency are reported beside your totals rather than inside them. Fetching them needs this machine to reach the internet once.") }}</div>
+  {% endif %}
+
+  <form method="post">
+    <input type="hidden" name="form" value="fx_refresh">
+    <button type="submit">{{ _("Update rates now") }}</button>
+  </form>
+  <p class="sub">{{ _("Also updated on start-up, at most once a day, in the background. Nothing waits on it: a page renders whether or not the rates arrived.") }}</p>
+</div>
+
 <div class="card" id="categories">
   <div class="card-header">
     <h2>{{ _("Categories") }}</h2>

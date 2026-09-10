@@ -209,11 +209,6 @@ STRINGS: dict[str, str] = {
         "was du eingezahlt hast, Positionen in {currency}",
     "at last traded prices, not market":
         "zu letzten Handelspreisen, nicht zu Marktpreisen",
-    "Positions in another currency are not added into the totals above:":
-        "Positionen in einer anderen Währung sind in den Summen oben nicht "
-        "enthalten:",
-    "There is no exchange-rate source yet.":
-        "Es gibt noch keine Wechselkursquelle.",
     "No holdings yet.": "Noch keine Bestände.",
     "Import a broker export from an account and the positions are computed "
     "from its trades.":
@@ -224,8 +219,6 @@ STRINGS: dict[str, str] = {
     "Net worth": "Nettovermögen",
     "Cash": "Barmittel",
     "Securities": "Wertpapiere",
-    "Not included, because there are no exchange rates yet:":
-        "Nicht enthalten, weil es noch keine Wechselkurse gibt:",
     "{n} connected to a bank": "{n} mit einer Bank verbunden",
     "across {n} account with a balance": "über {n} Konto mit Saldo",
     "across {n} accounts with a balance": "über {n} Konten mit Saldo",
@@ -707,6 +700,55 @@ STRINGS: dict[str, str] = {
     "Working. Registered redirect URLs:":
         "Funktioniert. Hinterlegte Redirect-URLs:",
     "none": "keine",
+
+    # ─── Wechselkurse ────────────────────────────────────────────────
+    "Exchange rates": "Wechselkurse",
+    "European Central Bank": "Europäische Zentralbank",
+    "The ECB publishes euro reference rates every business day — free, "
+    "without a key and without an account. They are what converts an amount in "
+    "another currency into your base currency, and every total built from them "
+    "names the day they were published.":
+        "Die EZB veröffentlicht an jedem Geschäftstag Euro-Referenzkurse — "
+        "kostenlos, ohne Schlüssel und ohne Konto. Sie rechnen einen Betrag in "
+        "einer anderen Währung in deine Basiswährung um, und jede Summe, die "
+        "darauf beruht, nennt den Tag, an dem sie veröffentlicht wurden.",
+    "{n} currency, published {date}.": "{n} Währung, veröffentlicht am {date}.",
+    "{n} currencies, published {date}.":
+        "{n} Währungen, veröffentlicht am {date}.",
+    "The ECB does not publish at the weekend, so this is Friday's — which is "
+    "also the newest rate there is.":
+        "Am Wochenende veröffentlicht die EZB nichts, das ist also der Kurs "
+        "vom Freitag — und zugleich der neueste, den es gibt.",
+    "No rates yet, so amounts in another currency are reported beside your "
+    "totals rather than inside them. Fetching them needs this machine to reach "
+    "the internet once.":
+        "Noch keine Kurse — Beträge in anderen Währungen stehen deshalb neben "
+        "deinen Summen statt darin. Zum Holen muss dieser Rechner einmal ins "
+        "Internet kommen.",
+    "Update rates now": "Kurse jetzt aktualisieren",
+    "Also updated on start-up, at most once a day, in the background. Nothing "
+    "waits on it: a page renders whether or not the rates arrived.":
+        "Wird auch beim Start aktualisiert, höchstens einmal am Tag, im "
+        "Hintergrund. Nichts wartet darauf: eine Seite wird angezeigt, ob die "
+        "Kurse ankamen oder nicht.",
+    "{n} exchange rate fetched, published {date}.":
+        "{n} Wechselkurs geholt, veröffentlicht am {date}.",
+    "{n} exchange rates fetched, published {date}.":
+        "{n} Wechselkurse geholt, veröffentlicht am {date}.",
+    "Includes {amounts}, converted at the ECB rate of {date}.":
+        "Enthält {amounts}, umgerechnet zum EZB-Kurs vom {date}.",
+    "Not included, because no rate here covers them:":
+        "Nicht enthalten, weil kein Kurs hier sie abdeckt:",
+    "Amounts in another currency are in the totals above, converted at the ECB "
+    "reference rate — a published mid-market rate, not one your broker would "
+    "give you.":
+        "Beträge in anderen Währungen stecken in den Summen oben, umgerechnet "
+        "zum EZB-Referenzkurs — einem veröffentlichten Mittelkurs, nicht dem, "
+        "den dein Broker dir geben würde.",
+    "Rates of {date}.": "Kurse vom {date}.",
+    "These are not in the totals above, because no rate here covers them:":
+        "Diese stecken nicht in den Summen oben, weil kein Kurs hier sie "
+        "abdeckt:",
 
     # ─── Änderungen ──────────────────────────────────────────────────
     "What changed": "Was sich geändert hat",

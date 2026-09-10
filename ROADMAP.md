@@ -30,17 +30,20 @@ it does not do yet.
 - [x] Deleting an account asks only when there is something to lose.
 - [x] A version the app can state, a changelog it renders itself, and
       a build that refuses a tag disagreeing with either.
+- [x] Exchange rates from the ECB, with the publication date shown
+      beside every total built from them.
 - [x] Packaged as an Unraid app: multi-arch image on GHCR, a
       Community Applications template, and an install guide.
 
 ## Next
 
-**1. Exchange rates.** The most visible gap. A balance or holding in a
-currency other than the base one is reported beside the total rather
-than inside it, because adding 100 USD to 100 EUR is wrong in a way
-nobody can see. The ECB publishes daily reference rates free and without
-a key; that, plus a decision about which day's rate a historical balance
-is worth, closes it.
+**1. Live prices.** Holdings are valued at the price of your last trade,
+which is honest and not much use after a month. Yahoo's search endpoint
+resolves an ISIN to a ticker without a key — which is the hard half,
+because a broker export gives an ISIN and every price source wants a
+symbol — and the resolved ticker is worth storing so it is looked up
+once per security ever. A manual override for what it cannot find, and
+a manual balance for the accounts no file and no API will describe.
 
 **2. The pages that are still blocked.** Each waits on one thing:
 
@@ -57,12 +60,7 @@ is worth, closes it.
 is nearly free once there is more than one point, and it is the first
 screen that rewards using the app for a month.
 
-**4. Live prices.**
-Holdings are valued at the price of your last trade, which is honest and
-not much use after a month. A price source keyed on ISIN, and a manual
-balance for the accounts no file and no API will ever describe.
-
-**5. Scheduled sync.**
+**4. Scheduled sync.**
 A consent lasts 90 days; a sync should not need a human. In-container,
 so there is no crontab to edit.
 

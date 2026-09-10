@@ -11,6 +11,30 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.9.0] — 2026-09-10
+
+### Added
+- **Exchange rates, from the European Central Bank.** An amount in another
+  currency is now inside your net worth rather than beside it, converted at the
+  ECB euro reference rate — free, no key, no account. Every total built from
+  them names the day they were published, because a number converted at a rate
+  nobody can see fails the same way as one that was never converted at all.
+- Ninety days of rates are kept, not just today's, so a Sunday falls back to
+  Friday's rate rather than to a gap — and so a balance chart has a series
+  waiting for it when there is one.
+- Rates refresh in the background on start-up, at most once a day, and there is
+  an **Update rates now** button under Settings. Nothing waits on either: a page
+  renders whether or not the rates arrived.
+
+### Changed
+- The charts on the overview include converted amounts. A chart that quietly
+  omitted the dollar account while the total above it did not is a chart that
+  disagrees with its own page.
+- An amount the ECB publishes no rate for — or any amount at all before the
+  rates have ever been fetched — still sits beside the total and says so. That
+  was the behaviour before this release and it is the behaviour whenever a rate
+  is missing.
+
 ## [0.8.1] — 2026-09-10
 
 ### Fixed
@@ -175,6 +199,7 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 - Consent expiry is surfaced before it bites.
 - Docker image and compose file.
 
+[0.9.0]: https://github.com/halvar20000/wealth-dashboard/releases/tag/v0.9.0
 [0.8.1]: https://github.com/halvar20000/wealth-dashboard/releases/tag/v0.8.1
 [0.8.0]: https://github.com/halvar20000/wealth-dashboard/releases/tag/v0.8.0
 [0.7.0]: https://github.com/halvar20000/wealth-dashboard/releases/tag/v0.7.0

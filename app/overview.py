@@ -7,10 +7,14 @@ cached total that can quietly disagree with the accounts it came from.
 
 Two honesty rules run through it.
 
-**Currencies are not added together.** There is no exchange-rate source
-yet, so an amount in CHF is reported beside the base-currency total, not
-inside it. A single number that silently treats 100 CHF as 100 EUR is
-worse than two numbers, because it is wrong in a way nobody can see.
+**Currencies are converted at a rate the page names, or not at all.**
+ECB reference rates, with the publication date shown beside the total.
+An amount whose currency the ECB does not publish — or any amount at all
+before the rates have ever been fetched — is still reported beside the
+total rather than inside it. A single number that silently treats 100
+CHF as 100 EUR is worse than two numbers, because it is wrong in a way
+nobody can see; a number converted at a rate nobody can see is the same
+failure one step later.
 
 **Securities are valued at the last price you traded at.** That is not a
 market price. It is the only price this app knows, it is labelled as such
@@ -20,6 +24,7 @@ build.
 
 from __future__ import annotations
 
+from . import fx
 from .db import get_conn
 from .importers import positions
 
@@ -53,6 +58,27 @@ def summary(base_currency: str = "EUR") -> dict:
             "ORDER BY t.txn_date DESC, t.id DESC LIMIT 12").fetchall()]
 
     # ── Cash, per account ────────────────────────────────────────
+    # What one euro is worth in each currency on the newest day the ECB
+    # has published. Read once: a portfolio of forty holdings would
+    # otherwise ask the same question forty times.
+    fx_as_of, fx_rates = fx.rates_on()
+
+    def to_base(amount: float | None, currency: str | None):
+        """Into the base currency, or None when no rate says how.
+
+        None is not zero and not the original number. Every caller here
+        treats it as "cannot say", which is what puts the amount beside
+        the total instead of inside it.
+        """
+        if amount is None:
+            return None
+        ccy = (currency or base_currency).upper()
+        if ccy == base_currency.upper():
+            return amount
+        if ccy not in fx_rates or base_currency.upper() not in fx_rates:
+            return None
+        return amount / fx_rates[ccy] * fx_rates[base_currency.upper()]
+
     cash_by_currency: dict[str, float] = {}
     rows = []
     for acct in accounts:
@@ -64,6 +90,7 @@ def summary(base_currency: str = "EUR") -> dict:
         rows.append({
             **acct,
             "balance": amount,
+            "balance_base": to_base(amount, currency),
             "balance_currency": currency,
             "balance_as_of": bal["as_of"] if bal else None,
             "transactions": counts.get(acct["id"], 0),
@@ -99,8 +126,11 @@ def summary(base_currency: str = "EUR") -> dict:
         if item["last_price"] is not None:
             item["value"] = item["quantity"] * item["last_price"]
             ccy = item["currency"] or base_currency
+            item["value_base"] = to_base(item["value"], ccy)
             securities_by_currency[ccy] = (
                 securities_by_currency.get(ccy, 0.0) + item["value"])
+        else:
+            item["value_base"] = None
 
     holdings_list = sorted(holdings.values(),
                            key=lambda h: -(h["value"] or 0))
@@ -111,33 +141,52 @@ def summary(base_currency: str = "EUR") -> dict:
         for ccy, amount in source.items():
             totals_by_currency[ccy] = totals_by_currency.get(ccy, 0.0) + amount
 
-    # The headline is the base currency only. Everything else is listed
-    # beside it, unconverted and saying so.
-    unconverted = sorted(
-        ({"currency": c, "amount": a} for c, a in totals_by_currency.items()
-         if c != base_currency and abs(a) > 0.005),
-        key=lambda x: -abs(x["amount"]))
+    # Three piles: the base currency, what a rate could convert, and
+    # what nothing could. The last one is still shown beside the total
+    # rather than dropped, because an amount the app cannot value is not
+    # an amount that stopped existing.
+    converted, unconverted = [], []
+    for ccy, amount in totals_by_currency.items():
+        if ccy == base_currency or abs(amount) <= 0.005:
+            continue
+        in_base = to_base(amount, ccy)
+        if in_base is None:
+            unconverted.append({"currency": ccy, "amount": amount})
+        else:
+            converted.append({"currency": ccy, "amount": amount,
+                              "in_base": in_base})
+    converted.sort(key=lambda x: -abs(x["in_base"]))
+    unconverted.sort(key=lambda x: -abs(x["amount"]))
 
     # ── Breakdowns for the charts ────────────────────────────────
+    # The charts are in the base currency, and now include anything a
+    # rate could bring into it — a chart that quietly omits the dollar
+    # account is a chart that disagrees with the total above it.
     by_account = sorted(
-        [{"name": r["name"], "value": r["balance"]}
+        [{"name": r["name"], "value": r["balance_base"]}
          for r in rows
-         if r["balance"] and r["balance_currency"] == base_currency
-         and r["balance"] > 0],
+         if r["balance_base"] and r["balance_base"] > 0],
         key=lambda x: -x["value"])
     for h in holdings_list:
-        if h["value"] and (h["currency"] or base_currency) == base_currency:
+        if h["value_base"]:
             label = ", ".join(sorted(set(h["accounts"])))
             existing = next((b for b in by_account if b["name"] == label), None)
             if existing:
-                existing["value"] += h["value"]
+                existing["value"] += h["value_base"]
             else:
-                by_account.append({"name": label, "value": h["value"]})
+                by_account.append({"name": label, "value": h["value_base"]})
     by_account.sort(key=lambda x: -x["value"])
 
     by_class = []
-    cash_base = cash_by_currency.get(base_currency, 0.0)
-    sec_base = securities_by_currency.get(base_currency, 0.0)
+    # The totals are everything a rate could express in the base
+    # currency, which on a single-currency install is exactly what it
+    # was before.
+    cash_base = sum(v for v in (to_base(a, c)
+                                for c, a in cash_by_currency.items())
+                    if v is not None)
+    sec_base = sum(v for v in (to_base(a, c)
+                               for c, a in securities_by_currency.items())
+                   if v is not None)
     if cash_base:
         by_class.append({"name": "Cash", "value": cash_base})
     if sec_base:
@@ -149,6 +198,10 @@ def summary(base_currency: str = "EUR") -> dict:
         "cash": cash_base,
         "securities": sec_base,
         "unconverted": unconverted,
+        "converted": converted,
+        # The date of the rates used, so the total can name it. None
+        # when nothing needed converting.
+        "fx_as_of": fx_as_of if converted else None,
         "accounts": rows,
         "account_count": len(rows),
         "connected_count": sum(1 for r in rows if r["bank"]),

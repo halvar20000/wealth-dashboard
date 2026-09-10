@@ -24,13 +24,15 @@ from __future__ import annotations
 
 import os
 import secrets
+import threading
+import time
 import urllib.parse
 from pathlib import Path
 
 from flask import (Flask, flash, g, redirect, render_template, request,
                    session, url_for)
 
-from . import __version__, auth, changelog, i18n, settings
+from . import __version__, auth, changelog, fx, i18n, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import cashflow, categories, importers, overview, subscriptions
@@ -680,6 +682,18 @@ def settings_page():
         elif request.form.get("form", "").startswith("category"):
             _category_form(request.form)
             return redirect(url_for("settings_page") + "#categories")
+        elif request.form.get("form") == "fx_refresh":
+            # In the request, because the user asked for it and is
+            # waiting for the answer. The automatic one is on a thread.
+            try:
+                info = fx.refresh()
+                flash(_n(info["currencies"],
+                         "{n} exchange rate fetched, published {date}.",
+                         "{n} exchange rates fetched, published {date}.",
+                         date=_date(info["latest"])), "ok")
+            except fx.FxError as exc:
+                flash(str(exc), "error")
+            return redirect(url_for("settings_page") + "#rates")
         else:
             cfg["base_currency"] = (request.form.get("base_currency")
                                     or "EUR").upper()[:3]
@@ -713,6 +727,7 @@ def settings_page():
                            secrets_inside_data=settings.SECRETS_INSIDE_DATA,
                            catalogue=categories.catalogue(),
                            groups=categories.GROUPS,
+                           rates=fx.status(),
                            check=check)
 
 
@@ -886,6 +901,38 @@ def _not_found(_e):
     return render_template("missing.html", what=_t("No such page.")), 404
 
 
+def _start_rate_refresher() -> None:
+    """Keep the ECB rates current, off the request path.
+
+    Started from main() and nowhere else, which is the point: importing
+    this module — as the test suite does, and as any script poking at
+    the database does — must not reach the network. A dashboard that
+    cannot be imported offline is a dashboard that cannot be tested
+    offline.
+
+    A daemon thread, so stopping the server stops it too rather than
+    leaving something to time out. Failures are logged and forgotten:
+    the rates are an improvement to the page, never a condition of it.
+    """
+    def loop() -> None:
+        while True:
+            try:
+                if fx.is_stale():
+                    info = fx.refresh()
+                    print(f"  rates: {info['currencies']} currencies, "
+                          f"published {info['latest']}", flush=True)
+            except fx.FxError as exc:
+                print(f"  rates: {exc}", flush=True)
+            except Exception as exc:                      # noqa: BLE001
+                print(f"  rates: unexpected: {exc}", flush=True)
+            # Half a day. The ECB publishes once, at about 16:00 CET,
+            # and this way a server started in the morning still picks
+            # up the afternoon's without a second thought.
+            time.sleep(12 * 3600)
+
+    threading.Thread(target=loop, name="fx-refresh", daemon=True).start()
+
+
 def main() -> None:
     try:
         init_db()
@@ -904,6 +951,7 @@ def main() -> None:
     if not has_users():
         print("  first run: open the URL above to create your account",
               flush=True)
+    _start_rate_refresher()
     # waitress where it is installed — which is everywhere the app is
     # run from the image. Flask's own server says on every start that it
     # is not for production use and is right: this one is reachable from

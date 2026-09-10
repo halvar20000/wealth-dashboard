@@ -214,11 +214,6 @@ STRINGS: dict[str, str] = {
         "ce que tu as mis, positions en {currency}",
     "at last traded prices, not market":
         "aux derniers prix traités, pas au marché",
-    "Positions in another currency are not added into the totals above:":
-        "Les positions dans une autre devise ne sont pas ajoutées aux totaux "
-        "ci-dessus :",
-    "There is no exchange-rate source yet.":
-        "Il n'y a pas encore de source de taux de change.",
     "No holdings yet.": "Aucune position pour l'instant.",
     "Import a broker export from an account and the positions are computed "
     "from its trades.":
@@ -229,8 +224,6 @@ STRINGS: dict[str, str] = {
     "Net worth": "Patrimoine net",
     "Cash": "Liquidités",
     "Securities": "Titres",
-    "Not included, because there are no exchange rates yet:":
-        "Non compris, faute de taux de change :",
     "{n} connected to a bank": "{n} relié à une banque",
     "across {n} account with a balance": "sur {n} compte avec un solde",
     "across {n} accounts with a balance": "sur {n} comptes avec un solde",
@@ -714,6 +707,54 @@ STRINGS: dict[str, str] = {
     "Working. Registered redirect URLs:":
         "Ça marche. URL de redirection enregistrées :",
     "none": "aucune",
+
+    # ─── Taux de change ──────────────────────────────────────────────
+    "Exchange rates": "Taux de change",
+    "European Central Bank": "Banque centrale européenne",
+    "The ECB publishes euro reference rates every business day — free, "
+    "without a key and without an account. They are what converts an amount in "
+    "another currency into your base currency, and every total built from them "
+    "names the day they were published.":
+        "La BCE publie des taux de référence de l'euro chaque jour ouvré — "
+        "gratuitement, sans clé et sans compte. Ce sont eux qui convertissent "
+        "un montant dans une autre devise vers ta devise de référence, et "
+        "chaque total qui en découle nomme le jour de leur publication.",
+    "{n} currency, published {date}.": "{n} devise, publiée le {date}.",
+    "{n} currencies, published {date}.": "{n} devises, publiées le {date}.",
+    "The ECB does not publish at the weekend, so this is Friday's — which is "
+    "also the newest rate there is.":
+        "La BCE ne publie pas le week-end : c'est donc le taux de vendredi — "
+        "et c'est aussi le plus récent qui existe.",
+    "No rates yet, so amounts in another currency are reported beside your "
+    "totals rather than inside them. Fetching them needs this machine to reach "
+    "the internet once.":
+        "Pas encore de taux : les montants dans une autre devise sont donc "
+        "affichés à côté de tes totaux plutôt que dedans. Les récupérer "
+        "demande que cette machine atteigne internet une fois.",
+    "Update rates now": "Mettre les taux à jour",
+    "Also updated on start-up, at most once a day, in the background. Nothing "
+    "waits on it: a page renders whether or not the rates arrived.":
+        "Mis à jour aussi au démarrage, au plus une fois par jour, en arrière-"
+        "plan. Rien ne l'attend : une page s'affiche que les taux soient "
+        "arrivés ou non.",
+    "{n} exchange rate fetched, published {date}.":
+        "{n} taux de change récupéré, publié le {date}.",
+    "{n} exchange rates fetched, published {date}.":
+        "{n} taux de change récupérés, publiés le {date}.",
+    "Includes {amounts}, converted at the ECB rate of {date}.":
+        "Comprend {amounts}, converti au taux BCE du {date}.",
+    "Not included, because no rate here covers them:":
+        "Non compris, faute d'un taux qui les couvre :",
+    "Amounts in another currency are in the totals above, converted at the ECB "
+    "reference rate — a published mid-market rate, not one your broker would "
+    "give you.":
+        "Les montants dans une autre devise sont dans les totaux ci-dessus, "
+        "convertis au taux de référence de la BCE — un taux médian publié, pas "
+        "celui que ton courtier te donnerait.",
+    "Rates of {date}.": "Taux du {date}.",
+    "These are not in the totals above, because no rate here covers them:":
+        "Ceux-ci ne sont pas dans les totaux ci-dessus, faute d'un taux qui "
+        "les couvre :",
 
     # ─── Nouveautés ──────────────────────────────────────────────────
     "What changed": "Ce qui a changé",

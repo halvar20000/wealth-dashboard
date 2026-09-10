@@ -214,10 +214,6 @@ STRINGS: dict[str, str] = {
         "lo que pusiste, posiciones en {currency}",
     "at last traded prices, not market":
         "a los últimos precios operados, no al mercado",
-    "Positions in another currency are not added into the totals above:":
-        "Las posiciones en otra moneda no se suman a los totales de arriba:",
-    "There is no exchange-rate source yet.":
-        "Todavía no hay fuente de tipos de cambio.",
     "No holdings yet.": "Todavía no hay posiciones.",
     "Import a broker export from an account and the positions are computed "
     "from its trades.":
@@ -228,8 +224,6 @@ STRINGS: dict[str, str] = {
     "Net worth": "Patrimonio neto",
     "Cash": "Efectivo",
     "Securities": "Valores",
-    "Not included, because there are no exchange rates yet:":
-        "No incluido, porque todavía no hay tipos de cambio:",
     "{n} connected to a bank": "{n} conectada a un banco",
     "across {n} account with a balance": "en {n} cuenta con saldo",
     "across {n} accounts with a balance": "en {n} cuentas con saldo",
@@ -706,6 +700,54 @@ STRINGS: dict[str, str] = {
     "Working. Registered redirect URLs:":
         "Funciona. URL de redirección registradas:",
     "none": "ninguna",
+
+    # ─── Tipos de cambio ─────────────────────────────────────────────
+    "Exchange rates": "Tipos de cambio",
+    "European Central Bank": "Banco Central Europeo",
+    "The ECB publishes euro reference rates every business day — free, "
+    "without a key and without an account. They are what converts an amount in "
+    "another currency into your base currency, and every total built from them "
+    "names the day they were published.":
+        "El BCE publica tipos de referencia del euro cada día hábil — gratis, "
+        "sin clave y sin cuenta. Son los que convierten un importe en otra "
+        "moneda a tu moneda base, y cada total que sale de ellos nombra el día "
+        "en que se publicaron.",
+    "{n} currency, published {date}.": "{n} moneda, publicada el {date}.",
+    "{n} currencies, published {date}.": "{n} monedas, publicadas el {date}.",
+    "The ECB does not publish at the weekend, so this is Friday's — which is "
+    "also the newest rate there is.":
+        "El BCE no publica el fin de semana, así que este es el del viernes — "
+        "que además es el más nuevo que existe.",
+    "No rates yet, so amounts in another currency are reported beside your "
+    "totals rather than inside them. Fetching them needs this machine to reach "
+    "the internet once.":
+        "Todavía no hay tipos, así que los importes en otra moneda aparecen "
+        "junto a tus totales en vez de dentro. Traerlos exige que esta máquina "
+        "llegue a internet una vez.",
+    "Update rates now": "Actualizar los tipos ahora",
+    "Also updated on start-up, at most once a day, in the background. Nothing "
+    "waits on it: a page renders whether or not the rates arrived.":
+        "También se actualizan al arrancar, como mucho una vez al día, en "
+        "segundo plano. Nada espera por ellos: una página se muestra hayan "
+        "llegado o no.",
+    "{n} exchange rate fetched, published {date}.":
+        "{n} tipo de cambio traído, publicado el {date}.",
+    "{n} exchange rates fetched, published {date}.":
+        "{n} tipos de cambio traídos, publicados el {date}.",
+    "Includes {amounts}, converted at the ECB rate of {date}.":
+        "Incluye {amounts}, convertido al tipo del BCE del {date}.",
+    "Not included, because no rate here covers them:":
+        "No incluidos, porque ningún tipo de aquí los cubre:",
+    "Amounts in another currency are in the totals above, converted at the ECB "
+    "reference rate — a published mid-market rate, not one your broker would "
+    "give you.":
+        "Los importes en otra moneda están en los totales de arriba, "
+        "convertidos al tipo de referencia del BCE — un tipo medio publicado, "
+        "no el que te daría tu bróker.",
+    "Rates of {date}.": "Tipos del {date}.",
+    "These are not in the totals above, because no rate here covers them:":
+        "Estos no están en los totales de arriba, porque ningún tipo de aquí "
+        "los cubre:",
 
     # ─── Novedades ───────────────────────────────────────────────────
     "What changed": "Qué ha cambiado",

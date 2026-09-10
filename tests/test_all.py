@@ -16,6 +16,7 @@ import ast
 import base64
 import json
 import re
+from datetime import datetime, timezone
 import os
 import sys
 import pathlib
@@ -1405,6 +1406,142 @@ check("...and the Dockerfile copies it",
 workflow = (REPO / ".github" / "workflows" / "docker-image.yml").read_text()
 check("...and editing it rebuilds the image",
       "'**.md'" in workflow, False)
+
+# ---------------------------------------------------------------------------
+print("\n15. Exchange rates")
+# ---------------------------------------------------------------------------
+# Against a fixture, never the ECB. The suite runs on a NAS with no way
+# out, and a test that needs the internet is a test that gets skipped.
+from app import fx, overview as ov                          # noqa: E402
+
+ECB_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<gesmes:Envelope xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01"
+ xmlns="http://www.ecb.int/vocabulary/2002-08-01/eurofxref">
+<gesmes:subject>Reference rates</gesmes:subject>
+<Cube>
+<Cube time="2026-09-09"><Cube currency="USD" rate="1.1652"/>
+  <Cube currency="CHF" rate="0.9404"/><Cube currency="GBP" rate="0.85898"/></Cube>
+<Cube time="2026-09-08"><Cube currency="USD" rate="1.1700"/>
+  <Cube currency="CHF" rate="0.9500"/><Cube currency="GBP" rate="0.86000"/></Cube>
+</Cube></gesmes:Envelope>"""
+
+days = fx.parse(ECB_XML)
+check("both days are read", sorted(days), ["2026-09-08", "2026-09-09"])
+check("...with their currencies", sorted(days["2026-09-09"]), ["CHF", "GBP", "USD"])
+check("the euro is never a row, it is the unit", "EUR" in days["2026-09-09"], False)
+check("rates are numbers", days["2026-09-09"]["USD"], 1.1652)
+
+err = None
+try:
+    fx.parse("<html>the ECB had an outage</html>")
+except fx.FxError as exc:
+    err = exc
+check("a page that is not the feed is refused", err is not None, True)
+err = None
+try:
+    fx.parse("not xml at all {")
+except fx.FxError as exc:
+    err = exc
+check("...and so is something that is not XML", err is not None, True)
+
+check("nothing is stored before it is fetched", fx.latest_date(), None)
+check("...and no rates means stale", fx.is_stale(), True)
+fx.store(days)
+check("storing writes both days", fx.latest_date(), "2026-09-09")
+fx.store(days)
+with db.get_conn() as conn:
+    rows = conn.execute("SELECT COUNT(*) n FROM fx_rates").fetchone()["n"]
+check("...and storing twice does not double them", rows, 6)
+
+as_of, rates = fx.rates_on()
+check("the newest day wins", as_of, "2026-09-09")
+check("...and the euro is in the table as 1", rates["EUR"], 1.0)
+
+amount, on = fx.convert(100, "USD", "EUR")
+check("dollars into euros", round(amount, 2), 85.82)
+check("...at a rate that names its day", on, "2026-09-09")
+check("euros into dollars", round(fx.convert(100, "EUR", "USD")[0], 2), 116.52)
+# USD -> CHF crosses through the euro, which is the only way the ECB
+# publishes it: 100 / 1.1652 * 0.9404.
+check("a cross rate goes through the euro",
+      round(fx.convert(100, "USD", "CHF")[0], 2), 80.71)
+check("the same currency is not converted at all", fx.convert(100, "EUR", "EUR"),
+      (100, None))
+check("a currency the ECB does not publish is refused",
+      fx.convert(100, "XYZ", "EUR"), (None, None))
+check("...in either direction", fx.convert(100, "EUR", "XYZ"), (None, None))
+check("no amount converts to no amount", fx.convert(None, "USD", "EUR"),
+      (None, None))
+check("lower case is fine", round(fx.convert(100, "usd", "eur")[0], 2), 85.82)
+
+# A date picks the newest publication at or before it, which is what
+# makes a Sunday work: nothing traded, so Friday's rate is the rate.
+check("an exact date is used", fx.rates_on("2026-09-08")[0], "2026-09-08")
+check("a day with no publication falls back to the one before",
+      fx.rates_on("2026-09-10")[0], "2026-09-09")
+check("...and yesterday's rate is yesterday's number",
+      round(fx.convert(100, "USD", "EUR", "2026-09-08")[0], 2), 85.47)
+check("before any rate exists, there is no rate",
+      fx.rates_on("2020-01-01"), (None, {}))
+
+# Staleness is about when we last asked, not how old the rate is. On a
+# Monday the freshest rate in the world is Friday's.
+check("storing alone does not count as having asked", fx.is_stale(), True)
+db.set_state(fx.FETCHED_AT, datetime.now(timezone.utc).isoformat(timespec="seconds"))
+check("...having asked does", fx.is_stale(), False)
+check("an old ask is stale again",
+      fx.is_stale(hours=-1), True)
+
+st = fx.status()
+check("the settings page is told the date", st["as_of"], "2026-09-09")
+check("...and how many currencies", st["count"], 3)
+
+# Whether any of that reaches the page. Two foreign balances: one the
+# ECB publishes and one it does not, so both halves of the rule show up
+# in a single total.
+r = c.post("/accounts/new", data={"name": "US brokerage cash", "type": "bank",
+                                  "currency": "USD"})
+usd_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+r = c.post("/accounts/new", data={"name": "Tokyo account", "type": "bank",
+                                  "currency": "JPY"})
+jpy_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO balances (account_id, amount, currency, as_of) "
+                 "VALUES (?, 1000.0, 'USD', '2026-09-08')", (usd_id,))
+    conn.execute("INSERT INTO balances (account_id, amount, currency, as_of) "
+                 "VALUES (?, 50000.0, 'JPY', '2026-09-08')", (jpy_id,))
+
+before = ov.summary("EUR")
+converted = {x["currency"]: x for x in before["converted"]}
+unconverted = {x["currency"]: x for x in before["unconverted"]}
+check("a currency with a rate is converted", "USD" in converted, True)
+check("...into the base currency", round(converted["USD"]["in_base"], 2), 858.22)
+check("...and the total carries it",
+      round(before["net_worth"], 2) >= 858.22, True)
+check("...naming the day the rate came from", before["fx_as_of"], "2026-09-09")
+check("a currency with no rate is not converted", "JPY" in unconverted, True)
+check("...and is not silently added either",
+      any(x["currency"] == "JPY" for x in before["converted"]), False)
+
+r = c.get("/")
+check("the page says what it converted",
+      "converted at the ECB rate".encode() in r.data, True)
+check("...and what it could not", b"no rate here covers them" in r.data, True)
+
+# With no rates at all, the app is exactly what it was before this
+# existed: two numbers, neither of them wrong.
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM fx_rates")
+bare = ov.summary("EUR")
+check("with no rates, nothing is converted", bare["converted"], [])
+check("...and both currencies sit beside the total",
+      sorted(x["currency"] for x in bare["unconverted"]), ["JPY", "USD"])
+check("...and the total is the base currency alone",
+      round(bare["net_worth"], 2), round(bare["cash"] + bare["securities"], 2))
+r = c.get("/settings")
+check("the settings page offers to fetch them", b"fx_refresh" in r.data, True)
+check("...and says why it matters", b"No rates yet" in r.data, True)
+fx.store(days)                       # put them back for anything after
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
