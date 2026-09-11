@@ -23,6 +23,10 @@ a PSD2 API it connects directly, with credentials that are yours.
 - **Bank connections via [Enable Banking](https://enablebanking.com).**
   One registration covers a few thousand banks across the EEA. Balances
   and transactions are pulled straight from the bank into your database.
+- **Net worth over time** — rebuilt from the readings, prices and rates as
+  of each day, so it goes back as far as the records do.
+- **Retirement outlook** per person — from their birthday and their own
+  accounts to a retire age, and what the sum supports a month.
 - **Forecast** — a monthly amount and a return, or a goal and a year, from
   today's balance; deposits and returns drawn apart, year by year.
 - **Daily bank sync** at a time you choose, plus a sync-everything button.

@@ -102,6 +102,68 @@
 </div>
 </div>
 </div>
+
+{# ── Retirement ──────────────────────────────────────────────────── #}
+<section id="retirement" class="retirement">
+  <h2 class="section-heading">{{ _("Retirement outlook") }}</h2>
+  {% if retirement.no_people %}
+  <p class="sub">{{ _("Add the people in your household under Settings → People, each with a birthday, and this page will say where each of them stands for retirement.") }}</p>
+  {% elif not retirement.blocks and retirement.without_birthday %}
+  <p class="sub">{{ _f("No birthday on file for {names}. Add one under Settings → People and the outlook appears here.", names=retirement.without_birthday | join(", ")) }}</p>
+  {% endif %}
+
+  {% for b in retirement.blocks %}
+  {% set o = b.outlook %}
+  <div class="card retire-card">
+    <div class="card-header">
+      <h2>{{ b.person.name }}</h2>
+      <span class="card-subtitle">{{ _f("{age} today · {n} accounts · {amount}", age=('%g' | format(b.age_now)), n=b.accounts, amount=money(b.net_worth, s.base_currency)) }}</span>
+    </div>
+
+    <form method="post" class="form inline retire-form">
+      <input type="hidden" name="form" value="retirement">
+      <input type="hidden" name="person" value="{{ b.person.id }}">
+      <div>
+        <label for="retire_age_{{ b.person.id }}">{{ _("Retire at") }}</label>
+        <input id="retire_age_{{ b.person.id }}" name="retire_age" type="number" min="{{ min_retire_age }}" max="{{ max_retire_age }}" value="{{ b.settings.retire_age }}" style="width:80px">
+      </div>
+      <div>
+        <label for="retire_rate_{{ b.person.id }}">{{ _("Return per year, %") }}</label>
+        <input id="retire_rate_{{ b.person.id }}" name="rate" inputmode="decimal" value="{{ '%g' | format(b.settings.rate) }}" style="width:80px">
+      </div>
+      <div>
+        <label for="retire_monthly_{{ b.person.id }}">{{ _f("Saved per month, {currency}", currency=s.base_currency) }}</label>
+        <input id="retire_monthly_{{ b.person.id }}" name="monthly" inputmode="decimal" value="{{ '%g' | format(b.settings.monthly) if not b.from_plan else '' }}" placeholder="{{ '%.0f' | format(b.plan_monthly) }}" style="width:120px">
+      </div>
+      <button type="submit">{{ _("Calculate") }}</button>
+      <span class="sub">{% if b.from_plan %}{{ _("The monthly amount is taken from this person's Forecast plan; type one to override it.") }}{% else %}{{ _f("Overrides the Forecast plan's {amount}; clear the field to follow it again.", amount=money(b.plan_monthly, s.base_currency)) }}{% endif %}</span>
+    </form>
+
+    {% if o.retired_already %}
+    <p class="sub">{{ _f("{name} is already {age} — past the retirement age set here.", name=b.person.name, age=('%g' | format(b.age_now))) }}</p>
+    {% endif %}
+
+    <div class="grid-2 retire-body">
+      <section class="stat-strip retire-stats">
+        <div class="stat-card stat-gold">
+          <div class="stat-label">{{ _f("At {age}, in {year}", age=o.retire_age, year=o.retire_year) }}</div>
+          <div class="stat-value">{{ money(o.at_retirement, s.base_currency) }}</div>
+          <div class="stat-sub">{{ _n(o.years_to_go | round | int, "{n} year from now", "{n} years from now") }} · {{ _f("{part} of it returns", part=money(o.returns, s.base_currency)) }}</div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-label">{{ _("Supports, per month") }}</div>
+          <div class="stat-value">{{ money(o.monthly_income, s.base_currency) }}</div>
+          <div class="stat-sub">{{ _("at a 4 % yearly withdrawal — the usual rule of thumb, before tax and pension") }}</div>
+        </div>
+      </section>
+      <div class="chart-wrap" style="height:230px"><canvas id="chart-retire-{{ b.person.id }}" data-points='{{ o.points | tojson }}'></canvas></div>
+    </div>
+  </div>
+  {% endfor %}
+  {% if retirement.blocks and retirement.without_birthday %}
+  <p class="sub">{{ _f("No birthday on file for {names}. Add one under Settings → People and the outlook appears here.", names=retirement.without_birthday | join(", ")) }}</p>
+  {% endif %}
+</section>
 {% endblock %}
 
 {% block scripts %}
@@ -141,6 +203,34 @@ new Chart(document.getElementById('chart-forecast'), {
       tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y)}` } },
     },
   },
+});
+
+// One small chart per person: value by age until retirement.
+document.querySelectorAll('canvas[id^="chart-retire-"]').forEach(el => {
+  const pts = JSON.parse(el.dataset.points);
+  new Chart(el, {
+    type: 'line',
+    data: { labels: pts.map(p => p.age),
+      datasets: [
+        { label: {{ _("With returns") | tojson }}, data: pts.map(p => p.value),
+          borderColor: '#f5d76e', backgroundColor: 'rgba(245,215,110,0.18)', fill: '+1',
+          borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.25 },
+        { label: {{ _("You put in") | tojson }}, data: pts.map(p => p.contributed),
+          borderColor: '#5b9dff', backgroundColor: 'rgba(91,157,255,0.10)', fill: 'origin',
+          borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.25 },
+      ] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: { title: { display: true, text: {{ _("Age") | tojson }}, color: TICK }, grid: { color: GRID }, ticks: { color: TICK, maxTicksLimit: 10 } },
+        y: { grid: { color: GRID }, ticks: { color: TICK, callback: compact }, beginAtZero: true },
+      },
+      plugins: { legend: { labels: { color: TICK, boxWidth: 12, padding: 14 } },
+        tooltip: { callbacks: { title: items => {{ _("Age") | tojson }} + ' ' + items[0].label + ' · ' + pts[items[0].dataIndex].year,
+                                label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y)}` } } },
+    },
+  });
 });
 
 // The form shows the fields the chosen mode needs; the other mode's

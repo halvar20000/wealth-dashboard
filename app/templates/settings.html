@@ -122,7 +122,8 @@
     <h2>{{ _("People") }}</h2>
     <span class="card-subtitle">{{ _("whose accounts are whose") }}</span>
   </div>
-  <p class="sub">{{ _("Add the people in your household, then tick on each account who it belongs to — one person, or several for a joint account. A switch appears in the header: Everyone shows the whole household, a name shows only that person's accounts on every page. An account ticked for nobody shows under Everyone only. This is a lens, not a lock: anyone who can sign in can flip it.") }}</p>
+  <p class="sub">{{ _("A birthday is optional; with one, the Forecast page adds a retirement outlook for that person.") }}
+  {{ _("Add the people in your household, then tick on each account who it belongs to — one person, or several for a joint account. A switch appears in the header: Everyone shows the whole household, a name shows only that person's accounts on every page. An account ticked for nobody shows under Everyone only. This is a lens, not a lock: anyone who can sign in can flip it.") }}</p>
 
   {% if people_list %}
   <div class="cat-list">
@@ -132,6 +133,7 @@
         <input type="hidden" name="form" value="person_rename">
         <input type="hidden" name="id" value="{{ p.id }}">
         <input name="name" value="{{ p.name }}" maxlength="60" aria-label="{{ _f('Name of {name}', name=p.name) }}">
+        <input name="birthday" type="date" value="{{ p.birthday or '' }}" max="{{ today }}" aria-label="{{ _f('Birthday of {name}', name=p.name) }}" title="{{ _('Birthday — what the retirement outlook counts from') }}">
         <button type="submit" class="btn-ghost">{{ _("Save") }}</button>
       </form>
       <span class="sub cat-usage">{{ _n(p.accounts, "{n} account", "{n} accounts") }}</span>

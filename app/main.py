@@ -37,8 +37,8 @@ from flask import (Flask, flash, g, redirect, render_template, request,
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import (cashflow, categories, forecast, importers, manual, overview,
-               people, subscriptions)
+from . import (cashflow, categories, forecast, history, importers, manual,
+               overview, people, subscriptions)
 from . import db as db_state
 from .db import get_conn, has_users, init_db
 
@@ -258,10 +258,23 @@ def logout():
 @app.route("/")
 @auth.login_required
 def index():
+    base = settings.get("base_currency", "EUR")
     return render_template(
         "overview.html", active_page="overview",
-        s=overview.summary(settings.get("base_currency", "EUR"),
-                           account_ids=people.scope()))
+        s=overview.summary(base, account_ids=people.scope()),
+        history=history.series(base, people.scope(), "ytd"),
+        health=banksync.health())
+
+
+@app.route("/api/networth")
+@auth.login_required
+def api_networth():
+    """The hero chart's data for one period, under the current view."""
+    period = request.args.get("period") or "ytd"
+    if period not in history.PERIODS:
+        period = "ytd"
+    return history.series(settings.get("base_currency", "EUR"),
+                          people.scope(), period)
 
 
 @app.route("/view", methods=["POST"])
@@ -807,6 +820,14 @@ def forecast_page():
     plans = _forecast_plans(cfg)
     key = _forecast_key()
     if request.method == "POST":
+        if request.form.get("form") == "retirement":
+            pid = request.form.get("person", "")
+            if pid.isdigit():
+                outlooks = dict(cfg.get("retirement") or {})
+                outlooks[f"person:{pid}"] = forecast.clean_retirement(request.form)
+                cfg["retirement"] = outlooks
+                settings.save(cfg)
+            return redirect(url_for("forecast_page") + "#retirement")
         plans[key] = forecast.clean(request.form)
         cfg["forecast"] = plans
         settings.save(cfg)
@@ -817,7 +838,45 @@ def forecast_page():
     return render_template("forecast.html", active_page="forecast",
                            inputs=inputs, s=s,
                            plan=forecast.plan(s["net_worth"], inputs),
-                           max_years=forecast.MAX_YEARS, max_rate=forecast.MAX_RATE)
+                           retirement=_retirement_blocks(cfg, base, plans),
+                           max_years=forecast.MAX_YEARS, max_rate=forecast.MAX_RATE,
+                           min_retire_age=forecast.MIN_RETIRE_AGE,
+                           max_retire_age=forecast.MAX_RETIRE_AGE)
+
+
+def _retirement_blocks(cfg: dict, base: str, plans: dict) -> dict:
+    """One outlook per person in view — everybody under Everyone, one
+    under a name — each from their own accounts and their own Forecast
+    plan, with their own retirement settings on top.
+
+    The monthly amount comes from the person's Forecast plan unless
+    they typed one here: the two pages answer the same question from
+    the same number until somebody says otherwise.
+    """
+    viewing = people.current()
+    everyone = people.all_people()
+    subjects = [viewing] if viewing else everyone
+    stored = cfg.get("retirement") or {}
+    blocks, without_birthday = [], []
+    for person in subjects:
+        if not person.get("birthday"):
+            without_birthday.append(person["name"])
+            continue
+        own = overview.summary(base, account_ids=people.account_ids(person["id"]))
+        plan_inputs = forecast.clean(plans.get(f"person:{person['id']}") or {})
+        plan = forecast.plan(own["net_worth"], plan_inputs)
+        settings_ = forecast.clean_retirement(stored.get(f"person:{person['id']}") or {})
+        monthly = settings_["monthly"] if settings_["monthly"] is not None else plan["monthly"]
+        age_now = people.age_on(person["birthday"])
+        blocks.append({
+            "person": person, "age_now": age_now, "settings": settings_,
+            "from_plan": settings_["monthly"] is None, "plan_monthly": plan["monthly"],
+            "net_worth": own["net_worth"], "accounts": own["account_count"],
+            "outlook": forecast.retirement(own["net_worth"], monthly, settings_["rate"],
+                                           age_now, settings_["retire_age"]),
+        })
+    return {"blocks": blocks, "without_birthday": without_birthday,
+            "no_people": not everyone}
 
 
 def _forecast_key() -> str:
@@ -900,15 +959,19 @@ def _person_form(form) -> None:
             people.add(form.get("name", ""))
             flash(_t("Added."), "ok")
         elif action == "person_rename":
-            people.rename(int(form.get("id", "0")), form.get("name", ""))
-            flash(_t("Renamed."), "ok")
+            pid = int(form.get("id", "0"))
+            people.rename(pid, form.get("name", ""))
+            people.set_birthday(pid, form.get("birthday"))
+            flash(_t("Saved."), "ok")
         elif action == "person_delete":
             pid = int(form.get("id", "0"))
             people.delete(pid)
             cfg = settings.load()
             plans = _forecast_plans(cfg)
-            if plans.pop(f"person:{pid}", None) is not None:
-                cfg["forecast"] = plans
+            outlooks = dict(cfg.get("retirement") or {})
+            gone = plans.pop(f"person:{pid}", None), outlooks.pop(f"person:{pid}", None)
+            if any(g is not None for g in gone):
+                cfg["forecast"], cfg["retirement"] = plans, outlooks
                 settings.save(cfg)
             flash(_t("Removed. Their accounts stay; they just belong to "
                      "one person fewer."), "ok")
@@ -920,6 +983,8 @@ def _person_error(message: str) -> str:
     if message.startswith("There is already somebody called "):
         return _f("There is already somebody called {name}.",
                   name=message[len("There is already somebody called "):-1])
+    if "birthday" in message:
+        return _t("The birthday needs to be a date.")
     return _t("A person needs a name.")
 
 
@@ -1051,6 +1116,7 @@ def settings_page():
 
     return render_template("settings.html", cfg=cfg, error=error,
                            people_list=_people_with_counts(),
+                           today=date.today().isoformat(),
                            configured=banksync.credentials_present(),
                            secrets_dir=str(settings.SECRETS_DIR),
                            secrets_inside_data=settings.SECRETS_INSIDE_DATA,

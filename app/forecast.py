@@ -9,10 +9,17 @@ rather than with a number typed in once and forgotten.
 The arithmetic is the ordinary future value of an annuity with monthly
 compounding, contributions at the end of each month:
 
-    value_n = start · (1+i)^n + monthly · ((1+i)^n − 1) / i,   i = rate/12
+    value_n = start · (1+i)^n + monthly · ((1+i)^n − 1) / i
 
-and the required contribution is the same identity solved for
-`monthly`. Nothing here predicts a return; the rate is the user's, and
+with `i` the monthly rate that compounds to the yearly one — (1+r)^(1/12)
+− 1, so that "6 % a year" is exactly 6 % after twelve months — and the
+required contribution is the same identity solved for `monthly`.
+
+The retirement outlook is the same path measured in age instead of
+years: from the person's age today to the age they mean to stop, and
+then the one figure the question is really about — what that sum
+supports a month at a 4 % withdrawal, the rule of thumb every
+retirement calculator quotes and this one labels as such. Nothing here predicts a return; the rate is the user's, and
 the page says so. What the page does add is the split between what
 was put in and what the return earned, because "€400k in twenty years"
 means something different when €300k of it is your own deposits.
@@ -45,6 +52,11 @@ def clean(form: dict) -> dict:
     return out
 
 
+def monthly_rate(rate: float) -> float:
+    """The monthly rate that compounds to `rate` % a year."""
+    return (1 + rate / 100.0) ** (1 / 12.0) - 1
+
+
 def _num(raw, default: float) -> float:
     """`1500`, `1500,50`, `1.500,50` and `1,500.50` all read as intended —
     the importers' European-or-English parser, reused."""
@@ -62,7 +74,7 @@ def project(start: float, monthly: float, rate: float, years: int,
     yearly points are exactly what the monthly path passes through and
     a negative rate (a what-if worth allowing) needs no special case.
     """
-    i = rate / 100.0 / 12.0
+    i = monthly_rate(rate)
     first_year = first_year or date.today().year
     value = float(start)
     contributed = float(start)
@@ -85,7 +97,7 @@ def required_monthly(start: float, target: float, rate: float, years: int) -> fl
     n = years * 12
     if n <= 0:
         return 0.0
-    i = rate / 100.0 / 12.0
+    i = monthly_rate(rate)
     if abs(i) < 1e-12:
         needed = (target - start) / n
     else:
@@ -126,3 +138,59 @@ def plan(start: float, inputs: dict) -> dict:
     if mode == "project" and inputs["target"] > 0:
         out["reach_years"] = years_to_reach(start, monthly, rate, inputs["target"])
     return out
+
+
+# ─── Retirement ──────────────────────────────────────────────────────
+
+RETIREMENT_DEFAULTS = {"retire_age": 65, "rate": 5.0, "monthly": None}
+MIN_RETIRE_AGE, MAX_RETIRE_AGE = 40, 80
+SAFE_WITHDRAWAL = 0.04            # the 4 % rule, per year
+
+
+def clean_retirement(form: dict) -> dict:
+    """Retire age, return, and a monthly amount — or None for "take it
+    from my Forecast plan", which is what an empty field means."""
+    out = dict(RETIREMENT_DEFAULTS)
+    out["retire_age"] = int(min(MAX_RETIRE_AGE, max(
+        MIN_RETIRE_AGE, _num(form.get("retire_age"), RETIREMENT_DEFAULTS["retire_age"]))))
+    out["rate"] = min(MAX_RATE, max(-MAX_RATE, _num(form.get("rate"), RETIREMENT_DEFAULTS["rate"])))
+    raw = form.get("monthly")
+    out["monthly"] = None if raw is None or str(raw).strip() == "" else max(0.0, _num(raw, 0.0))
+    return out
+
+
+def retirement(start: float, monthly: float, rate: float, age_now: float,
+               retire_age: int, today: date | None = None) -> dict:
+    """The path from today's age to the retirement age, one point a
+    year, and what the sum at the end supports.
+
+    Ages are fractional, so a 47.3-year-old retiring at 65 gets 212
+    months, not 216 — the same month-by-month walk as `project`, only
+    the axis is age.
+    """
+    today = today or date.today()
+    months = max(0, int(round((retire_age - age_now) * 12)))
+    i = monthly_rate(rate)
+    value = float(start)
+    contributed = float(start)
+    points = [{"age": round(age_now, 1), "year": today.year, "value": value,
+               "contributed": contributed}]
+    for m in range(1, months + 1):
+        value = value * (1 + i) + monthly
+        contributed += monthly
+        age = age_now + m / 12.0
+        if m % 12 == 0 or m == months:
+            points.append({"age": round(age, 1), "year": today.year + (today.month - 1 + m) // 12,
+                           "value": value, "contributed": contributed})
+    at_retirement = points[-1]["value"]
+    return {
+        "age_now": round(age_now, 1), "retire_age": retire_age,
+        "years_to_go": round(months / 12.0, 1), "months_to_go": months,
+        "retire_year": points[-1]["year"],
+        "points": points,
+        "at_retirement": at_retirement,
+        "contributed": points[-1]["contributed"],
+        "returns": at_retirement - points[-1]["contributed"],
+        "monthly_income": at_retirement * SAFE_WITHDRAWAL / 12.0,
+        "retired_already": months == 0,
+    }

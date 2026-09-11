@@ -946,8 +946,6 @@ STRINGS: dict[str, str] = {
         "{name} entfernen? Die Konten bleiben.",
     "Removed. Their accounts stay; they just belong to one person fewer.":
         "Entfernt. Die Konten bleiben; sie gehören nur einer Person weniger.",
-    "Renamed.":
-        "Umbenannt.",
     "The budget itself is the household's; the spending measured against it here is {name}'s alone.":
         "Das Budget gehört dem Haushalt; die Ausgaben, die hier daran gemessen werden, sind allein die von {name}.",
     "There is already somebody called {name}.":
@@ -1080,4 +1078,76 @@ STRINGS: dict[str, str] = {
         "in {n} Jahren",
     "{ok} of {total} accounts synced. Failed: {names}.":
         "{ok} von {total} Konten abgeglichen. Fehlgeschlagen: {names}.",
+
+    # ─── Verlauf, Verbindungen, Ruhestand ────────────────────────────
+    "A birthday is optional; with one, the Forecast page adds a retirement outlook for that person.":
+        "Ein Geburtstag ist freiwillig; mit ihm bekommt die Prognose-Seite einen Ruhestands-Ausblick für diese Person.",
+    "Add the people in your household under Settings → People, each with a birthday, and this page will say where each of them stands for retirement.":
+        "Lege die Personen deines Haushalts unter Einstellungen → Personen an, jede mit Geburtstag, und diese Seite sagt, wo jede von ihnen für den Ruhestand steht.",
+    "Age":
+        "Alter",
+    "All":
+        "Alle",
+    "At {age}, in {year}":
+        "Mit {age}, im Jahr {year}",
+    "Bank connections":
+        "Bankverbindungen",
+    "Birthday of {name}":
+        "Geburtstag von {name}",
+    "Birthday — what the retirement outlook counts from":
+        "Geburtstag — davon rechnet der Ruhestands-Ausblick",
+    "Consent expired — reconnect.":
+        "Einwilligung abgelaufen — neu verbinden.",
+    "Last sync failed: {error}":
+        "Letzter Abgleich fehlgeschlagen: {error}",
+    "Last sync {n} days ago.":
+        "Letzter Abgleich vor {n} Tagen.",
+    "Last sync {n} hours ago.":
+        "Letzter Abgleich vor {n} Stunden.",
+    "Never synced.":
+        "Noch nie abgeglichen.",
+    "No birthday on file for {names}. Add one under Settings → People and the outlook appears here.":
+        "Kein Geburtstag hinterlegt für {names}. Trage einen unter Einstellungen → Personen ein, dann erscheint der Ausblick hier.",
+    "No dated readings yet — the line starts with the first balance or trade.":
+        "Noch keine datierten Stände — die Linie beginnt mit dem ersten Kontostand oder Handel.",
+    "Overrides the Forecast plan's {amount}; clear the field to follow it again.":
+        "Überschreibt die {amount} des Prognose-Plans; leere das Feld, um ihm wieder zu folgen.",
+    "Records go back to {date}; the line fills in with every daily sync.":
+        "Die Aufzeichnungen reichen bis {date} zurück; mit jedem täglichen Abgleich füllt sich die Linie.",
+    "Retire at":
+        "In Rente mit",
+    "Retirement outlook":
+        "Ruhestands-Ausblick",
+    "Return per year, %":
+        "Rendite pro Jahr, %",
+    "Saved per month, {currency}":
+        "Gespart pro Monat, {currency}",
+    "Saved.":
+        "Gespeichert.",
+    "Supports, per month":
+        "Trägt, pro Monat",
+    "Synced {n} hours ago":
+        "Abgeglichen vor {n} Stunden",
+    "The birthday needs to be a date.":
+        "Der Geburtstag muss ein Datum sein.",
+    "The monthly amount is taken from this person's Forecast plan; type one to override it.":
+        "Der Monatsbetrag stammt aus dem Prognose-Plan dieser Person; tippe einen ein, um ihn zu überschreiben.",
+    "Time range":
+        "Zeitraum",
+    "at a 4 % yearly withdrawal — the usual rule of thumb, before tax and pension":
+        "bei 4 % Entnahme im Jahr — die übliche Faustregel, vor Steuern und Rente",
+    "consent for {n} more days":
+        "Einwilligung noch {n} Tage",
+    "since the start of the range":
+        "seit Beginn des Zeitraums",
+    "{age} today · {n} accounts · {amount}":
+        "heute {age} · {n} Konten · {amount}",
+    "{name} is already {age} — past the retirement age set here.":
+        "{name} ist schon {age} — über dem hier gesetzten Rentenalter.",
+    "{n} connected account":
+        "{n} verbundenes Konto",
+    "{n} connected accounts":
+        "{n} verbundene Konten",
+    "{part} of it returns":
+        "davon {part} Rendite",
 }

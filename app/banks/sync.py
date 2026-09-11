@@ -271,6 +271,61 @@ def sync_due(now: datetime, cfg: dict, last_run: str | None) -> bool:
     return (now.hour, now.minute) >= (hour, minute)
 
 
+def health(now: datetime | None = None) -> list[dict]:
+    """Every connection, graded — so a consent that lapsed last night is
+    noticed on the overview and not weeks later in a total that stopped
+    moving. Worst thing wins: an expired session beats a fresh sync.
+
+        red     expired, never synced, or silent for two days
+        yellow  expires within two weeks, or a day without a sync
+        green   otherwise
+    """
+    now = now or datetime.now(timezone.utc)
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT bl.id, bl.account_id, bl.aspsp_name, bl.last_sync_at, "
+            "       bl.valid_until, bl.last_error, a.name AS account "
+            "  FROM bank_links bl JOIN accounts a ON a.id = bl.account_id "
+            " WHERE bl.account_uid IS NOT NULL ORDER BY a.name").fetchall()
+    out = []
+    for r in rows:
+        days_left = days_until_expiry(r["valid_until"])
+        last = _parse_iso(r["last_sync_at"])
+        age_h = (now - last).total_seconds() / 3600 if last else None
+        if days_left is not None and days_left < 0:
+            status, hint = "red", "expired"
+        elif last is None:
+            status, hint = "red", "never"
+        elif r["last_error"]:
+            status, hint = "red", "error"
+        elif age_h >= 48:
+            status, hint = "red", "stale"
+        elif days_left is not None and days_left < 14:
+            status, hint = "yellow", "expiring"
+        elif age_h >= 12:
+            status, hint = "yellow", "old"
+        else:
+            status, hint = "green", "ok"
+        out.append({"link_id": r["id"], "account_id": r["account_id"],
+                    "account": r["account"], "bank": r["aspsp_name"],
+                    "last_sync_at": r["last_sync_at"], "hours_ago": age_h,
+                    "days_left": days_left, "error": r["last_error"],
+                    "status": status, "hint": hint})
+    order = {"red": 0, "yellow": 1, "green": 2}
+    out.sort(key=lambda c: (order[c["status"]], c["account"]))
+    return out
+
+
+def _parse_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        when = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+
+
 def sync_account(account_id: int) -> dict | None:
     """Sync whichever link belongs to this account, if any."""
     with get_conn() as conn:

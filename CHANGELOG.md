@@ -11,6 +11,34 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.17.0] — 2026-09-11
+
+### Added
+- **Net worth over time**, in the overview. A line under the headline,
+  with 1M · 3M · 6M · YTD · 1Y · All and the change over the range beside
+  the account count. Nothing is snapshotted: the line is rebuilt from the
+  balance readings, the trades, the prices and the ECB rates as of each day
+  drawn, so it cannot disagree with the pages beside it — and it goes back
+  exactly as far as the records do, which the caption says. The daily sync
+  is what fills it in.
+- **Bank connections**, graded, on the overview. Each connected account
+  with a dot: red for an expired consent, a failed or never-run sync, or
+  two days of silence; yellow for a consent expiring within two weeks or a
+  day without a sync; green otherwise. A consent that lapsed overnight is
+  noticed the next morning rather than weeks later in a total that stopped
+  moving.
+- **Retirement outlook**, on the Forecast page, one per person. Give a
+  person a birthday under Settings → People and the page projects their own
+  accounts from their age today to the age they mean to stop — retire age
+  and return are theirs to set, the monthly amount is taken from their
+  Forecast plan unless they type another — and says what the sum at the end
+  supports a month at a 4 % withdrawal, labelled as the rule of thumb it is.
+  No spending, no lump-sum tax, no volatility: one clean line.
+
+### Changed
+- The forecast now compounds at the monthly rate that makes "6 % a year"
+  exactly 6 % after twelve months, rather than 6 %/12 a month.
+
 ## [0.16.1] — 2026-09-11
 
 ### Fixed

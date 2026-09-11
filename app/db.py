@@ -198,6 +198,7 @@ CREATE TABLE IF NOT EXISTS budgets (
 CREATE TABLE IF NOT EXISTS people (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    birthday   TEXT,                 -- ISO date; what a retirement age is measured from
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS account_people (
@@ -290,6 +291,9 @@ def init_db(path: Path | None = None) -> Path:
 # Adding them here means upgrading is starting the app, which is the only
 # upgrade instruction anyone follows.
 _ADDED_COLUMNS = {
+    "people": [
+        ("birthday", "TEXT"),
+    ],
     "transactions": [
         ("kind", "TEXT NOT NULL DEFAULT 'other'"),
         ("isin", "TEXT"),

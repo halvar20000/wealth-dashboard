@@ -145,6 +145,25 @@ h2 { font-size: 15px; margin: 0; letter-spacing: -0.005em; }
 .hero-sub { color: var(--text-secondary); font-size: 13px; margin-top: 10px; }
 .hero-sub strong { color: var(--text-primary); font-weight: 600; }
 .hero-side { text-align: right; min-width: 160px; }
+.hero-delta { margin-top: 8px; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hero-delta.gain { color: var(--gain); }
+.hero-delta.loss { color: var(--loss); }
+.hero-chart-wrap { position: relative; height: 190px; margin: 22px -6px 0; }
+.hero-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.period-pills { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: rgba(10,14,26,0.5); border: 1px solid var(--border); }
+.period-btn { margin: 0; padding: 4px 10px; border-radius: 6px; background: transparent; border: none; box-shadow: none; color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; }
+.period-btn:hover { color: var(--text-primary); }
+.period-btn.active { background: var(--bg-elevated); color: var(--accent-gold); }
+
+/* Bank connections: a dot per link, worst first. */
+.health-list { list-style: none; margin: 0; padding: 0; }
+.health-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.health-row:last-child { border-bottom: none; }
+.health-hint { margin-left: auto; color: var(--text-secondary); font-size: 12.5px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.dot-green { background: var(--gain); box-shadow: 0 0 0 3px var(--gain-soft); }
+.dot-yellow { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
+.dot-red { background: var(--loss); box-shadow: 0 0 0 3px var(--loss-soft); }
 
 /* ─── Stat strip ──────────────────────────────────────────────── */
 
@@ -377,3 +396,11 @@ footer {
 .forecast-table summary { cursor: pointer; }
 .forecast-table .table-wrap { margin-top: 10px; }
 @media (max-width: 560px) { .forecast-stats { grid-template-columns: 1fr; } }
+
+.section-heading { font-size: 17px; margin: 28px 0 12px; }
+.retire-card { margin-bottom: 16px; }
+.retire-form { margin: 4px 0 16px; }
+.retire-form .sub { flex-basis: 100%; }
+.retire-body { grid-template-columns: minmax(240px, 360px) 1fr; }
+.retire-stats { grid-template-columns: 1fr; margin-bottom: 0; }
+@media (max-width: 860px) { .retire-body { grid-template-columns: 1fr; } }

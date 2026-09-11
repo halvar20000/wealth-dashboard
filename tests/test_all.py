@@ -1732,12 +1732,15 @@ check("at 0 % a year adds twelve deposits", round(flat[1]["value"], 2), 2200.0)
 check("...and nothing is earned", flat[2]["returns"], 0.0)
 check("one point per year, plus today", len(flat), 3)
 
-# At 6 % the closed form says: 1000·1.005^12 + 100·(1.005^12−1)/0.005
-g = 1.005 ** 12
-expected = 1000 * g + 100 * (g - 1) / 0.005
+# At 6 % a year the closed form says: 1000·1.06 + 100·(1.06−1)/i, with i
+# the monthly rate that compounds to 6 % — so a year is exactly 6 %.
+i = 1.06 ** (1 / 12) - 1
+expected = 1000 * 1.06 + 100 * (1.06 - 1) / i
 grown = forecast.project(1000, 100, 6.0, 1)
 check("at 6 % the year matches the annuity formula",
       round(grown[1]["value"], 6), round(expected, 6))
+check("...and 6 % a year is exactly 6 % after twelve months",
+      round(forecast.project(1000, 0, 6.0, 1)[1]["value"], 6), 1060.0)
 check("...contributions are counted apart from returns",
       (grown[1]["contributed"], round(grown[1]["returns"], 6)),
       (2200.0, round(expected - 2200, 6)))
@@ -1847,6 +1850,116 @@ r = c.post("/settings", data={"base_currency": "EUR", "redirect_url": "http://x/
                               "sync_time": "25:99"}, follow_redirects=True)
 check("an unticked box turns it off", settings.load()["auto_sync"], False)
 check("an impossible time falls back to noon", settings.load()["sync_time"], "12:00")
+
+# ---------------------------------------------------------------------------
+print("\n23. Net worth over time, bank connection health, retirement")
+# ---------------------------------------------------------------------------
+from app import history                                               # noqa: E402
+from datetime import date as _date                                    # noqa: E402
+
+# History is rebuilt from the readings: a fresh account with balance
+# readings on three days, and a holding bought on the second.
+r = c.post("/accounts/new", data={"name": "History bank", "type": "bank", "currency": "EUR"})
+hist_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+r = c.post("/accounts/new", data={"name": "History broker", "type": "broker", "currency": "EUR"})
+hist_broker = int(r.headers["Location"].rstrip("/").split("/")[-1])
+with db.get_conn() as conn:
+    for day, amount in (("2026-06-01", 1000), ("2026-06-15", 1500), ("2026-07-01", 1200)):
+        conn.execute("INSERT INTO balances (account_id, amount, currency, balance_type, as_of) "
+                     "VALUES (?, ?, 'EUR', 'manual', ?)", (hist_id, amount, day))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, "
+                 "currency, kind, isin, quantity, price, external_id) VALUES "
+                 "(?, '2026-06-15', 'buy', -500, 'EUR', 'buy', 'XX0000000001', 10, 50, 'hist-1')",
+                 (hist_broker,))
+    conn.execute("INSERT INTO prices (isin, as_of, price, currency) VALUES "
+                 "('XX0000000001', '2026-06-28', 60, 'EUR')")
+h = history.series("EUR", [hist_id, hist_broker], "all", today=_date(2026, 7, 2))
+by_day = {p["date"]: p for p in h["points"]}
+check("the history starts with the first reading", h["first_date"], "2026-06-01")
+check("...and covers every sampled day to today", h["points"][-1]["date"], "2026-07-02")
+check("a day before the holding was bought is cash only", by_day["2026-06-02"]["net_worth"], 1000.0)
+check("the day of the purchase values it at the price paid",
+      by_day["2026-06-15"]["net_worth"], 1500.0 + 10 * 50)
+check("a later day uses the market price on file", by_day["2026-06-29"]["net_worth"], 1500.0 + 10 * 60)
+check("...and the newest balance reading", by_day["2026-07-02"]["net_worth"], 1200.0 + 600)
+check("a range with no readings yet is empty, not zero",
+      history.series("EUR", [hist_id], "1m", today=_date(2026, 5, 1))["start"], None)
+check("a person with no accounts has no history", history.series("EUR", [], "all")["points"][-1]["net_worth"], None)
+check("the period's first day is the start of the year for YTD",
+      history.period_start("ytd", _date(2026, 7, 2)), _date(2026, 1, 1))
+check("a long range is thinned to a fixed number of points",
+      len(history.series("EUR", [hist_id, hist_broker], "all", today=_date(2036, 7, 2))["points"]) <= history.MAX_POINTS, True)
+
+r = c.get("/")
+check("the overview carries the chart", b"chart-networth" in r.data, True)
+check("...and says how far back the records go", b"Records go back to" in r.data, True)
+r = c.get("/api/networth?period=3m")
+check("the chart's data is served as JSON", r.status_code, 200)
+check("...for the period asked", r.get_json()["period"], "3m")
+check("...and an unknown period falls back", c.get("/api/networth?period=x").get_json()["period"], "ytd")
+
+# Connection health: the fake bank's link, graded.
+from datetime import datetime as _dtm, timezone as _tz, timedelta as _td   # noqa: E402
+now = _dtm.now(_tz.utc)
+h = banksync.health(now)
+check("every connection is graded", len(h), 1)
+check("a connection synced just now with months of consent is green", h[0]["status"], "green")
+with db.get_conn() as conn:
+    conn.execute("UPDATE bank_links SET last_sync_at = ?", ((now - _td(hours=30)).isoformat(),))
+check("a day without a sync is yellow", banksync.health(now)[0]["hint"], "old")
+with db.get_conn() as conn:
+    conn.execute("UPDATE bank_links SET last_sync_at = ?", ((now - _td(days=3)).isoformat(),))
+check("three days without one is red", banksync.health(now)[0]["hint"], "stale")
+with db.get_conn() as conn:
+    conn.execute("UPDATE bank_links SET last_sync_at = ?, valid_until = ?",
+                 (now.isoformat(), (now + _td(days=5)).isoformat()))
+check("a consent about to expire is flagged before a fresh sync can hide it",
+      banksync.health(now)[0]["hint"], "expiring")
+with db.get_conn() as conn:
+    conn.execute("UPDATE bank_links SET valid_until = ?", ((now - _td(days=1)).isoformat(),))
+check("an expired consent is red whatever else is true", banksync.health(now)[0]["hint"], "expired")
+r = c.get("/")
+check("the overview shows the connections card", b"Bank connections" in r.data, True)
+check("...with the problem spelled out", b"Consent expired" in r.data, True)
+with db.get_conn() as conn:
+    conn.execute("UPDATE bank_links SET valid_until = ?", ((now + _td(days=80)).isoformat(),))
+
+# Retirement: a birthday per person, and the outlook from it.
+sam_id = people.all_people()[0]["id"]
+r = c.post("/settings", data={"form": "person_rename", "id": str(sam_id), "name": "Sam",
+                              "birthday": "2099-01-01"}, follow_redirects=True)
+check("a birthday in the future is refused", b"needs to be a date" in r.data, True)
+c.post("/settings", data={"form": "person_rename", "id": str(sam_id), "name": "Sam",
+                          "birthday": "1980-06-15"})
+check("a birthday is kept", people.all_people()[0]["birthday"], "1980-06-15")
+check("age is fractional", people.age_on("1980-06-15", _date(2026, 6, 15)), 46.0)
+check("...to the day", people.age_on("1980-06-15", _date(2026, 12, 15)), 46.5)
+
+o = forecast.retirement(100000, 500, 0.0, 47.5, 65, today=_date(2026, 9, 11))
+check("the months to go come from the fractional age", o["months_to_go"], 210)
+check("at 0 % the sum at retirement is deposits", o["at_retirement"], 100000 + 500 * 210)
+check("...the 4 % rule turns it into a monthly figure",
+      round(o["monthly_income"], 2), round((100000 + 500 * 210) * 0.04 / 12, 2))
+check("the path ends at the retirement age", o["points"][-1]["age"], 65.0)
+check("...in the right year", o["retire_year"], 2044)
+check("somebody past the age is told so", forecast.retirement(1, 1, 5, 70, 65)["retired_already"], True)
+cleaned = forecast.clean_retirement({"retire_age": "30", "rate": "6", "monthly": ""})
+check("the retirement age is bounded", cleaned["retire_age"], forecast.MIN_RETIRE_AGE)
+check("an empty monthly means: from the Forecast plan", cleaned["monthly"], None)
+
+c.post("/view", data={"person": "", "next": "/"})
+r = c.get("/forecast")
+check("the forecast page shows Sam's outlook", b"Retirement outlook" in r.data and b"Retire at" in r.data, True)
+check("...with the monthly amount taken from the Forecast plan", b"taken from this person" in r.data, True)
+r = c.post("/forecast", data={"form": "retirement", "person": str(sam_id), "retire_age": "62",
+                              "rate": "4", "monthly": "750"}, follow_redirects=True)
+check("retirement settings are kept per person",
+      settings.load()["retirement"][f"person:{sam_id}"]["retire_age"], 62)
+check("...and a typed monthly overrides the plan", b"Overrides the Forecast plan" in r.data, True)
+check("...and the plan itself is untouched", settings.load()["forecast"]["all"]["years"], 10)
+c.post("/settings", data={"form": "person_add", "name": "Kim"})
+r = c.get("/forecast")
+check("a person without a birthday is named, not silently skipped", b"No birthday on file for Kim" in r.data, True)
 
 # ---------------------------------------------------------------------------
 print("\n13. Four languages")

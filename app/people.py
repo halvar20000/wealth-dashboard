@@ -23,6 +23,8 @@ and pretending this one does it would be worse than not having it.
 
 from __future__ import annotations
 
+from datetime import date
+
 from flask import g, session
 
 from .db import get_conn
@@ -57,6 +59,35 @@ def rename(person_id: int, name: str) -> None:
         if clash:
             raise ValueError(f"There is already somebody called {name}.")
         conn.execute("UPDATE people SET name = ? WHERE id = ?", (name, person_id))
+
+
+def set_birthday(person_id: int, birthday: str | None) -> None:
+    """ISO date or nothing. A birthday in the future is a typo, not a
+    person, and is refused."""
+    value = (birthday or "").strip() or None
+    if value:
+        try:
+            when = date.fromisoformat(value)
+        except ValueError:
+            raise ValueError("The birthday needs to be a date.")
+        if when > date.today():
+            raise ValueError("The birthday needs to be a date.")
+        value = when.isoformat()
+    with get_conn() as conn:
+        conn.execute("UPDATE people SET birthday = ? WHERE id = ?", (value, person_id))
+
+
+def age_on(birthday: str | None, today: date | None = None) -> float | None:
+    """Age in years, with the fraction — 47.3, not 47 — because a plan
+    that retires "at 65" is off by up to a year otherwise."""
+    if not birthday:
+        return None
+    try:
+        born = date.fromisoformat(birthday)
+    except ValueError:
+        return None
+    today = today or date.today()
+    return round((today - born).days / 365.2425, 2)
 
 
 def delete(person_id: int) -> None:

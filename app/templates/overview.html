@@ -31,9 +31,54 @@
       <div class="stat-sub">
         {{ _f("{n} connected to a bank", n=s.connected_count) }}
       </div>
+      <div class="hero-delta" id="hero-delta" hidden></div>
     </div>
   </div>
+
+  {# The line: net worth on each day the records can price it. It goes
+     back as far as the readings do, which the caption says outright. #}
+  <div class="hero-chart-wrap"><canvas id="chart-networth"></canvas></div>
+  <div class="hero-controls">
+    <div class="period-pills" role="tablist" aria-label="{{ _('Time range') }}">
+      {% for p, label in (("1m", "1M"), ("3m", "3M"), ("6m", "6M"), ("ytd", "YTD"), ("1y", "1Y"), ("all", _("All"))) %}
+      <button type="button" class="period-btn {{ 'active' if p == 'ytd' }}" data-period="{{ p }}">{{ label }}</button>
+      {% endfor %}
+    </div>
+    <span class="sub" id="hero-caption">
+      {% if history.first_date %}{{ _f("Records go back to {date}; the line fills in with every daily sync.", date=d(history.first_date)) }}
+      {% else %}{{ _("No dated readings yet — the line starts with the first balance or trade.") }}{% endif %}
+    </span>
+  </div>
 </section>
+
+{% if health %}
+<section class="card">
+  <div class="card-header">
+    <h2>{{ _("Bank connections") }}</h2>
+    <span class="card-subtitle">{{ _n(health | length, "{n} connected account", "{n} connected accounts") }}</span>
+  </div>
+  <ul class="health-list">
+    {% for h in health %}
+    <li class="health-row">
+      <span class="dot dot-{{ h.status }}" aria-hidden="true"></span>
+      <a href="{{ url_for('account_detail', account_id=h.account_id) }}">{{ h.account }}</a>
+      <span class="sub">{{ h.bank }}</span>
+      <span class="health-hint">
+        {% if h.hint == 'expired' %}{{ _("Consent expired — reconnect.") }}
+        {% elif h.hint == 'never' %}{{ _("Never synced.") }}
+        {% elif h.hint == 'error' %}{{ _f("Last sync failed: {error}", error=h.error) }}
+        {% elif h.hint == 'stale' %}{{ _f("Last sync {n} days ago.", n=(h.hours_ago // 24) | int) }}
+        {% elif h.hint == 'expiring' %}{{ _n(h.days_left, "Consent expires in {n} day — reconnect soon.", "Consent expires in {n} days — reconnect soon.") }}
+        {% elif h.hint == 'old' %}{{ _f("Last sync {n} hours ago.", n=h.hours_ago | int) }}
+        {% else %}{{ _f("Synced {n} hours ago", n=h.hours_ago | int) }}
+        {% endif %}
+        {% if h.hint in ('stale', 'old', 'ok') and h.days_left is not none %} · {{ _f("consent for {n} more days", n=h.days_left) }}{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 
 <section class="stat-strip">
   <div class="stat-card stat-blue">
@@ -184,6 +229,66 @@
 
 {% block scripts %}
 <script>
+// ── Net worth over time ─────────────────────────────────────────
+const LANG = {{ lang | tojson }}, CCY = {{ s.base_currency | tojson }};
+const NOW = {{ s.net_worth | tojson }};
+const fmtMoney = v => new Intl.NumberFormat(LANG, { style: 'currency', currency: CCY, maximumFractionDigits: 0 }).format(v);
+const fmtCompact = v => new Intl.NumberFormat(LANG, { notation: 'compact', maximumFractionDigits: 1 }).format(v);
+const fmtDay = new Intl.DateTimeFormat(LANG, { day: 'numeric', month: 'short' });
+const fmtMonth = new Intl.DateTimeFormat(LANG, { month: 'short', year: 'numeric' });
+let heroChart = null;
+
+function drawHistory(h) {
+  const pts = h.points;
+  const el = document.getElementById('chart-networth');
+  if (!el) return;
+  // Today's live figure closes the line, so the chart ends on the same
+  // number as the headline above it.
+  if (pts.length) pts[pts.length - 1].net_worth = NOW;
+  const long = pts.length > 1 && (new Date(pts[pts.length - 1].date) - new Date(pts[0].date)) > 200 * 86400000;
+  const labels = pts.map(p => (long ? fmtMonth : fmtDay).format(new Date(p.date)));
+  const data = pts.map(p => p.net_worth);
+  if (heroChart) heroChart.destroy();
+  const ctx = el.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, el.parentElement.clientHeight || 180);
+  grad.addColorStop(0, 'rgba(245,215,110,0.28)'); grad.addColorStop(1, 'rgba(245,215,110,0)');
+  heroChart = new Chart(el, {
+    type: 'line',
+    data: { labels, datasets: [{ label: {{ _("Net worth") | tojson }}, data,
+      borderColor: '#f5d76e', backgroundColor: grad, fill: 'origin', borderWidth: 2,
+      pointRadius: 0, pointHoverRadius: 5, tension: 0.25, spanGaps: false }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#5e6a86', maxTicksLimit: 8, maxRotation: 0 } },
+        y: { grid: { color: 'rgba(35,44,68,0.6)' }, ticks: { color: '#5e6a86', callback: fmtCompact, maxTicksLimit: 5 } },
+      },
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { title: items => pts[items[0].dataIndex].date,
+                                label: c => ' ' + fmtMoney(c.parsed.y) } } },
+    },
+  });
+  const first = h.start ? h.start.net_worth : null;
+  const delta = document.getElementById('hero-delta');
+  if (first !== null && first !== undefined && pts.length > 1) {
+    const diff = NOW - first, pct = first ? (diff / Math.abs(first) * 100) : null;
+    delta.textContent = (diff >= 0 ? '+' : '−') + fmtMoney(Math.abs(diff))
+      + (pct !== null ? ` (${diff >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(1)} %)` : '');
+    delta.className = 'hero-delta ' + (diff >= 0 ? 'gain' : 'loss');
+    delta.title = {{ _("since the start of the range") | tojson }};
+    delta.hidden = false;
+  } else {
+    delta.hidden = true;
+  }
+}
+drawHistory({{ history | tojson }});
+document.querySelectorAll('.period-btn').forEach(btn => btn.addEventListener('click', async () => {
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b === btn));
+  const res = await fetch('/api/networth?period=' + btn.dataset.period, { credentials: 'same-origin' });
+  if (res.ok) drawHistory(await res.json());
+}));
+
 const PALETTE = ['#5b9dff','#a78bfa','#34d399','#f5d76e','#ff8c42',
                  '#f87171','#22d3ee','#fb7185','#84cc16','#c084fc'];
 

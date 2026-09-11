@@ -48,6 +48,8 @@ it does not do yet.
 - [x] Forecast: a savings plan or a goal, projected from today's balance
       with deposits and returns shown apart.
 - [x] Connected accounts synced automatically once a day.
+- [x] Net worth over time, rebuilt from the records; bank connections
+      graded on the overview; a retirement outlook per person.
 
 ## Next
 
@@ -65,12 +67,12 @@ themselves" becomes answerable from it.
 | Income | a payslip importer, which is employer-specific in a way no generic parser fixes |
 | Expenses | a per-transaction owner — accounts now have people, transactions do not yet |
 
-**3. Balance history.**
+**3. Balance history.** *(Done in 0.17.0 as far as the records reach.)*
 `balances` already stores every reading with its date. A chart over time
 is nearly free once there is more than one point, and it is the first
 screen that rewards using the app for a month.
 
-**4. Scheduled sync.**
+**4. Scheduled sync.** *(Done in 0.16.0: daily, at a time set under Settings.)*
 A consent lasts 90 days; a sync should not need a human. In-container,
 so there is no crontab to edit.
 
