@@ -548,3 +548,12 @@ footer {
   margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--border);
   color: var(--text-tertiary) !important; font-size: 12px;
 }
+
+/* ─── MCP token ───────────────────────────────────────────────── */
+
+.mcp-cmd {
+  margin: 4px 0 10px; padding: 10px 12px; border-radius: 9px;
+  background: var(--bg-primary); border: 1px solid var(--border-strong);
+  font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap;
+  word-break: break-all; user-select: all;
+}

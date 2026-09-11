@@ -1572,4 +1572,19 @@ STRINGS: dict[str, str] = {
         "un seul secteur — un pari concentré, pas une position de revenu de fond",
     "the same fund is also listed as {others} — pick the listing your broker offers, they are not separate holdings":
         "le même fonds est aussi coté sous {others} — prenez la cotation que propose votre courtier, ce ne sont pas des positions distinctes",
+
+    # ─── MCP ─────────────────────────────────────────────────────────
+    'An assistant that speaks MCP can read this dashboard and do the chores that are slow by hand — categorise the queue and teach the rules, set budgets, type in a transaction, star a share idea, start a sync. It cannot delete an account, change settings, or see your bank credentials. Access is by a token, which stands in for your password: keep it as private, and revoke it here the moment you are unsure.':
+        "Un assistant qui parle MCP peut lire ce tableau de bord et faire les corvées lentes à la main — catégoriser la file et apprendre les règles, fixer des budgets, saisir une opération, marquer une idée d'action, lancer une synchronisation. Il ne peut ni supprimer un compte, ni changer les réglages, ni voir vos identifiants bancaires. L'accès se fait par un jeton, qui tient lieu de mot de passe : gardez-le aussi secret, et révoquez-le ici au moindre doute.",
+    'Claude and other assistants (MCP)': 'Claude et autres assistants (MCP)',
+    'Create a token': 'Créer un jeton',
+    'For Claude Code on your network, this is the whole setup:': 'Pour Claude Code sur votre réseau, voici toute la configuration :',
+    'For Claude Desktop, point the mcp-remote bridge at the same URL with the same header. The endpoint is only reachable where the dashboard is — it is not published to the internet.':
+        "Pour Claude Desktop, pointez la passerelle mcp-remote vers la même URL avec le même en-tête. Le point d'accès n'est joignable que là où le tableau de bord l'est — il n'est pas publié sur Internet.",
+    'Replace the token': 'Remplacer le jeton',
+    'Revoke': 'Révoquer',
+    'Token created. Any earlier token stopped working.': 'Jeton créé. Tout jeton précédent ne fonctionne plus.',
+    'Token revoked. Anything connected with it is cut off.': 'Jeton révoqué. Tout ce qui y était connecté est coupé.',
+    'a token exists': 'un jeton existe',
+    'off — no token': 'désactivé — pas de jeton',
 }

@@ -139,6 +139,24 @@
   </form>
 </div>
 
+<div class="card" id="mcp">
+  <div class="card-header">
+    <h2>{{ _("Claude and other assistants (MCP)") }}</h2>
+    <span class="card-subtitle">{% if mcp_token %}{{ _("a token exists") }}{% else %}{{ _("off — no token") }}{% endif %}</span>
+  </div>
+  <p class="sub">{{ _("An assistant that speaks MCP can read this dashboard and do the chores that are slow by hand — categorise the queue and teach the rules, set budgets, type in a transaction, star a share idea, start a sync. It cannot delete an account, change settings, or see your bank credentials. Access is by a token, which stands in for your password: keep it as private, and revoke it here the moment you are unsure.") }}</p>
+  {% if mcp_token %}
+  <p class="sub">{{ _("For Claude Code on your network, this is the whole setup:") }}</p>
+  <pre class="mcp-cmd">claude mcp add --transport http wealth {{ mcp_url }} --header "Authorization: Bearer {{ mcp_token }}"</pre>
+  <p class="sub">{{ _("For Claude Desktop, point the mcp-remote bridge at the same URL with the same header. The endpoint is only reachable where the dashboard is — it is not published to the internet.") }}</p>
+  {% endif %}
+  <form method="post" class="form inline">
+    <input type="hidden" name="form" value="mcp_token">
+    <button type="submit" name="action" value="new">{% if mcp_token %}{{ _("Replace the token") }}{% else %}{{ _("Create a token") }}{% endif %}</button>
+    {% if mcp_token %}<button type="submit" name="action" value="revoke" class="btn-danger">{{ _("Revoke") }}</button>{% endif %}
+  </form>
+</div>
+
 <div class="card" id="people">
   <div class="card-header">
     <h2>{{ _("People") }}</h2>

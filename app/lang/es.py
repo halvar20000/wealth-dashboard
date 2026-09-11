@@ -1567,4 +1567,19 @@ STRINGS: dict[str, str] = {
         "un solo sector: una apuesta concentrada, no una posición de rentas central",
     "the same fund is also listed as {others} — pick the listing your broker offers, they are not separate holdings":
         "el mismo fondo también cotiza como {others}: elige la cotización que ofrezca tu bróker, no son posiciones distintas",
+
+    # ─── MCP ─────────────────────────────────────────────────────────
+    'An assistant that speaks MCP can read this dashboard and do the chores that are slow by hand — categorise the queue and teach the rules, set budgets, type in a transaction, star a share idea, start a sync. It cannot delete an account, change settings, or see your bank credentials. Access is by a token, which stands in for your password: keep it as private, and revoke it here the moment you are unsure.':
+        'Un asistente que hable MCP puede leer este panel y hacer las tareas lentas a mano: categorizar la cola y enseñar las reglas, fijar presupuestos, teclear una transacción, marcar una idea de acciones, lanzar una sincronización. No puede borrar una cuenta, cambiar ajustes ni ver tus credenciales bancarias. El acceso es por un token, que hace las veces de tu contraseña: guárdalo igual de en secreto y revócalo aquí en cuanto dudes.',
+    'Claude and other assistants (MCP)': 'Claude y otros asistentes (MCP)',
+    'Create a token': 'Crear un token',
+    'For Claude Code on your network, this is the whole setup:': 'Para Claude Code en tu red, esta es toda la configuración:',
+    'For Claude Desktop, point the mcp-remote bridge at the same URL with the same header. The endpoint is only reachable where the dashboard is — it is not published to the internet.':
+        'Para Claude Desktop, apunta el puente mcp-remote a la misma URL con la misma cabecera. El punto de acceso solo es alcanzable donde lo es el panel: no se publica en internet.',
+    'Replace the token': 'Sustituir el token',
+    'Revoke': 'Revocar',
+    'Token created. Any earlier token stopped working.': 'Token creado. Cualquier token anterior ha dejado de funcionar.',
+    'Token revoked. Anything connected with it is cut off.': 'Token revocado. Todo lo que estaba conectado con él queda cortado.',
+    'a token exists': 'hay un token',
+    'off — no token': 'desactivado: sin token',
 }

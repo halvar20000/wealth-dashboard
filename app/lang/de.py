@@ -1565,4 +1565,19 @@ STRINGS: dict[str, str] = {
         "ein einzelner Sektor — eine konzentrierte Wette, keine Kern-Einkommensposition",
     "the same fund is also listed as {others} — pick the listing your broker offers, they are not separate holdings":
         "derselbe Fonds ist auch als {others} notiert — nimm die Notierung, die dein Broker anbietet, es sind keine getrennten Positionen",
+
+    # ─── MCP ─────────────────────────────────────────────────────────
+    'An assistant that speaks MCP can read this dashboard and do the chores that are slow by hand — categorise the queue and teach the rules, set budgets, type in a transaction, star a share idea, start a sync. It cannot delete an account, change settings, or see your bank credentials. Access is by a token, which stands in for your password: keep it as private, and revoke it here the moment you are unsure.':
+        'Ein Assistent, der MCP spricht, kann dieses Dashboard lesen und die Arbeiten erledigen, die von Hand langsam sind — die Warteschlange kategorisieren und die Regeln beibringen, Budgets setzen, eine Transaktion eintippen, eine Aktienidee markieren, eine Synchronisierung anstoßen. Er kann kein Konto löschen, keine Einstellungen ändern und deine Bankzugangsdaten nicht sehen. Der Zugang läuft über ein Token, das deinem Passwort gleichkommt: halte es genauso geheim, und widerrufe es hier, sobald du unsicher bist.',
+    'Claude and other assistants (MCP)': 'Claude und andere Assistenten (MCP)',
+    'Create a token': 'Token erstellen',
+    'For Claude Code on your network, this is the whole setup:': 'Für Claude Code in deinem Netz ist das die ganze Einrichtung:',
+    'For Claude Desktop, point the mcp-remote bridge at the same URL with the same header. The endpoint is only reachable where the dashboard is — it is not published to the internet.':
+        'Für Claude Desktop richtest du die mcp-remote-Brücke auf dieselbe URL mit demselben Header. Der Endpunkt ist nur dort erreichbar, wo das Dashboard erreichbar ist — er wird nicht ins Internet gestellt.',
+    'Replace the token': 'Token ersetzen',
+    'Revoke': 'Widerrufen',
+    'Token created. Any earlier token stopped working.': 'Token erstellt. Ein früheres Token funktioniert nicht mehr.',
+    'Token revoked. Anything connected with it is cut off.': 'Token widerrufen. Alles, was damit verbunden war, ist abgeschnitten.',
+    'a token exists': 'ein Token ist vorhanden',
+    'off — no token': 'aus — kein Token',
 }

@@ -100,6 +100,34 @@ is the French one, inferred from the country of incorporation for shares
 and curated for funds, and is a hint for the shortlist rather than a fact
 to act on.
 
+## Claude, and other assistants (MCP)
+
+The app has an MCP endpoint at `/mcp`, so an assistant can read the
+dashboard and do the chores that are slow by hand — above all categorising:
+it reads the uncategorised queue, files each transaction, and teaches the
+app a rule per merchant that applies to every past and future transaction
+that matches. It can also set budgets, type in a transaction or a balance,
+star a share idea, and start a sync. It cannot delete an account, change
+settings, or see your bank credentials.
+
+Under **Settings → Claude and other assistants**, create a token. The page
+then shows the whole setup for Claude Code on your network:
+
+```bash
+claude mcp add --transport http wealth http://<your-host>:8000/mcp \
+  --header "Authorization: Bearer <token>"
+```
+
+For Claude Desktop, point the `mcp-remote` bridge at the same URL with the
+same header. The endpoint is reachable wherever the dashboard is and
+nowhere else — nothing is published to the internet — which means the
+claude.ai website and phone apps cannot reach it unless you put the app
+behind a public HTTPS proxy, which this README does not recommend.
+
+The token stands in for your password. Keep it as private, and revoke or
+replace it on the same page the moment you are unsure; anything connected
+with the old one is cut off at once.
+
 ## Exchange rates
 
 Amounts in another currency are converted at **ECB euro reference rates** —
@@ -392,7 +420,7 @@ and knows your Application ID can act as your application. It is stored
 python3 tests/test_all.py
 ```
 
-997 checks, no network, no pytest, no credentials. The whole bank flow —
+1075 checks, no network, no pytest, no credentials. The whole bank flow —
 JWT signing, pagination, normalisation, connect, sync, dedupe, consent
 expiry — runs against a fake, so it works on a NAS with an unhelpful
 Python and no internet.

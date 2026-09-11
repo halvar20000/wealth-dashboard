@@ -52,6 +52,8 @@ it does not do yet.
       graded on the overview; a retirement outlook per person.
 - [x] Share Ideas: four ranked boards — value, dividends, ETFs, dividend
       ETFs — over a nightly Yahoo cache the app fills itself.
+- [x] An MCP endpoint with a revocable token, so an assistant can
+      categorise, budget, and read everything the pages show.
 
 ## Next
 

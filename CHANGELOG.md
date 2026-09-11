@@ -11,6 +11,30 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.19.0] — 2026-09-11
+
+### Added
+- **An MCP endpoint**, so Claude — or any assistant that speaks MCP —
+  can read the dashboard and do the chores that are slow by hand. Twenty-
+  three tools: net worth, accounts, holdings, history, a transaction
+  search, the uncategorised queue with the app's own guess and pattern per
+  row, categories, rules, budgets, subscriptions, share ideas and sync
+  health to read; `set_category` and `categorise_many` (which learn a
+  rule per merchant and apply it retroactively), `add_rule`,
+  `delete_rule`, `set_budget`, `add_transaction`, `set_balance`,
+  `watch_idea`, and sync / price / ideas refresh to write. Nothing that
+  deletes an account, edits settings or touches credentials. Every write
+  goes through the same function the page uses, so an assistant's change
+  is one the UI could have made.
+- Access is by a bearer token created under **Settings → Claude and
+  other assistants**, stored 0600 beside the bank key and revocable
+  there; the page shows the one-line `claude mcp add` for Claude Code on
+  your network. The endpoint is JSON-RPC over POST at `/mcp` — the
+  Streamable-HTTP transport, written here in ~200 lines rather than
+  pulling the SDK and its dependencies into a four-line requirements
+  file. Answers are in English whatever the UI language, because the
+  reader is a program.
+
 ## [0.18.0] — 2026-09-11
 
 ### Added

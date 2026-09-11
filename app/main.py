@@ -17,6 +17,7 @@ The route list is the whole product so far, in order of first use:
     /accounts/<id>/sync   pull balance and transactions
     /accounts/<id>/import upload a broker CSV
     /screener           share ideas: four ranked boards over a Yahoo cache
+    /mcp                the MCP endpoint, for an assistant with a token
 
 Every page except /setup and /login requires a signed-in user.
 """
@@ -39,7 +40,7 @@ from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import (cashflow, categories, forecast, history, importers, manual,
-               overview, people, screener, screener_etf, screener_jobs,
+               mcp, overview, people, screener, screener_etf, screener_jobs,
                subscriptions)
 from . import db as db_state
 from .db import get_conn, has_users, init_db
@@ -92,7 +93,7 @@ app.secret_key = _secret_key()
 def _first_run_gate():
     """Before anybody exists, every path leads to /setup. A login form in
     front of an app with no users is a door with no key."""
-    if request.endpoint in ("static", "setup", "healthz"):
+    if request.endpoint in ("static", "setup", "healthz", "mcp_endpoint"):
         return None
     if not has_users():
         return redirect(url_for("setup"))
@@ -665,6 +666,33 @@ def account_sync(account_id: int):
     return redirect(url_for("account_detail", account_id=account_id))
 
 
+# ─── MCP ─────────────────────────────────────────────────────────────
+
+@app.route("/mcp", methods=["GET", "POST", "DELETE"])
+def mcp_endpoint():
+    """JSON-RPC over POST, behind a bearer token — see mcp.py.
+
+    Not behind the login: a program has no session. The token stands in
+    for the password and is checked on every message. A missing or wrong
+    one is a 401 with nothing else said — which is also what an assistant
+    sees before anybody has generated a token at all.
+    """
+    if not has_users():
+        return jsonify({"ok": False, "error": "This dashboard has no user yet."}), 503
+    if not mcp.authorised(request.headers.get("Authorization")):
+        return (jsonify({"ok": False, "error": "A bearer token from Settings is required."}),
+                401, {"WWW-Authenticate": 'Bearer realm="wealth-dashboard"'})
+    if request.method != "POST":
+        return jsonify({"ok": False, "error": "POST JSON-RPC messages here."}), 405
+    body = request.get_json(silent=True)
+    if body is None:
+        return jsonify(mcp._err(None, mcp.PARSE_ERROR, "The body is not JSON.")), 400
+    status, answer = mcp.handle(body)
+    if answer is None:
+        return "", status
+    return jsonify(answer), status
+
+
 # ─── Settings ────────────────────────────────────────────────────────
 
 # ─── Spending ────────────────────────────────────────────────────────
@@ -1141,6 +1169,14 @@ def settings_page():
             else:
                 flash(_t("A refresh is already running."), "error")
             return redirect(url_for("settings_page") + "#ideas")
+        elif request.form.get("form") == "mcp_token":
+            if request.form.get("action") == "revoke":
+                mcp.revoke()
+                flash(_t("Token revoked. Anything connected with it is cut off."), "ok")
+            else:
+                mcp.new_token()
+                flash(_t("Token created. Any earlier token stopped working."), "ok")
+            return redirect(url_for("settings_page") + "#mcp")
         elif request.form.get("form") == "sync_all":
             results = banksync.sync_all()
             failed = [r for r in results if r["error"]]
@@ -1212,6 +1248,8 @@ def settings_page():
                            securities=prices.status(),
                            prices_hours_ago=prices.fetched_hours_ago(),
                            ideas=screener_jobs.status(),
+                           mcp_token=mcp.token(),
+                           mcp_url=request.host_url.rstrip("/") + "/mcp",
                            check=check)
 
 

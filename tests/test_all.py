@@ -3278,5 +3278,221 @@ check("nothing is running", st["running"], False)
 screener_etf.UNIVERSE_FILE.unlink()
 
 # ---------------------------------------------------------------------------
+print("\n25. MCP — an assistant with a token")
+# ---------------------------------------------------------------------------
+# JSON-RPC over POST, checked the way a client would use it: the
+# handshake, the tool list, then every tool once, and the ways it must
+# refuse — no token, a wrong token, a GET, a tool that does not exist.
+from app import mcp                                         # noqa: E402
+
+check("no token means no access", mcp.authorised("Bearer anything"), False)
+tok = mcp.new_token()
+check("a token is long and random", len(tok) >= 40, True)
+check("the right token is accepted", mcp.authorised(f"Bearer {tok}"), True)
+check("a wrong one is not", mcp.authorised("Bearer " + tok[:-1] + "x"), False)
+check("the scheme matters", mcp.authorised(tok), False)
+check("it is stored 0600", oct(mcp.TOKEN_FILE.stat().st_mode & 0o777), "0o600")
+HDR = {"Authorization": f"Bearer {tok}"}
+
+
+def rpc(method, params=None, id_=1, headers=HDR):
+    r = c.post("/mcp", json={"jsonrpc": "2.0", "id": id_, "method": method,
+                             "params": params or {}}, headers=headers)
+    return r.status_code, (r.get_json() if r.data else None)
+
+
+def call(name, **arguments):
+    status, j = rpc("tools/call", {"name": name, "arguments": arguments})
+    assert status == 200 and "result" in j, (name, status, j)
+    res = j["result"]
+    if res.get("isError"):
+        return {"_error": res["content"][0]["text"]}
+    return res.get("structuredContent", json.loads(res["content"][0]["text"]))
+
+
+r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "ping"})
+check("without a token: 401", r.status_code, 401)
+check("...and the header says how to get in", "Bearer" in r.headers.get("WWW-Authenticate", ""), True)
+check("with a wrong token: 401",
+      rpc("ping", headers={"Authorization": "Bearer nope"})[0], 401)
+check("a GET is not a message", c.get("/mcp", headers=HDR).status_code, 405)
+check("a body that is not JSON is a parse error",
+      c.post("/mcp", data="not json", headers={**HDR, "Content-Type": "application/json"}).get_json()["error"]["code"],
+      mcp.PARSE_ERROR)
+
+s_, j = rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
+                           "clientInfo": {"name": "test", "version": "0"}})
+check("initialize answers with the protocol version asked for",
+      j["result"]["protocolVersion"], "2025-06-18")
+check("...an unknown version gets the newest we speak",
+      rpc("initialize", {"protocolVersion": "1999-01-01"})[1]["result"]["protocolVersion"],
+      mcp.PROTOCOL_VERSIONS[0])
+check("...declaring tools", "tools" in j["result"]["capabilities"], True)
+check("...naming itself and its version",
+      (j["result"]["serverInfo"]["name"], j["result"]["serverInfo"]["version"]),
+      ("wealth-dashboard", main.__version__))
+check("...with instructions for the model", "categorise_many" in j["result"]["instructions"], True)
+check("a notification is acknowledged with 202 and no body",
+      c.post("/mcp", json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+             headers=HDR).status_code, 202)
+check("ping pongs", rpc("ping")[1]["result"], {})
+check("an unknown method is -32601", rpc("nonsense")[1]["error"]["code"], mcp.METHOD_NOT_FOUND)
+check("a message that is not JSON-RPC is -32600",
+      c.post("/mcp", json={"hello": "there"}, headers=HDR).get_json()["error"]["code"],
+      mcp.INVALID_REQUEST)
+batch = c.post("/mcp", json=[{"jsonrpc": "2.0", "id": 7, "method": "ping"},
+                              {"jsonrpc": "2.0", "method": "notifications/x"}], headers=HDR)
+check("a batch answers its requests and swallows its notifications",
+      batch.get_json(), [{"jsonrpc": "2.0", "id": 7, "result": {}}])
+
+s_, j = rpc("tools/list")
+names = [t["name"] for t in j["result"]["tools"]]
+check("the tool list is complete", sorted(names), sorted(mcp._HANDLERS))
+check("every tool has a schema and a description",
+      all(t["inputSchema"]["type"] == "object" and t["description"] for t in j["result"]["tools"]), True)
+check("no tool can delete an account or touch credentials",
+      any("delete_account" in n or "credential" in n for n in names), False)
+check("the tool list is JSON-schema-valid enough for a client",
+      all(set(t["inputSchema"]["required"]) <= set(t["inputSchema"]["properties"])
+          for t in j["result"]["tools"]), True)
+
+# --- reads ---
+nw = call("net_worth")
+check("net_worth agrees with the overview", round(nw["net_worth"], 2),
+      round(ov.summary("EUR")["net_worth"], 2))
+check("...and lists the accounts", any(a["name"] == "DKB Girokonto" for a in nw["accounts"]), True)
+accts = call("accounts")
+check("accounts lists each with its id", all("id" in a and "name" in a for a in accts), True)
+hold = call("holdings")
+check("holdings lists what is held", any(h["isin"] == "IE00B4L5Y983" for h in hold["holdings"]), True)
+hist_ = call("net_worth_history", period="1y")
+check("history returns points", isinstance(hist_["points"], list), True)
+check("...and refuses a period it does not know",
+      "_error" in call("net_worth_history", period="9y"), True)
+tx = call("transactions", q="rewe", limit=5)
+check("transactions searches by text", tx["matched"] >= 1 and len(tx["transactions"]) <= 5, True)
+check("...and by kind", all(t["kind"] == "buy" for t in call("transactions", kind="buy")["transactions"]), True)
+check("...and by date", all(t["txn_date"] >= "2026-01-01" for t in
+                            call("transactions", date_from="2026-01-01")["transactions"]), True)
+check("...capping the limit", call("transactions", limit=9999)["returned"] <= 500, True)
+cats = call("categories")
+check("categories lists slugs with labels", any(x["slug"] == "food" and x["label"] for x in cats), True)
+check("...in English whatever the UI language",
+      next(x for x in cats if x["slug"] == "housing")["label"], "Housing")
+queue = call("uncategorised", limit=5)
+check("the queue carries a pattern per row",
+      all("pattern" in t and "suggestion" in t for t in queue["transactions"]), True)
+
+# --- writes: categorising, with and without a rule ---
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, counterparty, "
+                 "amount, currency, kind) VALUES (?, '2026-09-03', 'Kartenzahlung', "
+                 "'Bakery Corner', -4.5, 'EUR', 'withdrawal')", (account_id,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, counterparty, "
+                 "amount, currency, kind) VALUES (?, '2026-09-04', 'Kartenzahlung', "
+                 "'Bakery Corner', -3.2, 'EUR', 'withdrawal')", (account_id,))
+    bakery = [r["id"] for r in conn.execute(
+        "SELECT id FROM transactions WHERE counterparty = 'Bakery Corner' ORDER BY id")]
+res = call("set_category", txn_id=bakery[0], category="food")
+check("set_category files the row and learns the counterparty as the rule",
+      (res["category"], res["rule"]), ("food", "Bakery Corner"))
+check("...applying it to the sibling row at once", res["applied"] >= 2, True)
+with db.get_conn() as conn:
+    got = [r["category"] for r in conn.execute(
+        "SELECT category FROM transactions WHERE id IN (?, ?) ORDER BY id", bakery)]
+check("...so both are categorised", got, ["food", "food"])
+check("filing under 'other' makes no rule",
+      call("set_category", txn_id=bakery[1], category="other")["rule"], None)
+check("an unknown category is the tool's error, not a crash",
+      "_error" in call("set_category", txn_id=bakery[1], category="nope"), True)
+check("an unknown transaction likewise",
+      "_error" in call("set_category", txn_id=99999999, category="food"), True)
+many = call("categorise_many", items=[
+    {"txn_id": bakery[1], "category": "food", "pattern": "Bakery Corner"},
+    {"txn_id": 99999999, "category": "food"},
+    {"txn_id": bakery[0], "category": "nope"}])
+check("categorise_many does what it can and reports the rest",
+      (many["categorised"], len(many["failed"])), (1, 2))
+check("add_rule refuses a two-letter pattern", "_error" in call("add_rule", pattern="ab", category="food"), True)
+added = call("add_rule", pattern="Bakery Corner", category="restaurants")
+check("add_rule applies retroactively", added["applied"] >= 2, True)
+rules_ = call("rules")
+check("rules lists what was learned", any(r_["pattern"] == "Bakery Corner" for r_ in rules_), True)
+newest = max(r_["id"] for r_ in rules_ if r_["pattern"] == "Bakery Corner")
+check("delete_rule removes it and re-applies the rest",
+      call("delete_rule", rule_id=newest)["deleted"], newest)
+check("an unknown tool is a JSON-RPC error", rpc("tools/call", {"name": "bogus"})[1]["error"]["code"],
+      mcp.INVALID_PARAMS)
+check("an unknown argument is a JSON-RPC error",
+      rpc("tools/call", {"name": "rules", "arguments": {"wat": 1}})[1]["error"]["code"],
+      mcp.INVALID_PARAMS)
+check("a missing required argument too",
+      rpc("tools/call", {"name": "set_category", "arguments": {"txn_id": 1}})[1]["error"]["code"],
+      mcp.INVALID_PARAMS)
+
+# --- budgets, subscriptions, manual entries ---
+check("set_budget stores", call("set_budget", category="food", monthly=300)["monthly"], 300)
+rep = call("budget_report")
+check("budget_report shows it", any(r_["category"] == "food" and r_["budget"] == 300
+                                    for r_ in rep["rows"]), True)
+call("set_budget", category="food", monthly=None)
+check("...and null clears it", "food" not in cf.budgets(), True)
+check("an unknown category cannot be budgeted", "_error" in call("set_budget", category="nope", monthly=1), True)
+check("subscriptions answers", "active" in call("subscriptions"), True)
+tx_ = call("add_transaction", account_id=account_id, kind="withdrawal", txn_date="2026-09-06",
+           amount=19.99, description="Haircut", category="health")
+check("add_transaction stores a signed amount", (tx_["amount"], tx_["category"]), (-19.99, "health"))
+check("a trade needs an ISIN", "_error" in call("add_transaction", account_id=broker_id, kind="buy",
+                                                txn_date="2026-09-06", quantity=1, price=10), True)
+trade = call("add_transaction", account_id=broker_id, kind="buy", txn_date="2026-09-06",
+             isin="IE00B4L5Y983", quantity=2, price=100.5, fee=1)
+check("a trade stores quantity, price and the total", (trade["quantity"], trade["price"], trade["amount"]),
+      (2.0, 100.5, -202.0))
+check("a future date is refused", "_error" in call("add_transaction", account_id=account_id, kind="deposit",
+                                                    txn_date="2999-01-01", amount=1), True)
+check("an unknown account is refused", "_error" in call("add_transaction", account_id=999999, kind="deposit",
+                                                        txn_date="2026-09-06", amount=1), True)
+bal = call("set_balance", account_id=account_id, amount=1234.56, as_of="2026-09-06")
+check("set_balance records the reading", (bal["amount"], bal["as_of"]), (1234.56, "2026-09-06"))
+
+# --- share ideas and the watchlist ---
+ideas = call("share_ideas", board="etf", top=3)
+check("share_ideas ranks the ETF board", (ideas["board"], len(ideas["ranked"]) <= 3), ("etf", True))
+check("...trimmed to the figures that matter", "ter" in ideas["ranked"][0] and "cagr_5y" in ideas["ranked"][0], True)
+gated_ = call("share_ideas", board="etf_dividend", include_gated=True)
+check("...listing the gated with reasons on request",
+      all(g_["gate_failed"] for g_ in gated_["gated"]), True)
+check("...refusing a board it does not have", "_error" in call("share_ideas", board="crypto"), True)
+w = call("watch_idea", symbol="cheap.de", status="dismissed", note="too concentrated")
+check("watch_idea stores the mark", (w["symbol"], w["status"]), ("CHEAP.DE", "dismissed"))
+check("...visible on the board", next(r_ for r_ in call("share_ideas", board="etf", top=500)["ranked"]
+                                       if r_["symbol"] == "CHEAP.DE")["watch_status"], "dismissed")
+call("watch_idea", symbol="CHEAP.DE", status="clear")
+
+# --- the chores ---
+check("sync_health answers with the graded connections", isinstance(call("sync_health"), list), True)
+_real_sync_all = banksync.sync_all
+banksync.sync_all = lambda: [{"account": "DKB Girokonto", "inserted": 3, "error": None}]
+try:
+    synced = call("sync_banks")
+finally:
+    banksync.sync_all = _real_sync_all
+check("sync_banks runs the sync and returns its report", synced[0]["inserted"], 3)
+check("refresh_prices prices the holdings", call("refresh_prices")["priced"] >= 1, True)
+check("refresh_share_ideas reports its state", "running" in call("refresh_share_ideas"), True)
+
+# --- the settings page and revocation ---
+r = c.get("/settings")
+check("the settings page shows the token and the one-line setup",
+      b'id="mcp"' in r.data and tok.encode() in r.data and b"claude mcp add" in r.data, True)
+r = c.post("/settings", data={"form": "mcp_token", "action": "new"}, follow_redirects=True)
+check("replacing the token cuts the old one off", rpc("ping")[0], 401)
+r = c.post("/settings", data={"form": "mcp_token", "action": "revoke"}, follow_redirects=True)
+check("revoking removes it", mcp.token(), None)
+check("...and nothing gets in", rpc("ping", headers={"Authorization": f"Bearer {mcp.token()}"})[0], 401)
+r = c.get("/settings")
+check("...and the page says so", b"Create a token" in r.data, True)
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)
