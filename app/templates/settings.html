@@ -51,6 +51,51 @@
   <p class="sub">{{ _("Also updated on start-up, at most once a day, in the background. Nothing waits on it: a page renders whether or not the rates arrived.") }}</p>
 </div>
 
+<div class="card" id="prices">
+  <div class="card-header">
+    <h2>{{ _("Market prices") }}</h2>
+    <span class="card-subtitle">{{ _("Yahoo Finance") }}</span>
+  </div>
+  <p class="sub">{{ _("Every holding is valued at its last market price — free, without a key — and every total built from prices names their day. A broker export gives an ISIN and a price source wants a ticker, so the ticker is looked up once and kept. Where the lookup fails or picks the wrong exchange, type the ticker Yahoo uses, like IWDA.AS; what you type is never replaced by a lookup.") }}</p>
+
+  {% if securities %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Security") }}</th><th>{{ _("Ticker") }}</th><th class="num">{{ _("Price") }}</th><th></th></tr></thead>
+      <tbody>
+      {% for x in securities %}
+        <tr>
+          <td>{{ x.name }}<span class="sub">{{ x.isin }}</span></td>
+          <td>
+            <form method="post" class="form inline" style="gap:6px">
+              <input type="hidden" name="form" value="price_symbol">
+              <input type="hidden" name="isin" value="{{ x.isin }}">
+              <input name="symbol" value="{{ x.symbol or '' }}" placeholder="IWDA.AS" style="width:120px;padding:5px 8px;font-size:12.5px;font-family:var(--font-mono)" aria-label="{{ _f('Ticker for {name}', name=x.name) }}">
+              <button type="submit" class="btn-ghost">{{ _("Save") }}</button>
+            </form>
+            {% if x.manual %}<span class="sub">{{ _("typed in") }}</span>{% endif %}
+          </td>
+          <td class="num">
+            {% if x.price %}{{ qty(x.price) }} {{ x.currency }}<span class="sub">{{ d(x.as_of) }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>{% if x.error %}<span class="sub" style="color:var(--loss)">{{ x.error }}</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="sub">{{ _("Nothing to price yet — holdings appear here once a broker export or a trade typed in by hand has given you one.") }}</p>
+  {% endif %}
+
+  <form method="post">
+    <input type="hidden" name="form" value="prices_refresh">
+    <button type="submit">{{ _("Update prices now") }}</button>
+  </form>
+  <p class="sub">{{ _("Also updated on start-up and every few hours in the background. A holding no price could be found for is valued at your last trade, and the pages say so.") }}</p>
+</div>
+
 <div class="card" id="categories">
   <div class="card-header">
     <h2>{{ _("Categories") }}</h2>

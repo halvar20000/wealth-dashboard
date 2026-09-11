@@ -33,12 +33,17 @@ a PSD2 API it connects directly, with credentials that are yours.
   beside the imported rows and count the same way.
 - **Holdings**, computed from the trades — imported or typed in: what you
   own, how much, and what you put in.
+- **Market prices** from Yahoo Finance — free, no key. Every holding is
+  valued at its last market price and every total names the day; a
+  holding no price could be found for is valued at your last trade, and
+  the page says so. The ticker is resolved from the ISIN once and can be
+  overridden under Settings.
 - **An overview**: net worth, cash against securities, where it sits, and
   the latest activity across every account.
 
 ## What is not here yet
 
-Live prices, balance history, forecasting. See [ROADMAP.md](ROADMAP.md).
+Balance history, forecasting. See [ROADMAP.md](ROADMAP.md).
 
 ## Exchange rates
 

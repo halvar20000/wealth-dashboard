@@ -158,6 +158,31 @@ CREATE TABLE IF NOT EXISTS fx_rates (
     PRIMARY KEY (as_of, currency)
 );
 
+-- One row per security the app has tried to price. `symbol` is the
+-- ticker the price source knows it by, which a broker export never
+-- gives — an ISIN is the same everywhere, a ticker is per exchange —
+-- so it is looked up once and kept. `symbol_source` says whether the
+-- user typed it in, in which case no lookup ever replaces it.
+CREATE TABLE IF NOT EXISTS securities (
+    isin          TEXT PRIMARY KEY,
+    symbol        TEXT,
+    name          TEXT,
+    symbol_source TEXT,             -- 'yahoo' or 'manual'
+    resolved_at   TEXT,
+    last_error    TEXT
+);
+
+-- Kept, not replaced: a price is a fact about a day, and the history
+-- is what "why did it move" will need once there is enough of it.
+CREATE TABLE IF NOT EXISTS prices (
+    isin       TEXT NOT NULL,
+    as_of      TEXT NOT NULL,       -- the trading day, ISO
+    price      REAL NOT NULL,
+    currency   TEXT NOT NULL,       -- the currency the exchange quotes in
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (isin, as_of)
+);
+
 -- What the user budgeted for a category, per month. One row per
 -- category; a month with no row simply has no budget.
 CREATE TABLE IF NOT EXISTS budgets (

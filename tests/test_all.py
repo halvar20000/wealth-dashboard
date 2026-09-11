@@ -1844,5 +1844,149 @@ with db.get_conn() as conn:
                  "('usd-food', 'jpy-food', 'usd-old')")
 
 # ---------------------------------------------------------------------------
+print("\n16. Market prices")
+# ---------------------------------------------------------------------------
+# Against canned Yahoo answers, never Yahoo. The shape is what the real
+# endpoints return; the numbers are made up.
+from app import prices                                    # noqa: E402
+
+SEARCH = {
+    "IE00B4L5Y983": {"quotes": [
+        {"symbol": "IWDA.L", "exchange": "LSE", "quoteType": "ETF",
+         "shortname": "ISHARES III PLC ISHRS CORE MSCI"},
+        {"symbol": "IWDA.AS", "exchange": "AMS", "quoteType": "ETF",
+         "longname": "iShares Core MSCI World UCITS ETF USD (Acc)"},
+    ]},
+    "IE00BK5BQT80": {"quotes": [
+        {"symbol": "VWCE.DE", "exchange": "GER", "quoteType": "ETF",
+         "longname": "Vanguard FTSE All-World UCITS ETF"}]},
+    "DE0007236101": {"quotes": [
+        {"symbol": "SIE.DE", "exchange": "GER", "quoteType": "EQUITY",
+         "longname": "Siemens AG"}]},
+    "GB00B03MLX29": {"quotes": [
+        {"symbol": "SHEL.L", "exchange": "LSE", "quoteType": "EQUITY",
+         "longname": "Shell plc"}]},
+}
+CHART = {
+    "IWDA.AS": {"chart": {"result": [{"meta": {"symbol": "IWDA.AS", "currency": "EUR",
+                "regularMarketPrice": 126.17, "regularMarketTime": 1789119714}}]}},
+    "VWCE.DE": {"chart": {"result": [{"meta": {"symbol": "VWCE.DE", "currency": "EUR",
+                "regularMarketPrice": 140.5, "regularMarketTime": 1789119714}}]}},
+    "SIE.DE": {"chart": {"result": [{"meta": {"symbol": "SIE.DE", "currency": "EUR",
+               "regularMarketPrice": 180.0, "regularMarketTime": 1789119714}}]}},
+    "SHEL.L": {"chart": {"result": [{"meta": {"symbol": "SHEL.L", "currency": "GBp",
+               "regularMarketPrice": 2650.0, "regularMarketTime": 1789119714}}]}},
+    "NOPE.XX": {"chart": {"result": None, "error": {"code": "Not Found",
+                "description": "No data found, symbol may be delisted"}}},
+}
+asked = []
+
+
+def fake_get(url):
+    asked.append(url)
+    if "/finance/search" in url:
+        q = url.split("q=")[1].split("&")[0]
+        return SEARCH.get(q, {"quotes": []})
+    sym = url.split("/chart/")[1].split("?")[0]
+    if sym not in CHART:
+        raise prices.PriceError(f"Yahoo refused the request (404).")
+    return CHART[sym]
+
+
+prices._get_json = fake_get          # the web routes must never reach Yahoo
+
+check("a euro portfolio prefers the euro listing",
+      prices.pick_symbol(SEARCH["IE00B4L5Y983"]["quotes"], "EUR"), "IWDA.AS")
+check("...and a sterling one the London listing",
+      prices.pick_symbol(SEARCH["IE00B4L5Y983"]["quotes"], "GBP"), "IWDA.L")
+check("nothing to choose from is None", prices.pick_symbol([], "EUR"), None)
+q = prices.quote("SHEL.L", fake_get)
+check("pence become pounds", (q["price"], q["currency"]), (26.5, "GBP"))
+check("...and the price names its day", q["as_of"], "2026-09-11")
+err = None
+try:
+    prices.quote("NOPE.XX", fake_get)
+except prices.PriceError as exc:
+    err = str(exc)
+check("a delisted ticker is a sentence, not a zero", "delisted" in (err or ""), True)
+
+held = prices.held_isins()
+check("what is held is what gets priced", "IE00B4L5Y983" in held, True)
+check("...and a closed position is not", "XX0000000000" in held, False)
+
+info = prices.refresh("EUR", get=fake_get)
+check("a refresh prices the holdings", info["priced"] >= 1, True)
+priced = prices.latest()
+check("...the fund at its Amsterdam price", priced["IE00B4L5Y983"]["price"], 126.17)
+check("...remembering the ticker", priced["IE00B4L5Y983"]["symbol"], "IWDA.AS")
+asked.clear()
+prices.refresh("EUR", get=fake_get)
+check("the ticker is looked up once per security ever",
+      any("search?q=IE00B4L5Y983" in u for u in asked), False)
+
+# The overview now values at market, and says so.
+sm = ov.summary("EUR")
+iwda = next(h for h in sm["holdings"] if h["isin"] == "IE00B4L5Y983")
+check("the overview uses the market price", iwda["price_kind"], "market")
+check("...and the value follows", round(iwda["value"], 2),
+      round(iwda["quantity"] * 126.17, 2))
+check("...naming the day", sm["prices_as_of"], "2026-09-11")
+r = c.get("/portfolio")
+check("the portfolio page says which day the prices are from",
+      b"at market prices of" in r.data, True)
+r = c.get("/settings")
+check("the settings page lists each holding's ticker",
+      b'name="symbol"' in r.data and b"IWDA.AS" in r.data, True)
+
+# A ticker the search got wrong is typed in, and a lookup never
+# replaces it.
+prices.set_symbol("IE00B4L5Y983", "vwce.de")
+prices.refresh("EUR", get=fake_get, isins=["IE00B4L5Y983"])
+check("a typed ticker is used", prices.latest()["IE00B4L5Y983"]["price"], 140.5)
+asked.clear()
+prices.refresh("EUR", get=fake_get)
+check("...and never looked up again",
+      any("/finance/search?q=IE00B4L5Y983" in u for u in asked), False)
+check("...and the settings page says it was typed",
+      next(x for x in prices.status() if x["isin"] == "IE00B4L5Y983")["manual"], True)
+prices.set_symbol("IE00B4L5Y983", "")
+with db.get_conn() as conn:
+    sym = conn.execute("SELECT symbol FROM securities WHERE isin = 'IE00B4L5Y983'"
+                       ).fetchone()["symbol"]
+check("clearing it forgets the ticker so the next refresh starts over", sym, None)
+try:
+    prices.set_symbol("IE00B4L5Y983", "not a ticker!")
+    bad = False
+except ValueError:
+    bad = True
+check("something that is not a ticker is refused", bad, True)
+
+# One security failing must not stop the rest, and must be written
+# down where the Settings page shows it.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "amount, currency, kind, isin, security_name, quantity, price, "
+                 "external_id) VALUES (?, '2026-08-01', 'Mystery', -100, 'EUR', "
+                 "'buy', 'XX1234567890', 'Mystery Corp', 10, 10, 'mystery-buy')",
+                 (broker_id,))
+info = prices.refresh("EUR", get=fake_get)
+check("an ISIN Yahoo does not know is reported",
+      "XX1234567890" in {f["isin"] for f in info["failed"]}, True)
+check("...and the others are still priced", info["priced"] >= 3, True)
+mystery = next(x for x in prices.status() if x["isin"] == "XX1234567890")
+check("...with the reason on the settings page",
+      "does not know" in (mystery["error"] or ""), True)
+sm = ov.summary("EUR")
+my = next(h for h in sm["holdings"] if h["isin"] == "XX1234567890")
+check("the unpriced holding falls back to its last trade", my["price_kind"], "trade")
+check("...counted", sm["holdings_at_trade"] >= 1, True)
+r = c.get("/portfolio")
+check("...and the page says so", b"last trade, no market price" in r.data, True)
+r = c.post("/settings", data={"form": "price_symbol", "isin": "XX1234567890",
+                              "symbol": "NOPE.XX"}, follow_redirects=True)
+check("a wrong ticker typed in comes back with Yahoo's reason",
+      b"delisted" in r.data, True)
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

@@ -16,15 +16,16 @@ CHF as 100 EUR is worse than two numbers, because it is wrong in a way
 nobody can see; a number converted at a rate nobody can see is the same
 failure one step later.
 
-**Securities are valued at the last price you traded at.** That is not a
-market price. It is the only price this app knows, it is labelled as such
-everywhere it appears, and it is why a price feed is the next thing to
-build.
+**Securities are valued at a market price that names its day** — see
+prices.py — and where there is none, at the last price you traded at,
+which is labelled as such wherever it appears. The two are never mixed
+without saying so: the page says how many holdings are at market and how
+many are at their last trade.
 """
 
 from __future__ import annotations
 
-from . import fx
+from . import fx, prices
 from .db import get_conn
 from .importers import positions
 
@@ -63,8 +64,8 @@ def summary(base_currency: str = "EUR") -> dict:
     # otherwise ask the same question forty times.
     fx_as_of, fx_rates = fx.rates_on()
 
-    def to_base(amount: float | None, currency: str | None):
-        """Into the base currency, or None when no rate says how.
+    def between(amount: float | None, frm: str | None, to: str | None):
+        """From one currency into another, or None when no rate says how.
 
         None is not zero and not the original number. Every caller here
         treats it as "cannot say", which is what puts the amount beside
@@ -72,12 +73,16 @@ def summary(base_currency: str = "EUR") -> dict:
         """
         if amount is None:
             return None
-        ccy = (currency or base_currency).upper()
-        if ccy == base_currency.upper():
+        frm = (frm or base_currency).upper()
+        to = (to or base_currency).upper()
+        if frm == to:
             return amount
-        if ccy not in fx_rates or base_currency.upper() not in fx_rates:
+        if frm not in fx_rates or to not in fx_rates:
             return None
-        return amount / fx_rates[ccy] * fx_rates[base_currency.upper()]
+        return amount / fx_rates[frm] * fx_rates[to]
+
+    def to_base(amount: float | None, currency: str | None):
+        return between(amount, currency, base_currency)
 
     cash_by_currency: dict[str, float] = {}
     rows = []
@@ -122,10 +127,27 @@ def summary(base_currency: str = "EUR") -> dict:
             if not item["name"] and pos["name"]:
                 item["name"] = pos["name"]
 
+    # A market price where there is one, in the holding's own currency
+    # so that it sits beside net_invested; the last trade where there is
+    # not. Which one it was is on the item, because the page says it.
+    market = prices.latest()
+    prices_as_of: str | None = None
     for item in holdings.values():
-        if item["last_price"] is not None:
-            item["value"] = item["quantity"] * item["last_price"]
-            ccy = item["currency"] or base_currency
+        ccy = item["currency"] or base_currency
+        item["price"], item["price_kind"] = None, None
+        item["price_as_of"], item["symbol"] = None, None
+        quote = market.get(item["isin"])
+        if quote:
+            in_own = between(quote["price"], quote["currency"], ccy)
+            if in_own is not None:
+                item["price"], item["price_kind"] = in_own, "market"
+                item["price_as_of"], item["symbol"] = quote["as_of"], quote["symbol"]
+                if prices_as_of is None or quote["as_of"] > prices_as_of:
+                    prices_as_of = quote["as_of"]
+        if item["price"] is None and item["last_price"] is not None:
+            item["price"], item["price_kind"] = item["last_price"], "trade"
+        if item["price"] is not None:
+            item["value"] = item["quantity"] * item["price"]
             item["value_base"] = to_base(item["value"], ccy)
             securities_by_currency[ccy] = (
                 securities_by_currency.get(ccy, 0.0) + item["value"])
@@ -214,5 +236,13 @@ def summary(base_currency: str = "EUR") -> dict:
         # can say the securities figure is partial rather than implying a
         # complete valuation.
         "holdings_unpriced": sum(1 for h in holdings_list
-                                 if h["last_price"] is None),
+                                 if h["price"] is None),
+        # How the securities figure was reached: how many holdings are
+        # at a market price, how many at their last trade, and the day
+        # of the newest market price — so the total can name it.
+        "holdings_at_market": sum(1 for h in holdings_list
+                                  if h["price_kind"] == "market"),
+        "holdings_at_trade": sum(1 for h in holdings_list
+                                 if h["price_kind"] == "trade"),
+        "prices_as_of": prices_as_of,
     }

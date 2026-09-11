@@ -165,7 +165,6 @@ STRINGS: dict[str, str] = {
     "Net invested": "Investi net",
     "Last traded at": "Dernier prix traité",
     "At that price": "À ce prix",
-    "Last price": "Dernier prix",
     "Value": "Valeur",
     "Difference": "Écart",
     "Where": "Où",
@@ -198,22 +197,11 @@ STRINGS: dict[str, str] = {
         "le plus récent, pas un prix de marché — cette application n'a pas "
         "encore de source de cours, et un chiffre périmé présenté comme une "
         "valorisation est pire que rien.",
-    "Everything you hold, aggregated by ISIN across accounts — the same fund "
-    "at two brokers is one position from where you are standing. Values use "
-    "the price of your last trade, which is not a market price; a price feed "
-    "is the next thing to build.":
-        "Tout ce que tu détiens, regroupé par ISIN sur l'ensemble des comptes "
-        "— le même fonds chez deux courtiers ne fait qu'une position de là où "
-        "tu es. La valorisation utilise le prix de ton dernier ordre, qui "
-        "n'est pas un prix de marché ; une source de cours est la prochaine "
-        "chose à construire.",
     "{n} position": "{n} position",
     "{n} positions": "{n} positions",
     "across all accounts": "sur tous les comptes",
     "what you put in, {currency} positions":
         "ce que tu as mis, positions en {currency}",
-    "at last traded prices, not market":
-        "aux derniers prix traités, pas au marché",
     "No holdings yet.": "Aucune position pour l'instant.",
     "Import a broker export from an account and the positions are computed "
     "from its trades.":
@@ -237,8 +225,6 @@ STRINGS: dict[str, str] = {
     "Cash vs securities": "Liquidités contre titres",
     "Where it is": "Où c'est",
     "by account": "par compte",
-    "valued at your last traded price, not a market price":
-        "valorisé à ton dernier prix traité, pas à un prix de marché",
     "no price": "pas de prix",
     "Latest activity": "Dernière activité",
     "Date": "Date",
@@ -892,4 +878,30 @@ STRINGS: dict[str, str] = {
     "this month, per category — the chart follows the fields below as you type":
         "ce mois-ci, par catégorie — le graphique suit les champs ci-dessous pendant la saisie",
     "in {currency}": "en {currency}",
+    "Everything you hold, aggregated by ISIN across accounts — the same fund at two brokers is one position from where you are standing. Values use the last market price, and each one names its day; a holding no price could be found for uses the price of your last trade, and says so.":
+        "Tout ce que tu détiens, regroupé par ISIN entre les comptes — le même fonds chez deux courtiers est une seule position de là où tu te tiens. Valorisé au dernier cours de marché, et chacun indique son jour ; une position sans cours trouvé prend le prix de ta dernière opération, et le dit.",
+    "Every holding is valued at its last market price — free, without a key — and every total built from prices names their day. A broker export gives an ISIN and a price source wants a ticker, so the ticker is looked up once and kept. Where the lookup fails or picks the wrong exchange, type the ticker Yahoo uses, like IWDA.AS; what you type is never replaced by a lookup.":
+        "Chaque position est valorisée à son dernier cours de marché — gratuit, sans clé — et chaque total construit sur des cours indique leur jour. Un export de courtier donne un ISIN et une source de cours veut un ticker, donc le ticker est cherché une fois et conservé. Là où la recherche échoue ou choisit la mauvaise bourse, saisis le ticker qu'utilise Yahoo, comme IWDA.AS ; ce que tu saisis n'est jamais remplacé par une recherche.",
+    "Also updated on start-up and every few hours in the background. A holding no price could be found for is valued at your last trade, and the pages say so.":
+        "Mis à jour aussi au démarrage et toutes les quelques heures en arrière-plan. Une position sans cours trouvé est valorisée à ta dernière opération, et les pages le disent.",
+    "Nothing to price yet — holdings appear here once a broker export or a trade typed in by hand has given you one.":
+        "Rien à valoriser pour l'instant — les positions apparaissent ici dès qu'un export de courtier ou une opération saisie à la main t'en a donné une.",
+    "Market prices": "Cours de marché",
+    "Yahoo Finance": "Yahoo Finance",
+    "Price": "Cours",
+    "Ticker": "Ticker",
+    "Ticker for {name}": "Ticker de {name}",
+    "Update prices now": "Mettre à jour les cours",
+    "Priced.": "Valorisé.",
+    "at market prices of {date}": "aux cours de marché du {date}",
+    "last trade, no market price":
+        "dernière opération, pas de cours de marché",
+    "{n} holding at its last traded price":
+        "{n} position à son dernier prix d'opération",
+    "{n} holdings at their last traded price":
+        "{n} positions à leur dernier prix d'opération",
+    "{n} holding priced.": "{n} position valorisée.",
+    "{n} holdings priced.": "{n} positions valorisées.",
+    "{ok} of {held} holdings priced. Could not price: {failed}.":
+        "{ok} positions sur {held} valorisées. Pas de cours pour : {failed}.",
 }

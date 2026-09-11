@@ -33,7 +33,7 @@ from pathlib import Path
 from flask import (Flask, flash, g, redirect, render_template, request,
                    session, url_for)
 
-from . import __version__, auth, changelog, fx, i18n, settings
+from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import cashflow, categories, importers, manual, overview, subscriptions
@@ -766,6 +766,30 @@ def settings_page():
         elif request.form.get("form", "").startswith("category"):
             _category_form(request.form)
             return redirect(url_for("settings_page") + "#categories")
+        elif request.form.get("form") == "prices_refresh":
+            info = prices.refresh(cfg.get("base_currency", "EUR"))
+            if info["failed"]:
+                flash(_f("{ok} of {held} holdings priced. Could not price: "
+                         "{failed}.", ok=info["priced"], held=info["held"],
+                         failed=", ".join(f["isin"] for f in info["failed"])),
+                      "error")
+            else:
+                flash(_n(info["priced"], "{n} holding priced.",
+                         "{n} holdings priced."), "ok")
+            return redirect(url_for("settings_page") + "#prices")
+        elif request.form.get("form") == "price_symbol":
+            try:
+                prices.set_symbol(request.form.get("isin", ""),
+                                  request.form.get("symbol"))
+                info = prices.refresh(cfg.get("base_currency", "EUR"),
+                                      isins=[request.form.get("isin", "")])
+                if info["failed"]:
+                    flash(info["failed"][0]["error"], "error")
+                else:
+                    flash(_t("Priced."), "ok")
+            except ValueError as exc:
+                flash(str(exc), "error")
+            return redirect(url_for("settings_page") + "#prices")
         elif request.form.get("form") == "fx_refresh":
             # In the request, because the user asked for it and is
             # waiting for the answer. The automatic one is on a thread.
@@ -812,6 +836,8 @@ def settings_page():
                            catalogue=categories.catalogue(),
                            groups=categories.GROUPS,
                            rates=fx.status(),
+                           securities=prices.status(),
+                           prices_hours_ago=prices.fetched_hours_ago(),
                            check=check)
 
 
@@ -1015,6 +1041,23 @@ def _start_rate_refresher() -> None:
             time.sleep(12 * 3600)
 
     threading.Thread(target=loop, name="fx-refresh", daemon=True).start()
+
+    def price_loop() -> None:
+        # Same shape, its own cadence: a market price is worth asking
+        # for a few times a day, a reference rate once.
+        while True:
+            try:
+                if prices.is_stale():
+                    info = prices.refresh(settings.get("base_currency", "EUR"))
+                    print(f"  prices: {info['priced']} of {info['held']} "
+                          f"holdings priced", flush=True)
+                    for f in info["failed"]:
+                        print(f"  prices: {f['isin']}: {f['error']}", flush=True)
+            except Exception as exc:                      # noqa: BLE001
+                print(f"  prices: unexpected: {exc}", flush=True)
+            time.sleep(prices.FRESH_HOURS * 3600)
+
+    threading.Thread(target=price_loop, name="prices-refresh", daemon=True).start()
 
 
 def main() -> None:

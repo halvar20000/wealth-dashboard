@@ -11,6 +11,24 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.12.0] — 2026-09-11
+
+### Added
+- **Market prices.** Holdings are valued at their last market price, from
+  Yahoo Finance — free, no key, no account — and every total built from them
+  names the day. Until now a holding was valued at the price you last traded
+  it at, which is why a portfolio that had risen showed a net worth well below
+  what the broker said. The hard half, turning an ISIN into the ticker a price
+  source wants, is done once per security and kept; under Settings each
+  holding shows the ticker it resolved to, its price and its day, and a field
+  to type a different ticker in — one you type is never replaced by a lookup.
+  A quote in another currency (a London listing in dollars or pence) is
+  converted at the ECB rate. Refreshed on start-up and every six hours in the
+  background, and there is an **Update prices now** button.
+- A holding no price could be found for is still valued at your last trade,
+  and the Portfolio and Overview pages say how many holdings are at market
+  and how many at their last trade — the two are never mixed silently.
+
 ## [0.11.0] — 2026-09-11
 
 ### Added

@@ -116,7 +116,10 @@
 <section class="card">
   <div class="card-header">
     <h2>{{ _("Holdings") }}</h2>
-    <span class="card-subtitle">{{ _("valued at your last traded price, not a market price") }}</span>
+    <span class="card-subtitle">
+      {% if s.prices_as_of %}{{ _f("at market prices of {date}", date=d(s.prices_as_of)) }}{% endif %}
+      {% if s.holdings_at_trade %}{{ _n(s.holdings_at_trade, "{n} holding at its last traded price", "{n} holdings at their last traded price") }}{% endif %}
+    </span>
   </div>
   <div class="table-wrap">
     <table class="grid">
