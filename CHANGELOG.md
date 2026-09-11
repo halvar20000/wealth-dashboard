@@ -11,6 +11,36 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.10.0] — 2026-09-11
+
+### Added
+- **Entries by hand.** Every account page has an **Add by hand** button for
+  the account no bank connection and no export will describe — a pension, a
+  share plan at work, an exchange with no CSV. A broker account takes a
+  purchase or sale (ISIN, quantity, price, fee, tax, and the statement's total
+  if it differs from the arithmetic), a dividend, interest, a fee, tax, a
+  deposit, a withdrawal or a transfer; any other account takes everything but
+  the trades. The sign is never typed: a fee is money out and a dividend is
+  money in, and only a transfer or an "other" row asks for a direction. What
+  is typed lands beside the imported rows and counts the same way — a
+  purchase is part of the holding, a dividend is income — and can be removed
+  again, which an imported row cannot, since it would only come back.
+- **A balance, typed in.** An account with no bank connection has a small form
+  under its balance: an amount and the day it was true. The overview adds it
+  up like any reported balance and says when it was read. The "Add an account"
+  page had promised this since v0.1.
+
+### Fixed
+- **Rules now apply to what arrives, not only to what was already there.**
+  The Categorize page has always said a rule "applies to what is already
+  imported as well as to what arrives next" — but nothing ran the rules on a
+  bank sync or a CSV import, so a rule only reached new rows once you pressed
+  "Categorise what is obvious". New rows now get their category on arrival:
+  from the kind where the kind settles it (a fee is a fee, a dividend is
+  income), then from your rules. Only rows with no category yet are touched,
+  so a correction you made by hand is never overwritten, and the built-in
+  guesses stay behind the button, because a guess is something to ask for.
+
 ## [0.9.1] — 2026-09-11
 
 ### Fixed

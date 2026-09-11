@@ -116,7 +116,7 @@ STRINGS: dict[str, str] = {
     "Bank connection": "Bankverbindung",
     "reported": "gemeldet",
     "as of {date}": "Stand {date}",
-    "nothing imported yet": "noch nichts importiert",
+    "nothing reported yet": "noch nichts gemeldet",
     "Last sync: {when}.": "Letzter Abgleich: {when}.",
     "never": "nie",
     "Consent valid for {n} more day.": "Zustimmung noch {n} Tag gültig.",
@@ -184,12 +184,12 @@ STRINGS: dict[str, str] = {
         "Eine negative Anzahl ist keine Short-Position: es ist ein Verkauf, "
         "dessen Kauf älter ist als die importierte Datei. Exportiere ab der "
         "Kontoeröffnung und importiere neu — Überschneidung kostet nichts.",
-    "Quantities are the running sum of every buy and sell imported. The last "
+    "Quantities are the running sum of every buy and sell, imported or typed in. The last "
     "two columns use the price of your most recent trade, not a market price — "
     "this app has no price feed yet, and a stale number presented as a "
     "valuation is worse than none.":
-        "Die Anzahl ist die laufende Summe aller importierten Käufe und "
-        "Verkäufe. Die letzten beiden Spalten rechnen mit dem Preis deiner "
+        "Die Anzahl ist die laufende Summe aller Käufe und Verkäufe, importiert "
+        "oder von Hand eingetragen. Die letzten beiden Spalten rechnen mit dem Preis deiner "
         "jüngsten Order, nicht mit einem Marktpreis — diese App hat noch keine "
         "Kursquelle, und eine veraltete Zahl als Bewertung ist schlimmer als "
         "gar keine.",
@@ -813,4 +813,66 @@ STRINGS: dict[str, str] = {
     "quarterly [rhythm]": "vierteljährlich",
     "half-yearly [rhythm]": "halbjährlich",
     "yearly [rhythm]": "jährlich",
+
+    # ─── Von Hand eingetragen ─────────────────────────────────────────
+    "typed in": "von Hand eingetragen",
+    "Balance in {currency}": "Saldo in {currency}",
+    "Record balance": "Saldo eintragen",
+    "Balance recorded: {amount} as of {date}.":
+        "Saldo eingetragen: {amount}, Stand {date}.",
+    "The balance is missing.": "Der Saldo fehlt.",
+    "Add by hand": "Von Hand eintragen",
+    "Add to {name} by hand": "In {name} von Hand eintragen",
+    "For an account no bank connection and no export will describe. What you type in lands beside the imported rows and counts the same way: a purchase becomes part of the holding, a dividend is income, a fee is a fee.":
+        "Für ein Konto, das keine Bankverbindung und kein Export beschreibt. Was du hier eintippst, steht neben den importierten Zeilen und zählt genauso: ein Kauf wird Teil der Position, eine Dividende ist Einkommen, eine Gebühr eine Gebühr.",
+    "What happened": "Was ist passiert",
+    "Fee": "Gebühr",
+    "optional": "optional",
+    "optional, but it is what the holding will be called":
+        "optional, aber so wird die Position heißen",
+    "Price per unit, in {currency}": "Preis pro Stück, in {currency}",
+    "Total on the statement": "Gesamtbetrag laut Abrechnung",
+    "optional — otherwise quantity × price, plus the fee and tax on a purchase and minus them on a sale":
+        "optional — sonst Stückzahl × Preis, beim Kauf plus Gebühr und Steuer, beim Verkauf minus",
+    "Amount, in {currency}": "Betrag, in {currency}",
+    "as a size — whether it is money in or out follows from what happened":
+        "als Größe — ob Geld rein- oder rausgeht, folgt aus dem, was passiert ist",
+    "Direction": "Richtung",
+    "Money out of this account": "Geld geht von diesem Konto ab",
+    "Money into this account": "Geld kommt auf dieses Konto",
+    "optional — the shop, the employer, the other account":
+        "optional — der Laden, der Arbeitgeber, das andere Konto",
+    "decide from the kind and my rules":
+        "aus der Art und meinen Regeln ableiten",
+    "Stay on this page to add another":
+        "Auf dieser Seite bleiben und noch eine eintragen",
+    "Add": "Eintragen",
+    "Back to the account": "Zurück zum Konto",
+    "Added.": "Eingetragen.",
+    "Remove": "Entfernen",
+    "Removed.": "Entfernt.",
+    "Only a transaction typed in by hand can be removed. An imported one would only come back with the next import.":
+        "Nur eine von Hand eingetragene Transaktion lässt sich entfernen. Eine importierte käme mit dem nächsten Import einfach wieder.",
+    "Connect a bank, import a CSV, or {add}.":
+        "Verbinde eine Bank, importiere eine CSV, oder {add}.",
+    "Pick what kind of entry this is.":
+        "Wähle, um was für einen Eintrag es sich handelt.",
+    "The date needs to be a real day, written year-month-day.":
+        "Das Datum muss ein echter Tag sein, geschrieben als Jahr-Monat-Tag.",
+    "That date is in the future. A transaction is something that happened.":
+        "Das Datum liegt in der Zukunft. Eine Transaktion ist etwas, das passiert ist.",
+    "A trade needs the security's ISIN — two letters and ten characters, like IE00B4L5Y983. It is on the order confirmation, and it is how the same fund at two brokers is recognised as one holding.":
+        "Ein Handel braucht die ISIN des Wertpapiers — zwei Buchstaben und zehn Zeichen, etwa IE00B4L5Y983. Sie steht auf der Orderabrechnung, und an ihr erkennt die App denselben Fonds bei zwei Brokern als eine Position.",
+    "The quantity": "Die Stückzahl",
+    "The price": "Der Preis",
+    "The fee": "Die Gebühr",
+    "The tax": "Die Steuer",
+    "The total": "Der Gesamtbetrag",
+    "The amount": "Der Betrag",
+    "{what} cannot be zero.": "{what} darf nicht null sein.",
+    "A trade needs a quantity and a price per unit.":
+        "Ein Handel braucht eine Stückzahl und einen Preis pro Stück.",
+    "The amount is missing.": "Der Betrag fehlt.",
+    "Bought {qty} × {name}": "Kauf {qty} × {name}",
+    "Sold {qty} × {name}": "Verkauf {qty} × {name}",
 }

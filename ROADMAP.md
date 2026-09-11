@@ -34,6 +34,9 @@ it does not do yet.
       beside every total built from them.
 - [x] Packaged as an Unraid app: multi-arch image on GHCR, a
       Community Applications template, and an install guide.
+- [x] Transactions and balances typed in by hand, for the accounts no
+      file and no API will describe — trades included, so a holding can
+      exist without an export.
 
 ## Next
 
@@ -42,8 +45,7 @@ which is honest and not much use after a month. Yahoo's search endpoint
 resolves an ISIN to a ticker without a key — which is the hard half,
 because a broker export gives an ISIN and every price source wants a
 symbol — and the resolved ticker is worth storing so it is looked up
-once per security ever. A manual override for what it cannot find, and
-a manual balance for the accounts no file and no API will describe.
+once per security ever, with a manual override for what it cannot find.
 
 **2. The pages that are still blocked.** Each waits on one thing:
 

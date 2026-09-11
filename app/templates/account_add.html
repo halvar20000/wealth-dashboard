@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Add by hand") }} · {{ account.name }}{% endblock %}
+{% block heading %}{{ _f("Add to {name} by hand", name=account.name) }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("For an account no bank connection and no export will describe. What you type in lands beside the imported rows and counts the same way: a purchase becomes part of the holding, a dividend is income, a fee is a fee.") }}</p>
+{% endblock %}
+{% block content %}
+<form method="post" class="card form" id="add-form">
+  {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+
+  <label for="kind">{{ _("What happened") }}</label>
+  <select id="kind" name="kind">
+    {% for k in kinds %}
+    <option value="{{ k }}" {{ 'selected' if form.get('kind') == k }}>{{ kind_label(k) }}</option>
+    {% endfor %}
+  </select>
+
+  <label for="txn_date">{{ _("Date") }}</label>
+  <input id="txn_date" name="txn_date" type="date" value="{{ form.get('txn_date') or today }}" max="{{ today }}" required>
+
+  {# ── A trade: the security, how much, at what ─────────────────── #}
+  <div data-for="{{ trades | join(' ') }}">
+    <label for="isin">{{ _("ISIN") }}</label>
+    <input id="isin" name="isin" value="{{ form.get('isin', '') }}" placeholder="IE00B4L5Y983" autocomplete="off"
+           style="font-family:var(--font-mono);text-transform:uppercase">
+
+    <label for="security_name">{{ _("Security") }} <span class="sub">{{ _("optional, but it is what the holding will be called") }}</span></label>
+    <input id="security_name" name="security_name" value="{{ form.get('security_name', '') }}" placeholder="iShares Core MSCI World">
+
+    <label for="quantity">{{ _("Quantity") }}</label>
+    <input id="quantity" name="quantity" value="{{ form.get('quantity', '') }}" inputmode="decimal" placeholder="10">
+
+    <label for="price">{{ _f("Price per unit, in {currency}", currency=account.currency) }}</label>
+    <input id="price" name="price" value="{{ form.get('price', '') }}" inputmode="decimal" placeholder="82.40">
+
+    <label for="fee">{{ _("Fee") }} <span class="sub">{{ _("optional") }}</span></label>
+    <input id="fee" name="fee" value="{{ form.get('fee', '') }}" inputmode="decimal" placeholder="1.00">
+
+    <label for="tax">{{ _("Tax") }} <span class="sub">{{ _("optional") }}</span></label>
+    <input id="tax" name="tax" value="{{ form.get('tax', '') }}" inputmode="decimal">
+
+    <label for="total">{{ _("Total on the statement") }} <span class="sub">{{ _("optional — otherwise quantity × price, plus the fee and tax on a purchase and minus them on a sale") }}</span></label>
+    <input id="total" name="total" value="{{ form.get('total', '') }}" inputmode="decimal">
+  </div>
+
+  {# ── Everything else: an amount, and for two kinds a direction ── #}
+  <div data-not-for="{{ trades | join(' ') }}">
+    <label for="amount">{{ _f("Amount, in {currency}", currency=account.currency) }} <span class="sub">{{ _("as a size — whether it is money in or out follows from what happened") }}</span></label>
+    <input id="amount" name="amount" value="{{ form.get('amount', '') }}" inputmode="decimal" placeholder="120.00">
+
+    <div data-for="{{ directional | join(' ') }}">
+      <label for="direction">{{ _("Direction") }}</label>
+      <select id="direction" name="direction">
+        <option value="out" {{ 'selected' if form.get('direction', 'out') == 'out' }}>{{ _("Money out of this account") }}</option>
+        <option value="in" {{ 'selected' if form.get('direction') == 'in' }}>{{ _("Money into this account") }}</option>
+      </select>
+    </div>
+  </div>
+
+  <label for="description">{{ _("Description") }} <span class="sub">{{ _("optional") }}</span></label>
+  <input id="description" name="description" value="{{ form.get('description', '') }}">
+
+  <label for="counterparty">{{ _("Counterparty") }} <span class="sub">{{ _("optional — the shop, the employer, the other account") }}</span></label>
+  <input id="counterparty" name="counterparty" value="{{ form.get('counterparty', '') }}">
+
+  <div data-not-for="{{ trades | join(' ') }}">
+    <label for="category">{{ _("Category") }}</label>
+    <select id="category" name="category">
+      <option value="">{{ _("decide from the kind and my rules") }}</option>
+      {% for slug, meta in categories.all_categories().items() %}
+      <option value="{{ slug }}" {{ 'selected' if form.get('category') == slug }}>{{ meta.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <label style="display:flex;align-items:center;gap:8px;font-weight:400">
+    <input type="checkbox" name="another" value="1" style="width:auto" {{ 'checked' if form.get('another') }}>
+    {{ _("Stay on this page to add another") }}
+  </label>
+
+  <button type="submit">{{ _("Add") }}</button>
+  <p class="sub"><a href="{{ url_for('account_detail', account_id=account.id) }}">{{ _("Back to the account") }}</a></p>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+{# Show only the fields the chosen kind needs. Without JavaScript every
+   field shows and the server ignores the ones that do not apply, so
+   the form is complete either way — this only makes it shorter. #}
+(function () {
+  const kind = document.getElementById('kind');
+  const show = function () {
+    document.querySelectorAll('#add-form [data-for]').forEach(function (el) {
+      el.hidden = el.dataset.for.split(' ').indexOf(kind.value) < 0;
+    });
+    document.querySelectorAll('#add-form [data-not-for]').forEach(function (el) {
+      el.hidden = el.dataset.notFor.split(' ').indexOf(kind.value) >= 0;
+    });
+  };
+  kind.addEventListener('change', show);
+  show();
+})();
+</script>
+{% endblock %}

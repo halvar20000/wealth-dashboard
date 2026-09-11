@@ -437,13 +437,19 @@ def delete_rule(rule_id: int) -> None:
         conn.execute("DELETE FROM category_rules WHERE id = ?", (rule_id,))
 
 
-def _apply_one(conn, pattern: str, category: str) -> int:
-    cur = conn.execute(
-        "UPDATE transactions SET category = ? "
-        " WHERE (LOWER(description) LIKE ? OR LOWER(COALESCE(counterparty,'')) LIKE ?)"
-        "   AND kind NOT IN ('buy', 'sell')",
-        (category, f"%{pattern.lower()}%", f"%{pattern.lower()}%"))
-    return cur.rowcount
+def _apply_one(conn, pattern: str, category: str, *,
+               only_uncategorised: bool = False,
+               account_id: int | None = None) -> int:
+    sql = ("UPDATE transactions SET category = ? "
+           " WHERE (LOWER(description) LIKE ? OR LOWER(COALESCE(counterparty,'')) LIKE ?)"
+           "   AND kind NOT IN ('buy', 'sell')")
+    params: list = [category, f"%{pattern.lower()}%", f"%{pattern.lower()}%"]
+    if only_uncategorised:
+        sql += " AND (category IS NULL OR category = '')"
+    if account_id is not None:
+        sql += " AND account_id = ?"
+        params.append(account_id)
+    return conn.execute(sql, params).rowcount
 
 
 def apply_all() -> int:
@@ -492,49 +498,82 @@ def uncategorised(limit: int = 60) -> list[dict]:
     return out, total
 
 
-def seed_from_kind() -> int:
-    """Give every row a starting category from what the importer already
-    knew about it.
+# What a kind means, where the kind alone settles it: a broker fee is a
+# fee and an interest payment is income whatever the description says,
+# so those need no rule and no human.
+_KIND_CATEGORY = {
+    "dividend": "income", "interest": "income",
+    "fee": "fee", "tax": "tax", "transfer": "transfer",
+}
 
-    A broker fee is a fee and an interest payment is income whatever the
-    description says, so those need no rule and no human. Only the rows
-    where the kind says nothing — a card payment, a transfer out — reach
-    the queue.
-    """
-    # What a kind means depends on the ACCOUNT it happened in.
-    #
-    # A deposit into a BANK account may well be salary. A deposit into a
-    # BROKER is your own money arriving from your own bank: internal,
-    # every time. Treating it as income inflates income by everything you
-    # have ever invested — on a real broker export that came out as
-    # €46,335 "kept" in a period where nothing was earned at all. The
-    # bank side of the same movement is already booked by the bank, so
-    # counting it here is also counting it twice.
-    common = {
-        "dividend": "income", "interest": "income",
-        "fee": "fee", "tax": "tax", "transfer": "transfer",
-    }
-    by_account_type = {
-        "broker": {"deposit": "transfer", "withdrawal": "transfer"},
-        "bank":   {"deposit": "income"},
-        "savings": {"deposit": "transfer", "withdrawal": "transfer"},
-        "card":   {},
-        "other":  {},
-    }
-    with get_conn() as conn:
-        changed = 0
-        for kind, category in common.items():
+# And what a kind means depending on the ACCOUNT it happened in.
+#
+# A deposit into a BANK account may well be salary. A deposit into a
+# BROKER is your own money arriving from your own bank: internal, every
+# time. Treating it as income inflates income by everything you have
+# ever invested — on a real broker export that came out as €46,335
+# "kept" in a period where nothing was earned at all. The bank side of
+# the same movement is already booked by the bank, so counting it here
+# is also counting it twice.
+_KIND_CATEGORY_BY_ACCOUNT_TYPE = {
+    "broker": {"deposit": "transfer", "withdrawal": "transfer"},
+    "bank":   {"deposit": "income"},
+    "savings": {"deposit": "transfer", "withdrawal": "transfer"},
+    "card":   {},
+    "other":  {},
+}
+
+
+def _categorise_by_kind(conn, account_id: int | None = None) -> int:
+    """Rows with no category yet get one from their kind, where the
+    kind settles it. Only those rows: a category somebody chose is
+    never touched here."""
+    scope = " AND account_id = ?" if account_id is not None else ""
+    extra = (account_id,) if account_id is not None else ()
+    changed = 0
+    for kind, category in _KIND_CATEGORY.items():
+        changed += conn.execute(
+            "UPDATE transactions SET category = ? "
+            " WHERE kind = ? AND (category IS NULL OR category = '')" + scope,
+            (category, kind, *extra)).rowcount
+    for acct_type, mapping in _KIND_CATEGORY_BY_ACCOUNT_TYPE.items():
+        for kind, category in mapping.items():
             changed += conn.execute(
                 "UPDATE transactions SET category = ? "
-                " WHERE kind = ? AND (category IS NULL OR category = '')",
-                (category, kind)).rowcount
-        for acct_type, mapping in by_account_type.items():
-            for kind, category in mapping.items():
-                changed += conn.execute(
-                    "UPDATE transactions SET category = ? "
-                    "  WHERE kind = ? AND (category IS NULL OR category = '') "
-                    "    AND account_id IN (SELECT id FROM accounts WHERE type = ?)",
-                    (category, kind, acct_type)).rowcount
+                "  WHERE kind = ? AND (category IS NULL OR category = '') "
+                "    AND account_id IN (SELECT id FROM accounts WHERE type = ?)"
+                + scope, (category, kind, acct_type, *extra)).rowcount
+    return changed
+
+
+def categorise_new(account_id: int | None = None) -> int:
+    """What a row that has just arrived gets without anyone asking.
+
+    Its kind, where the kind settles it; then the user's rules, oldest
+    first so the newest wins. Only rows with no category are touched —
+    a row the user filed by hand, without a rule, stays where they put
+    it — and the built-in hints are left to the Categorize page's
+    button, because a guess is something to be asked for.
+    """
+    with get_conn() as conn:
+        changed = _categorise_by_kind(conn, account_id)
+        for rule in conn.execute(
+                "SELECT pattern, category FROM category_rules ORDER BY id ASC"):
+            changed += _apply_one(conn, rule["pattern"], rule["category"],
+                                  only_uncategorised=True, account_id=account_id)
+    return changed
+
+
+def seed_from_kind() -> int:
+    """Give every row a starting category from what the importer already
+    knew about it, and a guess for the rest.
+
+    Only the rows where neither the kind nor a hint says anything — a
+    card payment at a shop the hints have never heard of — reach the
+    queue.
+    """
+    with get_conn() as conn:
+        changed = _categorise_by_kind(conn)
         # A guess for the rest, marked as a guess by leaving it in the
         # queue is not possible — so hints are applied but the row is
         # still counted as categorised. The user can correct it, which is

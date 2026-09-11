@@ -1212,6 +1212,182 @@ r = c.post("/settings", data={"form": "category_new", "label": "",
 check("a nameless category is refused", b"needs a name" in r.data, True)
 
 # ---------------------------------------------------------------------------
+print("\n19. Typing it in by hand")
+# ---------------------------------------------------------------------------
+# An account nothing reports on: no bank, no CSV. Every row and the
+# balance are typed in, and they have to count exactly like imported
+# ones — a purchase is a holding, a dividend is income — or the page
+# is a notebook, not a dashboard.
+from app import manual, overview as ov                    # noqa: E402
+
+r = c.post("/accounts/new", data={"name": "Work share plan", "type": "broker",
+                                  "currency": "EUR"})
+hand_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+r = c.get(f"/accounts/{hand_id}")
+check("an unconnected account offers to record a balance",
+      b'name="as_of"' in r.data, True)
+check("...and to add by hand", f"/accounts/{hand_id}/add".encode() in r.data, True)
+r = c.get(f"/accounts/{hand_id}/add")
+check("the entry page renders", r.status_code, 200)
+check("...offering trades on a broker account", b'value="buy"' in r.data, True)
+
+# A purchase, typed the way a German keyboard types it.
+r = c.post(f"/accounts/{hand_id}/add", data={
+    "kind": "buy", "txn_date": "2026-05-04", "isin": "ie00b4l5y983",
+    "security_name": "iShares Core MSCI World", "quantity": "10",
+    "price": "82,40", "fee": "1,00"}, follow_redirects=True)
+check("a purchase is accepted", b"Added." in r.data, True)
+with db.get_conn() as conn:
+    buy = conn.execute("SELECT * FROM transactions WHERE account_id = ? "
+                       "AND kind = 'buy'", (hand_id,)).fetchone()
+check("...the ISIN is upper-cased", buy["isin"], "IE00B4L5Y983")
+check("...money left the account: quantity × price plus the fee",
+      round(buy["amount"], 2), -825.0)
+check("...the quantity is positive on a buy", buy["quantity"], 10.0)
+check("...and it says where it came from", buy["source"], "manual")
+check("...with a description nobody had to type",
+      "iShares" in buy["description"], True)
+pos = {p["isin"]: p for p in importers.positions(hand_id)}
+check("the holding exists", pos["IE00B4L5Y983"]["quantity"], 10.0)
+
+# A sale of part of it, with the broker's own total.
+c.post(f"/accounts/{hand_id}/add", data={
+    "kind": "sell", "txn_date": "2026-06-10", "isin": "IE00B4L5Y983",
+    "quantity": "4", "price": "90", "fee": "1", "total": "358,90"})
+pos = {p["isin"]: p for p in importers.positions(hand_id)}
+check("a sale reduces the holding", pos["IE00B4L5Y983"]["quantity"], 6.0)
+with db.get_conn() as conn:
+    sell = conn.execute("SELECT * FROM transactions WHERE account_id = ? "
+                        "AND kind = 'sell'", (hand_id,)).fetchone()
+check("...money came in, at the statement's total, not the arithmetic",
+      sell["amount"], 358.90)
+check("...and the quantity is negative on a sell", sell["quantity"], -4.0)
+check("...and the holding's last price is the sale's", pos["IE00B4L5Y983"]["last_price"], 90.0)
+
+# The rest of a broker's life: no sign to type, and no category to pick.
+c.post(f"/accounts/{hand_id}/add", data={"kind": "dividend", "txn_date": "2026-06-15",
+                                         "amount": "12,50"})
+c.post(f"/accounts/{hand_id}/add", data={"kind": "fee", "txn_date": "2026-06-30",
+                                         "amount": "-3"})
+c.post(f"/accounts/{hand_id}/add", data={"kind": "deposit", "txn_date": "2026-05-01",
+                                         "amount": "1000"})
+c.post(f"/accounts/{hand_id}/add", data={"kind": "transfer", "txn_date": "2026-07-01",
+                                         "amount": "200", "direction": "in"})
+with db.get_conn() as conn:
+    by_kind = {r["kind"]: r for r in conn.execute(
+        "SELECT * FROM transactions WHERE account_id = ?", (hand_id,))}
+check("a dividend is money in", by_kind["dividend"]["amount"], 12.5)
+check("...and is income without anyone saying so", by_kind["dividend"]["category"], "income")
+check("a fee is money out even when typed with a sign", by_kind["fee"]["amount"], -3.0)
+check("...and is a fee", by_kind["fee"]["category"], "fee")
+check("a deposit into a broker is your own money arriving",
+      by_kind["deposit"]["category"], "transfer")
+check("a transfer takes the direction it was given", by_kind["transfer"]["amount"], 200.0)
+check("a row with no description is named after its kind",
+      by_kind["dividend"]["description"], "dividend")
+
+# A bank account: the rules the user already made apply to what they type.
+r = c.post("/accounts/new", data={"name": "Cash envelope", "type": "bank",
+                                  "currency": "EUR"})
+cash_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+r = c.get(f"/accounts/{cash_id}/add")
+check("a bank account is not offered trades", b'value="buy"' in r.data, False)
+c.post(f"/accounts/{cash_id}/add", data={"kind": "withdrawal", "txn_date": "2026-08-02",
+                                         "amount": "15", "counterparty": "Zqx Blorp Store"})
+c.post(f"/accounts/{cash_id}/add", data={"kind": "withdrawal", "txn_date": "2026-08-03",
+                                         "amount": "40", "category": "health"})
+c.post(f"/accounts/{cash_id}/add", data={"kind": "deposit", "txn_date": "2026-08-04",
+                                         "amount": "2500", "description": "Salary"})
+with db.get_conn() as conn:
+    rows = conn.execute("SELECT * FROM transactions WHERE account_id = ? "
+                        "ORDER BY txn_date", (cash_id,)).fetchall()
+check("an existing rule files a typed row", rows[0]["category"], "shopping")
+check("a category picked by hand wins", rows[1]["category"], "health")
+check("a deposit into a bank account is income", rows[2]["category"], "income")
+
+# What is refused, and how: the form comes back filled in.
+r = c.post(f"/accounts/{hand_id}/add", data={
+    "kind": "buy", "txn_date": "2026-05-04", "isin": "not an isin",
+    "quantity": "10", "price": "82.40"})
+check("a trade without an ISIN is refused", b"needs the security" in r.data, True)
+check("...and the typed values survive the refusal", b'value="10"' in r.data, True)
+r = c.post(f"/accounts/{hand_id}/add", data={"kind": "fee", "txn_date": "2099-01-01",
+                                             "amount": "3"})
+check("a date in the future is refused", b"in the future" in r.data, True)
+r = c.post(f"/accounts/{hand_id}/add", data={"kind": "fee", "txn_date": "2026-01-01",
+                                             "amount": "0"})
+check("a zero amount is refused", b"cannot be zero" in r.data, True)
+r = c.post(f"/accounts/{cash_id}/add", data={"kind": "buy", "txn_date": "2026-01-01",
+                                             "isin": "IE00B4L5Y983", "quantity": "1",
+                                             "price": "1"})
+check("a trade on a bank account is refused", b"what kind of entry" in r.data, True)
+with db.get_conn() as conn:
+    n_hand = conn.execute("SELECT COUNT(*) n FROM transactions WHERE account_id = ?",
+                          (hand_id,)).fetchone()["n"]
+check("nothing refused was stored", n_hand, 6)
+
+# Only what was typed can be removed.
+r = c.post(f"/accounts/{hand_id}/transactions/{by_kind['fee']['id']}/delete",
+           follow_redirects=True)
+check("a typed row can be removed", b"Removed." in r.data, True)
+with db.get_conn() as conn:
+    gone = conn.execute("SELECT COUNT(*) n FROM transactions WHERE id = ?",
+                        (by_kind["fee"]["id"],)).fetchone()["n"]
+check("...and is gone", gone, 0)
+with db.get_conn() as conn:
+    imported = conn.execute("SELECT id, account_id FROM transactions "
+                            "WHERE source = 'degiro' LIMIT 1").fetchone()
+r = c.post(f"/accounts/{imported['account_id']}/transactions/{imported['id']}/delete",
+           follow_redirects=True)
+check("an imported row cannot", b"typed in by hand can be removed" in r.data, True)
+with db.get_conn() as conn:
+    still = conn.execute("SELECT COUNT(*) n FROM transactions WHERE id = ?",
+                         (imported["id"],)).fetchone()["n"]
+check("...and is still there", still, 1)
+r = c.get(f"/accounts/{hand_id}")
+check("the account page marks typed rows and offers to remove them",
+      b"/delete" in r.data, True)
+
+# The balance: a reading, dated, which the overview then adds up.
+r = c.post(f"/accounts/{hand_id}/balance", data={"amount": "1.234,56",
+                                                  "as_of": "2026-09-01"},
+           follow_redirects=True)
+check("a balance can be typed in", b"Balance recorded" in r.data, True)
+acct = next(a for a in ov.summary("EUR")["accounts"] if a["id"] == hand_id)
+check("...and the overview counts it", acct["balance"], 1234.56)
+check("...as of the day it was true", acct["balance_as_of"], "2026-09-01")
+r = c.get(f"/accounts/{hand_id}")
+check("...and the account page says it was typed in", b"typed in" in r.data, True)
+r = c.post(f"/accounts/{hand_id}/balance", data={"amount": "", "as_of": "2026-09-01"},
+           follow_redirects=True)
+check("an empty balance is refused", b"balance is missing" in r.data, True)
+
+# The other half of the rules promise: what ARRIVES gets the rules too,
+# not only what was there when the rule was made. Through the importer,
+# and never over a category somebody chose.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "amount, currency, kind, category, external_id) VALUES "
+                 "(?, '2026-08-09', 'ZQX BLORP STORE', -9.0, 'EUR', 'withdrawal', "
+                 "'restaurants', 'kept-by-hand')", (cash_id,))
+parsed = importers.ParseResult(rows=[
+    importers.ParsedTxn(txn_date="2026-08-10", description="ZQX BLORP STORE 77",
+                        amount=-20.0, currency="EUR", kind="withdrawal",
+                        external_id="arrived-1"),
+    importers.ParsedTxn(txn_date="2026-08-10", description="Custody",
+                        amount=-2.0, currency="EUR", kind="fee",
+                        external_id="arrived-2")])
+importers.store(cash_id, parsed, "test")
+with db.get_conn() as conn:
+    arrived = {r["external_id"]: r["category"] for r in conn.execute(
+        "SELECT external_id, category FROM transactions WHERE external_id "
+        "IN ('arrived-1', 'arrived-2', 'kept-by-hand')")}
+check("a rule applies to a row that arrives after it", arrived["arrived-1"], "shopping")
+check("a kind that settles it needs no rule", arrived["arrived-2"], "fee")
+check("a category somebody chose is not overwritten by a rule",
+      arrived["kept-by-hand"], "restaurants")
+
+# ---------------------------------------------------------------------------
 print("\n13. Four languages")
 # ---------------------------------------------------------------------------
 # The catalogues are checked against the strings the code actually asks
@@ -1222,7 +1398,7 @@ from app import changelog, i18n, main                      # noqa: E402
 
 TEMPLATES = pathlib.Path(__file__).resolve().parent.parent / "app" / "templates"
 SOURCES = [pathlib.Path(__file__).resolve().parent.parent / "app" / f
-           for f in ("main.py", "categories.py", "auth.py")]
+           for f in ("main.py", "categories.py", "auth.py", "manual.py")]
 
 
 def wanted_keys() -> set:

@@ -27,6 +27,7 @@ import secrets
 import threading
 import time
 import urllib.parse
+from datetime import date
 from pathlib import Path
 
 from flask import (Flask, flash, g, redirect, render_template, request,
@@ -35,7 +36,7 @@ from flask import (Flask, flash, g, redirect, render_template, request,
 from . import __version__, auth, changelog, fx, i18n, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import cashflow, categories, importers, overview, subscriptions
+from . import cashflow, categories, importers, manual, overview, subscriptions
 from .db import get_conn, has_users, init_db
 
 APP_DIR = Path(__file__).resolve().parent
@@ -313,7 +314,8 @@ def account_detail(account_id: int):
                            balance=dict(balance) if balance else None,
                            transactions=[dict(t) for t in txns],
                            total_transactions=total,
-                           configured=banksync.credentials_present())
+                           configured=banksync.credentials_present(),
+                           today=date.today().isoformat())
 
 
 def _account_counts(conn, account_id: int) -> dict:
@@ -462,6 +464,74 @@ def account_import(account_id: int):
 
     return render_template("import.html", account=dict(account), report=report,
                            importers=importers.IMPORTERS)
+
+
+def _load_account(account_id: int):
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM accounts WHERE id = ?",
+                           (account_id,)).fetchone()
+    return dict(row) if row else None
+
+
+@app.route("/accounts/<int:account_id>/add", methods=["GET", "POST"])
+@auth.login_required
+def account_add(account_id: int):
+    """Type a transaction in by hand — see manual.py for why.
+
+    On an error the form comes back filled in, not blank: a person who
+    has typed an ISIN, a quantity and a price and mistyped the date
+    should fix the date, not start over.
+    """
+    account = _load_account(account_id)
+    if account is None:
+        return render_template("missing.html",
+                               what=_t("That account does not exist.")), 404
+    error = None
+    if request.method == "POST":
+        try:
+            manual.add_transaction(account, request.form)
+            flash(_t("Added."), "ok")
+            if request.form.get("another"):
+                return redirect(url_for("account_add", account_id=account_id))
+            return redirect(url_for("account_detail", account_id=account_id))
+        except ValueError as exc:
+            error = str(exc)
+    return render_template(
+        "account_add.html", account=account, error=error,
+        form=request.form if request.method == "POST" else {},
+        kinds=manual.kinds_for(account["type"]), trades=manual.TRADES,
+        directional=manual.DIRECTIONAL, today=date.today().isoformat())
+
+
+@app.route("/accounts/<int:account_id>/balance", methods=["POST"])
+@auth.login_required
+def account_balance(account_id: int):
+    """Record the balance as of a day, for an account nothing reports on."""
+    account = _load_account(account_id)
+    if account is None:
+        return render_template("missing.html",
+                               what=_t("That account does not exist.")), 404
+    try:
+        reading = manual.set_balance(account, request.form)
+        flash(_f("Balance recorded: {amount} as of {date}.",
+                 amount=_money(reading["amount"], reading["currency"]),
+                 date=i18n.fmt_date(reading["as_of"], current_language())), "ok")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("account_detail", account_id=account_id))
+
+
+@app.route("/accounts/<int:account_id>/transactions/<int:txn_id>/delete",
+           methods=["POST"])
+@auth.login_required
+def transaction_delete(account_id: int, txn_id: int):
+    if manual.delete_transaction(account_id, txn_id):
+        flash(_t("Removed."), "ok")
+    else:
+        flash(_t("Only a transaction typed in by hand can be removed. An "
+                 "imported one would only come back with the next import."),
+              "error")
+    return redirect(url_for("account_detail", account_id=account_id))
 
 
 @app.route("/accounts/<int:account_id>/sync", methods=["POST"])

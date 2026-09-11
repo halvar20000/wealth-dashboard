@@ -11,9 +11,20 @@
       {% else %}—{% endif %}
     </div>
     <div class="sub">
-      {% if balance %}{{ balance.balance_type or _("reported") }} · {{ _f("as of {date}", date=d(balance.as_of)) }}
-      {% else %}{{ _("nothing imported yet") }}{% endif %}
+      {% if balance %}{{ _("typed in") if balance.balance_type == 'manual' else (balance.balance_type or _("reported")) }} · {{ _f("as of {date}", date=d(balance.as_of)) }}
+      {% else %}{{ _("nothing reported yet") }}{% endif %}
     </div>
+    {% if not link %}
+    {# No bank reports this balance, so the owner does. A reading, dated:
+       the newest one is what the overview adds up. #}
+    <form method="post" action="{{ url_for('account_balance', account_id=account.id) }}" class="form inline" style="margin-top:12px">
+      <div><label for="bal-amount">{{ _f("Balance in {currency}", currency=account.currency) }}</label>
+        <input id="bal-amount" name="amount" inputmode="decimal" placeholder="{{ '%.2f'|format(balance.amount) if balance else '0.00' }}" style="width:130px"></div>
+      <div><label for="bal-date">{{ _("As of") }}</label>
+        <input id="bal-date" name="as_of" type="date" value="{{ today }}" max="{{ today }}" style="width:auto"></div>
+      <button type="submit">{{ _("Record balance") }}</button>
+    </form>
+    {% endif %}
   </div>
   <div class="card stat">
     <div class="stat-label">{{ _("Transactions") }}</div>
@@ -57,6 +68,7 @@
 </div>
 
 <p><a class="btn" href="{{ url_for('account_import', account_id=account.id) }}">{{ _("Import a broker CSV") }}</a>
+   <a class="btn" href="{{ url_for('account_add', account_id=account.id) }}">{{ _("Add by hand") }}</a>
    <a class="btn btn-ghost" href="{{ url_for('account_edit', account_id=account.id) }}">{{ _("Edit or delete") }}</a></p>
 
 {% if positions %}
@@ -86,20 +98,30 @@
 {% if positions | selectattr('incomplete_history') | list %}
 <p class="sub">{{ _("A negative quantity is not a short position: it is a sale whose purchase is older than the file you imported. Export a period that starts when you opened the account and re-import — overlap is free.") }}</p>
 {% endif %}
-<p class="sub">{{ _("Quantities are the running sum of every buy and sell imported. The last two columns use the price of your most recent trade, not a market price — this app has no price feed yet, and a stale number presented as a valuation is worse than none.") }}</p>
+<p class="sub">{{ _("Quantities are the running sum of every buy and sell, imported or typed in. The last two columns use the price of your most recent trade, not a market price — this app has no price feed yet, and a stale number presented as a valuation is worse than none.") }}</p>
 {% endif %}
 
 <h2>{{ _("Recent transactions") }}</h2>
 {% if transactions %}
 <table class="grid">
-  <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Description") }}</th><th>{{ _("Counterparty") }}</th><th class="num">{{ _("Amount") }}</th></tr></thead>
+  {% set by_hand = transactions | selectattr('source', 'equalto', 'manual') | list %}
+  <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Description") }}</th><th>{{ _("Counterparty") }}</th><th class="num">{{ _("Amount") }}</th>{% if by_hand %}<th></th>{% endif %}</tr></thead>
   <tbody>
   {% for t in transactions %}
     <tr>
       <td class="nowrap">{{ d(t.txn_date) }}</td>
-      <td>{{ t.description }}</td>
+      <td>{{ t.description }}{% if t.source == 'manual' %}<span class="sub">{{ _("typed in") }}</span>{% endif %}</td>
       <td class="sub">{{ t.counterparty or '' }}</td>
       <td class="num {{ 'neg' if t.amount < 0 else 'pos' }}">{{ money(t.amount, t.currency) }}</td>
+      {% if by_hand %}
+      <td class="num">
+        {% if t.source == 'manual' %}
+        <form method="post" action="{{ url_for('transaction_delete', account_id=account.id, txn_id=t.id) }}">
+          <button class="btn-danger" type="submit">{{ _("Remove") }}</button>
+        </form>
+        {% endif %}
+      </td>
+      {% endif %}
     </tr>
   {% endfor %}
   </tbody>
@@ -108,6 +130,8 @@
 <p class="sub">{{ _f("Showing the {shown} most recent of {total}.", shown=transactions|length, total=total_transactions) }}</p>
 {% endif %}
 {% else %}
-<div class="card empty"><p>{{ _("No transactions yet.") }}</p></div>
+<div class="card empty"><p>{{ _("No transactions yet.") }}</p>
+  {% set add_link %}<a href="{{ url_for('account_add', account_id=account.id) }}">{{ _("Add by hand") }}</a>{% endset %}
+  <p class="sub">{{ _f("Connect a bank, import a CSV, or {add}.", add=add_link) | safe }}</p></div>
 {% endif %}
 {% endblock %}

@@ -15,6 +15,7 @@ from __future__ import annotations
 import csv
 import io
 
+from .. import categories
 from ..db import get_conn
 from . import degiro, trade_republic
 from .base import (ParsedTxn, ParseResult,  # noqa: F401  (re-exported)
@@ -79,6 +80,11 @@ def store(account_id: int, parsed: ParseResult, source: str) -> dict:
                     "INSERT INTO balances (account_id, amount, currency, "
                     "balance_type, as_of) VALUES (?, ?, ?, 'statement', ?)",
                     (account_id, cb["amount"], cb["currency"], cb["as_of"]))
+
+    if inserted:
+        # Kinds and the user's rules, on the rows that just arrived —
+        # see categories.categorise_new().
+        categories.categorise_new(account_id)
 
     return {"inserted": inserted, "duplicates": duplicates,
             "skipped": parsed.skipped, "problems": parsed.problems,

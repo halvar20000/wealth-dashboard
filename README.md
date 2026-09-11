@@ -26,8 +26,13 @@ a PSD2 API it connects directly, with credentials that are yours.
 - **Broker CSV import** — Degiro and Trade Republic. The file is
   recognised by its columns, so there is nothing to choose, and
   re-importing an overlapping period is harmless.
-- **Holdings**, computed from the trades in those files: what you own,
-  how much, and what you put in.
+- **Entries by hand**, for the account no bank and no export describes: a
+  pension, a share plan, an exchange with no CSV. Purchases, sales,
+  dividends, interest, fees and tax on a broker account; deposits,
+  withdrawals and the rest on any other; and a balance, dated. They land
+  beside the imported rows and count the same way.
+- **Holdings**, computed from the trades — imported or typed in: what you
+  own, how much, and what you put in.
 - **An overview**: net worth, cash against securities, where it sits, and
   the latest activity across every account.
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime, timezone
 
-from .. import settings
+from .. import categories, settings
 from ..db import get_conn
 from . import enablebanking as eb
 
@@ -223,6 +223,11 @@ def sync_link(link_id: int) -> dict:
                 "UPDATE bank_links SET last_sync_at = ?, last_error = NULL "
                 "WHERE id = ?",
                 (datetime.now(timezone.utc).isoformat(timespec="seconds"), link_id))
+        # The user's rules apply to what arrives next, not only to what
+        # was there when the rule was made — that is the promise on the
+        # Categorize page, and this is where it is kept.
+        if result["inserted"]:
+            categories.categorise_new(link["account_id"])
     except Exception as exc:                        # noqa: BLE001
         # The error is stored on the link, not raised into the page. A
         # consent that expired last night is the normal end of a
