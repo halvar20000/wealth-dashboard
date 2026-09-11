@@ -406,7 +406,6 @@ STRINGS: dict[str, str] = {
     "over the period": "en el periodo",
     "income less spending": "ingresos menos gastos",
     "By month": "Por mes",
-    "{currency} only": "solo {currency}",
     "Where it goes": "Adónde va",
     "By category": "Por categoría",
     "per month on average": "de media al mes",
@@ -428,10 +427,6 @@ STRINGS: dict[str, str] = {
         "Medido contra lo que llevas de mes, no contra el mes entero. A mitad "
         "de mes todo el mundo va por debajo del presupuesto — la pregunta útil "
         "es si vas por delante del ritmo.",
-    "Spent in {month}": "Gastado en {month}",
-    "of": "de",
-    "budgeted": "presupuestados",
-    "{pct}% through the month": "{pct}% del mes transcurrido",
     "No budgets set yet — fill some in below.":
         "Todavía no hay presupuestos — rellena alguno abajo.",
     "Monthly budget per category": "Presupuesto mensual por categoría",
@@ -881,4 +876,15 @@ STRINGS: dict[str, str] = {
         "No contados, porque ningún tipo de cambio aquí los cubre:",
     "Fetch rates under {settings}.":
         "Descarga los tipos en {settings}.",
+    "Budgeted": "Presupuestado",
+    "Spent so far": "Gastado hasta ahora",
+    "Remaining": "Restante",
+    "for {month}": "para {month}",
+    "day {day} of {days} · {pct}% through the month":
+        "día {day} de {days} · {pct} % del mes",
+    "budget less spending": "presupuesto menos gasto",
+    "Budget against spent": "Presupuesto frente a gasto",
+    "this month, per category — the chart follows the fields below as you type":
+        "este mes, por categoría — el gráfico sigue los campos de abajo mientras escribes",
+    "in {currency}": "en {currency}",
 }

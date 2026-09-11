@@ -11,6 +11,17 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.11.0] — 2026-09-11
+
+### Added
+- **Budget against spent, as a chart.** The Budget page opens with three
+  figures — budgeted, spent so far, remaining — and a bar chart with two bars
+  per category, the budget and this month's spending, for every category that
+  has either. The budget bars follow the fields below as you type, so "what if
+  groceries were 400" is answered before Save is pressed. Each row's pace
+  column is now a bar with a marker at today's position in the month: the
+  question is whether the fill is past the marker, not whether it is full.
+
 ## [0.10.1] — 2026-09-11
 
 ### Fixed

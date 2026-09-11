@@ -220,6 +220,7 @@ def budget_report(base_currency: str = "EUR") -> dict:
     return {
         "month": this_month,
         "through_month": through,
+        "day": today.day, "days_in_month": days_in_month,
         "rows": rows,
         "total_budget": sum(v for v in limits.values()),
         "total_spent": sum(spent_now.values()),

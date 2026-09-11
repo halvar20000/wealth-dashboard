@@ -1160,6 +1160,13 @@ check("the queue pre-fills the pattern it would remember",
 r = c.get("/budget")
 check("the budget page has a field for a category nobody has used yet",
       b'name="budget_education"' in r.data, True)
+cf.set_budget("shopping", 200.0)
+r = c.get("/budget")
+check("with a budget set, the page draws budget against spent",
+      b'id="chart-budget"' in r.data and b"new Chart" in r.data, True)
+check("...and a pace bar on the row", b'class="pbar-fill' in r.data, True)
+check("...with the three-figure summary", b"Remaining" in r.data, True)
+cf.set_budget("shopping", None)
 r = c.get("/transactions?account=999999")
 check("an account that does not exist filters to nothing, not an error",
       r.status_code, 200)

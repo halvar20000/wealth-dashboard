@@ -46,7 +46,7 @@
 {% if data.months %}
 <section class="card">
   <div class="card-header"><h2>{{ _("By month") }}</h2>
-    <span class="card-subtitle">{{ _f("{currency} only", currency=data.base_currency) }}</span></div>
+    <span class="card-subtitle">{{ _f("in {currency}", currency=data.base_currency) }}</span></div>
   <div class="chart-wrap" style="height:290px"><canvas id="chart-months"></canvas></div>
 </section>
 

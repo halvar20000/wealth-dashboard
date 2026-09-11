@@ -224,6 +224,28 @@ button:hover, .btn:hover { filter: brightness(1.08); text-decoration: none; }
 .form.inline button { margin-top: 0; }
 .grid button, .grid .btn { margin: 0; padding: 5px 12px; font-size: 12.5px; }
 
+/* ─── Budget progress bars ───────────────────────────────────── */
+
+.pbar-cell { min-width: 180px; }
+.pbar-wrap { display: flex; align-items: center; gap: 10px; }
+.pbar {
+  position: relative; flex: 1 1 120px; height: 8px; border-radius: 4px;
+  background: var(--bg-elevated); border: 1px solid var(--border); overflow: visible;
+}
+.pbar-fill { height: 100%; border-radius: 4px; }
+.pbar-gain { background: var(--gain); }
+.pbar-warn { background: var(--warn); }
+.pbar-loss { background: var(--loss); }
+/* Where the bar would be if the month were spent evenly. */
+.pbar-pace {
+  position: absolute; top: -3px; bottom: -3px; width: 2px;
+  background: var(--text-secondary); opacity: .7;
+}
+.pbar-pct { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pbar-pct.gain { color: var(--gain); }
+.pbar-pct.warn { color: var(--warn); }
+.pbar-pct.loss { color: var(--loss); }
+
 /* ─── The category editor ─────────────────────────────────────── */
 
 .cat-list { display: flex; flex-direction: column; gap: 6px; margin: 18px 0 4px; }

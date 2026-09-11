@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ _("Budget") }} · Wealth Dashboard{% endblock %}
 {% block heading %}{{ _("Budget") }}{% endblock %}
+{# Set outside every block: a block cannot see what another block set,
+   and the chart card and its script both need this list. Budgeted
+   categories first, then unbudgeted ones with spending. #}
+{% set charted = report.rows | selectattr('budget') | list + report.rows | rejectattr('budget') | selectattr('spent') | list %}
 {% block lede %}
 <p class="lede">{{ _("Measured against how far through the month you are, not against the whole month. Halfway through, everyone is under budget — the useful question is whether you are ahead of the pace.") }}</p>
 {% endblock %}
@@ -18,20 +22,33 @@
 {% endif %}
 {% endmacro %}
 
-<section class="hero-block">
-  <div class="hero-top">
-    <div>
-      <div class="hero-label">{{ _f("Spent in {month}", month=mon(report.month)) }}</div>
-      <div class="hero-value">{{ money(report.total_spent, report.base_currency) }}</div>
-      <div class="hero-sub">
-        {% if report.has_budgets %}{{ _("of") }} <strong>{{ money(report.total_budget, report.base_currency) }}</strong> {{ _("budgeted") }}
-        · {{ _f("{pct}% through the month", pct=(report.through_month * 100) | round | int) }}
-        {% else %}{{ _("No budgets set yet — fill some in below.") }}{% endif %}
-      </div>
-    </div>
+{% set remaining = report.total_budget - report.total_spent %}
+<section class="stat-strip">
+  <div class="stat-card stat-blue">
+    <div class="stat-label">{{ _("Budgeted") }}</div>
+    <div class="stat-value" id="bs-budget">{{ money(report.total_budget, report.base_currency) }}</div>
+    <div class="stat-sub">{{ _f("for {month}", month=mon(report.month)) }}</div>
   </div>
-  {{ fx_note(report) }}
+  <div class="stat-card stat-gold">
+    <div class="stat-label">{{ _("Spent so far") }}</div>
+    <div class="stat-value">{{ money(report.total_spent, report.base_currency) }}</div>
+    <div class="stat-sub">{{ _f("day {day} of {days} · {pct}% through the month", day=report.day, days=report.days_in_month, pct=(report.through_month * 100) | round | int) }}</div>
+  </div>
+  <div class="stat-card {{ 'stat-green' if remaining >= 0 else '' }}">
+    <div class="stat-label">{{ _("Remaining") }}</div>
+    <div class="stat-value {{ 'gain' if remaining >= 0 else 'loss' }}" id="bs-remaining">{{ money(remaining, report.base_currency) }}</div>
+    <div class="stat-sub">{% if report.has_budgets %}{{ _("budget less spending") }}{% else %}{{ _("No budgets set yet — fill some in below.") }}{% endif %}</div>
+  </div>
 </section>
+{{ fx_note(report) }}
+
+{% if charted %}
+<section class="card">
+  <div class="card-header"><h2>{{ _("Budget against spent") }}</h2>
+    <span class="card-subtitle">{{ _("this month, per category — the chart follows the fields below as you type") }}</span></div>
+  <div class="chart-wrap" style="height:{{ [220, 40 + charted | length * 34] | max }}px"><canvas id="chart-budget"></canvas></div>
+</section>
+{% endif %}
 
 <form method="post" class="card">
   <div class="card-header"><h2>{{ _("Monthly budget per category") }}</h2>
@@ -46,16 +63,26 @@
           <td><span class="tag tag-muted" style="color:{{ r.colour }};border-color:{{ r.colour }}44">{{ r.label }}</span></td>
           <td class="num">
             <input name="budget_{{ r.category }}" value="{{ '%.0f'|format(r.budget) if r.budget else '' }}"
+                   data-category="{{ r.category }}" inputmode="decimal"
                    style="width:90px;padding:5px 8px;font-size:12.5px;text-align:right;">
           </td>
           <td class="num {{ 'loss' if r.over else '' }}">{{ money(r.spent, report.base_currency) }}</td>
           <td class="num sub">{{ money(r.typical, report.base_currency) if r.typical else '—' }}</td>
-          <td>
+          <td class="pbar-cell">
             {% if r.budget %}
-              {% if r.over %}<span class="tag" style="background:var(--loss-soft);color:var(--loss);border-color:rgba(248,113,113,.4)">{{ _("over budget") }}</span>
-              {% elif r.ahead_of_pace %}<span class="tag" style="background:var(--warn-soft);color:var(--warn);border-color:rgba(251,191,36,.4)">{{ _("ahead of pace") }}</span>
-              {% else %}<span class="tag">{{ _("on track") }}</span>{% endif %}
-              <span class="sub">{{ _f("{pct}% used", pct=r.pct | round | int) }}</span>
+              {% set tone = 'loss' if r.over else ('warn' if r.ahead_of_pace else 'gain') %}
+              {# The marker is where the bar would be if the month were
+                 spent evenly: ahead of it is the question, not over 100%. #}
+              <div class="pbar-wrap">
+                <div class="pbar">
+                  <div class="pbar-fill pbar-{{ tone }}" style="width:{{ [100, r.pct] | min }}%"></div>
+                  <div class="pbar-pace" style="left:{{ (report.through_month * 100) | round | int }}%"></div>
+                </div>
+                <span class="pbar-pct {{ tone }}">{{ _f("{pct}% used", pct=r.pct | round | int) }}</span>
+              </div>
+              {% if r.over %}<span class="sub">{{ _("over budget") }}</span>
+              {% elif r.ahead_of_pace %}<span class="sub">{{ _("ahead of pace") }}</span>
+              {% else %}<span class="sub">{{ _("on track") }}</span>{% endif %}
             {% else %}<span class="sub">—</span>{% endif %}
           </td>
         </tr>
@@ -65,4 +92,52 @@
   </div>
   <button type="submit">{{ _("Save budget") }}</button>
 </form>
+{% endblock %}
+{% block scripts %}
+{% if charted %}
+<script>
+const ROWS = {{ charted | map(attribute='category') | list | tojson }};
+const LABELS = {{ charted | map(attribute='label') | list | tojson }};
+const SPENT = {{ charted | map(attribute='spent') | list | tojson }};
+const GRID = '#232c44', TICK = '#95a0b9';
+const fmt = new Intl.NumberFormat(document.documentElement.lang || 'en',
+  { style: 'currency', currency: {{ report.base_currency | tojson }}, maximumFractionDigits: 0 });
+
+{# A budget as typed in the field beside it — so the chart answers "what
+   if" before Save is pressed, and after a save the two agree by construction. #}
+function budgets() {
+  return ROWS.map(c => {
+    const f = document.querySelector('input[data-category="' + c + '"]');
+    return f ? (parseFloat((f.value || '').replace(',', '.')) || 0) : 0;
+  });
+}
+
+const chart = new Chart(document.getElementById('chart-budget'), {
+  type: 'bar',
+  data: {
+    labels: LABELS,
+    datasets: [
+      { label: {{ _("Budget") | tojson }}, data: budgets(), backgroundColor: '#5b9dff' },
+      { label: {{ _("Spent") | tojson }},  data: SPENT,     backgroundColor: '#f5d76e' },
+    ],
+  },
+  options: {
+    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    scales: {
+      x: { grid: { color: GRID }, ticks: { color: TICK, callback: v => fmt.format(v) } },
+      y: { grid: { display: false }, ticks: { color: TICK } },
+    },
+    plugins: {
+      legend: { labels: { color: TICK } },
+      tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + fmt.format(c.parsed.x) } },
+    },
+  },
+});
+
+document.querySelectorAll('input[data-category]').forEach(f => f.addEventListener('input', () => {
+  chart.data.datasets[0].data = budgets();
+  chart.update('none');
+}));
+</script>
+{% endif %}
 {% endblock %}
