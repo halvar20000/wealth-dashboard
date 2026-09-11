@@ -57,10 +57,17 @@ same as before there were any rates at all.
 
 **Apps** → search **wealth-dashboard** → **Install**. Set a port, leave the
 Data path on appdata, apply, open the WebUI. Nothing else is required: no
-database container, no API key. The
-[install guide](docs/INSTALL.md) covers backups, exposing it safely and the
-redirect URL, and the container template is in
-[`templates/`](templates/wealth-dashboard.xml).
+database container, no API key. The [install guide](docs/INSTALL.md) covers
+backups, exposing it safely and the redirect URL.
+
+Not in Community Applications yet, or you would rather not wait? **Docker → Add
+Container → Template**, and paste the template URL:
+
+```
+https://raw.githubusercontent.com/halvar20000/wealth-dashboard/main/templates/wealth-dashboard.xml
+```
+
+The template itself is [`templates/wealth-dashboard.xml`](templates/wealth-dashboard.xml).
 
 ### Docker, anywhere
 
@@ -202,6 +209,24 @@ the days remaining and says so before it happens rather than after. Your
 history is not affected: the connection expires, the data does not.
 
 ---
+
+## Connecting a bank — the illustrated guide
+
+The walkthrough above is the short version. There is also a step-by-step guide
+with screenshots of every screen, from registering with Enable Banking to the
+first sync, including the mistakes that cost an hour — the redirect URL that has
+to match exactly, and the linking step whose absence looks like a bug here.
+
+| | |
+|---|---|
+| English | [Enable-Banking-Setup-EN.docx](https://raw.githubusercontent.com/halvar20000/wealth-dashboard/main/docs/guides/Enable-Banking-Setup-EN.docx) |
+| Deutsch | [Enable-Banking-Setup-DE.docx](https://raw.githubusercontent.com/halvar20000/wealth-dashboard/main/docs/guides/Enable-Banking-Setup-DE.docx) |
+| Français | [Enable-Banking-Setup-FR.docx](https://raw.githubusercontent.com/halvar20000/wealth-dashboard/main/docs/guides/Enable-Banking-Setup-FR.docx) |
+| Español | [Enable-Banking-Setup-ES.docx](https://raw.githubusercontent.com/halvar20000/wealth-dashboard/main/docs/guides/Enable-Banking-Setup-ES.docx) |
+
+The screenshots are of the English interface in every version, because that is
+what a screenshot is a picture of. Where the app has a translated label, the
+text gives both.
 
 ## Where your data lives
 

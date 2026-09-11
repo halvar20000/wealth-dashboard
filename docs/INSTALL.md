@@ -112,6 +112,12 @@ is and where it comes from, why "activate by linking accounts" matters, and the
 paste route for when your bank's provider refuses a plain `http` redirect —
 is in the [README](../README.md#connecting-a-bank--worked-example-dkb).
 
+There is also an illustrated version with a screenshot of every screen, in
+[English](guides/Enable-Banking-Setup-EN.docx),
+[German](guides/Enable-Banking-Setup-DE.docx),
+[French](guides/Enable-Banking-Setup-FR.docx) and
+[Spanish](guides/Enable-Banking-Setup-ES.docx).
+
 Two things that are specific to running it here:
 
 - **The Redirect URL has to match, exactly.** Set it in the app under
