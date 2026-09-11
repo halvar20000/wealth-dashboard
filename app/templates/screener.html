@@ -1,0 +1,843 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Share Ideas") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Share Ideas") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("Four boards over the same nightly Yahoo cache: shares that have fallen and are cheap, shares paying a high dividend that is still growing, ETFs with strong past growth at a low TER, and dividend ETFs paying a high yield at a low TER. A shortlist to research, never a recommendation to buy.") }}</p>
+{% endblock %}
+{% block content %}
+
+{# Board tabs. Each is a different QUESTION, not a different filter of
+   one answer — so each has its own gates, its own pillars and its own
+   columns. Switching tabs fetches once, then everything is client-side. #}
+<div class="scr-tabs" role="tablist">
+  <button class="scr-tab is-active" data-board="value" role="tab">
+    <span class="scr-tab-t">{{ _("Value [board]") }}</span>
+    <span class="scr-tab-s">{{ _("fallen · cheap · quality · pays") }}</span>
+  </button>
+  <button class="scr-tab" data-board="income" role="tab">
+    <span class="scr-tab-t">{{ _("Dividends") }}</span>
+    <span class="scr-tab-s">{{ _("high yield that is still growing") }}</span>
+  </button>
+  <button class="scr-tab" data-board="etf" role="tab">
+    <span class="scr-tab-t">{{ _("ETFs") }}</span>
+    <span class="scr-tab-s">{{ _("high growth · low TER") }}</span>
+  </button>
+  <button class="scr-tab" data-board="etf_dividend" role="tab">
+    <span class="scr-tab-t">{{ _("Dividend ETFs") }}</span>
+    <span class="scr-tab-s">{{ _("high yield · low TER") }}</span>
+  </button>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2 id="scr-board-title">{{ _("The board") }}</h2>
+    <span class="card-subtitle" id="scr-meta">{{ _("Loading…") }}</span>
+  </div>
+  <p class="scr-board-desc" id="scr-board-desc"></p>
+  <div class="stat-strip scr-stats">
+    <div class="stat-card stat-gold">
+      <div class="stat-label" title="{{ _('Names that pass every hard gate and therefore carry a score.') }}">{{ _("Ranked candidates") }}</div>
+      <div class="stat-value" id="scr-ranked">—</div>
+    </div>
+    <div class="stat-card stat-green">
+      <div class="stat-label" title="{{ _('Scored 70 or above out of 100 on this board.') }}">{{ _("Strong (70+)") }}</div>
+      <div class="stat-value" id="scr-strong">—</div>
+    </div>
+    <div class="stat-card stat-blue">
+      <div class="stat-label" title="{{ _('Can sit inside a French PEA. For shares this is inferred from the country of incorporation; for ETFs it is a curated fact, because no data source publishes it.') }}">{{ _("PEA-eligible") }}</div>
+      <div class="stat-value" id="scr-pea">—</div>
+    </div>
+    <div class="stat-card stat-purple">
+      <div class="stat-label" title="{{ _('Excluded before scoring, with the reason kept. Listed at the bottom of the page.') }}">{{ _("Gated out") }}</div>
+      <div class="stat-value" id="scr-gated">—</div>
+    </div>
+  </div>
+</div>
+
+<div class="flash flash-warn" id="scr-banner" hidden></div>
+
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("Filter") }}</h2>
+    <span class="card-subtitle">{{ _("The screen is transparent on purpose — every column below is an input to the score, not an output of it.") }}</span>
+  </div>
+  <div class="scr-controls">
+    <label class="scr-ctl"><input type="checkbox" id="scr-f-pea"> {{ _("PEA-eligible only") }}</label>
+    <label class="scr-ctl"><input type="checkbox" id="scr-f-hide-held"> {{ _("Hide what I already own") }}</label>
+    <label class="scr-ctl"><input type="checkbox" id="scr-f-hide-dismissed" checked> {{ _("Hide dismissed") }}</label>
+    <label class="scr-ctl"><input type="checkbox" id="scr-f-watch"> {{ _("Watchlist only") }}</label>
+    <label class="scr-ctl">
+      <span id="scr-f-group-label">{{ _("Sector") }}</span>
+      <select id="scr-f-sector"><option value="">{{ _("All") }}</option></select>
+    </label>
+    <label class="scr-ctl">
+      {{ _("Min score") }} <span id="scr-f-min-val" class="scr-ctl-val">0</span>
+      <input type="range" id="scr-f-min" min="0" max="90" step="5" value="0">
+    </label>
+    <label class="scr-ctl">
+      {{ _("Show") }} <select id="scr-f-top">
+        <option value="25">25</option>
+        <option value="50" selected>50</option>
+        <option value="100">100</option>
+        <option value="500">{{ _("all") }}</option>
+      </select>
+    </label>
+  </div>
+</div>
+
+{# Header and rows are both built by the script from the active board's
+   column spec — four boards ranking on four different sets of figures
+   cannot share one fixed <thead>. #}
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("Candidates") }}</h2>
+    <span class="card-subtitle">{{ _("Click a row for the full breakdown.") }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="grid" id="scr-table">
+      <thead><tr></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <p class="sub" id="scr-pillar-help"></p>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("Gated out") }}</h2>
+    <span class="card-subtitle">{{ _("Excluded before scoring, and why. Shown because an absence you cannot explain is worse than no screen at all.") }}</span>
+    <button type="button" id="scr-toggle-gated" class="btn btn-ghost scr-toggle">{{ _("Show") }}</button>
+  </div>
+  <div class="table-wrap" id="scr-gated-wrap" hidden>
+    <table class="grid" id="scr-gated-table">
+      <thead><tr><th>{{ _("Symbol") }}</th><th>{{ _("Name") }}</th><th>{{ _("Group") }}</th><th>{{ _("Reason") }}</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="scr-drawer" class="scr-drawer" hidden>
+  <div class="scr-drawer-inner">
+    <button type="button" class="scr-drawer-close" id="scr-drawer-close" aria-label="{{ _('Close') }}">×</button>
+    <div id="scr-drawer-body"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>{{ _("How to read this") }}</h2></div>
+  <div class="scr-explain">
+    <div class="scr-explain-col" data-board="value">
+      <h3>{{ _("Value [board]") }}</h3>
+      <p>{{ _("Value 25% · cheapness 25% · quality 30% · dividend 20%. It finds shares that have fallen a long way from their own 52-week high and are cheap on earnings while still earning well and paying a covered dividend.") }}</p>
+      <p>{{ _("The flag that matters most is “near its 52-week low”. “40% off the high” and “still falling” are the same fact seen from two ends, and only the second tells you the market has not finished selling.") }}</p>
+    </div>
+    <div class="scr-explain-col" data-board="income">
+      <h3>{{ _("Dividends") }}</h3>
+      <p>{{ _("Yield 35% · growth 30% · safety 20% · quality 15%. Yield and growth carry most of it, as they should on an income board — but not all of it, because a ranking on yield alone puts the next dividend cut at the top of the list every single time. The growth pillar blends dividend growth (the forward annual rate against the last twelve months' actual), revenue growth and earnings growth.") }}</p>
+      <p>{{ _("A yield above 12% is gated out rather than rewarded: on a large cap that is the market pricing a cut, not an opportunity. So is a payout ratio above 90%, and a business whose revenue is shrinking. The free-cash-flow payout is the column to look at when two names have the same yield — earnings can be flattered, cash cannot, and a dividend costing more than 100% of free cash flow is being paid out of the balance sheet.") }}</p>
+    </div>
+    <div class="scr-explain-col" data-board="etf">
+      <h3>{{ _("ETFs") }}</h3>
+      <p>{{ _("Growth 40% · cost 30% · risk 20% · size 10%. Growth is the compound annual total return in euros, computed from the adjusted price history rather than read from a field — Yahoo leaves its own return fields empty for almost every European UCITS listing, and the raw price of a distributing fund understates its return by roughly its yield every year.") }}</p>
+      <p>{{ _("The growth column is the past and the TER is the future. Five years that contained one of the strongest US equity runs on record will rank concentration highly for reasons that have already happened. The TER is charged every year whatever the market does — which is why cost carries 30% of a board whose headline is growth.") }}</p>
+      <p>{{ _("The universe is UCITS-only on purpose: without a PRIIPs KID a US-listed ETF cannot be bought at a European broker at all, so ranking one would be ranking something unbuyable. PEA eligibility is a curated fact, not an inferred one — it depends on the fund's holdings and wrapper, and a synthetic MSCI World qualifies where a physical one does not.") }}</p>
+    </div>
+    <div class="scr-explain-col" data-board="etf_dividend">
+      <h3>{{ _("Dividend ETFs") }}</h3>
+      <p>{{ _("Yield 35% · cost 25% · growth 20% · stability 20%. The yield is computed from the distributions the fund actually paid over the last twelve months, not read from a field — Yahoo populates its own yield for barely one European listing in six, so a board that trusted it would be blank for five funds out of every six it ranks.") }}</p>
+      <p>{{ _("It will read lower than the yield on the factsheet. The numerator is the past year's payments and the denominator is today's price, so a fund that has risen shows a smaller ratio than the “indicated” yield a provider quotes. Both are honest; this one is backward-looking on purpose, because a forward yield is an estimate and there are enough estimates on this page already.") }}</p>
+      <p>{{ _("Yield is only 35% for the same reason it is on the share board, and the reason bites harder here: an index that selects on yield mechanically buys whatever has just fallen. Worse, a fund has no payout ratio and no balance sheet you can interrogate — so the only evidence that its income is durable is whether it has ever collapsed. That is the Worst cut column, and it carries most of the stability pillar.") }}</p>
+      <p>{{ _("Cost is 25% because the TER comes out of the same cash the distribution does. At a 3.5% yield a 0.45% TER is not “half a percent” — it is 13% of your income, every year, guaranteed. The Net column does that subtraction. Accumulating share classes are gated out: they pay nothing, which does not make them bad funds, only not income ones.") }}</p>
+    </div>
+    <p class="scr-explain-foot">{{ _("Every score is a sorting device for a research queue, not a valuation and not advice. Fundamentals come from Yahoo and are refreshed once a day in the background; they can be wrong, stale, or reported in a currency other than the price. Verify the two or three names you actually care about at the source before doing anything.") }}</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Share Ideas — four boards over one nightly Yahoo cache.
+ *
+ * The four ask different questions and therefore rank on different
+ * figures, so the table's HEADER is generated from the active board's
+ * column spec rather than fixed in the markup. Each board's rows are
+ * fetched once and everything else — filtering, sorting, the drawer —
+ * happens client-side: a round trip per checkbox would be latency for
+ * nothing on a few hundred rows, and it keeps the sort stable while you
+ * flip filters, which matters when you are working down a shortlist. */
+
+const LANG = {{ lang | tojson }};
+let BOARD = 'value';
+const ETF_BOARDS = new Set(['etf', 'etf_dividend']);
+const isEtfBoard = () => ETF_BOARDS.has(BOARD);
+const CACHE = {};   // board → {all, gated, meta}
+
+/* ---- words ------------------------------------------------------------ */
+
+const T = {
+  score: {{ _("Score") | tojson }}, symbol: {{ _("Symbol") | tojson }},
+  name: {{ _("Name") | tojson }}, sector: {{ _("Sector") | tojson }},
+  region: {{ _("Region") | tojson }}, pillars: {{ _("Pillars") | tojson }},
+  offHigh: {{ _("Off high") | tojson }}, pe: {{ _("P/E") | tojson }},
+  yield_: {{ _("Yield") | tojson }}, payout: {{ _("Payout") | tojson }},
+  roe: {{ _("ROE") | tojson }}, debtEq: {{ _("Debt/Eq") | tojson }},
+  divGrowth: {{ _("Div growth") | tojson }}, revGrowth: {{ _("Rev growth") | tojson }},
+  epsGrowth: {{ _("EPS growth") | tojson }}, fcfPayout: {{ _("FCF payout") | tojson }},
+  ter: 'TER', y5: {{ _("5y p.a.") | tojson }}, y3: {{ _("3y p.a.") | tojson }},
+  y1: {{ _("1y") | tojson }}, vol: {{ _("Vol") | tojson }},
+  maxDd: {{ _("Max DD") | tojson }}, policy: {{ _("Policy") | tojson }},
+  size: {{ _("Size") | tojson }}, net: {{ _("Net") | tojson }},
+  worstCut: {{ _("Worst cut") | tojson }}, pays: {{ _("Pays") | tojson }},
+  none: {{ _("none") | tojson }}, noData: {{ _("no data") | tojson }},
+  held: {{ _("held") | tojson }}, heldTitle: {{ _("Already in the portfolio") | tojson }},
+  pea: 'PEA', peaTitle: {{ _("Can sit in a French PEA.") | tojson }},
+  watching: {{ _("watching") | tojson }}, dismissed: {{ _("dismissed") | tojson }},
+  watchBtn: {{ _("Add to watchlist") | tojson }}, dismissBtn: {{ _("Dismiss") | tojson }},
+  watch: {{ _("☆ Watch") | tojson }}, dismiss: {{ _("✕ Dismiss") | tojson }},
+  clear: {{ _("Clear mark") | tojson }}, yahoo: {{ _("Open on Yahoo ↗") | tojson }},
+  nothingMatches: {{ _("Nothing matches these filters.") | tojson }},
+  nothingGated: {{ _("Nothing gated out.") | tojson }},
+  gatedOut: {{ _("Gated out:") | tojson }}, lastError: {{ _("Last fetch error:") | tojson }},
+  coverage: {{ _("data coverage") | tojson }}, mktCap: {{ _("mkt cap") | tojson }},
+  yes: {{ _("yes") | tojson }}, no: {{ _("no") | tojson }},
+  yesEea: {{ _("yes (EU/EEA seat)") | tojson }}, noPea: {{ _("no — outside a PEA only") | tojson }},
+  neverFell: {{ _("never fell") | tojson }}, aYear: {{ _("× a year") | tojson }},
+  never: {{ _("never") | tojson }}, loading: {{ _("Loading…") | tojson }},
+  failed: {{ _("Failed to load") | tojson }},
+  failedRender: {{ _("Loaded, but failed to render — see the console") | tojson }},
+  meta: {{ _("{n} screened · last refresh {date}") | tojson }},
+  emptyCache: {{ _("This cache is empty. The first refresh starts a minute after start-up and takes a few minutes; there is also a button under Settings.") | tojson }},
+  stale: {{ _("Data was last refreshed {days} days ago. Every price-derived figure below is that old.") | tojson }},
+  errors: {{ _("{n} symbol(s) failed their last fetch and are showing older figures.") | tojson }},
+  show: {{ _("Show") | tojson }}, hide: {{ _("Hide") | tojson }},
+  all: {{ _("All") | tojson }},
+  hollow: {{ _("A hollow bar means there was no data for that pillar — the score is then a mean over the pillars that do have data, which is why thin rows carry a “thin data” flag.") | tojson }},
+  forwardPe: {{ _("Trailing where there is a trailing profit, otherwise the forward estimate (marked ƒ).") | tojson }},
+  yahooTer: {{ _("Yahoo’s figure, not the KID’s") | tojson }},
+  pillar: {
+    value: {{ _("value") | tojson }}, cheap: {{ _("cheap") | tojson }},
+    quality: {{ _("quality") | tojson }}, dividend: {{ _("dividend") | tojson }},
+    yield: {{ _("yield") | tojson }}, growth: {{ _("growth") | tojson }},
+    safety: {{ _("safety") | tojson }}, cost: {{ _("cost") | tojson }},
+    risk: {{ _("risk") | tojson }}, size: {{ _("size") | tojson }},
+    stability: {{ _("stability") | tojson }},
+  },
+};
+
+/* ---- formatting ------------------------------------------------------- */
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fix = (v, d) => v.toLocaleString(LANG, { minimumFractionDigits: d, maximumFractionDigits: d });
+const pctS = (v, d = 1) => (v == null ? '—' : `${fix(v * 100, d)}%`);
+const num = (v, d = 1) => (v == null ? '—' : fix(v, d));
+const signed = (v, d = 1) => (v == null ? '—' : `${v > 0 ? '+' : ''}${fix(v * 100, d)}%`);
+const bn = (v) => (v == null ? '—' : v >= 1e9 ? `${fix(v / 1e9, 1)}bn` : `${fix(v / 1e6, 0)}m`);
+const fill = (s, vals) => s.replace(/\{(\w+)\}/g, (_, k) => (k in vals ? vals[k] : `{${k}}`));
+
+/* A cell that is worth reading as good or bad, not just as a number.
+ * Used sparingly: a colour on every column is a colour on none. */
+function tone(text, good) {
+  if (good == null) return text;
+  return `<span class="scr-tone ${good ? 'is-good' : 'is-bad'}">${text}</span>`;
+}
+
+/* ---- board definitions ------------------------------------------------ */
+
+const COL_SCORE = { key: 'score', label: T.score, num: true, cell: (r) => scoreChip(r.score) };
+const COL_SYMBOL = { key: 'symbol', label: T.symbol, text: true,
+  cell: (r) => `<span class="scr-sym">${esc(r.symbol)}</span> ${badges(r)}` };
+const COL_NAME = { key: 'name', label: T.name, text: true, cell: (r) => esc(r.name || '—') };
+const COL_TER = { key: 'ter', label: T.ter, num: true, asc: true,
+  title: {{ _("Ongoing charge per year. Curated from the fund KID where we have it; Yahoo otherwise, which is then flagged.") | tojson }},
+  cell: (r) => `${pctS(r.ter, 2)}${r.ter_source === 'yahoo' ? `<span class="scr-dim" title="${esc(T.yahooTer)}">?</span>` : ''}` };
+
+const BOARDS = {
+  value: {
+    label: {{ _("Cheap and beaten down") | tojson }},
+    desc: {{ _("Shares that have fallen from their own 52-week high, trade on a low P/E, still earn well, and pay a dividend their earnings cover.") | tojson }},
+    url: '/api/screener?profile=value&top=500&failed=1',
+    pillars: ['value', 'cheap', 'quality', 'dividend'],
+    groupLabel: T.sector, groupField: 'sector', groupsFrom: 'sectors',
+    pillarHelp: {{ _("Pillar bars are, left to right: value (how far it has fallen), cheap (P/E and price-to-book), quality (ROE, operating margin, leverage, liquidity), dividend (yield, and whether earnings cover it).") | tojson }},
+    columns: [
+      COL_SCORE, COL_SYMBOL, COL_NAME,
+      { key: 'sector', label: T.sector, text: true, cls: 'scr-dim', cell: (r) => esc(r.sector || '—') },
+      { key: 'drawdown', label: T.offHigh, num: true,
+        title: {{ _("How far below its own 52-week high the price sits.") | tojson }},
+        cell: (r) => pctS(r.drawdown, 0) },
+      { key: 'effective_pe', label: T.pe, num: true, asc: true, title: T.forwardPe,
+        cell: (r) => num(r.effective_pe) + (r.pe_basis === 'forward' ? '<span class="scr-dim">ƒ</span>' : '') },
+      { key: 'dividend_yield', label: T.yield_, num: true, cell: (r) => pctS(r.dividend_yield, 2) },
+      { key: 'payout_ratio', label: T.payout, num: true,
+        title: {{ _("Share of earnings paid out as dividend. Sweet spot 25–60%.") | tojson }},
+        cell: (r) => pctS(r.payout_ratio, 0) },
+      { key: 'return_on_equity', label: T.roe, num: true, cell: (r) => pctS(r.return_on_equity, 0) },
+      { key: 'debt_to_equity', label: T.debtEq, num: true, asc: true,
+        title: {{ _("Ratio, not percent. Above 2.0 is flagged.") | tojson }},
+        cell: (r) => num(r.debt_to_equity, 2) },
+    ],
+  },
+
+  income: {
+    label: {{ _("High dividend, still growing") | tojson }},
+    desc: {{ _("The highest yields that are not warning you about themselves: the dividend must be growing, covered by earnings AND by free cash flow, on a business that is not shrinking.") | tojson }},
+    url: '/api/screener?profile=income&top=500&failed=1',
+    pillars: ['yield', 'growth', 'safety', 'quality'],
+    groupLabel: T.sector, groupField: 'sector', groupsFrom: 'sectors',
+    pillarHelp: {{ _("Pillar bars are, left to right: yield (what it pays today), growth (dividend, revenue and earnings growth), safety (payout ratio, free-cash-flow cover, leverage, liquidity), quality (ROE and margins). Dividend growth is the forward annual rate against the last twelve months actually paid, so a declared cut shows up here the day it is announced rather than a year later.") | tojson }},
+    columns: [
+      COL_SCORE, COL_SYMBOL, COL_NAME,
+      { key: 'sector', label: T.sector, text: true, cls: 'scr-dim', cell: (r) => esc(r.sector || '—') },
+      { key: 'dividend_yield', label: T.yield_, num: true, cell: (r) => pctS(r.dividend_yield, 2) },
+      { key: 'dividend_growth', label: T.divGrowth, num: true,
+        title: {{ _("Forward annual dividend against the last twelve months actually paid. Negative = a cut has been declared.") | tojson }},
+        cell: (r) => tone(signed(r.dividend_growth), r.dividend_growth == null ? null : r.dividend_growth >= 0) },
+      { key: 'revenue_growth', label: T.revGrowth, num: true, cell: (r) => signed(r.revenue_growth) },
+      { key: 'earnings_growth', label: T.epsGrowth, num: true, cell: (r) => signed(r.earnings_growth, 0) },
+      { key: 'payout_ratio', label: T.payout, num: true, asc: true,
+        title: {{ _("Share of EARNINGS paid out.") | tojson }},
+        cell: (r) => pctS(r.payout_ratio, 0) },
+      { key: 'fcf_payout', label: T.fcfPayout, num: true, asc: true,
+        title: {{ _("Share of FREE CASH FLOW paid out. Above 100% the dividend is coming out of the balance sheet.") | tojson }},
+        cell: (r) => tone(pctS(r.fcf_payout, 0), r.fcf_payout == null ? null : r.fcf_payout <= 1.0) },
+      { key: 'effective_pe', label: T.pe, num: true, asc: true, cell: (r) => num(r.effective_pe) },
+      { key: 'return_on_equity', label: T.roe, num: true, cell: (r) => pctS(r.return_on_equity, 0) },
+    ],
+  },
+
+  etf: {
+    label: {{ _("High growth, low TER") | tojson }},
+    desc: {{ _("UCITS ETFs ranked on compound annual total return in EUR against what they charge for it. Growth is the past; the TER is the only column here that is a fact about the future.") | tojson }},
+    url: '/api/screener/etf?top=500&failed=1',
+    pillars: ['growth', 'cost', 'risk', 'size'],
+    groupLabel: T.region, groupField: 'region', groupsFrom: 'regions',
+    pillarHelp: {{ _("Pillar bars are, left to right: growth (5-year and 3-year CAGR in EUR, total return), cost (TER), risk (return per unit of volatility, and the worst peak-to-trough fall in the window), size (fund assets — a small fund can close, and trades on a wider spread). Returns are converted to euros before they are measured: a USD-quoted UCITS ETF and its EUR-quoted twin are the same fund, and comparing their raw returns would rank the dollar.") | tojson }},
+    columns: [
+      COL_SCORE, COL_SYMBOL, COL_NAME,
+      { key: 'region', label: T.region, text: true, cls: 'scr-dim', cell: (r) => esc(r.region || '—') },
+      COL_TER,
+      { key: 'cagr_5y', label: T.y5, num: true,
+        title: {{ _("Compound annual total return over five years, in EUR.") | tojson }},
+        cell: (r) => signed(r.cagr_5y) },
+      { key: 'cagr_3y', label: T.y3, num: true, cell: (r) => signed(r.cagr_3y) },
+      { key: 'cagr_1y', label: T.y1, num: true, cell: (r) => signed(r.cagr_1y, 0) },
+      { key: 'volatility_1y', label: T.vol, num: true, asc: true,
+        title: {{ _("Annualised standard deviation of weekly returns over the last year.") | tojson }},
+        cell: (r) => pctS(r.volatility_1y, 0) },
+      { key: 'max_drawdown', label: T.maxDd, num: true, asc: true,
+        title: {{ _("Worst peak-to-trough fall within the cached history.") | tojson }},
+        cell: (r) => pctS(r.max_drawdown, 0) },
+      { key: 'dist', label: T.policy, text: true, cls: 'scr-dim',
+        title: {{ _("acc = accumulating (nothing is paid out, nothing is taxed until you sell). dist = distributing.") | tojson }},
+        cell: (r) => esc(r.dist || '—') },
+      { key: 'total_assets', label: T.size, num: true, cell: (r) => bn(r.total_assets) },
+    ],
+  },
+
+  etf_dividend: {
+    label: {{ _("High yield, low TER") | tojson }},
+    desc: {{ _("Distributing UCITS ETFs ranked on the income they actually paid over the last twelve months against what they charge for it — and on whether that income is growing rather than being cut. Accumulating share classes are excluded: they pay nothing.") | tojson }},
+    url: '/api/screener/etf?profile=dividend&top=500&failed=1',
+    pillars: ['yield', 'cost', 'growth', 'stability'],
+    groupLabel: T.region, groupField: 'region', groupsFrom: 'regions',
+    pillarHelp: {{ _("Pillar bars are, left to right: yield (distributions paid over the last twelve months, divided by today’s price), cost (TER), growth (this year’s distributions against last year’s, plus the price return as a check that the income is not just capital coming back), stability (the worst year-on-year fall in the distribution on record, and the worst peak-to-trough price fall). The yield is computed from the distributions themselves, not read from a field — Yahoo populates its own yield for barely one European listing in six. Because the numerator is the past year and the denominator is today’s price, it reads lower than a provider’s “indicated yield” whenever the fund has risen.") | tojson }},
+    columns: [
+      COL_SCORE, COL_SYMBOL, COL_NAME,
+      { key: 'region', label: T.region, text: true, cls: 'scr-dim', cell: (r) => esc(r.region || '—') },
+      { key: 'div_yield_ttm', label: T.yield_, num: true,
+        title: {{ _("Distributions actually paid over the last 12 months, divided by the current price.") | tojson }},
+        cell: (r) => pctS(r.div_yield_ttm, 2) },
+      COL_TER,
+      { key: 'net_yield', label: T.net, num: true,
+        title: {{ _("Yield minus TER — the income that reaches you before tax. Shown, never ranked on: a high net yield can come from paying a lot or from costing little, and those are different funds.") | tojson }},
+        cell: (r) => pctS(r.net_yield, 2) },
+      { key: 'div_growth', label: T.divGrowth, num: true,
+        title: {{ _("Distributions of the last 12 months against the 12 before. Negative = the payout is shrinking.") | tojson }},
+        cell: (r) => tone(signed(r.div_growth), r.div_growth == null ? null : r.div_growth >= 0) },
+      { key: 'div_worst_cut', label: T.worstCut, num: true,
+        title: {{ _("The deepest year-on-year fall in the distribution across the years on record. “none” means every year on record was at least as big as the one before. Blank means there is not enough history to say.") | tojson }},
+        /* A non-negative worst case means the distribution never fell, so
+           printing it as “+3.9%” under a column headed “Worst cut” reads
+           as a 3.9% cut — the opposite of what it says. */
+        cell: (r) => (r.div_worst_cut == null ? '—'
+          : r.div_worst_cut >= 0 ? tone(T.none, true)
+          : tone(signed(r.div_worst_cut), r.div_worst_cut > -0.15)) },
+      { key: 'cagr_5y', label: T.y5, num: true,
+        title: {{ _("Compound annual TOTAL return in EUR — price plus distributions reinvested. A high yield beside a poor total return means capital is being handed back.") | tojson }},
+        cell: (r) => signed(r.cagr_5y) },
+      { key: 'max_drawdown', label: T.maxDd, num: true, asc: true, cell: (r) => pctS(r.max_drawdown, 0) },
+      { key: 'div_events_12m', label: T.pays, num: true,
+        title: {{ _("Distributions in the last 12 months: 1 = annual, 2 = semi-annual, 4 = quarterly, 12 = monthly.") | tojson }},
+        cell: (r) => (r.div_events_12m == null ? '—' : `${r.div_events_12m}×`) },
+      { key: 'total_assets', label: T.size, num: true, cell: (r) => bn(r.total_assets) },
+    ],
+  },
+};
+
+/* Per-board sort state, DERIVED from BOARDS rather than listed beside it,
+   so a board that exists always has sort state. A hand-written literal
+   missing one entry made a tab appear to do nothing at all: the fetch
+   succeeded and the TypeError was swallowed inside the render. */
+const SORT = Object.fromEntries(Object.keys(BOARDS).map((b) => [b, { key: 'score', dir: -1 }]));
+
+const board = () => BOARDS[BOARD];
+const rowsOf = (b) => (CACHE[b] || {}).all || [];
+
+/* ---- pillar bars ------------------------------------------------------ */
+
+function bar(value, coverage) {
+  // Hollow bar = no data for that pillar. A zero-height filled bar and a
+  // "we don't know" must not look the same.
+  if (value == null || !coverage) {
+    return `<span class="pillar pillar-empty" title="${esc(T.noData)}"></span>`;
+  }
+  const h = Math.max(6, Math.round(value));
+  const cls = value >= 70 ? 'pillar-hi' : value >= 40 ? 'pillar-mid' : 'pillar-lo';
+  const dim = coverage < 0.99 ? ` style="opacity:${0.45 + 0.55 * coverage}"` : '';
+  return `<span class="pillar ${cls}"${dim}><i style="height:${h}%"></i></span>`;
+}
+
+function pillarCell(r) {
+  const order = board().pillars;
+  const title = order
+    .map((k) => `${T.pillar[k] || k}: ${(r.pillars || {})[k] == null ? '—' : r.pillars[k]}`)
+    .join(' · ');
+  return `<span class="pillars" title="${esc(title)}">` +
+    order.map((k) => bar((r.pillars || {})[k], (r.pillar_coverage || {})[k])).join('') +
+    `</span>`;
+}
+
+function scoreChip(s) {
+  if (s == null) return '<span class="scr-score">—</span>';
+  const cls = s >= 70 ? 'is-hi' : s >= 50 ? 'is-mid' : 'is-lo';
+  return `<span class="scr-score ${cls}">${s.toFixed(0)}</span>`;
+}
+
+function badges(r) {
+  const out = [];
+  if (r.held) out.push(`<span class="scr-badge is-held" title="${esc(T.heldTitle)}">${esc(T.held)}</span>`);
+  if (r.pea_eligible) out.push(`<span class="scr-badge is-pea" title="${esc(T.peaTitle)}">${T.pea}</span>`);
+  if (r.watch_status === 'watch') out.push(`<span class="scr-badge is-watch">${esc(T.watching)}</span>`);
+  if (r.watch_status === 'dismissed') out.push(`<span class="scr-badge is-dismissed">${esc(T.dismissed)}</span>`);
+  if (r.flags && r.flags.length) {
+    out.push(`<span class="scr-badge is-warn" title="${esc(r.flags.join(' · '))}">!${r.flags.length}</span>`);
+  }
+  return out.join(' ');
+}
+
+/* ---- filter + sort ---------------------------------------------------- */
+
+function filtered() {
+  const spec = board();
+  const peaOnly = document.getElementById('scr-f-pea').checked;
+  const hideHeld = document.getElementById('scr-f-hide-held').checked;
+  const hideDismissed = document.getElementById('scr-f-hide-dismissed').checked;
+  const watchOnly = document.getElementById('scr-f-watch').checked;
+  const group = document.getElementById('scr-f-sector').value;
+  const minScore = Number(document.getElementById('scr-f-min').value);
+  const top = Number(document.getElementById('scr-f-top').value);
+
+  const rows = rowsOf(BOARD).filter((r) => {
+    if (peaOnly && !r.pea_eligible) return false;
+    if (hideHeld && r.held) return false;
+    if (hideDismissed && r.watch_status === 'dismissed') return false;
+    if (watchOnly && r.watch_status !== 'watch') return false;
+    if (group && r[spec.groupField] !== group) return false;
+    if (minScore && (r.score ?? 0) < minScore) return false;
+    return true;
+  });
+
+  const s = SORT[BOARD];
+  rows.sort((a, b) => {
+    const av = a[s.key], bv = b[s.key];
+    // Nulls always sort to the bottom whichever way the column is pointing:
+    // "unknown" is not "worst", and it should not float to the top when the
+    // arrow flips.
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'string') return s.dir * av.localeCompare(bv);
+    return s.dir < 0 ? (bv - av) : (av - bv);
+  });
+  return rows.slice(0, top);
+}
+
+/* ---- render ----------------------------------------------------------- */
+
+function renderHead() {
+  const spec = board();
+  const s = SORT[BOARD];
+  const cells = spec.columns.map((c) => {
+    const cls = [c.num ? 'num' : '', c.key ? 'sortable' : '', c.key === s.key ? 'sorted' : ''].filter(Boolean).join(' ');
+    const dir = c.key === s.key ? (s.dir < 0 ? 'desc' : 'asc') : '';
+    return `<th class="${cls}"${c.key ? ` data-sort="${c.key}"` : ''}` +
+           `${c.title ? ` title="${esc(c.title)}"` : ''} data-dir="${dir}">${esc(c.label)}</th>`;
+  });
+  cells.push(`<th>${esc(T.pillars)}</th>`, '<th></th>');
+  document.querySelector('#scr-table thead tr').innerHTML = cells.join('');
+}
+
+function render() {
+  const spec = board();
+  const rows = filtered();
+  const tb = document.querySelector('#scr-table tbody');
+  const span = spec.columns.length + 2;
+  renderHead();
+
+  if (!rows.length) {
+    tb.innerHTML = `<tr><td colspan="${span}" class="sub">${esc(T.nothingMatches)}</td></tr>`;
+  } else {
+    tb.innerHTML = rows.map((r) => {
+      const cells = spec.columns.map((c) => {
+        const cls = [c.num ? 'num' : '', c.cls || ''].filter(Boolean).join(' ');
+        return `<td${cls ? ` class="${cls}"` : ''}>${c.cell(r)}</td>`;
+      });
+      cells.push(`<td>${pillarCell(r)}</td>`,
+        `<td class="num scr-actions"><button type="button" class="scr-act" data-act="watch" title="${esc(T.watchBtn)}">☆</button>` +
+        `<button type="button" class="scr-act" data-act="dismissed" title="${esc(T.dismissBtn)}">✕</button></td>`);
+      return `<tr data-sym="${esc(r.symbol)}" class="scr-row${r.held ? ' is-held-row' : ''}">${cells.join('')}</tr>`;
+    }).join('');
+  }
+
+  const all = rowsOf(BOARD);
+  document.getElementById('scr-ranked').textContent = all.length;
+  document.getElementById('scr-strong').textContent = all.filter((r) => (r.score ?? 0) >= 70).length;
+  document.getElementById('scr-pea').textContent = all.filter((r) => r.pea_eligible).length;
+  document.getElementById('scr-pillar-help').textContent = `${spec.pillarHelp} ${T.hollow}`;
+}
+
+function renderGated() {
+  const spec = board();
+  const gated = (CACHE[BOARD] || {}).gated || [];
+  document.querySelector('#scr-gated-table tbody').innerHTML = gated.length
+    ? gated.map((r) => `
+        <tr>
+          <td><span class="scr-sym">${esc(r.symbol)}</span></td>
+          <td>${esc(r.name || '—')}</td>
+          <td class="scr-dim">${esc(r[spec.groupField] || '—')}</td>
+          <td class="scr-dim">${esc((r.gate_failed || []).join(' · '))}</td>
+        </tr>`).join('')
+    : `<tr><td colspan="4" class="sub">${esc(T.nothingGated)}</td></tr>`;
+}
+
+/* ---- detail drawer ---------------------------------------------------- */
+
+function row(label, value, hint) {
+  return `<div class="scr-dl-row"><dt${hint ? ` title="${esc(hint)}"` : ''}>${esc(label)}</dt><dd>${value}</dd></div>`;
+}
+
+function drawerFacts(r) {
+  if (BOARD === 'etf_dividend') {
+    /* The income view of a fund. Distribution facts first, because they
+       are what the board ranks on and what a reader came to check; the
+       price-series facts follow as the sanity check on them. */
+    return [
+      row({{ _("Trailing yield") | tojson }}, pctS(r.div_yield_ttm, 2),
+        {{ _("Distributions paid over the last 12 months divided by the current price. Computed from the payments themselves — Yahoo’s own yield field is populated for barely one European listing in six.") | tojson }}),
+      row(T.ter, `${pctS(r.ter, 2)} <span class="scr-dim">(${esc(r.ter_source || '—')})</span>`,
+        {{ _("Charged out of the same cash the distribution comes from.") | tojson }}),
+      row({{ _("Net yield") | tojson }}, pctS(r.net_yield, 2),
+        {{ _("Yield minus TER, before any tax. Shown but never ranked on — a high net yield can come from paying a lot or from costing little.") | tojson }}),
+      row({{ _("TER as a share of income") | tojson }}, r.div_yield_ttm ? pctS(r.ter / r.div_yield_ttm, 0) : '—',
+        {{ _("What proportion of the income the fund keeps. Half a percent sounds small until it is 13% of a 3.5% yield.") | tojson }}),
+      row({{ _("Distributions, last 12m") | tojson }}, num(r.div_ttm, 4),
+        {{ _("In the listing currency. A yield is a ratio, so it needs no currency conversion.") | tojson }}),
+      row({{ _("Distributions, 12m before") | tojson }}, num(r.div_prior, 4)),
+      row({{ _("Distribution growth") | tojson }}, signed(r.div_growth, 1),
+        {{ _("This year’s total against last year’s.") | tojson }}),
+      row({{ _("Worst year on record") | tojson }},
+        r.div_worst_cut == null ? '—' : r.div_worst_cut >= 0 ? esc(T.neverFell) : signed(r.div_worst_cut, 1),
+        {{ _("The deepest year-on-year fall in the distribution across the years available. An index fund has no payout ratio to interrogate, so this is the only evidence that its income is durable.") | tojson }}),
+      row(T.pays, r.div_events_12m == null ? '—' : `${r.div_events_12m}${esc(T.aYear)}`,
+        {{ _("A change in frequency makes one year’s total incomparable with the next.") | tojson }}),
+      row({{ _("Last distribution") | tojson }}, esc(r.div_last_date || '—')),
+      row({{ _("Distribution history") | tojson }}, `${num(r.div_years, 1)}y`),
+      row({{ _("5-year total return") | tojson }}, signed(r.cagr_5y, 2),
+        {{ _("Price plus distributions reinvested, in EUR. A high yield beside a weak total return means capital is being returned rather than earned.") | tojson }}),
+      row({{ _("Max drawdown") | tojson }}, pctS(r.max_drawdown, 1)),
+      row({{ _("Fund size") | tojson }}, bn(r.total_assets)),
+      row({{ _("Policy (curated)") | tojson }}, esc(r.dist || '—'),
+        {{ _("Cross-checked against the distributions actually observed; a disagreement is flagged rather than resolved silently.") | tojson }}),
+      row({{ _("Provider") | tojson }}, esc(r.family || '—')),
+      row({{ _("Price") | tojson }}, `${num(r.price, 2)} ${esc(r.currency || '')}`),
+      row({{ _("PEA-eligible") | tojson }}, r.pea_eligible == null ? '—' : (r.pea_eligible ? esc(T.yes) : esc(T.noPea)),
+        {{ _("Matters more on an income holding than on an accumulating one: outside a PEA every distribution is taxed the year it is paid, so the headline yield is not the net one.") | tojson }}),
+      row({{ _("In the portfolio") | tojson }}, r.held ? esc(T.yes) : esc(T.no)),
+      row({{ _("Data fetched") | tojson }}, esc(r.fetched_at || '—')),
+    ].join('');
+  }
+
+  if (BOARD === 'etf') {
+    return [
+      row(T.ter, `${pctS(r.ter, 2)} <span class="scr-dim">(${esc(r.ter_source || '—')})</span>`,
+        {{ _("Curated from the fund KID where we have it — Yahoo has no expense ratio for most European listings, and reports it in two different units when it does.") | tojson }}),
+      row({{ _("Yahoo’s TER") | tojson }}, pctS(r.yahoo_ter, 2),
+        {{ _("Kept as a cross-check. A disagreement usually means a different share class.") | tojson }}),
+      row({{ _("5-year CAGR") | tojson }}, signed(r.cagr_5y, 2),
+        {{ _("Compound annual total return in EUR, from the dividend-adjusted price history.") | tojson }}),
+      row({{ _("3-year CAGR") | tojson }}, signed(r.cagr_3y, 2)),
+      row({{ _("1-year return") | tojson }}, signed(r.cagr_1y, 2)),
+      row({{ _("Volatility (1y)") | tojson }}, pctS(r.volatility_1y, 1),
+        {{ _("Annualised standard deviation of weekly returns.") | tojson }}),
+      row({{ _("Max drawdown") | tojson }}, pctS(r.max_drawdown, 1),
+        {{ _("Worst peak-to-trough fall inside the cached history — measured on weekly closes, so it is a floor on the real figure.") | tojson }}),
+      row({{ _("Return per unit of vol") | tojson }}, num(r.return_per_vol, 2),
+        {{ _("3-year CAGR divided by volatility. Not a Sharpe ratio — no risk-free rate is subtracted.") | tojson }}),
+      row({{ _("Fund size") | tojson }}, bn(r.total_assets),
+        {{ _("A small fund can be closed and merged, and trades on a wider spread.") | tojson }}),
+      row({{ _("Distribution policy") | tojson }}, esc(r.dist || '—'),
+        {{ _("acc = accumulating. Outside a tax wrapper, a distributing fund is taxed on each distribution in the year it is paid.") | tojson }}),
+      row({{ _("Category") | tojson }}, esc(r.category || '—')),
+      row({{ _("Provider") | tojson }}, esc(r.family || '—')),
+      row({{ _("History used") | tojson }}, `${esc(r.history_start || '—')} → ${esc(r.history_end || '—')} <span class="scr-dim">(${num(r.history_years, 1)}y)</span>`),
+      row({{ _("Price") | tojson }}, `${num(r.price, 2)} ${esc(r.currency || '')}`),
+      row({{ _("PEA-eligible") | tojson }}, r.pea_eligible == null ? '—' : (r.pea_eligible ? esc(T.yes) : esc(T.noPea)),
+        {{ _("A curated fact, not an inferred one: it depends on the fund’s holdings and wrapper, and no data source publishes it.") | tojson }}),
+      row({{ _("In the portfolio") | tojson }}, r.held ? esc(T.yes) : esc(T.no)),
+      row({{ _("Data fetched") | tojson }}, esc(r.fetched_at || '—')),
+    ].join('');
+  }
+
+  const common = [
+    row({{ _("Dividend yield") | tojson }}, pctS(r.dividend_yield, 2)),
+    row({{ _("5-year average yield") | tojson }}, pctS(r.div_yield_5y_avg, 2),
+      {{ _("A yield far above its own average is often a falling price, not a rising dividend.") | tojson }}),
+    row({{ _("Payout ratio") | tojson }}, pctS(r.payout_ratio, 0), {{ _("Share of earnings paid out.") | tojson }}),
+    row(T.pe, `${num(r.effective_pe, 2)} <span class="scr-dim">(${esc(r.pe_basis || '—')})</span>`,
+      {{ _("Trailing where there is a trailing profit, else forward.") | tojson }}),
+    row({{ _("Trailing / forward P/E") | tojson }}, `${num(r.trailing_pe, 2)} / ${num(r.forward_pe, 2)}`),
+    row({{ _("Price / book") | tojson }}, num(r.price_to_book, 2)),
+    row({{ _("Return on equity") | tojson }}, pctS(r.return_on_equity, 1)),
+    row({{ _("Operating margin") | tojson }}, pctS(r.operating_margin, 1)),
+    row({{ _("Profit margin") | tojson }}, pctS(r.profit_margin, 1)),
+    row({{ _("Debt / equity") | tojson }}, num(r.debt_to_equity, 2), {{ _("Ratio, not percent.") | tojson }}),
+    row({{ _("Current ratio") | tojson }}, num(r.current_ratio, 2)),
+    row({{ _("Revenue growth") | tojson }}, signed(r.revenue_growth, 1)),
+    row({{ _("Earnings growth") | tojson }}, signed(r.earnings_growth, 1)),
+    row({{ _("Off 52-week high") | tojson }}, pctS(r.drawdown, 1)),
+    row({{ _("Above 52-week low") | tojson }}, pctS(r.off_52w_low, 1),
+      {{ _("Small = the market may not have finished selling.") | tojson }}),
+    row({{ _("Beta") | tojson }}, num(r.beta, 2)),
+    row({{ _("PEA-eligible") | tojson }}, r.pea_eligible == null ? '—' : (r.pea_eligible ? esc(T.yesEea) : esc(T.noPea)),
+      {{ _("Indicative, from the reported country of incorporation. Confirm with the broker.") | tojson }}),
+    row({{ _("In the portfolio") | tojson }}, r.held ? esc(T.yes) : esc(T.no)),
+    row({{ _("Fundamentals fetched") | tojson }}, esc(r.fetched_at || '—')),
+  ];
+
+  if (BOARD === 'income') {
+    // The two figures the income board exists for go FIRST, above the
+    // shared block — a drawer that buries its own headline under fifteen
+    // rows of context is a drawer nobody reads.
+    common.unshift(
+      row({{ _("Dividend growth") | tojson }}, signed(r.dividend_growth, 2),
+        {{ _("Forward annual dividend against the last twelve months actually paid.") | tojson }}),
+      row({{ _("Forward / trailing dividend") | tojson }}, `${num(r.dividend_rate, 2)} / ${num(r.trailing_dividend_rate, 2)}`,
+        {{ _("Per share, in the reporting currency. Their ratio is the growth figure above.") | tojson }}),
+      row({{ _("Free-cash-flow payout") | tojson }}, pctS(r.fcf_payout, 0),
+        {{ _("Dividends as a share of free cash flow. Earnings can be flattered; cash cannot.") | tojson }}),
+      row({{ _("Free cash flow") | tojson }}, bn(r.free_cashflow)),
+    );
+  }
+  return common.join('');
+}
+
+function openDrawer(sym) {
+  const c = CACHE[BOARD] || {};
+  const r = (c.all || []).find((x) => x.symbol === sym) ||
+            (c.gated || []).find((x) => x.symbol === sym);
+  if (!r) return;
+  const p = r.pillars || {};
+  const body = document.getElementById('scr-drawer-body');
+  const sub = isEtfBoard()
+    ? `${esc(r.category || '?')} · ${esc(r.family || '?')}<br>` +
+      `${esc(r.exchange || '?')} · ${esc(r.region || '?')} · ` +
+      `${num(r.price, 2)} ${esc(r.currency || '')} · ${bn(r.total_assets)}`
+    : `${esc(r.sector || '?')} · ${esc(r.industry || '?')}<br>` +
+      `${esc(r.country || '?')} · ${esc(r.exchange || '?')} · ` +
+      `${num(r.price, 2)} ${esc(r.currency || '')} · ${esc(T.mktCap)} ${bn(r.market_cap)}`;
+
+  body.innerHTML = `
+    <h3 class="scr-dh">${esc(r.symbol)} — ${esc(r.name || '?')}</h3>
+    <div class="scr-dsub">${sub}</div>
+    ${r.gate_failed ? `<div class="scr-gate">${esc(T.gatedOut)} ${esc(r.gate_failed.join(' · '))}</div>` : ''}
+    <div class="scr-dscore">
+      ${scoreChip(r.score)}
+      <span class="scr-dim">${esc(board().label)} · ${esc(T.coverage)} ${Math.round((r.coverage || 0) * 100)}%</span>
+    </div>
+    <div class="scr-pillars-detail">
+      ${board().pillars.map((k) => `
+        <div class="scr-pd">
+          <span class="scr-pd-k">${esc(T.pillar[k] || k)}</span>
+          ${bar(p[k], (r.pillar_coverage || {})[k])}
+          <span class="scr-pd-v">${p[k] == null ? '—' : p[k]}</span>
+        </div>`).join('')}
+    </div>
+    <dl class="scr-dl">${drawerFacts(r)}</dl>
+    ${(r.flags && r.flags.length) ? `<ul class="scr-flags">${r.flags.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
+    ${r.last_error ? `<div class="scr-gate">${esc(T.lastError)} ${esc(r.last_error)}</div>` : ''}
+    <div class="scr-dactions">
+      <button type="button" class="btn" data-act="watch">${esc(T.watch)}</button>
+      <button type="button" class="btn" data-act="dismissed">${esc(T.dismiss)}</button>
+      <button type="button" class="btn btn-ghost" data-act="clear">${esc(T.clear)}</button>
+      <a class="btn btn-ghost" target="_blank" rel="noopener"
+         href="https://finance.yahoo.com/quote/${encodeURIComponent(r.symbol)}">${esc(T.yahoo)}</a>
+    </div>`;
+
+  body.querySelectorAll('[data-act]').forEach((b) => {
+    b.addEventListener('click', () => setWatch(r.symbol, b.dataset.act === 'clear' ? null : b.dataset.act));
+  });
+  document.getElementById('scr-drawer').hidden = false;
+}
+
+/* ---- watchlist -------------------------------------------------------- */
+
+async function setWatch(symbol, status) {
+  try {
+    const res = await fetch(`/api/screener/watch/${encodeURIComponent(symbol)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'failed');
+    // One watchlist, four boards: the same symbol can be sitting in more
+    // than one cache, and a star that only appeared on the tab you were
+    // looking at would read as a bug the next time you switched.
+    Object.values(CACHE).forEach((c) => {
+      (c.all || []).concat(c.gated || []).forEach((r) => { if (r.symbol === symbol) r.watch_status = status; });
+    });
+    render();
+    if (!document.getElementById('scr-drawer').hidden) openDrawer(symbol);
+  } catch (e) {
+    console.error('watch update failed', e);
+  }
+}
+
+/* ---- load ------------------------------------------------------------- */
+
+function ageDays(iso) {
+  const t = Date.parse(iso.replace(' ', 'T') + 'Z');
+  return Number.isNaN(t) ? 0 : (Date.now() - t) / 86400000;
+}
+
+function banner(data) {
+  const el = document.getElementById('scr-banner');
+  // Staleness is worth a banner, not a footnote: a screen built on
+  // three-week-old prices will happily rank a share as "30% off its high"
+  // that has already recovered.
+  if (!data.universe_size) el.textContent = T.emptyCache;
+  else if (data.last_refresh && ageDays(data.last_refresh) > 3) el.textContent = fill(T.stale, { days: ageDays(data.last_refresh).toFixed(0) });
+  else if (data.errors) el.textContent = fill(T.errors, { n: data.errors });
+  else { el.hidden = true; return; }
+  el.hidden = false;
+}
+
+async function loadBoard(force = false) {
+  const spec = board();
+  const meta = document.getElementById('scr-meta');
+  document.getElementById('scr-board-title').textContent = spec.label;
+  document.getElementById('scr-board-desc').textContent = spec.desc;
+  document.getElementById('scr-f-group-label').textContent = spec.groupLabel;
+  document.querySelectorAll('.scr-explain-col').forEach((el) => { el.hidden = el.dataset.board !== BOARD; });
+
+  if (CACHE[BOARD] && !force) { applyBoard(CACHE[BOARD].meta); return; }
+  meta.textContent = T.loading;
+  let data;
+  try {
+    const res = await fetch(spec.url);
+    data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'request failed');
+    CACHE[BOARD] = { all: data.ranked || [], gated: data.rejected || [], meta: data };
+  } catch (e) {
+    meta.textContent = T.failed;
+    console.error('[screener] fetch failed for', BOARD, e);
+    return;
+  }
+  // Rendering is deliberately OUTSIDE the fetch's try. A render bug that
+  // reports itself as "Failed to load" points the reader at the server
+  // and the network tab, where everything is returning 200.
+  try {
+    applyBoard(data);
+  } catch (e) {
+    meta.textContent = T.failedRender;
+    console.error('[screener] render failed for', BOARD, e);
+  }
+}
+
+function applyBoard(data) {
+  const spec = board();
+  const sel = document.getElementById('scr-f-sector');
+  const keep = sel.value;
+  const groups = data[spec.groupsFrom] || [];
+  sel.innerHTML = `<option value="">${esc(T.all)}</option>` +
+    groups.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  sel.value = groups.includes(keep) ? keep : '';
+
+  document.getElementById('scr-gated').textContent = data.rejected_count ?? 0;
+  document.getElementById('scr-meta').textContent =
+    fill(T.meta, { n: data.universe_size, date: data.last_refresh || T.never });
+  banner(data);
+  render();
+  renderGated();
+}
+
+/* ---- wiring ----------------------------------------------------------- */
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.scr-tab').forEach((t) => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.scr-tab').forEach((x) => x.classList.toggle('is-active', x === t));
+      BOARD = t.dataset.board;
+      document.getElementById('scr-drawer').hidden = true;
+      loadBoard();
+    });
+  });
+
+  ['scr-f-pea', 'scr-f-hide-held', 'scr-f-hide-dismissed', 'scr-f-watch', 'scr-f-sector', 'scr-f-top']
+    .forEach((id) => document.getElementById(id).addEventListener('change', render));
+  const minEl = document.getElementById('scr-f-min');
+  minEl.addEventListener('input', () => {
+    document.getElementById('scr-f-min-val').textContent = minEl.value;
+    render();
+  });
+
+  // The header is rebuilt on every render, so the sort handler is
+  // delegated from the <thead> rather than bound per <th> — binding to
+  // elements that are about to be replaced is how a sortable column
+  // silently stops sorting after the first filter change.
+  document.querySelector('#scr-table thead').addEventListener('click', (ev) => {
+    const th = ev.target.closest('th[data-sort]');
+    if (!th) return;
+    const key = th.dataset.sort;
+    const col = board().columns.find((c) => c.key === key);
+    const s = SORT[BOARD];
+    // Text columns and "lower is better" columns read naturally ascending;
+    // everything else reads naturally descending (biggest score first).
+    if (s.key === key) s.dir *= -1;
+    else { s.key = key; s.dir = (col && (col.text || col.asc)) ? 1 : -1; }
+    render();
+  });
+
+  document.querySelector('#scr-table tbody').addEventListener('click', (ev) => {
+    const tr = ev.target.closest('tr[data-sym]');
+    if (!tr) return;
+    const act = ev.target.closest('.scr-act');
+    if (act) { ev.stopPropagation(); setWatch(tr.dataset.sym, act.dataset.act); return; }
+    openDrawer(tr.dataset.sym);
+  });
+
+  document.getElementById('scr-toggle-gated').addEventListener('click', (ev) => {
+    const wrap = document.getElementById('scr-gated-wrap');
+    wrap.hidden = !wrap.hidden;
+    ev.target.textContent = wrap.hidden ? T.show : T.hide;
+  });
+
+  const drawer = document.getElementById('scr-drawer');
+  document.getElementById('scr-drawer-close').addEventListener('click', () => { drawer.hidden = true; });
+  drawer.addEventListener('click', (ev) => { if (ev.target === drawer) drawer.hidden = true; });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') drawer.hidden = true; });
+
+  loadBoard();
+});
+</script>
+{% endblock %}

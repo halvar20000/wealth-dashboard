@@ -169,7 +169,12 @@ CREATE TABLE IF NOT EXISTS securities (
     name          TEXT,
     symbol_source TEXT,             -- 'yahoo' or 'manual'
     resolved_at   TEXT,
-    last_error    TEXT
+    last_error    TEXT,
+    -- What Yahoo says the symbol is: EQUITY, ETF, MUTUALFUND. Read off
+    -- the same chart reply the price comes from, and what lets the
+    -- share-ideas boards put a held ETF on the ETF board and a held
+    -- share on the share board without asking anybody.
+    quote_type    TEXT
 );
 
 -- Kept, not replaced: a price is a fact about a day, and the history
@@ -215,6 +220,107 @@ CREATE TABLE IF NOT EXISTS balances (
     balance_type TEXT,
     as_of        TEXT NOT NULL,
     created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Share Ideas: a nightly cache of Yahoo fundamentals, one row per share
+-- in the screening universe. Scores are NOT stored — they are pure
+-- arithmetic over these columns and are recomputed on every request, so
+-- a tuned threshold takes effect on reload rather than at the next
+-- refresh. A failed fetch keeps the old row and stamps `last_error`:
+-- a Yahoo hiccup must make a name visibly stale, never make it vanish.
+-- Every rate is a FRACTION (0.034) and every ratio a RATIO, whatever
+-- unit Yahoo happened to report it in — see screener.normalise().
+CREATE TABLE IF NOT EXISTS screener_fundamentals (
+    symbol                 TEXT PRIMARY KEY,
+    name                   TEXT,
+    sector                 TEXT,
+    industry               TEXT,
+    country                TEXT,
+    exchange               TEXT,
+    currency               TEXT,
+    quote_type             TEXT,
+    price                  REAL,
+    market_cap             REAL,
+    trailing_pe            REAL,
+    forward_pe             REAL,
+    price_to_book          REAL,
+    dividend_yield         REAL,
+    payout_ratio           REAL,
+    div_yield_5y_avg       REAL,
+    return_on_equity       REAL,
+    operating_margin       REAL,
+    profit_margin          REAL,
+    debt_to_equity         REAL,
+    current_ratio          REAL,
+    revenue_growth         REAL,
+    earnings_growth        REAL,
+    beta                   REAL,
+    week52_high            REAL,
+    week52_low             REAL,
+    -- The income board's inputs. dividend_rate is the FORWARD annual
+    -- dividend, trailing_dividend_rate the last twelve months' actual;
+    -- their ratio is the only dividend-growth signal Yahoo gives without
+    -- a second request. free_cashflow and shares_outstanding give the
+    -- cash payout, which catches a dividend that earnings flatter.
+    dividend_rate          REAL,
+    trailing_dividend_rate REAL,
+    free_cashflow          REAL,
+    shares_outstanding     REAL,
+    fetched_at             TEXT,
+    last_error             TEXT
+);
+
+-- The ETF half of Share Ideas. An ETF shares almost nothing with a
+-- share: no ROE, no payout ratio, no P/E, and the one figure that
+-- decides it — the TER — is curated in the universe rather than fetched,
+-- because Yahoo has none for most European listings. Growth is COMPUTED
+-- from the adjusted price history, in EUR; the yield from the
+-- distributions actually paid. `fetch_rev` says which revision of the
+-- fetch wrote the row, so a column added later is refetched rather than
+-- sitting NULL behind a recent `fetched_at`.
+CREATE TABLE IF NOT EXISTS screener_etfs (
+    symbol           TEXT PRIMARY KEY,
+    name             TEXT,
+    category         TEXT,
+    family           TEXT,
+    currency         TEXT,
+    exchange         TEXT,
+    quote_type       TEXT,
+    price            REAL,
+    total_assets     REAL,
+    yahoo_ter        REAL,           -- fraction, when Yahoo has one at all
+    dividend_yield   REAL,           -- Yahoo's own, kept as a cross-check
+    cagr_1y          REAL,           -- computed in EUR, total return
+    cagr_3y          REAL,
+    cagr_5y          REAL,
+    volatility_1y    REAL,           -- annualised stdev of weekly log returns
+    max_drawdown     REAL,           -- worst peak-to-trough over the series
+    history_years    REAL,
+    history_start    TEXT,
+    history_end      TEXT,
+    week52_high      REAL,
+    week52_low       REAL,
+    div_ttm          REAL,           -- distributions paid, last 365 days
+    div_prior        REAL,           -- the 365 days before that
+    div_yield_ttm    REAL,           -- div_ttm / listing price
+    div_growth       REAL,           -- div_ttm / div_prior - 1
+    div_worst_cut    REAL,           -- worst year-on-year fall on record
+    div_events_12m   INTEGER,        -- payment frequency
+    div_events_prior INTEGER,
+    div_years        REAL,
+    div_last_date    TEXT,
+    fetch_rev        INTEGER,
+    fetched_at       TEXT,
+    last_error       TEXT
+);
+
+-- Starred and dismissed, keyed on the bare symbol so one list serves all
+-- four boards: starring an ETF and starring a share are the same act.
+CREATE TABLE IF NOT EXISTS screener_watchlist (
+    symbol   TEXT PRIMARY KEY,
+    status   TEXT NOT NULL DEFAULT 'watch',   -- watch | dismissed
+    note     TEXT,
+    added_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 """
 
@@ -293,6 +399,9 @@ def init_db(path: Path | None = None) -> Path:
 _ADDED_COLUMNS = {
     "people": [
         ("birthday", "TEXT"),
+    ],
+    "securities": [
+        ("quote_type", "TEXT"),
     ],
     "transactions": [
         ("kind", "TEXT NOT NULL DEFAULT 'other'"),

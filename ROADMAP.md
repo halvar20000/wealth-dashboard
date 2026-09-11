@@ -50,6 +50,8 @@ it does not do yet.
 - [x] Connected accounts synced automatically once a day.
 - [x] Net worth over time, rebuilt from the records; bank connections
       graded on the overview; a retirement outlook per person.
+- [x] Share Ideas: four ranked boards — value, dividends, ETFs, dividend
+      ETFs — over a nightly Yahoo cache the app fills itself.
 
 ## Next
 
@@ -63,7 +65,6 @@ themselves" becomes answerable from it.
 |---|---|
 | Monthly Gains | enough price history — see 1. |
 | Why It Moved | daily per-holding snapshots; there is no history to decompose until the app has been running |
-| Share Ideas | a fundamentals source and a nightly refresh job; independent of everything else here |
 | Income | a payslip importer, which is employer-specific in a way no generic parser fixes |
 | Expenses | a per-transaction owner — accounts now have people, transactions do not yet |
 

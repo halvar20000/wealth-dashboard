@@ -16,6 +16,7 @@ The route list is the whole product so far, in order of first use:
     /connect/paste      finish by hand when the callback cannot fire
     /accounts/<id>/sync   pull balance and transactions
     /accounts/<id>/import upload a broker CSV
+    /screener           share ideas: four ranked boards over a Yahoo cache
 
 Every page except /setup and /login requires a signed-in user.
 """
@@ -31,14 +32,15 @@ import urllib.parse
 from datetime import date, datetime
 from pathlib import Path
 
-from flask import (Flask, flash, g, redirect, render_template, request,
-                   session, url_for)
+from flask import (Flask, flash, g, jsonify, redirect, render_template,
+                   request, session, url_for)
 
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import (cashflow, categories, forecast, history, importers, manual,
-               overview, people, subscriptions)
+               overview, people, screener, screener_etf, screener_jobs,
+               subscriptions)
 from . import db as db_state
 from .db import get_conn, has_users, init_db
 
@@ -911,6 +913,78 @@ def portfolio_page():
                            account_ids=people.scope()))
 
 
+# ─── Share Ideas ─────────────────────────────────────────────────────
+# Four boards over one nightly Yahoo cache, rendered by the page's own
+# script from two JSON routes. The routes are read-only against Yahoo:
+# fetching is minutes of requests and belongs to the background job in
+# screener_jobs.py, and nothing here can place an order — the page ends
+# at "here is a shortlist".
+
+@app.route("/screener")
+@auth.login_required
+def screener_page():
+    return render_template("screener.html", active_page="screener")
+
+
+def _flag(name: str) -> bool:
+    return request.args.get(name, "").lower() in ("1", "true", "yes")
+
+
+@app.route("/api/screener")
+@auth.login_required
+def api_screener():
+    """The share boards: ?profile=value (default) or income."""
+    top = max(1, min(request.args.get("top", default=60, type=int), 500))
+    sectors = [x for x in request.args.get("sector", "").split(",") if x]
+    try:
+        with get_conn() as conn:
+            payload = screener.results(
+                conn, top=top, pea_only=_flag("pea"), include_failed=_flag("failed"),
+                sectors=sectors or None,
+                min_score=request.args.get("min_score", type=float),
+                profile=request.args.get("profile", "value").lower())
+    except ValueError as exc:
+        # An unknown profile is a typo in a query string, not a server
+        # fault — 500 would make the page say "failed to load".
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    payload["ok"] = True
+    return jsonify(payload)
+
+
+@app.route("/api/screener/etf")
+@auth.login_required
+def api_screener_etf():
+    """The ETF boards: ?profile=growth (default) or dividend. Their own
+    table, so their own route; the same rows under both profiles, so the
+    two tabs cannot report a different TER for one fund."""
+    top = max(1, min(request.args.get("top", default=60, type=int), 500))
+    regions = [x for x in request.args.get("region", "").split(",") if x]
+    try:
+        with get_conn() as conn:
+            payload = screener_etf.results(
+                conn, top=top, pea_only=_flag("pea"), include_failed=_flag("failed"),
+                regions=regions or None,
+                min_score=request.args.get("min_score", type=float),
+                profile=request.args.get("profile", "growth").lower())
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    payload["ok"] = True
+    return jsonify(payload)
+
+
+@app.route("/api/screener/watch/<path:symbol>", methods=["POST"])
+@auth.login_required
+def api_screener_watch(symbol: str):
+    body = request.get_json(silent=True) or {}
+    try:
+        with get_conn() as conn:
+            res = screener.set_watch(conn, symbol, body.get("status"), body.get("note"))
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    res["ok"] = True
+    return jsonify(res)
+
+
 def _category_form(form) -> None:
     """Add, edit or remove one category, and say what it did.
 
@@ -1057,6 +1131,16 @@ def settings_page():
             except ValueError as exc:
                 flash(str(exc), "error")
             return redirect(url_for("settings_page") + "#prices")
+        elif request.form.get("form") == "ideas_refresh":
+            # On a thread: it is minutes of Yahoo requests, and a form
+            # post that hangs for minutes teaches people to press it
+            # twice. The page says when it last ran.
+            if screener_jobs.start_background(force=bool(request.form.get("force"))):
+                flash(_t("Refreshing the share ideas in the background. It takes "
+                         "a few minutes; the boards fill in as it goes."), "ok")
+            else:
+                flash(_t("A refresh is already running."), "error")
+            return redirect(url_for("settings_page") + "#ideas")
         elif request.form.get("form") == "sync_all":
             results = banksync.sync_all()
             failed = [r for r in results if r["error"]]
@@ -1127,6 +1211,7 @@ def settings_page():
                            connected_links=_connected_count(),
                            securities=prices.status(),
                            prices_hours_ago=prices.fetched_hours_ago(),
+                           ideas=screener_jobs.status(),
                            check=check)
 
 
@@ -1375,6 +1460,11 @@ def _start_rate_refresher() -> None:
             time.sleep(60)
 
     threading.Thread(target=sync_loop, name="bank-sync", daemon=True).start()
+
+    # The share-ideas cache: an hourly tick that refetches whatever is
+    # older than a day, so the boards are current without a cron.
+    threading.Thread(target=screener_jobs.loop, name="ideas-refresh",
+                     daemon=True).start()
 
 
 def main() -> None:

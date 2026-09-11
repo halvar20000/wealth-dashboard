@@ -117,6 +117,28 @@
   <p class="sub">{{ _("Also updated on start-up and every few hours in the background. A holding no price could be found for is valued at your last trade, and the pages say so.") }}</p>
 </div>
 
+<div class="card" id="ideas">
+  <div class="card-header">
+    <h2>{{ _("Share Ideas") }}</h2>
+    <span class="card-subtitle">
+      {% if ideas.running %}{{ _("refreshing now") }}
+      {% elif ideas.last_run %}{{ _f("last refreshed {when}", when=ideas.last_run[:16].replace('T', ' ')) }}
+      {% else %}{{ _("never refreshed") }}{% endif %}
+    </span>
+  </div>
+  <p class="sub">{{ _("The four boards under Share Ideas rank a fixed list of shares and ETFs on figures fetched from Yahoo — free, without a key. The cache is refreshed once a day in the background; the first refresh runs a minute after start-up. A refresh is a few hundred requests with a pause between them and takes a few minutes, so it runs on its own and the boards fill in as it goes.") }}</p>
+  <p class="sub">
+    {{ _f("Shares: {n} cached, {errors} with a fetch error.", n=ideas.shares.n or 0, errors=ideas.shares.errors or 0) }}
+    {{ _f("ETFs: {n} cached, {errors} with a fetch error.", n=ideas.etfs.n or 0, errors=ideas.etfs.errors or 0) }}
+  </p>
+  <p class="sub">{{ _("To screen more names, or to correct an ETF's TER, edit screener_universe.json and screener_etf_universe.json in the data folder; thresholds live in screener.json beside them. All three are read on every page load.") }}</p>
+  <form method="post" class="form inline">
+    <input type="hidden" name="form" value="ideas_refresh">
+    <button type="submit" {{ 'disabled' if ideas.running }}>{{ _("Refresh share ideas now") }}</button>
+    <label class="scr-ctl"><input type="checkbox" name="force" value="1"> {{ _("everything, not only what is older than a day") }}</label>
+  </form>
+</div>
+
 <div class="card" id="people">
   <div class="card-header">
     <h2>{{ _("People") }}</h2>

@@ -404,3 +404,147 @@ footer {
 .retire-body { grid-template-columns: minmax(240px, 360px) 1fr; }
 .retire-stats { grid-template-columns: 1fr; margin-bottom: 0; }
 @media (max-width: 860px) { .retire-body { grid-template-columns: 1fr; } }
+
+/* ─── Share Ideas ─────────────────────────────────────────────── */
+/* The pillar bars are the point of this page: four tiny columns per
+   row that say *why* something ranked, not just that it did. A hollow
+   bar means "no data" and must never be confusable with a short filled
+   bar, which means "scored badly" — hence the dashed outline. */
+
+.scr-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+.scr-tab {
+  flex: 1 1 200px; display: flex; flex-direction: column; gap: 2px;
+  margin: 0; padding: 10px 16px; text-align: left;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text-secondary); font-weight: 500;
+  transition: border-color 0.12s, background 0.12s;
+}
+.scr-tab:hover { background: var(--bg-card-hover); color: var(--text-primary); filter: none; }
+.scr-tab.is-active { border-color: var(--accent-gold); background: var(--bg-elevated); color: var(--text-primary); }
+.scr-tab-t { font-size: 14px; font-weight: 600; }
+.scr-tab-s { font-size: 11px; color: var(--text-tertiary); }
+.scr-tab.is-active .scr-tab-s { color: var(--text-secondary); }
+
+#scr-banner[hidden] { display: none; }
+.scr-board-desc { margin: -6px 0 14px; color: var(--text-secondary); font-size: 13px; max-width: 900px; }
+.scr-stats { margin-bottom: 0; }
+.scr-stats .stat-card { padding: 13px 16px; }
+.scr-stats .stat-value { font-size: 20px; }
+
+.scr-controls { display: flex; flex-wrap: wrap; gap: 14px 26px; align-items: center; }
+.scr-ctl {
+  display: inline-flex; align-items: center; gap: 8px; margin: 0;
+  font-size: 13px; font-weight: 500; color: var(--text-secondary); cursor: pointer; user-select: none;
+}
+.scr-ctl input[type="checkbox"] { width: auto; margin: 0; }
+.scr-ctl select { width: auto; padding: 5px 8px; font-size: 13px; border-radius: 6px; }
+.scr-ctl input[type="range"] { width: 120px; padding: 0; border: none; background: none; }
+.scr-ctl-val { font-family: var(--font-mono); color: var(--text-primary); min-width: 20px; text-align: right; }
+.scr-toggle { margin: 0 0 0 auto; padding: 4px 14px; font-size: 12px; }
+
+.scr-row { cursor: pointer; }
+.scr-row.is-held-row td:first-child { box-shadow: inset 2px 0 0 var(--accent-blue); }
+.scr-sym { font-family: var(--font-mono); font-weight: 600; }
+.scr-dim { color: var(--text-tertiary); }
+
+.scr-score {
+  display: inline-block; min-width: 34px; padding: 2px 7px; border-radius: 6px;
+  font-family: var(--font-mono); font-weight: 600; text-align: center;
+  background: var(--bg-elevated); color: var(--text-secondary);
+}
+.scr-score.is-hi  { background: var(--gain-soft); color: var(--gain); }
+.scr-score.is-mid { background: var(--warn-soft); color: var(--warn); }
+.scr-score.is-lo  { background: var(--bg-elevated); color: var(--text-tertiary); }
+
+.scr-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px;
+  letter-spacing: 0.03em; text-transform: uppercase; vertical-align: middle;
+  background: var(--bg-elevated); color: var(--text-tertiary);
+}
+.scr-badge.is-pea       { background: rgba(91,157,255,0.14); color: var(--accent-blue); }
+.scr-badge.is-held      { background: rgba(167,139,250,0.14); color: var(--accent-purple); }
+.scr-badge.is-watch     { background: rgba(245,215,110,0.14); color: var(--accent-gold); }
+.scr-badge.is-warn      { background: var(--warn-soft); color: var(--warn); cursor: help; }
+.scr-badge.is-dismissed { text-decoration: line-through; }
+
+.pillars { display: inline-flex; align-items: flex-end; gap: 3px; height: 22px; }
+.pillar {
+  position: relative; display: inline-block; width: 7px; height: 22px;
+  border-radius: 2px; background: var(--bg-elevated); overflow: hidden;
+}
+.pillar > i { position: absolute; bottom: 0; left: 0; right: 0; display: block; }
+.pillar-hi  > i { background: var(--gain); }
+.pillar-mid > i { background: var(--warn); }
+.pillar-lo  > i { background: var(--loss); }
+.pillar-empty { background: transparent; border: 1px dashed var(--border-strong); }
+
+.scr-actions { white-space: nowrap; }
+.grid .scr-act {
+  margin: 0; padding: 2px 5px; background: none; border: none; border-radius: 4px;
+  color: var(--text-tertiary); font-size: 14px; cursor: pointer;
+}
+.grid .scr-act:hover { color: var(--text-primary); background: var(--bg-elevated); filter: none; }
+
+/* A number worth reading as good or bad, not merely as a number. Two
+   columns only — a dividend that has been cut, and a dividend costing
+   more than the cash it is paid from. */
+.scr-tone.is-good { color: var(--gain); }
+.scr-tone.is-bad  { color: var(--loss); }
+
+#scr-table thead th.sortable { cursor: pointer; user-select: none; }
+#scr-table thead th.sortable:hover { color: var(--text-primary); }
+#scr-table thead th.sorted { color: var(--accent-gold); }
+#scr-table thead th.sorted[data-dir="desc"]::after { content: ' ▼'; }
+#scr-table thead th.sorted[data-dir="asc"]::after  { content: ' ▲'; }
+
+/* The detail drawer. `display: flex` is a class rule and beats the
+   browser's own `[hidden] { display: none }`, so it needs its own
+   [hidden] rule or the close button does nothing. */
+.scr-drawer {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(4,7,14,0.66); display: flex; justify-content: flex-end;
+}
+.scr-drawer[hidden] { display: none; }
+.scr-drawer-inner {
+  width: min(560px, 96vw); height: 100%; overflow-y: auto;
+  background: var(--bg-card); border-left: 1px solid var(--border-strong);
+  padding: 24px 28px 40px; box-shadow: var(--shadow-card);
+}
+.scr-drawer-close {
+  float: right; margin: 0; padding: 0 6px; background: none; border: none;
+  color: var(--text-tertiary); font-size: 26px; line-height: 1; cursor: pointer;
+}
+.scr-drawer-close:hover { color: var(--text-primary); filter: none; }
+.scr-dh { margin: 0 0 4px; font-size: 17px; }
+.scr-dsub { color: var(--text-tertiary); font-size: 12px; margin-bottom: 18px; }
+.scr-dscore { display: flex; align-items: center; gap: 10px; font-size: 12px; margin-bottom: 14px; }
+.scr-gate {
+  background: var(--loss-soft); color: var(--loss); border-radius: 6px;
+  padding: 8px 12px; font-size: 12px; margin-bottom: 14px;
+}
+.scr-pillars-detail {
+  display: flex; gap: 18px; padding: 12px 0 18px;
+  border-bottom: 1px solid var(--border); margin-bottom: 14px;
+}
+.scr-pd { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.scr-pd-k { font-size: 10px; text-transform: uppercase; color: var(--text-tertiary); }
+.scr-pd-v { font-family: var(--font-mono); font-size: 12px; }
+.scr-dl { margin: 0; }
+.scr-dl-row {
+  display: flex; justify-content: space-between; gap: 16px; padding: 5px 0;
+  border-bottom: 1px solid rgba(35,44,68,0.5); font-size: 13px;
+}
+.scr-dl-row dt { color: var(--text-secondary); margin: 0; }
+.scr-dl-row dd { margin: 0; font-family: var(--font-mono); text-align: right; }
+.scr-flags { margin: 16px 0 0; padding-left: 18px; color: var(--warn); font-size: 12px; }
+.scr-flags li { margin: 3px 0; }
+.scr-dactions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.scr-dactions .btn { margin: 0; font-size: 12px; padding: 6px 14px; }
+
+.scr-explain { max-width: 900px; }
+.scr-explain h3 { margin: 0 0 8px; font-size: 14px; color: var(--text-primary); }
+.scr-explain p { color: var(--text-secondary); margin: 0 0 12px; }
+.scr-explain-foot {
+  margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--border);
+  color: var(--text-tertiary) !important; font-size: 12px;
+}

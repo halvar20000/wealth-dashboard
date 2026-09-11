@@ -38,6 +38,7 @@
     <nav>
       <a class="navlink {{ 'active' if active_page == 'overview' }}" href="{{ url_for('index') }}">{{ _("Overview") }}</a>
       <a class="navlink {{ 'active' if active_page == 'portfolio' }}" href="{{ url_for('portfolio_page') }}">{{ _("Portfolio") }}</a>
+      <a class="navlink {{ 'active' if active_page == 'screener' }}" href="{{ url_for('screener_page') }}">{{ _("Share Ideas") }}</a>
       <a class="navlink {{ 'active' if active_page == 'cashflow' }}" href="{{ url_for('cashflow_page') }}">{{ _("Cash Flow") }}</a>
       <a class="navlink {{ 'active' if active_page == 'budget' }}" href="{{ url_for('budget_page') }}">{{ _("Budget") }}</a>
       <a class="navlink {{ 'active' if active_page == 'forecast' }}" href="{{ url_for('forecast_page') }}">{{ _("Forecast") }}</a>

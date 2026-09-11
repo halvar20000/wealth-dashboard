@@ -52,10 +52,53 @@ a PSD2 API it connects directly, with credentials that are yours.
   overridden under Settings.
 - **An overview**: net worth, cash against securities, where it sits, and
   the latest activity across every account.
+- **Share Ideas** — four ranked boards over a nightly Yahoo cache: shares
+  that have fallen and are cheap, shares paying a high dividend that is
+  still growing, ETFs with strong past growth at a low TER, and dividend
+  ETFs paying a high yield at a low TER. Every score shows its inputs, says
+  how thin its data was, and lists what it excluded and why. What you hold
+  is folded in and marked. A shortlist to research, not advice.
 
 ## What is not here yet
 
 Balance history, forecasting. See [ROADMAP.md](ROADMAP.md).
+
+## Share Ideas
+
+The four boards rank a shipped universe — about 360 EU, Swiss, UK and US
+large caps and about 80 UCITS ETFs — on figures fetched from Yahoo with no
+key and no account, the same source the prices come from. The cache is
+refreshed once a day by the app itself (the first time a minute after
+start-up; a button under Settings does it now) and the page only ever reads
+it, so it renders whether or not Yahoo answered.
+
+Scoring is deliberately auditable: each pillar is a linear ramp over one or
+two published figures, blended with fixed weights, and the row carries the
+inputs beside the output. A missing figure is not scored as zero — the
+weights renormalise over what is present and the row says how much was —
+and a name that fails a hard gate (no dividend, no positive earnings, under
+a billion of market cap, a yield that says distress) stays listed with the
+reason rather than vanishing.
+
+Three files in the data folder are yours, read on every page load:
+
+```
+screener_universe.json       {"symbols": ["XYZ.PA"], "exclude": ["TTE.PA"]}
+screener_etf_universe.json   {"etfs": [{"symbol": "IWDA.AS", "ter": 0.002}], "exclude": []}
+screener.json                thresholds and weights, per board
+```
+
+An ETF's TER is curated, never trusted from Yahoo — Yahoo has none for most
+European listings and reports it in two units when it does — so a fund with
+no known TER is gated out with that as the reason, which is the nudge to
+put the KID figure in the override file. The override merges field by
+field: correcting a TER does not require restating the rest of the entry.
+
+Two things it does not do. It cannot buy anything — the page ends at a
+shortlist. And it does not know your tax rules: the PEA eligibility it shows
+is the French one, inferred from the country of incorporation for shares
+and curated for funds, and is a hint for the shortlist rather than a fact
+to act on.
 
 ## Exchange rates
 
@@ -256,6 +299,7 @@ text gives both.
 data/
   wealth.db              your database — this is the thing to back up
   settings.json
+  screener*.json         your additions and corrections to the Share Ideas lists
   secrets/               Application ID, private key, session key (0600)
 ```
 
@@ -348,7 +392,7 @@ and knows your Application ID can act as your application. It is stored
 python3 tests/test_all.py
 ```
 
-319 checks, no network, no pytest, no credentials. The whole bank flow —
+997 checks, no network, no pytest, no credentials. The whole bank flow —
 JWT signing, pagination, normalisation, connect, sync, dedupe, consent
 expiry — runs against a fake, so it works on a NAS with an unhelpful
 Python and no internet.

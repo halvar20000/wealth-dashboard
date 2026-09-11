@@ -1157,4 +1157,419 @@ STRINGS: dict[str, str] = {
         "{n} comptes connectés",
     "{part} of it returns":
         "dont {part} de rendement",
+
+    # ─── Idées d'actions ─────────────────────────────────────────────
+    "Share Ideas": "Idées d'actions",
+    "Four boards over the same nightly Yahoo cache: shares that have fallen and are cheap, shares paying a high dividend that is still growing, ETFs with strong past growth at a low TER, and dividend ETFs paying a high yield at a low TER. A shortlist to research, never a recommendation to buy.":
+        "Quatre tableaux sur le même cache Yahoo, rafraîchi chaque nuit : des actions qui ont chuté et sont bon marché, des actions au dividende élevé qui continue de croître, des ETF à forte croissance passée pour des frais bas, et des ETF de dividendes au rendement élevé pour des frais bas. Une liste à creuser, jamais une recommandation d'achat.",
+    "Value [board]": "Décote",
+    "fallen · cheap · quality · pays": "chuté · pas cher · qualité · paie",
+    "Dividends": "Dividendes",
+    "high yield that is still growing": "rendement élevé qui croît encore",
+    "ETFs": "ETF",
+    "high growth · low TER": "forte croissance · TER bas",
+    "Dividend ETFs": "ETF de dividendes",
+    "high yield · low TER": "rendement élevé · TER bas",
+    "The board": "Le tableau",
+    "Loading…": "Chargement…",
+    "Names that pass every hard gate and therefore carry a score.":
+        "Les titres qui passent chaque filtre dur et portent donc un score.",
+    "Ranked candidates": "Candidats classés",
+    "Scored 70 or above out of 100 on this board.":
+        "Notés 70 ou plus sur 100 sur ce tableau.",
+    "Strong (70+)": "Solides (70+)",
+    "Can sit inside a French PEA. For shares this is inferred from the country of incorporation; for ETFs it is a curated fact, because no data source publishes it.":
+        "Peut se loger dans un PEA. Pour les actions, déduit du pays du siège ; pour les ETF, un fait tenu à la main, car aucune source ne le publie.",
+    "PEA-eligible": "Éligible PEA",
+    "Excluded before scoring, with the reason kept. Listed at the bottom of the page.":
+        "Écartés avant la notation, motif conservé. Listés en bas de page.",
+    "Gated out": "Écartés",
+    "The screen is transparent on purpose — every column below is an input to the score, not an output of it.":
+        "Le filtre est transparent à dessein — chaque colonne ci-dessous est un ingrédient du score, pas un résultat.",
+    "PEA-eligible only": "Éligibles PEA seulement",
+    "Hide what I already own": "Masquer ce que je détiens déjà",
+    "Hide dismissed": "Masquer les écartés",
+    "Watchlist only": "Liste de suivi seulement",
+    "Sector": "Secteur",
+    "Min score": "Score minimum",
+    "Show": "Afficher",
+    "all": "tout",
+    "Candidates": "Candidats",
+    "Click a row for the full breakdown.": "Cliquez sur une ligne pour le détail complet.",
+    "Excluded before scoring, and why. Shown because an absence you cannot explain is worse than no screen at all.":
+        "Écartés avant la notation, et pourquoi. Affichés parce qu'une absence inexplicable est pire qu'aucun filtre.",
+    "Symbol": "Symbole",
+    "Group": "Groupe",
+    "Reason": "Motif",
+    "Close": "Fermer",
+    "How to read this": "Comment lire ce tableau",
+    "Value 25% · cheapness 25% · quality 30% · dividend 20%. It finds shares that have fallen a long way from their own 52-week high and are cheap on earnings while still earning well and paying a covered dividend.":
+        "Décote 25 % · cherté 25 % · qualité 30 % · dividende 20 %. Il trouve les actions tombées loin de leur plus haut sur 52 semaines et bon marché rapportées aux bénéfices, tout en gagnant encore bien et en versant un dividende couvert.",
+    "The flag that matters most is “near its 52-week low”. “40% off the high” and “still falling” are the same fact seen from two ends, and only the second tells you the market has not finished selling.":
+        "L'alerte qui compte le plus est « près de son plus bas sur 52 semaines ». « 40 % sous le plus haut » et « chute encore » sont le même fait vu des deux bouts, et seul le second dit que le marché n'a pas fini de vendre.",
+    "Yield 35% · growth 30% · safety 20% · quality 15%. Yield and growth carry most of it, as they should on an income board — but not all of it, because a ranking on yield alone puts the next dividend cut at the top of the list every single time. The growth pillar blends dividend growth (the forward annual rate against the last twelve months' actual), revenue growth and earnings growth.":
+        "Rendement 35 % · croissance 30 % · sécurité 20 % · qualité 15 %. Rendement et croissance portent l'essentiel, comme il se doit sur un tableau de revenu — mais pas tout, car un classement sur le seul rendement met chaque fois la prochaine coupe de dividende en tête. Le pilier croissance mêle la croissance du dividende (le taux annuel annoncé contre celui réellement versé sur douze mois), celle du chiffre d'affaires et celle des bénéfices.",
+    "A yield above 12% is gated out rather than rewarded: on a large cap that is the market pricing a cut, not an opportunity. So is a payout ratio above 90%, and a business whose revenue is shrinking. The free-cash-flow payout is the column to look at when two names have the same yield — earnings can be flattered, cash cannot, and a dividend costing more than 100% of free cash flow is being paid out of the balance sheet.":
+        "Un rendement au-dessus de 12 % est écarté plutôt que récompensé : sur une grande capitalisation, c'est le marché qui anticipe une coupe, pas une occasion. Idem pour un taux de distribution au-dessus de 90 % et un chiffre d'affaires qui recule. La distribution rapportée au flux de trésorerie libre est la colonne à regarder quand deux titres ont le même rendement — les bénéfices se maquillent, la trésorerie non, et un dividende qui coûte plus de 100 % du flux libre est payé avec le bilan.",
+    "Growth 40% · cost 30% · risk 20% · size 10%. Growth is the compound annual total return in euros, computed from the adjusted price history rather than read from a field — Yahoo leaves its own return fields empty for almost every European UCITS listing, and the raw price of a distributing fund understates its return by roughly its yield every year.":
+        "Croissance 40 % · coût 30 % · risque 20 % · taille 10 %. La croissance est le rendement total annualisé en euros, calculé à partir de l'historique de cours ajusté plutôt que lu dans un champ — Yahoo laisse ses propres champs de rendement vides pour presque toutes les cotations UCITS européennes, et le cours brut d'un fonds distribuant sous-estime son rendement d'à peu près son taux de distribution chaque année.",
+    "The growth column is the past and the TER is the future. Five years that contained one of the strongest US equity runs on record will rank concentration highly for reasons that have already happened. The TER is charged every year whatever the market does — which is why cost carries 30% of a board whose headline is growth.":
+        "La colonne croissance, c'est le passé ; le TER, c'est l'avenir. Cinq années contenant l'une des plus fortes hausses des actions américaines classeront haut la concentration pour des raisons déjà passées. Le TER est prélevé chaque année quoi que fasse le marché — d'où 30 % pour le coût sur un tableau dont le titre est la croissance.",
+    "The universe is UCITS-only on purpose: without a PRIIPs KID a US-listed ETF cannot be bought at a European broker at all, so ranking one would be ranking something unbuyable. PEA eligibility is a curated fact, not an inferred one — it depends on the fund's holdings and wrapper, and a synthetic MSCI World qualifies where a physical one does not.":
+        "L'univers est volontairement limité aux UCITS : sans DIC PRIIPs, un ETF coté aux États-Unis ne s'achète pas chez un courtier européen, le classer reviendrait à classer l'inachetable. L'éligibilité PEA est un fait tenu à la main, pas déduit — elle dépend des positions et de l'enveloppe du fonds, et un MSCI World synthétique se qualifie là où un physique ne le fait pas.",
+    "Yield 35% · cost 25% · growth 20% · stability 20%. The yield is computed from the distributions the fund actually paid over the last twelve months, not read from a field — Yahoo populates its own yield for barely one European listing in six, so a board that trusted it would be blank for five funds out of every six it ranks.":
+        "Rendement 35 % · coût 25 % · croissance 20 % · stabilité 20 %. Le rendement est calculé à partir des distributions réellement versées sur douze mois, pas lu dans un champ — Yahoo ne renseigne son propre rendement que pour à peine une cotation européenne sur six, un tableau qui s'y fierait serait vide pour cinq fonds sur six.",
+    "It will read lower than the yield on the factsheet. The numerator is the past year's payments and the denominator is today's price, so a fund that has risen shows a smaller ratio than the “indicated” yield a provider quotes. Both are honest; this one is backward-looking on purpose, because a forward yield is an estimate and there are enough estimates on this page already.":
+        "Il paraîtra plus bas que le rendement de la fiche. Le numérateur est ce qui a été versé l'an passé et le dénominateur le cours d'aujourd'hui, un fonds qui a monté affiche donc un ratio plus petit que le rendement « indicatif » d'un émetteur. Les deux sont honnêtes ; celui-ci regarde en arrière à dessein, car un rendement prévisionnel est une estimation, et il y en a déjà assez sur cette page.",
+    "Yield is only 35% for the same reason it is on the share board, and the reason bites harder here: an index that selects on yield mechanically buys whatever has just fallen. Worse, a fund has no payout ratio and no balance sheet you can interrogate — so the only evidence that its income is durable is whether it has ever collapsed. That is the Worst cut column, and it carries most of the stability pillar.":
+        "Le rendement ne pèse que 35 %, pour la même raison que sur le tableau des actions, et elle mord plus fort ici : un indice qui sélectionne sur le rendement achète mécaniquement ce qui vient de chuter. Pire, un fonds n'a ni taux de distribution ni bilan à interroger — la seule preuve que son revenu est durable est de savoir s'il s'est déjà effondré. C'est la colonne « Pire coupe », et elle porte l'essentiel du pilier stabilité.",
+    "Cost is 25% because the TER comes out of the same cash the distribution does. At a 3.5% yield a 0.45% TER is not “half a percent” — it is 13% of your income, every year, guaranteed. The Net column does that subtraction. Accumulating share classes are gated out: they pay nothing, which does not make them bad funds, only not income ones.":
+        "Le coût pèse 25 % parce que le TER sort de la même trésorerie que la distribution. À 3,5 % de rendement, un TER de 0,45 % n'est pas « un demi pour cent » — c'est 13 % de votre revenu, chaque année, garanti. La colonne « Net » fait cette soustraction. Les parts capitalisantes sont écartées : elles ne versent rien, ce qui n'en fait pas de mauvais fonds, seulement pas des fonds de revenu.",
+    "Every score is a sorting device for a research queue, not a valuation and not advice. Fundamentals come from Yahoo and are refreshed once a day in the background; they can be wrong, stale, or reported in a currency other than the price. Verify the two or three names you actually care about at the source before doing anything.":
+        "Chaque score est un outil de tri pour une file de recherche, ni une valorisation ni un conseil. Les fondamentaux viennent de Yahoo et sont rafraîchis une fois par jour en arrière-plan ; ils peuvent être faux, périmés ou exprimés dans une autre devise que le cours. Vérifiez à la source les deux ou trois titres qui vous intéressent vraiment avant de faire quoi que ce soit.",
+
+    # Colonnes et raccourcis
+    "Score": "Score",
+    "Pillars": "Piliers",
+    "Off high": "Sous le haut",
+    "P/E": "PER",
+    "Yield": "Rendement",
+    "Payout": "Distribution",
+    "ROE": "ROE",
+    "Debt/Eq": "Dette/FP",
+    "Div growth": "Croiss. div.",
+    "Rev growth": "Croiss. CA",
+    "EPS growth": "Croiss. BPA",
+    "FCF payout": "Distrib. / FCF",
+    "5y p.a.": "5 ans p. a.",
+    "3y p.a.": "3 ans p. a.",
+    "1y": "1 an",
+    "Vol": "Vol.",
+    "Max DD": "Baisse max.",
+    "Policy": "Politique",
+    "Size": "Taille",
+    "Net": "Net",
+    "Worst cut": "Pire coupe",
+    "Pays": "Verse",
+    "Region": "Région",
+    "no data": "pas de données",
+    "held": "détenu",
+    "Already in the portfolio": "Déjà en portefeuille",
+    "Can sit in a French PEA.": "Peut se loger dans un PEA.",
+    "watching": "suivi",
+    "dismissed": "écarté",
+    "Add to watchlist": "Ajouter à la liste de suivi",
+    "Dismiss": "Écarter",
+    "☆ Watch": "☆ Suivre",
+    "✕ Dismiss": "✕ Écarter",
+    "Clear mark": "Effacer la marque",
+    "Open on Yahoo ↗": "Ouvrir sur Yahoo ↗",
+    "Nothing matches these filters.": "Rien ne correspond à ces filtres.",
+    "Nothing gated out.": "Rien d'écarté.",
+    "Gated out:": "Écarté :",
+    "Last fetch error:": "Dernière erreur de collecte :",
+    "data coverage": "couverture des données",
+    "mkt cap": "capi.",
+    "yes": "oui",
+    "no": "non",
+    "yes (EU/EEA seat)": "oui (siège UE/EEE)",
+    "no — outside a PEA only": "non — hors PEA seulement",
+    "never fell": "jamais baissé",
+    "× a year": "× par an",
+    "Failed to load": "Échec du chargement",
+    "Loaded, but failed to render — see the console":
+        "Chargé, mais impossible à afficher — voir la console",
+    "{n} screened · last refresh {date}": "{n} passés au crible · dernier rafraîchissement {date}",
+    "This cache is empty. The first refresh starts a minute after start-up and takes a few minutes; there is also a button under Settings.":
+        "Ce cache est vide. Le premier rafraîchissement démarre une minute après le lancement et prend quelques minutes ; il y a aussi un bouton dans les Réglages.",
+    "Data was last refreshed {days} days ago. Every price-derived figure below is that old.":
+        "Les données datent d'il y a {days} jours. Chaque chiffre dérivé d'un cours ci-dessous a cet âge.",
+    "{n} symbol(s) failed their last fetch and are showing older figures.":
+        "{n} symbole(s) ont échoué à leur dernière collecte et affichent des chiffres plus anciens.",
+    "Hide": "Masquer",
+    "A hollow bar means there was no data for that pillar — the score is then a mean over the pillars that do have data, which is why thin rows carry a “thin data” flag.":
+        "Une barre creuse signifie qu'il n'y avait pas de données pour ce pilier — le score est alors une moyenne des piliers renseignés, d'où l'alerte « données minces » sur les lignes maigres.",
+    "Trailing where there is a trailing profit, otherwise the forward estimate (marked ƒ).":
+        "Sur douze mois glissants s'il y a un bénéfice, sinon l'estimation prévisionnelle (marquée ƒ).",
+    "Yahoo’s figure, not the KID’s": "Chiffre de Yahoo, pas du DIC",
+    "value": "décote",
+    "cheap": "pas cher",
+    "quality": "qualité",
+    "dividend": "dividende",
+    "yield": "rendement",
+    "growth": "croissance",
+    "safety": "sécurité",
+    "cost": "coût",
+    "risk": "risque",
+    "size": "taille",
+    "stability": "stabilité",
+    "Ongoing charge per year. Curated from the fund KID where we have it; Yahoo otherwise, which is then flagged.":
+        "Frais courants par an. Tirés du DIC du fonds quand nous l'avons ; sinon de Yahoo, ce qui est alors signalé.",
+
+    # Les quatre tableaux
+    "Cheap and beaten down": "Pas cher et massacré",
+    "Shares that have fallen from their own 52-week high, trade on a low P/E, still earn well, and pay a dividend their earnings cover.":
+        "Des actions tombées de leur plus haut sur 52 semaines, à PER bas, qui gagnent encore bien et versent un dividende couvert par leurs bénéfices.",
+    "Pillar bars are, left to right: value (how far it has fallen), cheap (P/E and price-to-book), quality (ROE, operating margin, leverage, liquidity), dividend (yield, and whether earnings cover it).":
+        "Les barres des piliers sont, de gauche à droite : décote (l'ampleur de la chute), pas cher (PER et cours sur actif net), qualité (ROE, marge opérationnelle, endettement, liquidité), dividende (rendement, et s'il est couvert par les bénéfices).",
+    "How far below its own 52-week high the price sits.":
+        "À quelle distance sous son plus haut sur 52 semaines se situe le cours.",
+    "Share of earnings paid out as dividend. Sweet spot 25–60%.":
+        "Part des bénéfices versée en dividende. Idéal entre 25 et 60 %.",
+    "Ratio, not percent. Above 2.0 is flagged.": "Un ratio, pas un pourcentage. Signalé au-dessus de 2,0.",
+    "High dividend, still growing": "Dividende élevé, qui croît encore",
+    "The highest yields that are not warning you about themselves: the dividend must be growing, covered by earnings AND by free cash flow, on a business that is not shrinking.":
+        "Les rendements les plus élevés qui ne vous mettent pas en garde contre eux-mêmes : le dividende doit croître, être couvert par les bénéfices ET par le flux de trésorerie libre, dans une entreprise qui ne rétrécit pas.",
+    "Pillar bars are, left to right: yield (what it pays today), growth (dividend, revenue and earnings growth), safety (payout ratio, free-cash-flow cover, leverage, liquidity), quality (ROE and margins). Dividend growth is the forward annual rate against the last twelve months actually paid, so a declared cut shows up here the day it is announced rather than a year later.":
+        "Les barres des piliers sont, de gauche à droite : rendement (ce qui est versé aujourd'hui), croissance (dividende, chiffre d'affaires, bénéfices), sécurité (taux de distribution, couverture par le flux libre, endettement, liquidité), qualité (ROE et marges). La croissance du dividende est le taux annuel annoncé contre ce qui a été réellement versé sur douze mois, une coupe déclarée apparaît donc ici le jour de l'annonce plutôt qu'un an plus tard.",
+    "Forward annual dividend against the last twelve months actually paid. Negative = a cut has been declared.":
+        "Dividende annuel annoncé contre celui réellement versé sur douze mois. Négatif = une coupe est déclarée.",
+    "Share of EARNINGS paid out.": "Part des BÉNÉFICES distribuée.",
+    "Share of FREE CASH FLOW paid out. Above 100% the dividend is coming out of the balance sheet.":
+        "Part du FLUX DE TRÉSORERIE LIBRE distribuée. Au-dessus de 100 %, le dividende sort du bilan.",
+    "High growth, low TER": "Forte croissance, TER bas",
+    "UCITS ETFs ranked on compound annual total return in EUR against what they charge for it. Growth is the past; the TER is the only column here that is a fact about the future.":
+        "Des ETF UCITS classés sur le rendement total annualisé en EUR rapporté à ce qu'ils facturent. La croissance, c'est le passé ; le TER est la seule colonne ici qui soit un fait sur l'avenir.",
+    "Pillar bars are, left to right: growth (5-year and 3-year CAGR in EUR, total return), cost (TER), risk (return per unit of volatility, and the worst peak-to-trough fall in the window), size (fund assets — a small fund can close, and trades on a wider spread). Returns are converted to euros before they are measured: a USD-quoted UCITS ETF and its EUR-quoted twin are the same fund, and comparing their raw returns would rank the dollar.":
+        "Les barres des piliers sont, de gauche à droite : croissance (rendement annualisé sur 5 et 3 ans en EUR, total), coût (TER), risque (rendement par unité de volatilité, et pire baisse du haut au bas dans la fenêtre), taille (encours — un petit fonds peut fermer et se traite avec un écart plus large). Les rendements sont convertis en euros avant d'être mesurés : un ETF UCITS coté en USD et son jumeau coté en EUR sont le même fonds, et comparer leurs rendements bruts classerait le dollar.",
+    "Compound annual total return over five years, in EUR.":
+        "Rendement total annualisé sur cinq ans, en EUR.",
+    "Annualised standard deviation of weekly returns over the last year.":
+        "Écart-type annualisé des rendements hebdomadaires sur l'année écoulée.",
+    "Worst peak-to-trough fall within the cached history.":
+        "Pire baisse du haut au bas dans l'historique en cache.",
+    "acc = accumulating (nothing is paid out, nothing is taxed until you sell). dist = distributing.":
+        "acc = capitalisant (rien n'est versé, rien n'est imposé avant la vente). dist = distribuant.",
+    "High yield, low TER": "Rendement élevé, TER bas",
+    "Distributing UCITS ETFs ranked on the income they actually paid over the last twelve months against what they charge for it — and on whether that income is growing rather than being cut. Accumulating share classes are excluded: they pay nothing.":
+        "Des ETF UCITS distribuants classés sur le revenu réellement versé sur douze mois rapporté à ce qu'ils facturent — et sur le fait que ce revenu croît plutôt que d'être coupé. Les parts capitalisantes sont exclues : elles ne versent rien.",
+    "Pillar bars are, left to right: yield (distributions paid over the last twelve months, divided by today’s price), cost (TER), growth (this year’s distributions against last year’s, plus the price return as a check that the income is not just capital coming back), stability (the worst year-on-year fall in the distribution on record, and the worst peak-to-trough price fall). The yield is computed from the distributions themselves, not read from a field — Yahoo populates its own yield for barely one European listing in six. Because the numerator is the past year and the denominator is today’s price, it reads lower than a provider’s “indicated yield” whenever the fund has risen.":
+        "Les barres des piliers sont, de gauche à droite : rendement (distributions versées sur douze mois, divisées par le cours du jour), coût (TER), croissance (les distributions de cette année contre celles de l'an passé, plus le rendement du cours pour vérifier que le revenu n'est pas du capital qui revient), stabilité (la pire baisse annuelle de la distribution connue, et la pire baisse du cours du haut au bas). Le rendement est calculé à partir des distributions elles-mêmes, pas lu dans un champ — Yahoo ne renseigne le sien que pour à peine une cotation européenne sur six. Le numérateur étant l'année écoulée et le dénominateur le cours du jour, il paraît plus bas que le « rendement indicatif » d'un émetteur dès que le fonds a monté.",
+    "Distributions actually paid over the last 12 months, divided by the current price.":
+        "Distributions réellement versées sur les 12 derniers mois, divisées par le cours actuel.",
+    "Yield minus TER — the income that reaches you before tax. Shown, never ranked on: a high net yield can come from paying a lot or from costing little, and those are different funds.":
+        "Rendement moins TER — le revenu qui vous parvient avant impôt. Affiché, jamais utilisé pour classer : un rendement net élevé peut venir d'un fonds qui verse beaucoup ou d'un fonds qui coûte peu, et ce sont des fonds différents.",
+    "Distributions of the last 12 months against the 12 before. Negative = the payout is shrinking.":
+        "Distributions des 12 derniers mois contre les 12 précédents. Négatif = la distribution rétrécit.",
+    "The deepest year-on-year fall in the distribution across the years on record. “none” means every year on record was at least as big as the one before. Blank means there is not enough history to say.":
+        "La plus forte baisse annuelle de la distribution sur les années connues. « aucune » signifie que chaque année connue a été au moins aussi grosse que la précédente. Vide signifie qu'il n'y a pas assez d'historique pour le dire.",
+    "Compound annual TOTAL return in EUR — price plus distributions reinvested. A high yield beside a poor total return means capital is being handed back.":
+        "Rendement TOTAL annualisé en EUR — cours plus distributions réinvesties. Un rendement élevé à côté d'un rendement total médiocre signifie que du capital est rendu.",
+    "Distributions in the last 12 months: 1 = annual, 2 = semi-annual, 4 = quarterly, 12 = monthly.":
+        "Distributions sur les 12 derniers mois : 1 = annuelle, 2 = semestrielle, 4 = trimestrielle, 12 = mensuelle.",
+
+    # Le panneau de détail
+    "Trailing yield": "Rendement sur 12 mois",
+    "Distributions paid over the last 12 months divided by the current price. Computed from the payments themselves — Yahoo’s own yield field is populated for barely one European listing in six.":
+        "Distributions versées sur les 12 derniers mois divisées par le cours actuel. Calculé à partir des versements eux-mêmes — le champ rendement de Yahoo n'est renseigné que pour à peine une cotation européenne sur six.",
+    "Charged out of the same cash the distribution comes from.":
+        "Prélevé sur la même trésorerie que celle d'où vient la distribution.",
+    "Net yield": "Rendement net",
+    "Yield minus TER, before any tax. Shown but never ranked on — a high net yield can come from paying a lot or from costing little.":
+        "Rendement moins TER, avant tout impôt. Affiché mais jamais utilisé pour classer — un rendement net élevé peut venir d'un fonds qui verse beaucoup ou qui coûte peu.",
+    "TER as a share of income": "TER en part du revenu",
+    "What proportion of the income the fund keeps. Half a percent sounds small until it is 13% of a 3.5% yield.":
+        "Quelle part du revenu le fonds garde. Un demi pour cent paraît peu jusqu'à ce que ce soit 13 % d'un rendement de 3,5 %.",
+    "Distributions, last 12m": "Distributions, 12 derniers mois",
+    "In the listing currency. A yield is a ratio, so it needs no currency conversion.":
+        "Dans la devise de cotation. Un rendement est un ratio, il n'a pas besoin de conversion.",
+    "Distributions, 12m before": "Distributions, 12 mois avant",
+    "Distribution growth": "Croissance de la distribution",
+    "This year’s total against last year’s.": "Le total de cette année contre celui de l'an passé.",
+    "Worst year on record": "Pire année connue",
+    "The deepest year-on-year fall in the distribution across the years available. An index fund has no payout ratio to interrogate, so this is the only evidence that its income is durable.":
+        "La plus forte baisse annuelle de la distribution sur les années disponibles. Un fonds indiciel n'a pas de taux de distribution à interroger, c'est donc la seule preuve que son revenu est durable.",
+    "A change in frequency makes one year’s total incomparable with the next.":
+        "Un changement de fréquence rend le total d'une année incomparable avec le suivant.",
+    "Last distribution": "Dernière distribution",
+    "Distribution history": "Historique des distributions",
+    "5-year total return": "Rendement total sur 5 ans",
+    "Price plus distributions reinvested, in EUR. A high yield beside a weak total return means capital is being returned rather than earned.":
+        "Cours plus distributions réinvesties, en EUR. Un rendement élevé à côté d'un rendement total faible signifie que du capital est rendu plutôt que gagné.",
+    "Max drawdown": "Baisse maximale",
+    "Fund size": "Encours",
+    "Policy (curated)": "Politique (tenue à la main)",
+    "Cross-checked against the distributions actually observed; a disagreement is flagged rather than resolved silently.":
+        "Recoupé avec les distributions réellement observées ; un désaccord est signalé plutôt que tranché en silence.",
+    "Provider": "Émetteur",
+    "Matters more on an income holding than on an accumulating one: outside a PEA every distribution is taxed the year it is paid, so the headline yield is not the net one.":
+        "Compte plus pour une position de revenu que pour une capitalisante : hors PEA, chaque distribution est imposée l'année de son versement, le rendement affiché n'est donc pas le net.",
+    "In the portfolio": "En portefeuille",
+    "Data fetched": "Données collectées",
+    "Curated from the fund KID where we have it — Yahoo has no expense ratio for most European listings, and reports it in two different units when it does.":
+        "Tiré du DIC du fonds quand nous l'avons — Yahoo n'a pas de frais pour la plupart des cotations européennes, et les donne dans deux unités différentes quand il en a.",
+    "Yahoo’s TER": "TER selon Yahoo",
+    "Kept as a cross-check. A disagreement usually means a different share class.":
+        "Gardé comme contrôle. Un désaccord signifie en général une autre classe de parts.",
+    "5-year CAGR": "Rendement annualisé 5 ans",
+    "Compound annual total return in EUR, from the dividend-adjusted price history.":
+        "Rendement total annualisé en EUR, d'après l'historique de cours ajusté des dividendes.",
+    "3-year CAGR": "Rendement annualisé 3 ans",
+    "1-year return": "Rendement 1 an",
+    "Volatility (1y)": "Volatilité (1 an)",
+    "Annualised standard deviation of weekly returns.":
+        "Écart-type annualisé des rendements hebdomadaires.",
+    "Worst peak-to-trough fall inside the cached history — measured on weekly closes, so it is a floor on the real figure.":
+        "Pire baisse du haut au bas dans l'historique en cache — mesurée sur les clôtures hebdomadaires, donc un plancher du chiffre réel.",
+    "Return per unit of vol": "Rendement par unité de vol.",
+    "3-year CAGR divided by volatility. Not a Sharpe ratio — no risk-free rate is subtracted.":
+        "Rendement annualisé 3 ans divisé par la volatilité. Pas un ratio de Sharpe — aucun taux sans risque n'est soustrait.",
+    "A small fund can be closed and merged, and trades on a wider spread.":
+        "Un petit fonds peut être fermé et fusionné, et se traite avec un écart plus large.",
+    "Distribution policy": "Politique de distribution",
+    "acc = accumulating. Outside a tax wrapper, a distributing fund is taxed on each distribution in the year it is paid.":
+        "acc = capitalisant. Hors enveloppe fiscale, un fonds distribuant est imposé sur chaque distribution l'année de son versement.",
+    "History used": "Historique utilisé",
+    "A curated fact, not an inferred one: it depends on the fund’s holdings and wrapper, and no data source publishes it.":
+        "Un fait tenu à la main, pas déduit : il dépend des positions et de l'enveloppe du fonds, et aucune source ne le publie.",
+    "Dividend yield": "Rendement du dividende",
+    "5-year average yield": "Rendement moyen sur 5 ans",
+    "A yield far above its own average is often a falling price, not a rising dividend.":
+        "Un rendement bien au-dessus de sa propre moyenne est souvent un cours qui baisse, pas un dividende qui monte.",
+    "Payout ratio": "Taux de distribution",
+    "Share of earnings paid out.": "Part des bénéfices distribuée.",
+    "Trailing where there is a trailing profit, else forward.":
+        "Sur douze mois glissants s'il y a un bénéfice, sinon prévisionnel.",
+    "Trailing / forward P/E": "PER glissant / prévisionnel",
+    "Price / book": "Cours / actif net",
+    "Return on equity": "Rentabilité des capitaux propres",
+    "Operating margin": "Marge opérationnelle",
+    "Profit margin": "Marge nette",
+    "Debt / equity": "Dette / fonds propres",
+    "Ratio, not percent.": "Un ratio, pas un pourcentage.",
+    "Current ratio": "Ratio de liquidité générale",
+    "Revenue growth": "Croissance du chiffre d'affaires",
+    "Earnings growth": "Croissance des bénéfices",
+    "Off 52-week high": "Sous le plus haut 52 sem.",
+    "Above 52-week low": "Au-dessus du plus bas 52 sem.",
+    "Small = the market may not have finished selling.":
+        "Petit = le marché n'a peut-être pas fini de vendre.",
+    "Beta": "Bêta",
+    "Indicative, from the reported country of incorporation. Confirm with the broker.":
+        "Indicatif, d'après le pays du siège déclaré. À confirmer auprès du courtier.",
+    "Fundamentals fetched": "Fondamentaux collectés",
+    "Dividend growth": "Croissance du dividende",
+    "Forward annual dividend against the last twelve months actually paid.":
+        "Dividende annuel annoncé contre celui réellement versé sur douze mois.",
+    "Forward / trailing dividend": "Dividende annoncé / versé",
+    "Per share, in the reporting currency. Their ratio is the growth figure above.":
+        "Par action, dans la devise de publication. Leur ratio est le chiffre de croissance ci-dessus.",
+    "Free-cash-flow payout": "Distribution / flux de trésorerie libre",
+    "Dividends as a share of free cash flow. Earnings can be flattered; cash cannot.":
+        "Dividendes en part du flux de trésorerie libre. Les bénéfices se maquillent, la trésorerie non.",
+    "Free cash flow": "Flux de trésorerie libre",
+
+    # Réglages
+    "refreshing now": "rafraîchissement en cours",
+    "last refreshed {when}": "dernier rafraîchissement {when}",
+    "never refreshed": "jamais rafraîchi",
+    "The four boards under Share Ideas rank a fixed list of shares and ETFs on figures fetched from Yahoo — free, without a key. The cache is refreshed once a day in the background; the first refresh runs a minute after start-up. A refresh is a few hundred requests with a pause between them and takes a few minutes, so it runs on its own and the boards fill in as it goes.":
+        "Les quatre tableaux d'Idées d'actions classent une liste fixe d'actions et d'ETF sur des chiffres collectés chez Yahoo — gratuits, sans clé. Le cache est rafraîchi une fois par jour en arrière-plan ; le premier rafraîchissement démarre une minute après le lancement. Un rafraîchissement, ce sont quelques centaines de requêtes espacées d'une pause et quelques minutes, il tourne donc tout seul et les tableaux se remplissent au fur et à mesure.",
+    "Shares: {n} cached, {errors} with a fetch error.":
+        "Actions : {n} en cache, {errors} avec une erreur de collecte.",
+    "ETFs: {n} cached, {errors} with a fetch error.":
+        "ETF : {n} en cache, {errors} avec une erreur de collecte.",
+    "To screen more names, or to correct an ETF's TER, edit screener_universe.json and screener_etf_universe.json in the data folder; thresholds live in screener.json beside them. All three are read on every page load.":
+        "Pour passer plus de titres au crible, ou corriger le TER d'un ETF, modifiez screener_universe.json et screener_etf_universe.json dans le dossier de données ; les seuils sont dans screener.json à côté. Les trois sont relus à chaque chargement de page.",
+    "Refresh share ideas now": "Rafraîchir les idées d'actions maintenant",
+    "everything, not only what is older than a day":
+        "tout, pas seulement ce qui date de plus d'un jour",
+    "Refreshing the share ideas in the background. It takes a few minutes; the boards fill in as it goes.":
+        "Rafraîchissement des idées d'actions en arrière-plan. Cela prend quelques minutes ; les tableaux se remplissent au fur et à mesure.",
+    "A refresh is already running.": "Un rafraîchissement est déjà en cours.",
+
+    # Filtres et alertes, formulés par le serveur
+    "not a share ({type})": "pas une action ({type})",
+    "no market cap": "pas de capitalisation",
+    "too small ({bn}bn)": "trop petit ({bn} Md)",
+    "no positive earnings": "pas de bénéfice positif",
+    "P/E too high ({pe})": "PER trop élevé ({pe})",
+    "pays no dividend": "ne verse pas de dividende",
+    "token dividend ({pct}%)": "dividende symbolique ({pct} %)",
+    "dividend not covered ({pct}% payout)": "dividende non couvert ({pct} % de distribution)",
+    "near its 52-week low — still falling?": "près de son plus bas sur 52 semaines — chute encore ?",
+    "payout ratio above 90% — dividend barely covered":
+        "taux de distribution au-dessus de 90 % — dividende à peine couvert",
+    "yield far above its own 5-year average — possible yield trap":
+        "rendement bien au-dessus de sa moyenne sur 5 ans — piège à rendement possible",
+    "no trailing profit — P/E is the forward estimate":
+        "pas de bénéfice sur douze mois — le PER est l'estimation prévisionnelle",
+    "earnings down {pct}% year on year": "bénéfices en baisse de {pct} % sur un an",
+    "leveraged ({ratio}x debt/equity)": "endetté ({ratio}× dette/fonds propres)",
+    "thin data — score built on few figures": "données minces — score bâti sur peu de chiffres",
+    "yield too low for income ({pct}%)": "rendement trop bas pour du revenu ({pct} %)",
+    "yield says distress ({pct}%)": "le rendement dit la détresse ({pct} %)",
+    "payout leaves no headroom ({pct}%)": "la distribution ne laisse aucune marge ({pct} %)",
+    "revenue shrinking ({pct}%)": "chiffre d'affaires en recul ({pct} %)",
+    "forward dividend {pct}% BELOW the trailing one — a cut is already declared":
+        "dividende annoncé {pct} % SOUS le précédent — une coupe est déjà déclarée",
+    "dividend rate moved more than 50% — likely a special, or a change of payment frequency, not real growth":
+        "dividende modifié de plus de 50 % — probablement un exceptionnel ou un changement de fréquence, pas une vraie croissance",
+    "yield well above its own 5-year average — the price fell, the dividend did not rise":
+        "rendement nettement au-dessus de sa moyenne sur 5 ans — le cours a baissé, le dividende n'a pas monté",
+    "dividend costs {pct}% of free cash flow — paid out of the balance sheet, not out of the business":
+        "le dividende coûte {pct} % du flux de trésorerie libre — payé avec le bilan, pas avec l'activité",
+    "payout ratio {pct}% — little room for a bad year":
+        "taux de distribution de {pct} % — peu de marge pour une mauvaise année",
+    "near its 52-week low — the market is still selling":
+        "près de son plus bas sur 52 semaines — le marché vend encore",
+    "not a fund ({type})": "pas un fonds ({type})",
+    "leveraged or inverse — a multi-year CAGR is meaningless":
+        "à levier ou inversé — un rendement pluriannuel n'a aucun sens",
+    "no TER known — add it to screener_etf_universe.json":
+        "TER inconnu — à ajouter dans screener_etf_universe.json",
+    "too expensive ({pct}% a year)": "trop cher ({pct} % par an)",
+    "no price history": "pas d'historique de cours",
+    "only {years} years of history": "seulement {years} ans d'historique",
+    "fund too small ({m}m)": "fonds trop petit ({m} M)",
+    "our TER {ours}% vs Yahoo's {theirs}% — likely a different share class; check the ISIN":
+        "notre TER {ours} % contre {theirs} % chez Yahoo — probablement une autre classe de parts ; vérifiez l'ISIN",
+    "TER is Yahoo's, not the KID's — verify before ranking on it":
+        "le TER vient de Yahoo, pas du DIC — à vérifier avant de classer dessus",
+    "returns are in {ccy}, not EUR — the FX series could not be fetched, so this row is not comparable with the rest":
+        "rendements en {ccy}, pas en EUR — la série de change n'a pas pu être collectée, cette ligne n'est pas comparable aux autres",
+    "under 5 years of history — growth is the 3-year figure alone":
+        "moins de 5 ans d'historique — la croissance est le seul chiffre à 3 ans",
+    "distributing — outside a tax wrapper each distribution is taxed in the year it is paid, so it compounds slower":
+        "distribuant — hors enveloppe fiscale, chaque distribution est imposée l'année de son versement, la capitalisation est donc plus lente",
+    "fell {pct}% peak to trough within this window":
+        "a chuté de {pct} % du haut au bas dans cette fenêtre",
+    "volatile ({pct}% a year)": "volatil ({pct} % par an)",
+    "single theme or sector — a concentrated bet, not a core holding":
+        "un seul thème ou secteur — un pari concentré, pas une position de fond",
+    "fund size unknown — Yahoo reports none for this listing":
+        "encours inconnu — Yahoo n'en donne aucun pour cette cotation",
+    "US mutual fund — its annual distribution is mostly realised capital gains, not income":
+        "fonds commun américain — sa distribution annuelle est surtout des plus-values réalisées, pas du revenu",
+    "leveraged or inverse — not an income holding": "à levier ou inversé — pas une position de revenu",
+    "no distribution data — the fetch has not run yet":
+        "pas de données de distribution — la collecte n'a pas encore tourné",
+    "accumulating — reinvests internally and pays no income":
+        "capitalisant — réinvestit en interne et ne verse aucun revenu",
+    "yield too low for an income holding ({pct}%)":
+        "rendement trop bas pour une position de revenu ({pct} %)",
+    "implausible yield ({pct}%) — a special distribution, a return of capital, or a stale price":
+        "rendement invraisemblable ({pct} %) — une distribution exceptionnelle, un remboursement de capital ou un cours périmé",
+    "only {years} years of price history": "seulement {years} ans d'historique de cours",
+    "only {years} years of distributions — too short to tell a rising payout from a lucky one":
+        "seulement {years} ans de distributions — trop court pour distinguer une distribution qui monte d'une distribution chanceuse",
+    "listed as accumulating but has paid distributions — the universe entry is probably the wrong share class":
+        "répertorié capitalisant mais a versé des distributions — l'entrée de l'univers est probablement la mauvaise classe de parts",
+    "listed as distributing but has paid nothing in 12 months — probably the accumulating share class of the same fund":
+        "répertorié distribuant mais n'a rien versé en 12 mois — probablement la classe capitalisante du même fonds",
+    "our trailing yield {ours}% vs Yahoo's {theirs}% — check for a special distribution":
+        "notre rendement {ours} % contre {theirs} % chez Yahoo — cherchez une distribution exceptionnelle",
+    "paid {now} times this year vs {before} last — a schedule change, so the growth figure is not like-for-like":
+        "versé {now} fois cette année contre {before} l'an passé — un changement de calendrier, le chiffre de croissance ne compare donc pas à périmètre égal",
+    "has cut before — worst year was {pct}%": "a déjà coupé — la pire année a fait {pct} %",
+    "distribution is shrinking ({pct}% year on year)": "la distribution rétrécit ({pct} % sur un an)",
+    "the TER eats {pct}% of the income": "le TER mange {pct} % du revenu",
+    "PEA-eligible — distributions inside a PEA are not taxed in the year they are paid, which matters more on an income holding than on an accumulating one":
+        "éligible PEA — dans un PEA, les distributions ne sont pas imposées l'année de leur versement, ce qui compte plus pour une position de revenu que pour une capitalisante",
+    "not PEA-eligible — in a plain broker account each distribution is taxed the year it is paid, so the headline yield is not the net one":
+        "non éligible PEA — sur un compte-titres ordinaire, chaque distribution est imposée l'année de son versement, le rendement affiché n'est donc pas le net",
+    "single sector — a concentrated bet, not a core income holding":
+        "un seul secteur — un pari concentré, pas une position de revenu de fond",
+    "the same fund is also listed as {others} — pick the listing your broker offers, they are not separate holdings":
+        "le même fonds est aussi coté sous {others} — prenez la cotation que propose votre courtier, ce ne sont pas des positions distinctes",
 }

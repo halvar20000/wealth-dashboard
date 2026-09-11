@@ -1972,7 +1972,8 @@ from app import changelog, i18n, main                      # noqa: E402
 
 TEMPLATES = pathlib.Path(__file__).resolve().parent.parent / "app" / "templates"
 SOURCES = [pathlib.Path(__file__).resolve().parent.parent / "app" / f
-           for f in ("main.py", "categories.py", "auth.py", "manual.py")]
+           for f in ("main.py", "categories.py", "auth.py", "manual.py",
+                     "screener.py", "screener_etf.py")]
 
 
 def wanted_keys() -> set:
@@ -2436,10 +2437,12 @@ SEARCH = {
 }
 CHART = {
     "IWDA.AS": {"chart": {"result": [{"meta": {"symbol": "IWDA.AS", "currency": "EUR",
+                "instrumentType": "ETF",
                 "regularMarketPrice": 126.17, "regularMarketTime": 1789119714}}]}},
     "VWCE.DE": {"chart": {"result": [{"meta": {"symbol": "VWCE.DE", "currency": "EUR",
                 "regularMarketPrice": 140.5, "regularMarketTime": 1789119714}}]}},
     "SIE.DE": {"chart": {"result": [{"meta": {"symbol": "SIE.DE", "currency": "EUR",
+               "instrumentType": "EQUITY",
                "regularMarketPrice": 180.0, "regularMarketTime": 1789119714}}]}},
     "SHEL.L": {"chart": {"result": [{"meta": {"symbol": "SHEL.L", "currency": "GBp",
                "regularMarketPrice": 2650.0, "regularMarketTime": 1789119714}}]}},
@@ -2553,6 +2556,726 @@ r = c.post("/settings", data={"form": "price_symbol", "isin": "XX1234567890",
                               "symbol": "NOPE.XX"}, follow_redirects=True)
 check("a wrong ticker typed in comes back with Yahoo's reason",
       b"delisted" in r.data, True)
+
+# ---------------------------------------------------------------------------
+print("\n24. Share Ideas")
+# ---------------------------------------------------------------------------
+# Four boards over two caches, scored from canned Yahoo answers. The unit
+# traps are the reason most of this exists: Yahoo reports the same
+# quantity as a fraction and as a percent depending on the field and the
+# day, and each one is a silent 100x error in a ranking.
+from datetime import date, timedelta                        # noqa: E402
+from app import screener, screener_etf, screener_jobs, yahoo   # noqa: E402
+
+
+def near(want, tol=1e-6):
+    return lambda got: got is not None and abs(got - want) < tol
+
+
+# The flattener: quoteSummary wraps every value and sends {} for absent.
+flat = yahoo._flatten({
+    "price": {"longName": "Sanofi", "exchangeName": "Paris", "quoteType": "EQUITY",
+              "regularMarketPrice": {"raw": 73.45, "fmt": "73.45"},
+              "marketCap": {"raw": 8.8e10, "fmt": "88B"}},
+    "summaryDetail": {"dividendYield": {"raw": 0.056, "fmt": "5.60%"},
+                      "marketCap": {"raw": 1, "fmt": "1"}, "yield": {}},
+    "fundProfile": {"family": "Vanguard", "categoryName": None,
+                    "feesExpensesInvestment": {
+                        "annualReportExpenseRatio": {"raw": 0.0029, "fmt": "0.29%"},
+                        "netExpRatio": {}}},
+})
+check("wrapped values are unwrapped", flat["regularMarketPrice"], 73.45)
+check("an empty {} is missing, not a dict", "yield" in flat, False)
+check("the first module's figure wins", flat["marketCap"], 8.8e10)
+check("nested fee blocks are flattened", flat["annualReportExpenseRatio"], 0.0029)
+check("names the screener expects are filled in",
+      (flat["fullExchangeName"], flat["fundFamily"]), ("Paris", "Vanguard"))
+
+# The chart reply: adjusted closes and paid distributions in one call.
+hist = yahoo.history("VHYL.AS", get=lambda url: {"chart": {"result": [{
+    "meta": {"currency": "EUR", "instrumentType": "ETF"},
+    "timestamp": [1600000000, 1600604800, 1601209600],
+    "indicators": {"quote": [{"close": [42.5, 42.7, None]}],
+                   "adjclose": [{"adjclose": [34.9, 35.0, None]}]},
+    "events": {"dividends": {"1600930800": {"amount": 0.41, "date": 1600930800}}},
+}]}})
+check("adjusted closes are used, not raw", hist["closes"][0][1], 34.9)
+check("a missing bar is dropped", len(hist["closes"]), 2)
+check("distributions come with the same reply", hist["dividends"], [("2020-09-24", 0.41)])
+check("...and so does the instrument type", hist["quote_type"], "ETF")
+err = None
+try:
+    yahoo.history("NOPE.XX", get=lambda url: {"chart": {"result": None, "error": {
+        "code": "Not Found", "description": "No data found, symbol may be delisted"}}})
+except prices.PriceError as exc:
+    err = str(exc)
+check("a delisted symbol is a sentence", "delisted" in (err or ""), True)
+
+# --- unit normalisation ---
+g = screener.normalise({"dividendYield": 3.6, "debtToEquity": 62.0,
+                        "fiveYearAvgDividendYield": 3.2, "payoutRatio": 0.48,
+                        "returnOnEquity": 0.19, "currentPrice": 70.0})
+f = screener.normalise({"dividendYield": 0.036, "debtToEquity": 0.62,
+                        "fiveYearAvgDividendYield": 3.2, "payoutRatio": 0.48,
+                        "returnOnEquity": 0.19, "currentPrice": 70.0})
+check("percent dividendYield 3.6 → 0.036", g["dividend_yield"], predicate=near(0.036))
+check("fraction dividendYield 0.036 → 0.036", f["dividend_yield"], predicate=near(0.036))
+check("debtToEquity 62.0 (percent) → 0.62", g["debt_to_equity"], predicate=near(0.62))
+check("debtToEquity 0.62 (ratio) stays 0.62", f["debt_to_equity"], predicate=near(0.62))
+check("5y avg yield 3.2 → 0.032", g["div_yield_5y_avg"], predicate=near(0.032))
+check("absurd yield discarded",
+      screener.normalise({"dividendYield": 45.0, "currentPrice": 10.0})["dividend_yield"], None)
+check("yield derived from rate/price when the field is absent",
+      screener.normalise({"trailingAnnualDividendRate": 2.0, "currentPrice": 50.0})["dividend_yield"],
+      predicate=near(0.04))
+check("NaN survives as None", screener._num(float("nan")), None)
+
+# --- ramps, plateau, blend ---
+check("ramp at the poor end = 0", screener._ramp(0.05, 0.05, 0.40), predicate=near(0.0))
+check("ramp at the good end = 100", screener._ramp(0.40, 0.05, 0.40), predicate=near(100.0))
+check("ramp clamps", screener._ramp(0.90, 0.05, 0.40), predicate=near(100.0))
+check("inverted ramp: P/E 16.5 is mid", screener._ramp(16.5, 25.0, 8.0), predicate=near(50.0))
+check("missing input is None, not 0", screener._ramp(None, 0, 1), None)
+check("payout 0.40 is in the sweet spot", screener._plateau(0.40, 0.25, 0.60), predicate=near(100.0))
+check("payout 1.20 is well outside", screener._plateau(1.20, 0.25, 0.60),
+      predicate=lambda v: v is not None and v < 5)
+sc, cov = screener._blend({"a": 80.0, "b": None}, {"a": 0.5, "b": 0.5})
+check("a missing field does not drag the score down", sc, predicate=near(80.0))
+check("...but coverage records the gap", cov, predicate=near(0.5))
+check("nothing present → no score", screener._blend({}, {"a": 1.0}), (None, 0.0))
+
+# --- derived figures ---
+check("drawdown 70 vs high 100 = 30%",
+      screener.drawdown({"price": 70.0, "week52_high": 100.0}), predicate=near(0.30))
+check("a price above its own high clamps to 0",
+      screener.drawdown({"price": 110.0, "week52_high": 100.0}), predicate=near(0.0))
+check("negative trailing P/E falls back to forward",
+      screener.effective_pe({"trailing_pe": -5.0, "forward_pe": 9.5}), predicate=near(9.5))
+check("no positive earnings anywhere → None",
+      screener.effective_pe({"trailing_pe": -5.0, "forward_pe": None}), None)
+
+# --- the share cache, from canned fundamentals ---
+FAKE = {
+    "GOOD.PA": {"longName": "Good Industrials SA", "sector": "Industrials",
+                "industry": "Machinery", "country": "France", "currency": "EUR",
+                "quoteType": "EQUITY", "currentPrice": 70.0, "marketCap": 24e9,
+                "trailingPE": 11.0, "forwardPE": 10.0, "priceToBook": 1.8,
+                "dividendYield": 3.6, "payoutRatio": 0.48, "fiveYearAvgDividendYield": 3.2,
+                "returnOnEquity": 0.19, "operatingMargins": 0.16, "profitMargins": 0.11,
+                "debtToEquity": 62.0, "currentRatio": 1.7, "revenueGrowth": 0.04,
+                "earningsGrowth": 0.02, "fiftyTwoWeekHigh": 100.0, "fiftyTwoWeekLow": 64.0},
+    "FRACY.DE": {"longName": "Fraction Reporting AG", "sector": "Industrials",
+                 "country": "Germany", "currency": "EUR", "quoteType": "EQUITY",
+                 "currentPrice": 70.0, "marketCap": 24e9, "trailingPE": 11.0,
+                 "forwardPE": 10.0, "priceToBook": 1.8, "dividendYield": 0.036,
+                 "payoutRatio": 0.48, "fiveYearAvgDividendYield": 3.2,
+                 "returnOnEquity": 0.19, "operatingMargins": 0.16, "profitMargins": 0.11,
+                 "debtToEquity": 0.62, "currentRatio": 1.7, "revenueGrowth": 0.04,
+                 "earningsGrowth": 0.02, "fiftyTwoWeekHigh": 100.0, "fiftyTwoWeekLow": 64.0},
+    "NODIV.MI": {"longName": "No Dividend SpA", "sector": "Technology", "country": "Italy",
+                 "currency": "EUR", "quoteType": "EQUITY", "currentPrice": 40.0,
+                 "marketCap": 8e9, "trailingPE": 9.0, "priceToBook": 1.2,
+                 "dividendYield": None, "payoutRatio": 0.0, "returnOnEquity": 0.22,
+                 "operatingMargins": 0.20, "debtToEquity": 30.0, "currentRatio": 2.4,
+                 "fiftyTwoWeekHigh": 70.0, "fiftyTwoWeekLow": 38.0},
+    "LOSS.AS": {"longName": "Turnaround NV", "sector": "Consumer Cyclical",
+                "country": "Netherlands", "currency": "EUR", "quoteType": "EQUITY",
+                "currentPrice": 12.0, "marketCap": 3e9, "trailingPE": None, "forwardPE": 9.5,
+                "priceToBook": 0.9, "dividendYield": 2.5, "payoutRatio": 0.40,
+                "returnOnEquity": 0.09, "operatingMargins": 0.06, "debtToEquity": 80.0,
+                "currentRatio": 1.2, "earningsGrowth": -0.35,
+                "fiftyTwoWeekHigh": 22.0, "fiftyTwoWeekLow": 11.4},
+    "TRAP.L": {"longName": "Yield Trap plc", "sector": "Utilities", "country": "United Kingdom",
+               "currency": "GBP", "quoteType": "EQUITY", "currentPrice": 50.0,
+               "marketCap": 5e9, "trailingPE": 12.0, "priceToBook": 0.7,
+               "dividendYield": 11.0, "payoutRatio": 1.40, "fiveYearAvgDividendYield": 4.5,
+               "returnOnEquity": 0.06, "operatingMargins": 0.09, "debtToEquity": 260.0,
+               "currentRatio": 0.7, "fiftyTwoWeekHigh": 96.0, "fiftyTwoWeekLow": 49.0},
+    "TINY.BR": {"longName": "Small Cap NV", "sector": "Industrials", "country": "Belgium",
+                "currency": "EUR", "quoteType": "EQUITY", "currentPrice": 9.0,
+                "marketCap": 2e8, "trailingPE": 8.0, "dividendYield": 4.0,
+                "payoutRatio": 0.35, "returnOnEquity": 0.15, "debtToEquity": 40.0,
+                "fiftyTwoWeekHigh": 15.0, "fiftyTwoWeekLow": 8.5},
+    "THIN.MC": {"longName": "Thin Data SA", "sector": "Energy", "country": "Spain",
+                "currency": "EUR", "quoteType": "EQUITY", "currentPrice": 20.0,
+                "marketCap": 6e9, "trailingPE": 10.0, "dividendYield": 4.5,
+                "fiftyTwoWeekHigh": 30.0, "fiftyTwoWeekLow": 19.0},
+    "DEAD.XX": {},
+}
+with db.get_conn() as conn:
+    res = screener.refresh(conn, symbols=list(FAKE), force=True,
+                           fetcher=lambda s: dict(FAKE.get(s, {})))
+check("every live symbol fetched", res["ok"], len(FAKE) - 1)
+check("the dead one is recorded as failed", res["failed"], 1)
+with db.get_conn() as conn:
+    row = dict(conn.execute("SELECT * FROM screener_fundamentals WHERE symbol='GOOD.PA'").fetchone())
+    dead = dict(conn.execute("SELECT * FROM screener_fundamentals WHERE symbol='DEAD.XX'").fetchone())
+check("stored yield is the fraction", row["dividend_yield"], predicate=near(0.036))
+check("stored debt/equity is the ratio", row["debt_to_equity"], predicate=near(0.62))
+check("the dead symbol carries an error and no fabricated price",
+      (bool(dead["last_error"]), dead["price"]), (True, None))
+
+
+def boom(sym):
+    raise TimeoutError("boom")
+
+
+with db.get_conn() as conn:
+    screener.refresh(conn, symbols=["GOOD.PA"], force=True, fetcher=boom)
+    row2 = dict(conn.execute("SELECT * FROM screener_fundamentals WHERE symbol='GOOD.PA'").fetchone())
+    again = screener.refresh(conn, symbols=["GOOD.PA"], force=True,
+                             fetcher=lambda s: dict(FAKE[s]))
+    skip = screener.refresh(conn, symbols=["GOOD.PA"],
+                            fetcher=lambda s: dict(FAKE[s]))
+check("a failed refetch keeps the previous price", row2["price"], predicate=near(70.0))
+check("...and stamps the error", row2["last_error"], "TimeoutError: boom")
+check("a fresh row is skipped, not refetched", (skip["skipped"], skip["attempted"]), (1, 0))
+
+with db.get_conn() as conn:
+    data = screener.results(conn, top=500, include_failed=True)
+ranked = {r["symbol"]: r for r in data["ranked"]}
+gated = {r["symbol"]: r for r in data["rejected"]}
+check("GOOD.PA is ranked", "GOOD.PA" in ranked, True)
+check("NODIV.MI is gated for paying no dividend",
+      "pays no dividend" in (gated.get("NODIV.MI") or {}).get("gate_failed", []), True)
+check("TINY.BR is gated for being too small",
+      any(x.startswith("too small") for x in gated["TINY.BR"]["gate_failed"]), True)
+check("a gated row carries no score", gated["NODIV.MI"]["score"], None)
+check("LOSS.AS ranks on its forward P/E", ranked["LOSS.AS"]["pe_basis"], "forward")
+check("TRAP.L is not gated (140% payout is under the 150% limit)", "TRAP.L" in ranked, True)
+good, frac = ranked["GOOD.PA"], ranked["FRACY.DE"]
+check("GOOD.PA scores well", good["score"], predicate=lambda v: v is not None and v >= 60)
+check("percent and fraction reporting give the SAME score",
+      abs(good["score"] - frac["score"]) < 0.05, True)
+check("full data → full coverage", good["coverage"], predicate=near(1.0))
+check("PEA-eligible (France)", good["pea_eligible"], True)
+check("the UK is not EEA", ranked["TRAP.L"]["pea_eligible"], False)
+check("the board is sorted best first",
+      [r["score"] for r in data["ranked"]] == sorted((r["score"] for r in data["ranked"]), reverse=True), True)
+thin = ranked["THIN.MC"]
+check("a thin row still scores", thin["score"] is not None, True)
+check("...but reports low coverage", thin["coverage"], predicate=lambda v: v < 0.6)
+check("...its quality pillar is empty, not zero", thin["pillars"]["quality"], None)
+check("...and is flagged", any("thin data" in x for x in thin["flags"]), True)
+trap = ranked["TRAP.L"]["flags"]
+check("yield trap: near its 52-week low", any("52-week low" in x for x in trap), True)
+check("yield trap: payout above 90%", any("90%" in x for x in trap), True)
+check("yield trap: yield far above its own average", any("5-year average" in x for x in trap), True)
+check("yield trap: leverage called out", any("leveraged" in x for x in trap), True)
+check("GOOD.PA carries no flags", good["flags"], [])
+check("LOSS.AS flags the missing trailing profit",
+      any("forward estimate" in x for x in ranked["LOSS.AS"]["flags"]), True)
+
+# --- watchlist and filters ---
+with db.get_conn() as conn:
+    screener.set_watch(conn, "trap.l", "dismissed", "not touching it")
+    d2 = screener.results(conn, top=500)
+    screener.set_watch(conn, "TRAP.L", "watch")
+    d3 = screener.results(conn, top=500)
+    screener.set_watch(conn, "TRAP.L", None)
+    d4 = screener.results(conn, top=500)
+    pea = screener.results(conn, top=500, pea_only=True)
+    top1 = screener.results(conn, top=1)
+    sect = screener.results(conn, top=500, sectors=["Utilities"])
+    hi = screener.results(conn, top=500, min_score=60)
+r2 = {r["symbol"]: r for r in d2["ranked"]}["TRAP.L"]
+r3 = {r["symbol"]: r for r in d3["ranked"]}["TRAP.L"]
+r4 = {r["symbol"]: r for r in d4["ranked"]}["TRAP.L"]
+check("watch status stored, symbol upper-cased", (r2["watch_status"], r2["note"]),
+      ("dismissed", "not touching it"))
+check("the note survives a status change without one", (r3["watch_status"], r3["note"]),
+      ("watch", "not touching it"))
+check("the mark can be cleared", r4["watch_status"], None)
+check("the PEA filter drops the UK name and keeps the French one",
+      ("TRAP.L" in {r["symbol"] for r in pea["ranked"]},
+       "GOOD.PA" in {r["symbol"] for r in pea["ranked"]}), (False, True))
+check("top-N is honoured", len(top1["ranked"]), 1)
+check("the sector filter is honoured", {r["sector"] for r in sect["ranked"]}, {"Utilities"})
+check("min_score is honoured", all(r["score"] >= 60 for r in hi["ranked"]), True)
+try:
+    with db.get_conn() as conn:
+        screener.results(conn, profile="nonsense")
+    check("an unknown profile is refused", False, True)
+except ValueError:
+    check("an unknown profile is refused", True, True)
+
+# --- the universe: shipped, the user's file, and what is held ---
+prices.refresh("EUR", get=fake_get)          # re-resolve, and store the types
+with db.get_conn() as conn:
+    held_now = screener.held_symbols(conn)
+    uni = screener.load_universe(conn)
+    etf_uni = screener_etf.load_universe(conn)
+check("the shipped share universe is non-trivial", len(uni) > 250, True)
+check("...with no duplicates", len(uni), len(set(uni)))
+check("a held fund is typed from the price feed",
+      held_now.get("IWDA.AS", {}).get("quote_type"), "ETF")
+check("...and folded into the ETF universe, not the share one",
+      ("IWDA.AS" in etf_uni, "IWDA.AS" in uni), (True, False))
+check("...with its name", bool(etf_uni["IWDA.AS"].get("name")), True)
+if "SIE.DE" in held_now:
+    check("a held share goes to the share universe",
+          ("SIE.DE" in uni, "SIE.DE" in etf_uni), (True, False))
+screener.UNIVERSE_FILE.write_text('{"symbols": ["extra.pa"], "exclude": ["TTE.PA"]}')
+with db.get_conn() as conn:
+    uni2 = screener.load_universe(conn)
+check("user additions are picked up, upper-cased", "EXTRA.PA" in uni2, True)
+check("user exclusions are honoured even against the shipped list", "TTE.PA" in uni2, False)
+screener.UNIVERSE_FILE.unlink()
+
+# --- config sections do not leak into each other ---
+screener.CONFIG_FILE.write_text(
+    '{"gates": {"require_dividend": false, "max_pe": 99},'
+    ' "income": {"gates": {"min_dividend_yield": 0.04}},'
+    ' "etf": {"gates": {"max_ter": 0.001}}}')
+vcfg, icfg, ecfg = screener.load_config("value"), screener.load_config("income"), \
+    screener_etf.load_config("growth")
+check("the value board reads the top level", vcfg["gates"]["max_pe"], 99)
+check("siblings in the overridden section survive", vcfg["gates"]["min_market_cap"], 1e9)
+check("untouched sections keep their defaults", vcfg["weights"]["quality"], 0.30)
+check("the income board reads its own section", icfg["gates"]["min_dividend_yield"], 0.04)
+check("the top level does not leak into the income board", icfg["gates"]["max_pe"], 40.0)
+check("the ETF board reads its own section", ecfg["gates"]["max_ter"], 0.001)
+check("...and keeps its own defaults", ecfg["weights"]["cost"], 0.30)
+with db.get_conn() as conn:
+    d5 = screener.results(conn, top=500)
+check("NODIV.MI is rankable once the dividend gate is off",
+      "NODIV.MI" in {r["symbol"] for r in d5["ranked"]}, True)
+screener.CONFIG_FILE.unlink()
+
+# --- the income board: highest dividend that is still growing ---
+INCOME = {
+    "ARIST.PA": {"longName": "Steady Dividend SA", "sector": "Consumer Defensive",
+                 "country": "France", "currency": "EUR", "quoteType": "EQUITY",
+                 "currentPrice": 100.0, "marketCap": 30e9, "trailingPE": 15.0,
+                 "priceToBook": 2.4, "dividendYield": 4.2, "payoutRatio": 0.55,
+                 "fiveYearAvgDividendYield": 4.0, "dividendRate": 4.20,
+                 "trailingAnnualDividendRate": 3.96, "freeCashflow": 7e9,
+                 "sharesOutstanding": 1e9, "returnOnEquity": 0.18,
+                 "operatingMargins": 0.17, "profitMargins": 0.12, "debtToEquity": 70.0,
+                 "currentRatio": 1.5, "revenueGrowth": 0.04, "earningsGrowth": 0.06,
+                 "fiftyTwoWeekHigh": 108.0, "fiftyTwoWeekLow": 88.0},
+    "CUTTER.DE": {"longName": "About To Cut AG", "sector": "Utilities", "country": "Germany",
+                  "currency": "EUR", "quoteType": "EQUITY", "currentPrice": 40.0,
+                  "marketCap": 9e9, "trailingPE": 11.0, "priceToBook": 0.9,
+                  "dividendYield": 6.5, "payoutRatio": 0.85, "fiveYearAvgDividendYield": 4.0,
+                  "dividendRate": 1.82, "trailingAnnualDividendRate": 2.60,
+                  "freeCashflow": 1e9, "sharesOutstanding": 225e6, "returnOnEquity": 0.10,
+                  "operatingMargins": 0.11, "profitMargins": 0.07, "debtToEquity": 180.0,
+                  "currentRatio": 0.9, "revenueGrowth": 0.01, "earningsGrowth": -0.05,
+                  "fiftyTwoWeekHigh": 62.0, "fiftyTwoWeekLow": 39.0},
+    "LOWY.MC": {"longName": "Token Payer SA", "sector": "Technology", "country": "Spain",
+                "currency": "EUR", "quoteType": "EQUITY", "currentPrice": 50.0,
+                "marketCap": 12e9, "trailingPE": 22.0, "dividendYield": 1.2,
+                "payoutRatio": 0.20, "dividendRate": 0.60, "trailingAnnualDividendRate": 0.55,
+                "returnOnEquity": 0.24, "operatingMargins": 0.25, "revenueGrowth": 0.12,
+                "earningsGrowth": 0.15, "fiftyTwoWeekHigh": 55.0, "fiftyTwoWeekLow": 38.0},
+    "DISTRESS.MI": {"longName": "Fourteen Percent SpA", "sector": "Financial Services",
+                    "country": "Italy", "currency": "EUR", "quoteType": "EQUITY",
+                    "currentPrice": 10.0, "marketCap": 2e9, "trailingPE": 5.0,
+                    "dividendYield": 14.0, "payoutRatio": 0.70, "dividendRate": 1.40,
+                    "trailingAnnualDividendRate": 1.40, "returnOnEquity": 0.11,
+                    "operatingMargins": 0.15, "revenueGrowth": 0.02,
+                    "fiftyTwoWeekHigh": 24.0, "fiftyTwoWeekLow": 9.6},
+    "SHRINK.AS": {"longName": "Melting Ice NV", "sector": "Communication Services",
+                  "country": "Netherlands", "currency": "EUR", "quoteType": "EQUITY",
+                  "currentPrice": 20.0, "marketCap": 7e9, "trailingPE": 10.0,
+                  "dividendYield": 5.0, "payoutRatio": 0.60, "dividendRate": 1.00,
+                  "trailingAnnualDividendRate": 1.00, "returnOnEquity": 0.12,
+                  "operatingMargins": 0.14, "revenueGrowth": -0.08, "earningsGrowth": -0.10,
+                  "fiftyTwoWeekHigh": 34.0, "fiftyTwoWeekLow": 19.0},
+    "FCFBAD.BR": {"longName": "Cash Poor NV", "sector": "Utilities", "country": "Belgium",
+                  "currency": "EUR", "quoteType": "EQUITY", "currentPrice": 30.0,
+                  "marketCap": 6e9, "trailingPE": 13.0, "dividendYield": 5.0,
+                  "payoutRatio": 0.60, "dividendRate": 1.50, "trailingAnnualDividendRate": 1.45,
+                  "freeCashflow": 2e8, "sharesOutstanding": 2e8, "returnOnEquity": 0.11,
+                  "operatingMargins": 0.13, "profitMargins": 0.08, "debtToEquity": 150.0,
+                  "currentRatio": 1.1, "revenueGrowth": 0.03, "earningsGrowth": 0.02,
+                  "fiftyTwoWeekHigh": 38.0, "fiftyTwoWeekLow": 28.0},
+    "NOGROW.VI": {"longName": "Unknown Growth AG", "sector": "Real Estate", "country": "Austria",
+                  "currency": "EUR", "quoteType": "EQUITY", "currentPrice": 25.0,
+                  "marketCap": 4e9, "trailingPE": 12.0, "dividendYield": 4.8,
+                  "payoutRatio": 0.55, "returnOnEquity": 0.10, "operatingMargins": 0.20,
+                  "fiftyTwoWeekHigh": 31.0, "fiftyTwoWeekLow": 24.0},
+}
+with db.get_conn() as conn:
+    screener.refresh(conn, symbols=list(INCOME), force=True,
+                     fetcher=lambda s: dict(INCOME.get(s, {})))
+    inc = screener.results(conn, top=500, include_failed=True, profile="income")
+    val = screener.results(conn, top=500, profile="value")
+IBY = {r["symbol"]: r for r in inc["ranked"]}
+IGATED = {r["symbol"]: r for r in inc["rejected"]}
+VBY = {r["symbol"]: r for r in val["ranked"]}
+check("dividend growth = forward / trailing - 1",
+      screener.dividend_growth({"dividend_rate": 4.20, "trailing_dividend_rate": 3.96}),
+      predicate=near(0.0606, 1e-3))
+check("a zero trailing rate does not divide by zero",
+      screener.dividend_growth({"dividend_rate": 1.0, "trailing_dividend_rate": 0.0}), None)
+check("FCF payout = dividends / free cash flow",
+      screener.fcf_payout({"dividend_rate": 4.2, "shares_outstanding": 1e9, "free_cashflow": 7e9}),
+      predicate=near(0.60))
+check("negative free cash flow yields no ratio rather than a negative one",
+      screener.fcf_payout({"dividend_rate": 1.0, "shares_outstanding": 1e9, "free_cashflow": -1e9}), None)
+check("the income payload names its profile and pillars",
+      (inc["profile"], inc["pillar_order"]), ("income", ["yield", "growth", "safety", "quality"]))
+check("ARIST.PA tops the income board", inc["ranked"][0]["symbol"], "ARIST.PA")
+check("a 1.2% yield is not an income idea",
+      any("too low" in x for x in IGATED["LOWY.MC"]["gate_failed"]), True)
+check("a 14% yield is a distress signal, not a top rank",
+      any("distress" in x for x in IGATED["DISTRESS.MI"]["gate_failed"]), True)
+check("a shrinking business is gated",
+      any("shrinking" in x for x in IGATED["SHRINK.AS"]["gate_failed"]), True)
+check("...and it is the value board that still ranks it", "SHRINK.AS" in VBY, True)
+check("a declared cut is flagged in words",
+      any("cut is already declared" in x for x in IBY["CUTTER.DE"]["flags"]), True)
+check("...so the 6.5% yielder loses to the 4.2% one",
+      IBY["CUTTER.DE"]["score"] < IBY["ARIST.PA"]["score"], True)
+check("a dividend costing more than free cash flow is flagged",
+      any("free cash flow" in x for x in IBY["FCFBAD.BR"]["flags"]), True)
+check("missing growth data is not a gate", "NOGROW.VI" in IBY, True)
+check("...it is missing coverage", IBY["NOGROW.VI"]["pillar_coverage"]["growth"], 0.0)
+check("the two share boards agree on the yield they read",
+      VBY["ARIST.PA"]["dividend_yield"], IBY["ARIST.PA"]["dividend_yield"])
+check("...but rank differently, which is the point",
+      VBY["ARIST.PA"]["score"] != IBY["ARIST.PA"]["score"], True)
+
+# --- ETFs: series maths on synthetic weekly series ---
+END = date(2026, 9, 4)
+
+
+def geometric(annual_rate, weeks=320, start=100.0):
+    per_week = (1.0 + annual_rate) ** (1.0 / 52.1775) - 1.0
+    return [((END - timedelta(weeks=i)).isoformat(), start * (1.0 + per_week) ** (weeks - i))
+            for i in range(weeks, -1, -1)]
+
+
+s10 = geometric(0.10)
+check("5-year CAGR of a 10%/yr series", screener_etf.cagr(s10, 5.0), predicate=near(0.10, 1e-4))
+check("1-year CAGR of the same series", screener_etf.cagr(s10, 1.0), predicate=near(0.10, 1e-4))
+check("a smooth series has ~zero volatility",
+      screener_etf.volatility(s10), predicate=lambda v: v is not None and v < 1e-6)
+check("a rising series has no drawdown", screener_etf.max_drawdown(s10), predicate=near(0.0, 1e-12))
+short = geometric(0.10, weeks=100)
+check("a 5-year CAGR is refused on 2 years of history", screener_etf.cagr(short, 5.0), None)
+crash = geometric(0.0, weeks=100)
+crash = crash[:50] + [(d, v * 0.6) for d, v in crash[50:]]
+check("a 40% fall is a 40% drawdown", screener_etf.max_drawdown(crash), predicate=near(0.40, 1e-9))
+m = screener_etf.series_metrics(s10)
+check("history span is measured, not assumed", m["history_years"], predicate=lambda v: 6.0 < v < 6.3)
+
+FLAT_FX = [(d, 1.10) for d, _ in s10]
+conv = screener_etf.to_eur([(d, v * 1.10) for d, v in s10], FLAT_FX)
+check("a constant FX rate leaves the CAGR unchanged",
+      screener_etf.cagr(conv, 5.0), predicate=near(0.10, 1e-4))
+check("...and the level is the EUR level", conv[-1][1], predicate=near(s10[-1][1], 1e-9))
+rising = [(d, 1.10 - 0.10 * i / len(FLAT_FX)) for i, (d, _) in enumerate(FLAT_FX)]
+check("a strengthening dollar raises the EUR return",
+      screener_etf.cagr(screener_etf.to_eur([(d, v * 1.10) for d, v in s10], rising), 5.0),
+      predicate=lambda v: v is not None and v > 0.11)
+check("pence are divided by 100", screener_etf.to_eur([("2026-01-01", 250.0)], [], pence=True)[0][1], 2.5)
+check("prices before the first known FX rate are dropped, not invented",
+      len(screener_etf.to_eur(s10, FLAT_FX[100:])), len(s10) - 100)
+
+check("annualReportExpenseRatio is a fraction",
+      screener_etf._yahoo_ter({"annualReportExpenseRatio": 0.0020}), predicate=near(0.0020))
+check("netExpenseRatio is a percent",
+      screener_etf._yahoo_ter({"netExpenseRatio": 0.20}), predicate=near(0.0020))
+check("a zero expense ratio is a missing one, not a free fund",
+      screener_etf._yahoo_ter({"annualReportExpenseRatio": 0.0}), None)
+check("the curated TER wins over Yahoo's",
+      screener_etf.effective_ter({"ter": 0.0007, "yahoo_ter": 0.0030}), (0.0007, "curated"))
+check("Yahoo's is used when there is no curated one",
+      screener_etf.effective_ter({"yahoo_ter": 0.0030}), (0.0030, "yahoo"))
+
+# --- ETFs end to end, from canned info and series ---
+INFO = {
+    "CHEAP.DE": {"longName": "Cheap Core World", "quoteType": "ETF", "currency": "EUR",
+                 "fullExchangeName": "XETRA", "category": "Global Large-Cap Blend Equity",
+                 "fundFamily": "Testers", "totalAssets": 8e9,
+                 "annualReportExpenseRatio": 0.0007, "regularMarketPrice": 1.0},
+    "DEAR.DE": {"longName": "Dear Core World", "quoteType": "ETF", "currency": "EUR",
+                "totalAssets": 8e9, "netExpenseRatio": 0.65, "regularMarketPrice": 1.0},
+    "USDX.AS": {"longName": "Cheap Core World USD", "quoteType": "ETF", "currency": "USD",
+                "totalAssets": 8e9, "annualReportExpenseRatio": 0.0007},
+    "DISTY.DE": {"longName": "Cheap Core World Dist", "quoteType": "ETF", "currency": "EUR",
+                 "totalAssets": 8e9, "yield": 2.4, "annualReportExpenseRatio": 0.0007},
+    "YOUNG.DE": {"longName": "Young Fund", "quoteType": "ETF", "currency": "EUR",
+                 "totalAssets": 2e9, "annualReportExpenseRatio": 0.0015},
+    "NOTER.DE": {"longName": "Mystery Fund", "quoteType": "ETF", "currency": "EUR",
+                 "totalAssets": 2e9},
+    "LEV3.DE": {"longName": "Index 3x Daily Long", "quoteType": "ETF", "currency": "EUR",
+                "totalAssets": 2e9, "annualReportExpenseRatio": 0.0060},
+    "TINY.DE": {"longName": "Tiny Fund", "quoteType": "ETF", "currency": "EUR",
+                "totalAssets": 1e7, "annualReportExpenseRatio": 0.0020},
+    "NOSIZE.DE": {"longName": "Unreported Size Fund", "quoteType": "ETF", "currency": "EUR",
+                  "annualReportExpenseRatio": 0.0020},
+}
+S12 = geometric(0.12)
+
+
+def quarterly(start_year, per_quarter, years=3, step=0.0):
+    out, amt = [], per_quarter
+    for y in range(years):
+        for mth in (3, 6, 9, 12):
+            out.append((date(start_year + y, mth, 20).isoformat(), round(amt, 6)))
+        amt += step
+    return out
+
+
+HIST = {
+    "CHEAP.DE": S12, "DEAR.DE": S12, "USDX.AS": [(d, v * 1.10) for d, v in S12],
+    "DISTY.DE": S12, "YOUNG.DE": geometric(0.12, weeks=100), "NOTER.DE": S12,
+    "LEV3.DE": S12, "TINY.DE": S12, "NOSIZE.DE": S12, "EURUSD=X": FLAT_FX,
+}
+DIVS = {"DISTY.DE": quarterly(2023, 1.2, years=4, step=0.1)}
+FX_CALLS = []
+
+
+def fake_hist(sym):
+    if sym.endswith("=X"):
+        FX_CALLS.append(sym)
+    if sym not in HIST:
+        return {}
+    return {"closes": HIST[sym], "dividends": DIVS.get(sym, []),
+            "currency": "USD" if sym == "USDX.AS" else "EUR", "quote_type": "ETF"}
+
+
+screener_etf.UNIVERSE_FILE.write_text(json.dumps({"etfs": [
+    {"symbol": "CHEAP.DE", "ter": 0.0007, "dist": "acc", "pea": True, "region": "World"},
+    {"symbol": "DEAR.DE", "ter": 0.0065, "dist": "acc", "pea": False, "region": "World"},
+    {"symbol": "USDX.AS", "ter": 0.0007, "dist": "acc", "pea": False, "region": "World"},
+    {"symbol": "DISTY.DE", "ter": 0.0007, "dist": "dist", "pea": False, "region": "World"},
+    {"symbol": "YOUNG.DE", "ter": 0.0015, "dist": "acc", "pea": False, "region": "Theme"},
+    {"symbol": "NOTER.DE", "dist": "acc", "pea": False, "region": "World"},
+    {"symbol": "LEV3.DE", "ter": 0.0060, "dist": "acc", "pea": False, "region": "Theme"},
+    {"symbol": "TINY.DE", "ter": 0.0020, "dist": "acc", "pea": False, "region": "Europe"},
+    {"symbol": "NOSIZE.DE", "ter": 0.0020, "dist": "acc", "pea": False, "region": "Europe"},
+    {"symbol": "IWDA.AS", "ter": 0.0018}],
+    "exclude": ["EXXT.DE"]}))
+with db.get_conn() as conn:
+    uni3 = screener_etf.load_universe(conn)
+    res = screener_etf.refresh(conn, symbols=list(INFO), force=True,
+                               info_fetcher=lambda s: INFO.get(s, {}),
+                               history_fetcher=fake_hist)
+    data = screener_etf.results(conn, top=500, include_failed=True)
+check("an override replaces just the field given, and keeps the rest",
+      (uni3["IWDA.AS"]["ter"], uni3["IWDA.AS"]["dist"], uni3["IWDA.AS"]["pea"]),
+      (0.0018, "acc", False))
+check("exclusions are honoured", "EXXT.DE" in uni3, False)
+check("no US-listed ETF sneaked into the shipped list",
+      all("." in e["symbol"] for e in screener_etf.DEFAULT_ETF_UNIVERSE), True)
+check("no London listing either",
+      any(e["symbol"].endswith(".L") for e in screener_etf.DEFAULT_ETF_UNIVERSE), False)
+check("every fake ETF stored", (res["ok"], res["failed"]), (len(INFO), 0))
+check("the FX series was fetched once, not once per symbol", FX_CALLS.count("EURUSD=X"), 1)
+BY = {r["symbol"]: r for r in data["ranked"]}
+GATED = {r["symbol"]: r for r in data["rejected"]}
+check("CHEAP.DE beats DEAR.DE on cost alone", BY["CHEAP.DE"]["score"] > BY["DEAR.DE"]["score"], True)
+check("...their growth pillars are identical",
+      BY["CHEAP.DE"]["pillars"]["growth"], BY["DEAR.DE"]["pillars"]["growth"])
+check("the USD twin scores the same as the EUR one",
+      abs(BY["USDX.AS"]["score"] - BY["CHEAP.DE"]["score"]) < 0.05, True)
+check("...and is relabelled as EUR", BY["USDX.AS"]["currency"], "EUR")
+check("the distributing twin scores the same", abs(BY["DISTY.DE"]["score"] - BY["CHEAP.DE"]["score"]) < 0.05, True)
+check("...but is flagged for the tax drag",
+      any("distributing" in x for x in BY["DISTY.DE"]["flags"]), True)
+check("the 5-year CAGR is the fund's", BY["CHEAP.DE"]["cagr_5y"], predicate=near(0.12, 1e-3))
+check("YOUNG.DE is gated on history, with the years in the reason",
+      any("years of history" in x for x in GATED["YOUNG.DE"]["gate_failed"]), True)
+check("NOTER.DE is gated for having no TER",
+      any("no TER" in x for x in GATED["NOTER.DE"]["gate_failed"]), True)
+check("LEV3.DE is gated as leveraged",
+      any("leveraged" in x for x in GATED["LEV3.DE"]["gate_failed"]), True)
+check("TINY.DE is gated on fund size",
+      any("too small" in x for x in GATED["TINY.DE"]["gate_failed"]), True)
+check("an unreported fund size is NOT a gate, but a flag",
+      ("NOSIZE.DE" in BY, any("size unknown" in x for x in BY["NOSIZE.DE"]["flags"])), (True, True))
+check("...and exactly the size weight is missing from coverage",
+      BY["NOSIZE.DE"]["coverage"], predicate=near(0.90, 1e-6))
+check("gated rows are counted", data["rejected_count"], 4)
+check("PEA eligibility is the curated flag",
+      (BY["CHEAP.DE"]["pea_eligible"], BY["DEAR.DE"]["pea_eligible"]), (True, False))
+check("regions come from the curated universe", "Theme" in data["regions"], True)
+check("the growth payload names itself", (data["profile"], data["pillar_order"]),
+      ("etf", ["growth", "cost", "risk", "size"]))
+check("a 0.65% TER scores zero on cost", BY["DEAR.DE"]["pillars"]["cost"], 0.0)
+
+# An FX series that cannot be fetched leaves the row in its own currency
+# and says so, rather than stamping EUR on an unconverted return.
+with db.get_conn() as conn:
+    screener_etf.refresh(conn, symbols=["USDX.AS"], force=True,
+                         info_fetcher=lambda s: INFO[s],
+                         history_fetcher=lambda s: {} if s.endswith("=X") else fake_hist(s))
+    nofx = {r["symbol"]: r for r in screener_etf.results(conn, top=500)["ranked"]}["USDX.AS"]
+check("an unconverted row keeps its listing currency", nofx["currency"], "USD")
+check("...and says so in a flag", any("not EUR" in x for x in nofx["flags"]), True)
+
+# A failed fetch keeps the old figures; a good one clears the error.
+with db.get_conn() as conn:
+    screener_etf.refresh(conn, symbols=["CHEAP.DE"], force=True,
+                         info_fetcher=lambda s: INFO[s], history_fetcher=lambda s: {})
+    after = dict(conn.execute("SELECT * FROM screener_etfs WHERE symbol='CHEAP.DE'").fetchone())
+    screener_etf.refresh(conn, symbols=["CHEAP.DE"], force=True,
+                         info_fetcher=lambda s: INFO[s], history_fetcher=fake_hist)
+    fixed = dict(conn.execute("SELECT * FROM screener_etfs WHERE symbol='CHEAP.DE'").fetchone())
+    skip2 = screener_etf.refresh(conn, symbols=["CHEAP.DE"],
+                                 info_fetcher=lambda s: INFO[s], history_fetcher=fake_hist)
+check("a failed fetch keeps the previous figures", after["cagr_5y"], predicate=near(0.12, 1e-3))
+check("...and stamps the error", bool(after["last_error"]), True)
+check("a good fetch clears it", fixed["last_error"], None)
+check("a fresh row is skipped", (skip2["skipped"], skip2["attempted"]), (1, 0))
+
+# --- distributions: the dividend board's inputs ---
+TODAY = date(2026, 9, 8)
+dm = screener_etf.dividend_metrics(quarterly(2024, 0.50, years=3), 100.0, TODAY)
+check("trailing yield is last 12 months over price", round(dm["div_yield_ttm"], 4), 0.02)
+check("payment frequency is counted", dm["div_events_12m"], 4)
+check("a flat payer shows no growth", round(dm["div_growth"], 6), 0.0)
+usd = screener_etf.dividend_metrics(quarterly(2024, 0.54, years=3), 108.0, TODAY)
+check("the same fund quoted in another currency yields the same",
+      round(usd["div_yield_ttm"], 6), round(dm["div_yield_ttm"], 6))
+grow = screener_etf.dividend_metrics(quarterly(2024, 0.50, years=3, step=0.05), 100.0, TODAY)
+check("a rising distribution shows positive growth, and no cut",
+      (grow["div_growth"] > 0, grow["div_worst_cut"] >= 0), (True, True))
+
+
+def ago(days):
+    return (TODAY - timedelta(days=days)).isoformat()
+
+
+mc = screener_etf.dividend_metrics(
+    [(ago(1125), 1.0), (ago(760), 1.0), (ago(395), 0.5), (ago(30), 0.6)], 100.0, TODAY)
+check("a past cut is remembered even when growth is positive now",
+      (mc["div_growth"] > 0, mc["div_worst_cut"] < -0.4), (True, True))
+future = quarterly(2024, 0.50, years=3) + [((TODAY + timedelta(days=20)).isoformat(), 0.50)]
+mf = screener_etf.dividend_metrics(future, 100.0, TODAY)
+check("an announced future distribution is not counted as paid",
+      (mf["div_events_12m"], round(mf["div_yield_ttm"], 4)), (4, 0.02))
+check("an accumulating fund reports zero, not None",
+      screener_etf.dividend_metrics([], 100.0, TODAY)["div_ttm"], 0.0)
+check("zero is accumulating, something is not, nothing is unknown",
+      (screener_etf.is_accumulating({"div_ttm": 0.0, "div_events_12m": 0}),
+       screener_etf.is_accumulating({"div_ttm": 1.9, "div_events_12m": 4}),
+       screener_etf.is_accumulating({"div_ttm": None, "div_events_12m": None})),
+      (True, False, None))
+md = screener_etf.dividend_metrics(
+    [("2024-12-28", 1.0), ("2025-12-28", 1.0)], 100.0, date(2026, 6, 1))
+check("a December payer is not read as having cut to zero",
+      (md["div_ttm"] > 0, md["div_prior"] > 0), (True, True))
+
+DCFG = screener_etf.load_config("dividend")
+
+
+def drow(**over):
+    r = {"symbol": "TEST.DE", "name": "Test Dividend ETF", "quote_type": "ETF",
+         "ter": 0.0030, "dist": "dist", "region": "Dividend", "currency": "EUR",
+         "price": 100.0, "total_assets": 8e8, "cagr_5y": 0.07, "cagr_3y": 0.06,
+         "max_drawdown": 0.25, "volatility_1y": 0.14, "history_years": 8.0,
+         "div_ttm": 3.5, "div_prior": 3.3, "div_yield_ttm": 0.035, "div_growth": 0.06,
+         "div_worst_cut": -0.02, "div_years": 8.0, "div_events_12m": 4, "div_events_prior": 4}
+    r.update(over)
+    return r
+
+
+base = screener_etf.score_dividend_row(drow(), DCFG)
+check("a healthy income fund passes every gate", base["gate_failed"], None)
+check("net yield is yield minus TER", round(base["net_yield"], 4), 0.032)
+check("a higher yield scores higher",
+      screener_etf.score_dividend_row(drow(div_yield_ttm=0.045), DCFG)["score"] > base["score"], True)
+check("a cheaper fund scores higher",
+      screener_etf.score_dividend_row(drow(ter=0.0010), DCFG)["score"] > base["score"], True)
+shrinking = screener_etf.score_dividend_row(drow(div_growth=-0.10), DCFG)
+check("a shrinking distribution scores lower, and says so",
+      (shrinking["score"] < base["score"], any("shrinking" in x for x in shrinking["flags"])), (True, True))
+cutter = screener_etf.score_dividend_row(drow(div_worst_cut=-0.30), DCFG)
+check("a fund that has cut before scores lower, and the cut is flagged",
+      (cutter["score"] < base["score"], any("cut before" in x for x in cutter["flags"])), (True, True))
+accum = screener_etf.score_dividend_row(drow(div_ttm=0.0, div_events_12m=0, div_yield_ttm=0.0), DCFG)
+check("an accumulating fund is gated out, with no score",
+      (any("accumulating" in x for x in accum["gate_failed"]), accum["score"]), (True, None))
+unknown = screener_etf.score_dividend_row(drow(div_ttm=None, div_events_12m=None, div_yield_ttm=None), DCFG)
+check("no distribution data is gated as unknown, not as accumulating",
+      any("no distribution data" in x for x in unknown["gate_failed"]), True)
+check("an implausible yield is gated, not rewarded",
+      any("implausible" in x for x in screener_etf.score_dividend_row(drow(div_yield_ttm=0.15), DCFG)["gate_failed"]), True)
+check("a yield too low to be income is gated",
+      any("too low" in x for x in screener_etf.score_dividend_row(drow(div_yield_ttm=0.012), DCFG)["gate_failed"]), True)
+check("under two years of distributions is gated",
+      any("years of distributions" in x for x in screener_etf.score_dividend_row(drow(div_years=1.2), DCFG)["gate_failed"]), True)
+mixup = screener_etf.score_dividend_row(drow(dist="acc"), DCFG)
+check("a fund curated 'acc' that pays is flagged as a share-class mix-up",
+      any("wrong share class" in x for x in mixup["flags"]), True)
+sched = screener_etf.score_dividend_row(drow(div_events_prior=2), DCFG)
+check("a schedule change is flagged as not like-for-like",
+      any("schedule change" in x for x in sched["flags"]), True)
+eats = screener_etf.score_dividend_row(drow(ter=0.0060), DCFG)
+check("a TER that eats a big share of the income is spelled out",
+      any("eats" in x for x in eats["flags"]), True)
+mfund = screener_etf.score_dividend_row(drow(quote_type="MUTUALFUND", div_yield_ttm=0.06), DCFG)
+check("a US mutual fund is gated off the income board",
+      any("mutual fund" in x for x in mfund["gate_failed"]), True)
+check("...but still scores on the growth board",
+      screener_etf.score_row(drow(quote_type="MUTUALFUND"))["gate_failed"], None)
+dupes = [screener_etf.score_dividend_row(drow(symbol="IQQA.DE", name="iShares Euro Dividend UCITS ETF EUR Dist"), DCFG),
+         screener_etf.score_dividend_row(drow(symbol="IDVY.AS", name="iShares Euro Dividend UCITS ETF EUR (Dist)"), DCFG),
+         screener_etf.score_dividend_row(drow(symbol="EXSH.DE", name="iShares STOXX Europe Select Dividend 30 UCITS ETF"), DCFG)]
+screener_etf._flag_duplicate_listings(dupes)
+check("two listings of one fund are matched despite different suffixes",
+      dupes[0].get("duplicate_of"), "IDVY.AS")
+check("...neither row is dropped, and the loner is not flagged",
+      (len(dupes), dupes[2].get("duplicate_of")), (3, None))
+
+with db.get_conn() as conn:
+    dd = screener_etf.results(conn, top=500, include_failed=True, profile="dividend")
+DBY = {r["symbol"]: r for r in dd["ranked"]}
+DG = {r["symbol"]: r for r in dd["rejected"]}
+check("the dividend payload names itself", (dd["profile"], dd["pillar_order"]),
+      ("etf_dividend", ["yield", "cost", "growth", "stability"]))
+check("the distributing fund's yield was computed from its payments",
+      DBY.get("DISTY.DE", DG.get("DISTY.DE"))["div_yield_ttm"], predicate=lambda v: v and v > 0.02)
+check("the accumulating twin is gated off the dividend board",
+      any("accumulating" in x for x in DG["CHEAP.DE"]["gate_failed"]), True)
+
+# --- the routes, and the template / script / Python seam ---
+r = c.get("/screener")
+check("the Share Ideas page renders", r.status_code, 200)
+tpl = pathlib.Path("app/templates/screener.html").read_text()
+tabs = set(re.findall(r'class="scr-tab[^"]*" data-board="(\w+)"', tpl))
+boards_js = set(re.findall(r"^  (\w+): \{\n    label:", tpl, re.M))
+explain = set(re.findall(r'class="scr-explain-col" data-board="(\w+)"', tpl))
+check("the template has a tab per board", tabs, {"value", "income", "etf", "etf_dividend"})
+check("...and a board spec per tab", boards_js, tabs)
+check("...and a 'how to read this' column per tab", explain, tabs)
+check("sort state is derived from the boards, not hand-listed",
+      "Object.keys(BOARDS).map" in tpl, True)
+pillars_js = {k: re.findall(r"'(\w+)'", v) for k, v in
+              re.findall(r"^  (\w+): \{\n    label:.*?pillars: \[([^\]]+)\]", tpl, re.M | re.S)}
+check("the pillars the script draws are the ones Python scores",
+      (pillars_js["value"], pillars_js["income"], pillars_js["etf"], pillars_js["etf_dividend"]),
+      (screener.PILLAR_ORDER["value"], screener.PILLAR_ORDER["income"],
+       screener_etf.PILLAR_ORDER["growth"], screener_etf.PILLAR_ORDER["dividend"]))
+r = c.get("/api/screener?profile=income&failed=1&top=5")
+j = r.get_json()
+check("the share API answers", (r.status_code, j["ok"], j["profile"]), (200, True, "income"))
+check("...honouring top", len(j["ranked"]) <= 5, True)
+check("...and listing the gated with reasons", all(x["gate_failed"] for x in j["rejected"]), True)
+r = c.get("/api/screener/etf?profile=dividend")
+check("the ETF API answers", (r.status_code, r.get_json()["profile"]), (200, "etf_dividend"))
+r = c.get("/api/screener?profile=nonsense")
+check("an unknown profile is a 400, not a 500", r.status_code, 400)
+r = c.post("/api/screener/watch/cheap.de", json={"status": "watch"})
+check("the watchlist route stores, upper-cased", (r.get_json()["ok"], r.get_json()["symbol"]), (True, "CHEAP.DE"))
+r = c.post("/api/screener/watch/cheap.de", json={"status": "bogus"})
+check("a bogus status is refused", r.status_code, 400)
+with db.get_conn() as conn:
+    shared = {r["symbol"]: r["watch_status"] for r in screener_etf.results(conn, top=500)["ranked"]}
+check("the watchlist is shared across the boards", shared["CHEAP.DE"], "watch")
+r = c.get("/settings")
+check("the settings page has the Share Ideas section", b'id="ideas"' in r.data, True)
+check("...counting the cached rows", b"cached" in r.data, True)
+st = screener_jobs.status()
+check("the job status counts both caches", (st["shares"]["n"] > 5, st["etfs"]["n"] > 5), (True, True))
+check("nothing is running", st["running"], False)
+screener_etf.UNIVERSE_FILE.unlink()
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

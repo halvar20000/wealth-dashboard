@@ -11,6 +11,44 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.18.0] — 2026-09-11
+
+### Added
+- **Share Ideas** — a new page with four ranked boards over one nightly
+  Yahoo cache. *Value*: shares that have fallen from their 52-week high,
+  trade on a low P/E, still earn well and pay a covered dividend.
+  *Dividends*: the highest yields that are still growing — covered by
+  earnings *and* by free cash flow, on a business that is not shrinking,
+  with a yield above 12 % gated out rather than rewarded. *ETFs*: UCITS
+  funds ranked on five-year total return in euros against their TER, the
+  return computed from the adjusted price history because Yahoo leaves
+  its own return fields empty for European listings, and converted to
+  euros first so a USD-quoted fund and its EUR twin score the same.
+  *Dividend ETFs*: distributing funds on the income they actually paid
+  over twelve months, computed from the distributions themselves, with
+  the worst year-on-year cut on record standing in for the payout ratio
+  a fund does not have. Every score is a documented blend of linear ramps
+  over published figures; the page shows the inputs beside the output,
+  renormalises rather than scoring a gap as zero and says how thin the
+  data was, and lists what it excluded and why. Star or dismiss a name;
+  the list is shared across the four boards. What you already hold is
+  folded in — shares onto the share boards, funds onto the fund boards —
+  and marked. A ~360-share and ~80-ETF universe ships with the app;
+  `screener_universe.json`, `screener_etf_universe.json` and
+  `screener.json` in the data folder extend, correct and tune it and are
+  read on every page load.
+- No new dependency for any of this: Yahoo's fundamentals endpoint wants
+  a session cookie and a crumb, and the app does that handshake itself
+  rather than pulling a library with pandas behind it into a four-line
+  requirements file.
+- The cache is refreshed once a day by a background thread — the first
+  time a minute after start-up — with a button under Settings to do it
+  now. A refresh is a few hundred requests with a pause between them and
+  takes a few minutes; a symbol that fails keeps its old row with the
+  error on it, so a Yahoo hiccup makes a name stale, never gone.
+- The price feed now records whether Yahoo calls a holding an equity or a
+  fund, which is what routes it to the right board.
+
 ## [0.17.0] — 2026-09-11
 
 ### Added

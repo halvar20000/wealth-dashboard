@@ -137,13 +137,18 @@ def resolve(isin: str, base_currency: str = "EUR", get=None) -> dict:
 
 
 def quote(symbol: str, get=None) -> dict:
-    """Ticker → {price, currency, as_of}. Raises PriceError.
+    """Ticker → {price, currency, as_of, quote_type}. Raises PriceError.
 
     The chart endpoint's `meta` has the last price and the currency it
     is in. London quotes in pence come back as "GBp" — a lower-case
     last letter is Yahoo's way of saying hundredths of the currency,
     and it is turned into the currency itself here so that nothing
     downstream has to know.
+
+    `quote_type` is Yahoo's `instrumentType` — EQUITY, ETF, MUTUALFUND
+    — which comes free with the price and is what the Share Ideas
+    boards use to put a held fund beside the funds and a held share
+    beside the shares.
     """
     data = (get or _get_json)(QUOTE_URL.format(symbol=urllib.parse.quote(symbol)))
     chart = data.get("chart") or {}
@@ -161,7 +166,8 @@ def quote(symbol: str, get=None) -> dict:
         price, currency = float(price) / 100.0, currency.upper()
     when = (datetime.fromtimestamp(int(stamp), tz=timezone.utc).date().isoformat()
             if stamp else datetime.now(timezone.utc).date().isoformat())
-    return {"price": float(price), "currency": currency.upper(), "as_of": when}
+    return {"price": float(price), "currency": currency.upper(), "as_of": when,
+            "quote_type": (meta.get("instrumentType") or "").upper() or None}
 
 
 # ─── What to price ───────────────────────────────────────────────────
@@ -221,8 +227,9 @@ def refresh(base_currency: str = "EUR", get=None,
                     "DO UPDATE SET price = excluded.price, currency = excluded.currency, "
                     " fetched_at = excluded.fetched_at",
                     (isin, q["as_of"], q["price"], q["currency"]))
-                conn.execute("UPDATE securities SET last_error = NULL WHERE isin = ?",
-                             (isin,))
+                conn.execute("UPDATE securities SET last_error = NULL, "
+                             "quote_type = COALESCE(?, quote_type) WHERE isin = ?",
+                             (q["quote_type"], isin))
             priced += 1
         except PriceError as exc:
             failed.append({"isin": isin, "error": str(exc)})
