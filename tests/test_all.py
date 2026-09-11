@@ -1783,7 +1783,7 @@ r = c.post("/forecast", data={"mode": "target", "target": "250000", "years": "12
                               "rate": "4.5"}, follow_redirects=True)
 check("a goal is remembered", b'value="250000"' in r.data, True)
 check("...and the answer is a monthly figure", b"Save per month" in r.data, True)
-check("...kept in the settings file", settings.load()["forecast"]["years"], 12)
+check("...kept in the settings file", settings.load()["forecast"]["all"]["years"], 12)
 r = c.post("/forecast", data={"mode": "project", "monthly": "300", "years": "10",
                               "rate": "5"}, follow_redirects=True)
 check("switching to a savings plan shows the end value",
@@ -1793,6 +1793,27 @@ c.post("/view", data={"person": str(sam_id), "next": "/forecast"})
 r = c.get("/forecast")
 check("under a person the forecast starts from their balance",
       b"what Sam adds up to" in r.data, True)
+check("...with their own plan, not the household's", b'value="300"' not in r.data, True)
+c.post("/forecast", data={"mode": "target", "target": "80000", "years": "8", "rate": "3"})
+r = c.get("/forecast")
+check("a person's plan is kept for them", b'value="80000"' in r.data, True)
+c.post("/view", data={"person": "", "next": "/"})
+r = c.get("/forecast")
+check("...and the household's plan is untouched", b'value="300"' in r.data, True)
+check("...both in the settings file",
+      sorted(settings.load()["forecast"]), ["all", f"person:{sam_id}"])
+# A 0.16.0 settings file held one flat plan: it becomes the household's.
+old_cfg = settings.load(); old_cfg["forecast"] = {"mode": "project", "monthly": 250,
+                                                  "rate": 4, "years": 30, "target": 0}
+settings.save(old_cfg)
+r = c.get("/forecast")
+check("a flat plan from before is read as the household's", b'value="250"' in r.data, True)
+c.post("/forecast", data={"mode": "project", "monthly": "300", "years": "10", "rate": "5"})
+c.post("/view", data={"person": str(sam_id), "next": "/"})
+c.post("/settings", data={"form": "person_delete", "id": str(sam_id)}, follow_redirects=True)
+check("a removed person's plan goes with them",
+      f"person:{sam_id}" in settings.load()["forecast"], False)
+c.post("/settings", data={"form": "person_add", "name": "Sam"})
 c.post("/view", data={"person": "", "next": "/"})
 
 # ---------------------------------------------------------------------------

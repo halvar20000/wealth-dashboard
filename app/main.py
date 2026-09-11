@@ -801,17 +801,37 @@ def forecast_page():
     own assumptions. The inputs are kept, so the page answers the same
     question next month with next month's balance."""
     cfg = settings.load()
+    # One plan per view: the household's, and each person's own. Anna's
+    # "600 a month towards 500 000" must not become Ben's the moment he
+    # flips the switch — his balance with her plan answers nobody.
+    plans = _forecast_plans(cfg)
+    key = _forecast_key()
     if request.method == "POST":
-        cfg["forecast"] = forecast.clean(request.form)
+        plans[key] = forecast.clean(request.form)
+        cfg["forecast"] = plans
         settings.save(cfg)
         return redirect(url_for("forecast_page"))
-    inputs = forecast.clean(cfg.get("forecast") or {})
+    inputs = forecast.clean(plans.get(key) or {})
     base = cfg.get("base_currency", "EUR")
     s = overview.summary(base, account_ids=people.scope())
     return render_template("forecast.html", active_page="forecast",
                            inputs=inputs, s=s,
                            plan=forecast.plan(s["net_worth"], inputs),
                            max_years=forecast.MAX_YEARS, max_rate=forecast.MAX_RATE)
+
+
+def _forecast_key() -> str:
+    person = people.current()
+    return f"person:{person['id']}" if person else "all"
+
+
+def _forecast_plans(cfg: dict) -> dict:
+    """The stored plans, keyed by view. A settings file from 0.16.0 holds
+    one flat plan; it becomes the household's rather than being lost."""
+    stored = cfg.get("forecast") or {}
+    if "mode" in stored:
+        return {"all": stored}
+    return dict(stored)
 
 
 @app.route("/subscriptions")
@@ -883,7 +903,13 @@ def _person_form(form) -> None:
             people.rename(int(form.get("id", "0")), form.get("name", ""))
             flash(_t("Renamed."), "ok")
         elif action == "person_delete":
-            people.delete(int(form.get("id", "0")))
+            pid = int(form.get("id", "0"))
+            people.delete(pid)
+            cfg = settings.load()
+            plans = _forecast_plans(cfg)
+            if plans.pop(f"person:{pid}", None) is not None:
+                cfg["forecast"] = plans
+                settings.save(cfg)
             flash(_t("Removed. Their accounts stay; they just belong to "
                      "one person fewer."), "ok")
     except ValueError as exc:

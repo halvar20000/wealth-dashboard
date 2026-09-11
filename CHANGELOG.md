@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.16.1] — 2026-09-11
+
+### Fixed
+- The forecast's inputs are kept **per person**. Under a name in the
+  header, the monthly amount, return, years and goal are that person's own,
+  and the household's plan under Everyone is a separate one — until now a
+  single plan was shared, so one person's goal quietly became the next
+  person's the moment they flipped the switch. A plan saved by 0.16.0
+  becomes the household's; a removed person's plan goes with them.
+
 ## [0.16.0] — 2026-09-11
 
 ### Added
