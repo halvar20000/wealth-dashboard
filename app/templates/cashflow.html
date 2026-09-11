@@ -5,6 +5,18 @@
 <p class="lede">{{ _("Money in against money out, per month. Internal transfers are excluded — moving money between your own accounts is not income and not spending, and counting it would inflate both by the same amount. Investment is separated for the same reason: a month you invested €3,000 is not a month you overspent.") }}</p>
 {% endblock %}
 {% block content %}
+{% macro fx_note(x) %}
+{% if x.converted %}
+{% set amounts %}{% for u in x.converted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}{% endset %}
+<p class="sub">{{ _f("Includes {amounts}, converted at ECB rates — each month at its own rate, and months older than the rates on file at the oldest.", amounts=amounts) | safe }}</p>
+{% endif %}
+{% if x.unconverted %}
+<p class="sub">{{ _("Not counted, because no rate here covers them:") }}
+  {% for u in x.unconverted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}
+  {% set settings_link %}<a href="{{ url_for('settings_page') }}">{{ _("Settings") }}</a>{% endset %}
+  {{ _f("Fetch rates under {settings}.", settings=settings_link) | safe }}</p>
+{% endif %}
+{% endmacro %}
 
 <section class="stat-strip">
   <div class="stat-card stat-green">
@@ -29,6 +41,7 @@
     <div class="stat-sub">{{ _("income less spending") }}</div>
   </div>
 </section>
+{{ fx_note(data) }}
 
 {% if data.months %}
 <section class="card">

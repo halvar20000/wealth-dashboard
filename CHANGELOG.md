@@ -11,6 +11,17 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.10.1] — 2026-09-11
+
+### Fixed
+- **Spending in another currency was missing from Budget and Cash Flow.** Both
+  pages summed the base currency only, so a categorised purchase on a dollar
+  or franc account never reached its category — and nothing on the page said
+  so. Every currency is counted now, converted at the ECB rate of its month
+  (or the oldest rate on file for months older than the ninety days kept),
+  and both pages say what they converted. An amount in a currency no rate
+  covers is still left out, but is now named rather than silently dropped.
+
 ## [0.10.0] — 2026-09-11
 
 ### Added

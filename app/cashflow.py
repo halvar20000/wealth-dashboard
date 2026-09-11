@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from . import categories
+from . import categories, fx
 from .db import get_conn
 
 
@@ -29,30 +29,59 @@ def _month_floor(months_back: int) -> str:
     return f"{year:04d}-{month:02d}-01"
 
 
+def _month_rates(month: str) -> tuple[str | None, dict[str, float]]:
+    """The ECB rates for a month: the newest publication in it, or the
+    oldest on file for a month older than what is kept.
+
+    Ninety days of rates are stored. A transaction from last spring is
+    converted at the oldest rate the app has rather than dropped —
+    a spending figure a few percent off on the exchange rate is a
+    figure; a category that silently omits a whole account is not."""
+    as_of, rates = fx.rates_on(f"{month}-31")
+    if as_of is None:
+        with get_conn() as conn:
+            row = conn.execute("SELECT MIN(as_of) AS d FROM fx_rates").fetchone()
+        if row and row["d"]:
+            as_of, rates = fx.rates_on(row["d"])
+    return as_of, rates
+
+
 def monthly(months: int = 13, base_currency: str = "EUR") -> dict:
     """Income, spending and investment per calendar month.
 
-    Only the base currency is summed — see overview.py for why a total
-    that mixes currencies is worse than two totals.
+    Every currency is counted, converted into the base at the ECB rate
+    of its month — see _month_rates(). An amount in a currency no rate
+    covers is not converted and not silently dropped either: it is
+    reported in `unconverted`, so the page can say what it left out.
+    Until 0.10.1 only the base currency was summed, which meant the
+    spending on a foreign-currency account was simply missing from the
+    Budget and Cash Flow pages, with nothing on either page to say so.
     """
     since = _month_floor(months - 1)
+    base = base_currency.upper()
     with get_conn() as conn:
         rows = conn.execute(
             """
             SELECT substr(txn_date, 1, 7) AS month,
                    COALESCE(NULLIF(category, ''), 'other') AS category,
+                   UPPER(currency) AS currency,
                    SUM(amount) AS total,
                    COUNT(*)    AS n
               FROM transactions
-             WHERE txn_date >= ? AND currency = ?
+             WHERE txn_date >= ?
                AND kind NOT IN ('buy', 'sell')
-             GROUP BY month, category
+             GROUP BY month, category, currency
              ORDER BY month
-            """, (since, base_currency)).fetchall()
+            """, (since,)).fetchall()
 
     # Read once, not per row: the user can change which categories count
     # as spending, so this cannot be a constant fixed at import time.
     spending = set(categories.spending())
+
+    rate_cache: dict[str, tuple[str | None, dict[str, float]]] = {}
+    converted: dict[str, float] = {}      # currency -> amount converted, as typed
+    unconverted: dict[str, float] = {}    # currency -> amount left out
+    fx_as_of: str | None = None
 
     months_map: dict[str, dict] = {}
     by_category: dict[str, float] = {}
@@ -60,7 +89,18 @@ def monthly(months: int = 13, base_currency: str = "EUR") -> dict:
         m = months_map.setdefault(r["month"], {
             "month": r["month"], "income": 0.0, "spending": 0.0,
             "investment": 0.0, "categories": {}})
-        cat, total = r["category"], r["total"] or 0.0
+        cat, total, ccy = r["category"], r["total"] or 0.0, r["currency"] or base
+        if ccy != base:
+            if r["month"] not in rate_cache:
+                rate_cache[r["month"]] = _month_rates(r["month"])
+            as_of, rates = rate_cache[r["month"]]
+            if ccy not in rates or base not in rates:
+                unconverted[ccy] = unconverted.get(ccy, 0.0) + abs(total)
+                continue
+            converted[ccy] = converted.get(ccy, 0.0) + abs(total)
+            total = total / rates[ccy] * rates[base]
+            if as_of and (fx_as_of is None or as_of > fx_as_of):
+                fx_as_of = as_of
         if cat == "transfer":
             continue                      # internal: not a flow at all
         if cat == "income":
@@ -95,6 +135,12 @@ def monthly(months: int = 13, base_currency: str = "EUR") -> dict:
         "average_income": sum(m["income"] for m in series) / n,
         "months_covered": len(series),
         "base_currency": base_currency,
+        # What crossed a currency on the way in, and what could not.
+        "converted": sorted(({"currency": c, "amount": a} for c, a in converted.items()),
+                            key=lambda x: -x["amount"]),
+        "unconverted": sorted(({"currency": c, "amount": a} for c, a in unconverted.items()),
+                              key=lambda x: -x["amount"]),
+        "fx_as_of": fx_as_of,
     }
 
 
@@ -179,4 +225,7 @@ def budget_report(base_currency: str = "EUR") -> dict:
         "total_spent": sum(spent_now.values()),
         "base_currency": base_currency,
         "has_budgets": bool(limits),
+        "converted": data["converted"],
+        "unconverted": data["unconverted"],
+        "fx_as_of": data["fx_as_of"],
     }

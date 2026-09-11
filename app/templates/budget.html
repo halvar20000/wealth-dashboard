@@ -5,6 +5,18 @@
 <p class="lede">{{ _("Measured against how far through the month you are, not against the whole month. Halfway through, everyone is under budget — the useful question is whether you are ahead of the pace.") }}</p>
 {% endblock %}
 {% block content %}
+{% macro fx_note(x) %}
+{% if x.converted %}
+{% set amounts %}{% for u in x.converted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}{% endset %}
+<p class="sub">{{ _f("Includes {amounts}, converted at ECB rates — each month at its own rate, and months older than the rates on file at the oldest.", amounts=amounts) | safe }}</p>
+{% endif %}
+{% if x.unconverted %}
+<p class="sub">{{ _("Not counted, because no rate here covers them:") }}
+  {% for u in x.unconverted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}
+  {% set settings_link %}<a href="{{ url_for('settings_page') }}">{{ _("Settings") }}</a>{% endset %}
+  {{ _f("Fetch rates under {settings}.", settings=settings_link) | safe }}</p>
+{% endif %}
+{% endmacro %}
 
 <section class="hero-block">
   <div class="hero-top">
@@ -18,6 +30,7 @@
       </div>
     </div>
   </div>
+  {{ fx_note(report) }}
 </section>
 
 <form method="post" class="card">

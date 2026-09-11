@@ -1793,6 +1793,49 @@ check("the settings page offers to fetch them", b"fx_refresh" in r.data, True)
 check("...and says why it matters", b"No rates yet" in r.data, True)
 fx.store(days)                       # put them back for anything after
 
+# Spending in another currency is spending. Until 0.10.1 the Cash Flow
+# and Budget pages summed the base currency only, so a categorised
+# dollar purchase was simply absent from its category — with nothing on
+# the page to say so.
+_ym = _date.today().strftime("%Y-%m")
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "amount, currency, kind, category, external_id) VALUES "
+                 "(?, ?, 'Whole Foods', -116.52, 'USD', 'withdrawal', 'food', "
+                 "'usd-food')", (usd_id, _ym + "-02"))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "amount, currency, kind, category, external_id) VALUES "
+                 "(?, ?, 'Konbini', -1000.0, 'JPY', 'withdrawal', 'food', "
+                 "'jpy-food')", (jpy_id, _ym + "-03"))
+    # An old dollar row, older than any rate on file: converted at the
+    # oldest rate rather than dropped.
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "amount, currency, kind, category, external_id) VALUES "
+                 "(?, '2026-03-02', 'Old dollars', -117.0, 'USD', 'withdrawal', "
+                 "'food', 'usd-old')", (usd_id,))
+rep = cf.budget_report("EUR")
+food = next(r for r in rep["rows"] if r["category"] == "food")
+check("a dollar purchase reaches its category this month",
+      food["spent"] >= 100.0, True)
+check("...converted at the ECB rate of its month",
+      any(u["currency"] == "USD" for u in rep["converted"]), True)
+check("a currency with no rate is not counted",
+      any(u["currency"] == "JPY" for u in rep["unconverted"]), True)
+check("...and the amount left out is named",
+      next(u["amount"] for u in rep["unconverted"] if u["currency"] == "JPY"), 1000.0)
+flow = cf.monthly(months=13, base_currency="EUR")
+march = next((m for m in flow["months"] if m["month"] == "2026-03"), None)
+check("a row older than the rates on file is converted at the oldest, not dropped",
+      march is not None and march["categories"].get("food", 0) >= 99.0, True)
+r = c.get("/budget")
+check("the budget page says what it converted", b"converted at ECB rates" in r.data, True)
+check("...and what it could not", b"no rate here covers them" in r.data, True)
+r = c.get("/cashflow")
+check("so does the cash flow page", b"converted at ECB rates" in r.data, True)
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM transactions WHERE external_id IN "
+                 "('usd-food', 'jpy-food', 'usd-old')")
+
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

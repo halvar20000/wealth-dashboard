@@ -880,4 +880,10 @@ STRINGS: dict[str, str] = {
     "The amount is missing.": "Le montant manque.",
     "Bought {qty} × {name}": "Achat {qty} × {name}",
     "Sold {qty} × {name}": "Vente {qty} × {name}",
+    "Includes {amounts}, converted at ECB rates — each month at its own rate, and months older than the rates on file at the oldest.":
+        "Comprend {amounts}, convertis aux taux de la BCE — chaque mois à son propre taux, et les mois antérieurs aux taux enregistrés au plus ancien.",
+    "Not counted, because no rate here covers them:":
+        "Non comptés, parce qu'aucun taux ici ne les couvre :",
+    "Fetch rates under {settings}.":
+        "Récupère les taux dans {settings}.",
 }
