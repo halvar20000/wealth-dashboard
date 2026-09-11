@@ -31,7 +31,7 @@
 <section class="card">
   <div class="card-header">
     <h2>{{ _("The queue") }}</h2>
-    <span class="card-subtitle">{{ _("tick “remember” to turn a choice into a rule") }}</span>
+    <span class="card-subtitle">{{ _("clear “remember as” to correct this one row without making a rule") }}</span>
   </div>
   <div class="table-wrap">
     <table class="grid">
@@ -54,7 +54,7 @@
           </td>
           <td>
             <input name="pattern" placeholder="{{ _('text to match, optional') }}"
-                   value="{{ (t.counterparty or '')[:30] }}"
+                   value="{{ t.pattern or '' }}"
                    style="padding:5px 8px;font-size:12.5px;">
           </td>
           <td class="num"><button type="submit">{{ _("Apply") }}</button></td>

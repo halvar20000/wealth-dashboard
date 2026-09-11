@@ -502,8 +502,8 @@ STRINGS: dict[str, str] = {
     "fees, interest, dividends, known merchants":
         "Gebühren, Zinsen, Dividenden, bekannte Händler",
     "The queue": "Die Warteschlange",
-    "tick “remember” to turn a choice into a rule":
-        "„merken“ ankreuzen macht aus einer Wahl eine Regel",
+    "clear “remember as” to correct this one row without making a rule":
+        "„Merken als“ leeren, um nur diese Zeile zu korrigieren — ohne Regel",
     "Remember as": "Merken als",
     "text to match, optional": "Text zum Erkennen, optional",
     "Apply": "Übernehmen",
@@ -519,6 +519,10 @@ STRINGS: dict[str, str] = {
         "Regel gespeichert — {n} Transaktion passte auf „{pattern}“.",
     "Rule saved — {n} transactions matched “{pattern}”.":
         "Regel gespeichert — {n} Transaktionen passten auf „{pattern}“.",
+    "Changing a category here also makes a rule from the merchant, and applies it to every transaction that matches. To correct a single row without a rule, use the Categorize page and clear “remember as”.":
+        "Wer hier eine Kategorie ändert, legt damit auch eine Regel für den Händler an, und die gilt für jede passende Transaktion. Um nur eine einzelne Zeile zu korrigieren, nimm die Seite Kategorisieren und leere „Merken als“.",
+    "A rule needs at least three characters to match on — anything shorter will catch transactions you did not mean.":
+        "Eine Regel braucht mindestens drei Zeichen zum Erkennen — alles Kürzere trifft Transaktionen, die du nicht gemeint hast.",
     "{n} transaction categorised from what the importer already knew.":
         "{n} Transaktion kategorisiert aus dem, was der Importer schon wusste.",
     "{n} transactions categorised from what the importer already knew.":

@@ -533,13 +533,28 @@ def transactions():
 @app.route("/transactions/<int:txn_id>/category", methods=["POST"])
 @auth.login_required
 def transaction_category(txn_id: int):
-    """Set one transaction's category, and optionally remember it.
+    """Set one transaction's category, and remember it as a rule.
 
     The "remember" half is the whole design: a correction that does not
-    become a rule means fixing the same merchant every month.
+    become a rule means fixing the same merchant every month. The
+    Categorize page shows the pattern in a field, so the user can change
+    it or clear it to make a one-off correction; the Transactions page
+    has only the dropdown, sends no `pattern` at all, and the pattern is
+    worked out from the transaction — see categories.suggest_pattern().
+    Filing something under Uncategorised is never a rule: a rule that
+    un-categorises is only ever a mistake waiting for the next import.
     """
     category = request.form.get("category") or "other"
-    pattern = (request.form.get("pattern") or "").strip()
+    if "pattern" in request.form:
+        pattern = (request.form.get("pattern") or "").strip()
+    else:
+        with get_conn() as conn:
+            row = conn.execute("SELECT description, counterparty FROM "
+                               "transactions WHERE id = ?", (txn_id,)).fetchone()
+        pattern = categories.suggest_pattern(
+            row["description"], row["counterparty"]) if row else ""
+    if category == "other":
+        pattern = ""
     try:
         categories.set_category(txn_id, category)
         if pattern:
@@ -602,8 +617,7 @@ def budget_page():
         return redirect(url_for("budget_page"))
     return render_template(
         "budget.html", active_page="budget",
-        report=cashflow.budget_report(settings.get("base_currency", "EUR")),
-        spending=categories.spending())
+        report=cashflow.budget_report(settings.get("base_currency", "EUR")))
 
 
 @app.route("/subscriptions")

@@ -906,6 +906,19 @@ with db.get_conn() as conn:
                           "WHERE kind='buy' AND category='shopping'").fetchone()["n"]
 check("a rule does not recategorise a trade", trades, 0)
 
+# What a rule remembers a transaction by, when nobody typed a pattern.
+check("the counterparty is the pattern when there is one",
+      cat.suggest_pattern("KARTENZAHLUNG 12.06 REWE", "REWE SAGT DANKE"),
+      "REWE SAGT DANKE")
+check("without one, the merchant is dug out of the description",
+      cat.suggest_pattern("SEPA-Lastschrift 2026-06-12 REWE MARKT GMBH 4711 Ref. 0815", None),
+      "REWE MARKT GMBH")
+check("...and is a substring of it, so the rule will actually match",
+      "REWE MARKT GMBH" in "SEPA-Lastschrift 2026-06-12 REWE MARKT GMBH 4711 Ref. 0815", True)
+check("a description that is only numbers yields no pattern",
+      cat.suggest_pattern("4711 0815 2026", "  "), None)
+check("a one-word merchant is enough", cat.suggest_pattern("Netflix", None), "Netflix")
+
 # ---------------------------------------------------------------------------
 print("\n14b. Categories the user owns")
 # ---------------------------------------------------------------------------
@@ -1029,6 +1042,15 @@ check("...with a pace, not just a total",
 cf.set_budget("shopping", None)
 check("a budget can be cleared", cf.budget_report()["has_budgets"], False)
 
+# A category with nothing booked to it yet must still get a row: the
+# row is the only place its budget can be typed in.
+rep = cf.budget_report()
+listed = {r["category"] for r in rep["rows"]}
+check("every spending category has a budget row, used or not",
+      set(cat.spending()) <= listed, True)
+check("...and the non-spending ones do not, since nothing is ever spent there",
+      listed & {"income", "investment", "transfer"}, set())
+
 # ---------------------------------------------------------------------------
 print("\n16. Subscriptions")
 # ---------------------------------------------------------------------------
@@ -1086,6 +1108,58 @@ for path in ["/", "/portfolio", "/cashflow", "/budget", "/subscriptions",
 
 r = c.get("/transactions?q=ishares&category=investment")
 check("the transactions filters work together", r.status_code, 200)
+
+# Changing a category from the Transactions page — which has only the
+# dropdown — must leave a rule behind, or the same shop is fixed every
+# month by hand. From the Categorize page the pattern field decides.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "counterparty, amount, currency, kind, external_id) VALUES "
+                 "(?, '2026-07-03', 'KARTE 4711 VELOFIX WERKSTATT 12.3', NULL, "
+                 "-45.0, 'EUR', 'withdrawal', 'rule-web-1')", (broker_id,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "counterparty, amount, currency, kind, external_id) VALUES "
+                 "(?, '2026-08-03', 'KARTE 4712 VELOFIX WERKSTATT 9.9', NULL, "
+                 "-30.0, 'EUR', 'withdrawal', 'rule-web-2')", (broker_id,))
+    web_id = conn.execute("SELECT id FROM transactions WHERE external_id="
+                          "'rule-web-1'").fetchone()["id"]
+rules_before = len(cat.rules())
+r = c.post(f"/transactions/{web_id}/category", data={"category": "transport"},
+           follow_redirects=True)
+check("a category change on the Transactions page makes a rule",
+      len(cat.rules()), rules_before + 1)
+check("...from the merchant, not the card and reference numbers",
+      cat.rules()[0]["pattern"], "VELOFIX WERKSTATT")
+with db.get_conn() as conn:
+    sibling = conn.execute("SELECT category FROM transactions WHERE external_id="
+                           "'rule-web-2'").fetchone()["category"]
+check("...and the next payment to the same shop is filed with it",
+      sibling, "transport")
+check("...which the page says", "VELOFIX WERKSTATT".encode() in r.data, True)
+
+c.post(f"/transactions/{web_id}/category", data={"category": "other"})
+check("filing under Uncategorised makes no rule", len(cat.rules()), rules_before + 1)
+
+c.post(f"/transactions/{web_id}/category",
+       data={"category": "shopping", "pattern": ""})
+check("an emptied pattern on the Categorize page makes no rule",
+      len(cat.rules()), rules_before + 1)
+with db.get_conn() as conn:
+    one = conn.execute("SELECT category FROM transactions WHERE external_id="
+                       "'rule-web-1'").fetchone()["category"]
+check("...but still corrects the one row", one, "shopping")
+
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "counterparty, amount, currency, kind, external_id) VALUES "
+                 "(?, '2026-08-04', 'POS 9981 20260804', 'Bakery Quorn', "
+                 "-4.5, 'EUR', 'withdrawal', 'rule-web-3')", (broker_id,))
+r = c.get("/categorize")
+check("the queue pre-fills the pattern it would remember",
+      b'value="Bakery Quorn"' in r.data, True)
+r = c.get("/budget")
+check("the budget page has a field for a category nobody has used yet",
+      b'name="budget_education"' in r.data, True)
 r = c.get("/transactions?account=999999")
 check("an account that does not exist filters to nothing, not an error",
       r.status_code, 200)

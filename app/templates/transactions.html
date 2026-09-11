@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ _("Transactions") }} · Wealth Dashboard{% endblock %}
 {% block heading %}{{ _("Transactions") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("Changing a category here also makes a rule from the merchant, and applies it to every transaction that matches. To correct a single row without a rule, use the Categorize page and clear “remember as”.") }}</p>
+{% endblock %}
 {% block content %}
 
 <form class="card form inline" method="get">

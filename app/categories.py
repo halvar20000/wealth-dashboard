@@ -368,6 +368,38 @@ def suggest(description: str | None, counterparty: str | None = None) -> str | N
 
 # ─── Rules ───────────────────────────────────────────────────────────
 
+# The shortest pattern a rule may have. Two characters catch half the
+# database; three is where "IKE" stops matching "LIKE" often enough.
+MIN_PATTERN = 3
+
+
+def suggest_pattern(description: str | None,
+                    counterparty: str | None = None) -> str | None:
+    """The text a rule should remember this transaction by, or None.
+
+    The counterparty is the merchant's name as the bank has it, and is
+    the right answer whenever there is one. Card payments often come
+    without one, and then the description is all there is — but a
+    description is a merchant name buried in a booking date, a card
+    number and a reference, none of which the next payment to the same
+    shop will share. So: the longest run of words in it with no digit,
+    and only the first few of them, which is the name and not the noise.
+    """
+    party = " ".join((counterparty or "").split())
+    if len(party) >= MIN_PATTERN:
+        return party[:40]
+    words = (description or "").split()
+    runs: list[list[str]] = [[]]
+    for w in words:
+        if any(c.isdigit() for c in w) or sum(c.isalpha() for c in w) < 2:
+            runs.append([])
+        else:
+            runs[-1].append(w)
+    best = max(runs, key=len)
+    pattern = " ".join(best[:4])[:40].strip()
+    return pattern if len(pattern) >= MIN_PATTERN else None
+
+
 def rules(conn=None) -> list[dict]:
     def _read(c):
         return [dict(r) for r in c.execute(
@@ -386,10 +418,10 @@ def add_rule(pattern: str, category: str) -> int:
     year is out, and people stop correcting long before that.
     """
     pattern = (pattern or "").strip()
-    if len(pattern) < 3:
-        raise ValueError("A rule needs at least three characters to match on — "
-                         "anything shorter will catch transactions you did not "
-                         "mean.")
+    if len(pattern) < MIN_PATTERN:
+        raise ValueError(i18n.t("A rule needs at least three characters to "
+                                "match on — anything shorter will catch "
+                                "transactions you did not mean."))
     if category not in all_categories():
         raise ValueError(f"Unknown category {category!r}")
     with get_conn() as conn:
@@ -455,6 +487,7 @@ def uncategorised(limit: int = 60) -> list[dict]:
     for r in rows:
         item = dict(r)
         item["suggestion"] = suggest(item["description"], item["counterparty"])
+        item["pattern"] = suggest_pattern(item["description"], item["counterparty"])
         out.append(item)
     return out, total
 

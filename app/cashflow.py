@@ -146,9 +146,17 @@ def budget_report(base_currency: str = "EUR") -> dict:
     days_in_month = calendar.monthrange(today.year, today.month)[1]
     through = today.day / days_in_month
 
+    # Every spending category gets a row, whether or not anything has
+    # been booked to it yet — a row is the only place a budget can be
+    # typed in, so a category with no row is a category that can never
+    # have one. Categories that were deleted but still carry spending
+    # this year stay too, since the money is real. Biggest budgets first,
+    # then biggest typical spend, then the catalogue's own order.
+    order = {c: i for i, c in enumerate(categories.spending())}
     rows = []
-    for cat in sorted(set(limits) | set(spent_now) | set(typical),
-                      key=lambda c: -(limits.get(c) or typical.get(c, 0))):
+    for cat in sorted(set(order) | set(limits) | set(spent_now) | set(typical),
+                      key=lambda c: (-(limits.get(c) or typical.get(c, 0)),
+                                     order.get(c, len(order)))):
         limit = limits.get(cat)
         spent = spent_now.get(cat, 0.0)
         expected = (limit * through) if limit else None

@@ -11,6 +11,27 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.9.1] — 2026-09-11
+
+### Fixed
+- **Every spending category has a row on the Budget page.** A category only got
+  a row once something had been booked to it or a budget already existed — so a
+  category you had just created under Settings, or one nothing had matched yet,
+  had nowhere to type a budget in. Every category that counts as spending is
+  listed now, whether it has been used or not. Income, Investment and Internal
+  transfer are still left out: nothing is ever spent there, so a budget against
+  them would only ever read zero.
+- **Changing a category on the Transactions page now leaves a rule behind.**
+  The dropdown there set the one row and forgot it, so the same shop came back
+  uncategorised with the next import. It now makes a rule from the merchant
+  and applies it to every matching transaction, as the Categorize page always
+  did — and says how many it reached. Filing something under Uncategorised
+  makes no rule.
+- The Categorize page's **remember as** field is pre-filled even when the bank
+  sent no counterparty: the merchant is picked out of the description, without
+  the booking date, card number and reference that the next payment will not
+  share. Clear the field to correct a single row without a rule.
+
 ## [0.9.0] — 2026-09-10
 
 ### Added
