@@ -23,6 +23,17 @@
     <a class="version-badge" href="{{ url_for('changelog_page') }}"
        title="{{ _('What changed') }}">{{ version }}</a>
     {% endif %}
+    {% if user and people %}
+    {# Whose picture: everyone's, or one person's. A lens on the same
+       data, so it sits in the header where it applies to every page. #}
+    <form method="post" action="{{ url_for('view_switch') }}" class="viewswitch" aria-label="{{ _('Whose accounts') }}">
+      <input type="hidden" name="next" value="{{ request.path }}">
+      <button type="submit" name="person" value="" class="{{ 'active' if not view_person }}">{{ _("Everyone") }}</button>
+      {% for p in people %}
+      <button type="submit" name="person" value="{{ p.id }}" class="{{ 'active' if view_person and view_person.id == p.id }}">{{ p.name }}</button>
+      {% endfor %}
+    </form>
+    {% endif %}
     {% if user %}
     <nav>
       <a class="navlink {{ 'active' if active_page == 'overview' }}" href="{{ url_for('index') }}">{{ _("Overview") }}</a>
@@ -52,6 +63,9 @@
       <h1>{% block heading %}{% endblock %}</h1>
       {% endif %}
     {% endblock %}
+    {% if view_person and active_page in ('overview', 'portfolio', 'cashflow', 'budget', 'subscriptions', 'transactions', 'categorize', 'accounts') %}
+    <p class="view-note">{{ _f("Only {name}'s accounts are counted on this page.", name=view_person.name) }}</p>
+    {% endif %}
     {% block lede %}{% endblock %}
     {% block content %}{% endblock %}
   </main>

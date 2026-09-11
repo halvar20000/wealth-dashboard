@@ -2,6 +2,13 @@
 {% block title %}{{ account.name }} · Wealth Dashboard{% endblock %}
 {% block heading %}{{ account.name }}{% endblock %}
 {% block content %}
+{% if people %}
+<p class="sub" style="margin:-2px 0 18px">
+  {% if owners %}{{ _f("Belongs to {names}.", names=owners | map(attribute='name') | join(", ")) }}
+  {% else %}{{ _("Belongs to nobody yet, so it shows under Everyone only.") }}{% endif %}
+  <a href="{{ url_for('account_edit', account_id=account.id) }}">{{ _("Change") }}</a>
+</p>
+{% endif %}
 
 <div class="cards">
   <div class="card stat">

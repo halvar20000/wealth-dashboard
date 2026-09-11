@@ -6,7 +6,7 @@
   <div class="table-wrap">
     <table class="grid">
       <thead>
-        <tr><th>{{ _("Account") }}</th><th>{{ _("Source") }}</th><th class="num">{{ _("Balance") }}</th>
+        <tr><th>{{ _("Account") }}</th>{% if people %}<th>{{ _("Whose") }}</th>{% endif %}<th>{{ _("Source") }}</th><th class="num">{{ _("Balance") }}</th>
             <th class="num">{{ _("Transactions") }}</th><th>{{ _("As of") }}</th><th></th></tr>
       </thead>
       <tbody>
@@ -14,6 +14,9 @@
         <tr>
           <td><a href="{{ url_for('account_detail', account_id=a.id) }}">{{ a.name }}</a>
               <span class="sub">{{ type_label(a.type) }} · {{ a.currency }}</span></td>
+          {% if people %}
+          <td>{% if a.people %}{{ a.people | join(", ") }}{% else %}<span class="sub">{{ _("nobody yet") }}</span>{% endif %}</td>
+          {% endif %}
           <td>{% if a.bank %}{{ a.bank }}<span class="sub">{{ _("connected") }}</span>
               {% elif a.transactions %}<span class="sub">{{ _("imported file") }}</span>
               {% else %}<span class="sub">{{ _("nothing yet") }}</span>{% endif %}</td>
@@ -31,6 +34,9 @@
       </tbody>
     </table>
   </div>
+  {% if s.hidden_accounts %}
+  <p class="sub">{{ _n(s.hidden_accounts, "{n} more account belongs to somebody else, or to nobody yet — switch to Everyone to see it.", "{n} more accounts belong to somebody else, or to nobody yet — switch to Everyone to see them.") }}</p>
+  {% endif %}
   <p><a class="btn" href="{{ url_for('account_new') }}">{{ _("Add an account") }}</a></p>
 </section>
 {% endblock %}

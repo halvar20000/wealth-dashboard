@@ -236,14 +236,6 @@ STRINGS: dict[str, str] = {
     # ─── Import ──────────────────────────────────────────────────────
     "Import": "Importieren",
     "Import into {name}": "In {name} importieren",
-    "CSV file": "CSV-Datei",
-    "Drop in a CSV your broker exported. The file is recognised by its "
-    "columns, so there is nothing to choose — and re-importing a period you "
-    "already loaded is harmless, because every row carries an id.":
-        "Wirf eine CSV hinein, die dein Broker exportiert hat. Die Datei wird "
-        "an ihren Spalten erkannt, du musst also nichts auswählen — und einen "
-        "Zeitraum noch einmal zu importieren schadet nicht, weil jede Zeile "
-        "eine ID trägt.",
     "Rows read": "Zeilen gelesen",
     "Imported": "Importiert",
     "Already had": "Schon vorhanden",
@@ -266,19 +258,51 @@ STRINGS: dict[str, str] = {
         "das Startdatum auf die Kontoeröffnung zurück, dann bekommst du die "
         "ganze Historie auf einmal.",
     "Profile → Transactions → export.": "Profil → Transaktionen → Export.",
+    "Drop in a CSV your broker exported, or the statement PDFs from your bank's "
+    "mailbox — as many as you like, or a ZIP of them. Each file is recognised by "
+    "what is in it, so there is nothing to choose — and re-importing what you "
+    "already loaded is harmless, because every row carries an id.":
+        "Wirf eine CSV deines Brokers hinein oder die Abrechnungs-PDFs aus dem "
+        "Postfach deiner Bank — so viele du willst, oder als ZIP. Jede Datei "
+        "wird an ihrem Inhalt erkannt, es gibt also nichts auszuwählen — und "
+        "noch einmal importieren, was du schon geladen hast, schadet nicht, weil "
+        "jede Zeile eine Kennung trägt.",
+    "CSV or PDF files":
+        "CSV- oder PDF-Dateien",
+    "Files":
+        "Dateien",
+    "Postfach → filter by the Depot → download the Wertpapierabrechnungen as PDF "
+    "and drop them all in here at once. The Depot's CSV says only what money "
+    "moved; the PDFs say how many units, at what price, with what fee. Orders, "
+    "fund purchases, dividends, interest, the Vorabpauschale and the half-year "
+    "Sparplan overview are all read. A Storno is skipped and named.":
+        "Postfach → nach dem Depot filtern → die Wertpapierabrechnungen als PDF "
+        "herunterladen und alle auf einmal hier hineinwerfen. Die CSV des Depots "
+        "sagt nur, welches Geld geflossen ist; die PDFs sagen wie viele Stücke, zu "
+        "welchem Kurs, mit welcher Gebühr. Orders, Fondskäufe, Dividenden, Zinsen, "
+        "die Vorabpauschale und die Halbjahresabrechnung Sparplan werden alle "
+        "gelesen. Ein Storno wird übersprungen und benannt.",
+    "Open the account or the Visa card → Umsätze → choose the period → "
+    "CSV-Export. Girokonto, Tagesgeld and Visa all work, and so do files from "
+    "the old portal. Pending (vorgemerkt) rows are left out until they are "
+    "booked.":
+        "Konto oder Visa-Karte öffnen → Umsätze → Zeitraum wählen → CSV-Export. "
+        "Girokonto, Tagesgeld und Visa funktionieren alle, ebenso Dateien aus dem "
+        "alten Portal. Vorgemerkte Umsätze bleiben außen vor, bis sie gebucht sind.",
     "Export a period that overlaps what you already imported. Overlap costs "
     "nothing and a gap costs you transactions.":
         "Exportiere einen Zeitraum, der sich mit dem bereits importierten "
         "überschneidet. Überschneidung kostet nichts, eine Lücke kostet dich "
         "Transaktionen.",
-    "Choose a CSV file first.": "Wähle zuerst eine CSV-Datei.",
-    "That file is larger than {mb} MB. A transaction export should be far "
+    "Choose a CSV or PDF file first.": "Wähle zuerst eine CSV- oder PDF-Datei.",
+    "{name} is larger than {mb} MB. A transaction export should be far "
     "smaller — is it the right file?":
-        "Diese Datei ist größer als {mb} MB. Ein Transaktionsexport ist viel "
+        "{name} ist größer als {mb} MB. Ein Transaktionsexport ist viel "
         "kleiner — ist es die richtige Datei?",
-    "That file's columns do not match any importer here. Supported: {list}":
-        "Die Spalten dieser Datei passen zu keinem Importer hier. "
+    "None of those files match an importer here. Supported: {list}":
+        "Keine dieser Dateien passt zu einem Importer hier. "
         "Unterstützt: {list}",
+    "not recognised, left out": "nicht erkannt, ausgelassen",
     "{importer}: {new} new, {had} already had.":
         "{importer}: {new} neu, {had} schon vorhanden.",
 
@@ -898,4 +922,60 @@ STRINGS: dict[str, str] = {
     "{n} holdings priced.": "{n} Positionen bewertet.",
     "{ok} of {held} holdings priced. Could not price: {failed}.":
         "{ok} von {held} Positionen bewertet. Kein Kurs für: {failed}.",
+
+    # ─── Personen ────────────────────────────────────────────────────
+    "A person needs a name.":
+        "Eine Person braucht einen Namen.",
+    "Add person":
+        "Person hinzufügen",
+    "Add the people in your household, then tick on each account who it belongs to — one person, or several for a joint account. A switch appears in the header: Everyone shows the whole household, a name shows only that person's accounts on every page. An account ticked for nobody shows under Everyone only. This is a lens, not a lock: anyone who can sign in can flip it.":
+        "Trage die Personen deines Haushalts ein und hake bei jedem Konto an, wem es gehört — einer Person, oder mehreren bei einem Gemeinschaftskonto. In der Kopfzeile erscheint ein Schalter: „Alle“ zeigt den ganzen Haushalt, ein Name zeigt auf jeder Seite nur die Konten dieser Person. Ein Konto ohne Haken erscheint nur unter „Alle“. Das ist eine Brille, kein Schloss: wer sich anmelden kann, kann umschalten.",
+    "Alex":
+        "Alex",
+    "Everyone":
+        "Alle",
+    "New person":
+        "Neue Person",
+    "No people yet. Add the household under Settings → People, and each account can be somebody's.":
+        "Noch keine Personen. Lege den Haushalt unter Einstellungen → Personen an, dann kann jedes Konto jemandem gehören.",
+    "Only {name}'s accounts are counted on this page.":
+        "Auf dieser Seite zählen nur die Konten von {name}.",
+    "People":
+        "Personen",
+    "Remove {name}? Their accounts stay.":
+        "{name} entfernen? Die Konten bleiben.",
+    "Removed. Their accounts stay; they just belong to one person fewer.":
+        "Entfernt. Die Konten bleiben; sie gehören nur einer Person weniger.",
+    "Renamed.":
+        "Umbenannt.",
+    "The budget itself is the household's; the spending measured against it here is {name}'s alone.":
+        "Das Budget gehört dem Haushalt; die Ausgaben, die hier daran gemessen werden, sind allein die von {name}.",
+    "There is already somebody called {name}.":
+        "Es gibt schon jemanden namens {name}.",
+    "Tick one person, or several for a joint account. Nobody ticked means it shows only under Everyone.":
+        "Hake eine Person an, oder mehrere bei einem Gemeinschaftskonto. Ohne Haken erscheint es nur unter „Alle“.",
+    "Whose":
+        "Wessen",
+    "Whose accounts":
+        "Wessen Konten",
+    "Whose is it":
+        "Wem gehört es",
+    "nobody yet":
+        "noch niemandem",
+    "whose accounts are whose":
+        "wem welches Konto gehört",
+    "{n} account":
+        "{n} Konto",
+    "{n} accounts":
+        "{n} Konten",
+    "{n} more account belongs to somebody else, or to nobody yet — switch to Everyone to see it.":
+        "{n} weiteres Konto gehört jemand anderem oder noch niemandem — schalte auf „Alle“, um es zu sehen.",
+    "{n} more accounts belong to somebody else, or to nobody yet — switch to Everyone to see them.":
+        "{n} weitere Konten gehören jemand anderem oder noch niemandem — schalte auf „Alle“, um sie zu sehen.",
+    "Belongs to {names}.":
+        "Gehört {names}.",
+    "Belongs to nobody yet, so it shows under Everyone only.":
+        "Gehört noch niemandem und erscheint deshalb nur unter „Alle“.",
+    "Change":
+        "Ändern",
 }

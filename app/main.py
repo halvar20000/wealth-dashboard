@@ -22,6 +22,7 @@ Every page except /setup and /login requires a signed-in user.
 
 from __future__ import annotations
 
+import io
 import os
 import secrets
 import threading
@@ -36,7 +37,8 @@ from flask import (Flask, flash, g, redirect, render_template, request,
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import cashflow, categories, importers, manual, overview, subscriptions
+from . import (cashflow, categories, importers, manual, overview, people,
+               subscriptions)
 from .db import get_conn, has_users, init_db
 
 APP_DIR = Path(__file__).resolve().parent
@@ -174,7 +176,10 @@ def _globals():
             "account_types": ACCOUNT_TYPES, "type_label": _type_label,
             "kind_label": _kind_label, "rhythm_label": _rhythm_label,
             "asset_version": _ASSET_VERSION,
-            "version": __version__}
+            "version": __version__,
+            # The household, and whose picture the header is set to.
+            "people": people.all_people() if auth.current_user() else [],
+            "view_person": people.current() if auth.current_user() else None}
 
 
 @app.route("/healthz")
@@ -254,7 +259,21 @@ def logout():
 def index():
     return render_template(
         "overview.html", active_page="overview",
-        s=overview.summary(settings.get("base_currency", "EUR")))
+        s=overview.summary(settings.get("base_currency", "EUR"),
+                           account_ids=people.scope()))
+
+
+@app.route("/view", methods=["POST"])
+@auth.login_required
+def view_switch():
+    """The header's switch: everyone, or one person. Back to the page
+    it was pressed on, which now adds up differently."""
+    chosen = (request.form.get("person") or "").strip()
+    people.choose(int(chosen) if chosen.isdigit() else None)
+    nxt = request.form.get("next") or ""
+    if not nxt.startswith("/") or nxt.startswith("//"):
+        nxt = url_for("index")
+    return redirect(nxt)
 
 
 @app.route("/accounts")
@@ -262,7 +281,8 @@ def index():
 def accounts():
     return render_template(
         "accounts.html", active_page="accounts",
-        s=overview.summary(settings.get("base_currency", "EUR")))
+        s=overview.summary(settings.get("base_currency", "EUR"),
+                           account_ids=people.scope()))
 
 
 @app.route("/accounts/new", methods=["GET", "POST"])
@@ -280,9 +300,14 @@ def account_new():
                     (name, request.form.get("type") or "bank",
                      (request.form.get("currency") or "EUR").upper()[:3]))
                 new_id = int(cur.lastrowid)
+            people.set_for_account(new_id, request.form.getlist("people"))
             return redirect(url_for("account_detail", account_id=new_id))
+    # An account made while looking at one person's picture is probably
+    # theirs, so their box starts ticked. A tick is easy to remove.
+    viewing = people.current()
     return render_template("account_new.html", error=error,
-                           base_currency=settings.get("base_currency", "EUR"))
+                           base_currency=settings.get("base_currency", "EUR"),
+                           owner_ids={viewing["id"]} if viewing else set())
 
 
 @app.route("/accounts/<int:account_id>")
@@ -315,6 +340,7 @@ def account_detail(account_id: int):
                            transactions=[dict(t) for t in txns],
                            total_transactions=total,
                            configured=banksync.credentials_present(),
+                           owners=people.for_account(account_id),
                            today=date.today().isoformat())
 
 
@@ -362,11 +388,13 @@ def account_edit(account_id: int):
                     (name, request.form.get("type") or "bank",
                      (request.form.get("currency") or "EUR").upper()[:3],
                      account_id))
+            people.set_for_account(account_id, request.form.getlist("people"))
             flash(_t("Account updated."), "ok")
             return redirect(url_for("account_detail", account_id=account_id))
 
     return render_template("account_edit.html", account=dict(account),
-                           counts=counts, error=error, active_page="accounts")
+                           counts=counts, error=error, active_page="accounts",
+                           owner_ids={p["id"] for p in people.for_account(account_id)})
 
 
 @app.route("/accounts/<int:account_id>/delete", methods=["POST"])
@@ -415,12 +443,17 @@ def account_delete(account_id: int):
 @app.route("/accounts/<int:account_id>/import", methods=["GET", "POST"])
 @auth.login_required
 def account_import(account_id: int):
-    """Upload a broker CSV.
+    """Upload a broker CSV, or a set of statement PDFs.
 
     The file is recognised rather than declared. Asking someone to pick
     the right parser from a list, for a file that says which broker it
     came from on every line, is asking them to get it wrong — and the
     wrong parser does not fail, it produces a confident mess.
+
+    Several files at once, and a ZIP of them, because a Depot's history
+    is one PDF per order and nobody should upload ninety files one at a
+    time. Each file is recognised on its own, so a CSV and a pile of
+    PDFs can arrive in the same upload.
     """
     with get_conn() as conn:
         account = conn.execute("SELECT * FROM accounts WHERE id = ?",
@@ -431,39 +464,103 @@ def account_import(account_id: int):
 
     report = None
     if request.method == "POST":
-        upload = request.files.get("file")
-        if not upload or not upload.filename:
-            flash(_t("Choose a CSV file first."), "error")
+        uploads = [u for u in request.files.getlist("file") if u and u.filename]
+        if not uploads:
+            flash(_t("Choose a CSV or PDF file first."), "error")
             return redirect(url_for("account_import", account_id=account_id))
 
-        content = upload.read(MAX_IMPORT_BYTES + 1)
-        if len(content) > MAX_IMPORT_BYTES:
-            flash(_f("That file is larger than {mb} MB. A transaction export "
-                     "should be far smaller — is it the right file?",
-                     mb=MAX_IMPORT_BYTES // (1024 * 1024)), "error")
-            return redirect(url_for("account_import", account_id=account_id))
+        files = []                              # (name, bytes)
+        for upload in uploads:
+            content = upload.read(MAX_IMPORT_BYTES + 1)
+            if len(content) > MAX_IMPORT_BYTES:
+                flash(_f("{name} is larger than {mb} MB. A transaction export "
+                         "should be far smaller — is it the right file?",
+                         name=upload.filename, mb=MAX_IMPORT_BYTES // (1024 * 1024)),
+                      "error")
+                return redirect(url_for("account_import", account_id=account_id))
+            files.extend(_unpack(upload.filename, content))
 
-        module = importers.sniff(content)
-        if module is None:
-            flash(_f("That file's columns do not match any importer here. "
+        try:
+            report = _import_files(account_id, account["currency"], files)
+        except RuntimeError as exc:                  # a PDF, and no pypdf
+            flash(str(exc), "error")
+            return redirect(url_for("account_import", account_id=account_id))
+        if report is None:
+            flash(_f("None of those files match an importer here. "
                      "Supported: {list}",
-                     list=", ".join(m.LABEL for m in importers.IMPORTERS)),
+                     list=", ".join(m.LABEL for m in importers.IMPORTERS
+                                    + importers.PDF_IMPORTERS)),
                   "error")
             return redirect(url_for("account_import", account_id=account_id))
-
-        parsed = module.parse(content, account_currency=account["currency"])
-        if not parsed.rows and parsed.problems:
-            flash(parsed.problems[0], "error")
+        if not report["parsed"] and report["problems"]:
+            # Nothing readable in any of it. Say why, not "0 new".
+            flash(report["problems"][0], "error")
             return redirect(url_for("account_import", account_id=account_id))
-
-        report = importers.store(account_id, parsed, module.SLUG)
-        report["label"] = module.LABEL
         flash(_f("{importer}: {new} new, {had} already had.",
-                 importer=module.LABEL, new=report["inserted"],
+                 importer=report["label"], new=report["inserted"],
                  had=report["duplicates"]), "ok")
 
     return render_template("import.html", account=dict(account), report=report,
-                           importers=importers.IMPORTERS)
+                           importers=importers.IMPORTERS + importers.PDF_IMPORTERS)
+
+
+# A ZIP is opened, but not blindly: a few hundred statements is a big
+# Depot; a hundred thousand entries is not a Depot.
+MAX_ZIP_MEMBERS = 2000
+
+
+def _unpack(name: str, content: bytes) -> list[tuple[str, bytes]]:
+    """A ZIP becomes its files; anything else is itself."""
+    import zipfile
+    if not zipfile.is_zipfile(io.BytesIO(content)):
+        return [(name, content)]
+    out = []
+    with zipfile.ZipFile(io.BytesIO(content)) as z:
+        for info in z.infolist()[:MAX_ZIP_MEMBERS]:
+            if info.is_dir() or info.file_size > MAX_IMPORT_BYTES:
+                continue
+            base = os.path.basename(info.filename)
+            if not base or base.startswith(".") or "__MACOSX" in info.filename:
+                continue
+            out.append((f"{name}/{info.filename}", z.read(info)))
+    return out
+
+
+def _import_files(account_id: int, currency: str, files: list[tuple[str, bytes]]):
+    """Every file through its own importer; one report for all of them.
+
+    None if not a single file was recognised. A file that was not — a
+    Kontoauszug among the Abrechnungen, say — is listed by name under
+    problems, with the others imported around it, rather than failing
+    the whole upload for one stray document.
+    """
+    total = {"inserted": 0, "duplicates": 0, "skipped": 0, "parsed": 0,
+             "problems": [], "closing_balance": None, "files": len(files),
+             "unrecognised": []}
+    labels: list[str] = []
+    many = len(files) > 1
+    for name, content in files:
+        module = importers.sniff(content)
+        if module is None:
+            total["unrecognised"].append(name)
+            continue
+        parsed = module.parse(content, account_currency=currency)
+        r = importers.store(account_id, parsed, module.SLUG)
+        for key in ("inserted", "duplicates", "skipped", "parsed"):
+            total[key] += r[key]
+        total["problems"].extend(
+            f"{os.path.basename(name)}: {p}" if many else p for p in r["problems"])
+        if r["closing_balance"]:
+            total["closing_balance"] = r["closing_balance"]
+        if module.LABEL not in labels:
+            labels.append(module.LABEL)
+    if not labels:
+        return None
+    for name in total["unrecognised"]:
+        total["problems"].append(
+            f"{os.path.basename(name)}: " + _t("not recognised, left out"))
+    total["label"] = ", ".join(labels)
+    return total
 
 
 def _load_account(account_id: int):
@@ -579,8 +676,11 @@ def transactions():
     if kind:
         where.append("t.kind = ?")
         params.append(kind)
-    clause = " AND ".join(where)
+    only, only_params = people.sql_in(people.scope(), "t.account_id")
+    clause = " AND ".join(where) + only
+    params += only_params
 
+    only_a, a_params = people.sql_in(people.scope(), "id")
     with get_conn() as conn:
         rows = [dict(r) for r in conn.execute(
             f"SELECT t.*, a.name AS account_name FROM transactions t "
@@ -590,7 +690,8 @@ def transactions():
             f"SELECT COUNT(*) n, SUM(t.amount) s FROM transactions t "
             f"WHERE {clause}", params).fetchone()
         accounts_list = [dict(r) for r in conn.execute(
-            "SELECT id, name FROM accounts ORDER BY name").fetchall()]
+            f"SELECT id, name FROM accounts WHERE 1=1{only_a} ORDER BY name",
+            a_params).fetchall()]
         kinds = [r["kind"] for r in conn.execute(
             "SELECT DISTINCT kind FROM transactions ORDER BY kind").fetchall()]
 
@@ -654,7 +755,7 @@ def categorize():
             flash(_t("Rule deleted and the remaining rules re-applied."), "ok")
         return redirect(url_for("categorize"))
 
-    queue, remaining = categories.uncategorised()
+    queue, remaining = categories.uncategorised(account_ids=people.scope())
     return render_template("categorize.html", active_page="categorize",
                            queue=queue, remaining=remaining,
                            rules=categories.rules())
@@ -666,7 +767,8 @@ def cashflow_page():
     months = int(request.args.get("months") or 13)
     return render_template(
         "cashflow.html", active_page="cashflow",
-        data=cashflow.monthly(months, settings.get("base_currency", "EUR")),
+        data=cashflow.monthly(months, settings.get("base_currency", "EUR"),
+                              account_ids=people.scope()),
         months=months)
 
 
@@ -687,7 +789,8 @@ def budget_page():
         return redirect(url_for("budget_page"))
     return render_template(
         "budget.html", active_page="budget",
-        report=cashflow.budget_report(settings.get("base_currency", "EUR")))
+        report=cashflow.budget_report(settings.get("base_currency", "EUR"),
+                                      account_ids=people.scope()))
 
 
 @app.route("/subscriptions")
@@ -695,7 +798,8 @@ def budget_page():
 def subscriptions_page():
     return render_template(
         "subscriptions.html", active_page="subscriptions",
-        data=subscriptions.detect(settings.get("base_currency", "EUR")))
+        data=subscriptions.detect(settings.get("base_currency", "EUR"),
+                                  account_ids=people.scope()))
 
 
 @app.route("/portfolio")
@@ -703,7 +807,8 @@ def subscriptions_page():
 def portfolio_page():
     return render_template(
         "portfolio.html", active_page="portfolio",
-        s=overview.summary(settings.get("base_currency", "EUR")))
+        s=overview.summary(settings.get("base_currency", "EUR"),
+                           account_ids=people.scope()))
 
 
 def _category_form(form) -> None:
@@ -745,6 +850,41 @@ def _category_form(form) -> None:
         flash(str(exc), "error")
 
 
+def _person_form(form) -> None:
+    """Add, rename or remove a person. Errors are flashed, not raised:
+    a name clash is the user's to fix, not a crash."""
+    action = form.get("form")
+    try:
+        if action == "person_add":
+            people.add(form.get("name", ""))
+            flash(_t("Added."), "ok")
+        elif action == "person_rename":
+            people.rename(int(form.get("id", "0")), form.get("name", ""))
+            flash(_t("Renamed."), "ok")
+        elif action == "person_delete":
+            people.delete(int(form.get("id", "0")))
+            flash(_t("Removed. Their accounts stay; they just belong to "
+                     "one person fewer."), "ok")
+    except ValueError as exc:
+        flash(_person_error(str(exc)), "error")
+
+
+def _person_error(message: str) -> str:
+    if message.startswith("There is already somebody called "):
+        return _f("There is already somebody called {name}.",
+                  name=message[len("There is already somebody called "):-1])
+    return _t("A person needs a name.")
+
+
+def _people_with_counts() -> list[dict]:
+    """Each person with how many accounts are theirs, for Settings."""
+    with get_conn() as conn:
+        counts = {r["person_id"]: r["n"] for r in conn.execute(
+            "SELECT person_id, COUNT(*) AS n FROM account_people "
+            "GROUP BY person_id").fetchall()}
+    return [{**p, "accounts": counts.get(p["id"], 0)} for p in people.all_people()]
+
+
 @app.route("/settings", methods=["GET", "POST"])
 @auth.login_required
 def settings_page():
@@ -766,6 +906,9 @@ def settings_page():
         elif request.form.get("form", "").startswith("category"):
             _category_form(request.form)
             return redirect(url_for("settings_page") + "#categories")
+        elif request.form.get("form", "").startswith("person"):
+            _person_form(request.form)
+            return redirect(url_for("settings_page") + "#people")
         elif request.form.get("form") == "prices_refresh":
             info = prices.refresh(cfg.get("base_currency", "EUR"))
             if info["failed"]:
@@ -830,6 +973,7 @@ def settings_page():
             check = {"ok": False, "error": str(exc)}
 
     return render_template("settings.html", cfg=cfg, error=error,
+                           people_list=_people_with_counts(),
                            configured=banksync.credentials_present(),
                            secrets_dir=str(settings.SECRETS_DIR),
                            secrets_inside_data=settings.SECRETS_INSIDE_DATA,

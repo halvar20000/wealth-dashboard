@@ -2,13 +2,13 @@
 {% block title %}{{ _("Import") }} · {{ account.name }}{% endblock %}
 {% block heading %}{{ _f("Import into {name}", name=account.name) }}{% endblock %}
 {% block lede %}
-<p class="lede">{{ _("Drop in a CSV your broker exported. The file is recognised by its columns, so there is nothing to choose — and re-importing a period you already loaded is harmless, because every row carries an id.") }}</p>
+<p class="lede">{{ _("Drop in a CSV your broker exported, or the statement PDFs from your bank's mailbox — as many as you like, or a ZIP of them. Each file is recognised by what is in it, so there is nothing to choose — and re-importing what you already loaded is harmless, because every row carries an id.") }}</p>
 {% endblock %}
 {% block content %}
 
 <form method="post" enctype="multipart/form-data" class="card form">
-  <label for="file">{{ _("CSV file") }}</label>
-  <input id="file" name="file" type="file" accept=".csv,text/csv" required>
+  <label for="file">{{ _("CSV or PDF files") }}</label>
+  <input id="file" name="file" type="file" accept=".csv,text/csv,.pdf,application/pdf,.zip,application/zip" multiple required>
   <button type="submit">{{ _("Import") }}</button>
 </form>
 
@@ -17,6 +17,9 @@
   <h2>{{ report.label }}</h2>
   <table class="grid">
     <tbody>
+      {% if report.files > 1 %}
+      <tr><td>{{ _("Files") }}</td><td class="num">{{ report.files }}</td></tr>
+      {% endif %}
       <tr><td>{{ _("Rows read") }}</td><td class="num">{{ report.parsed }}</td></tr>
       <tr><td>{{ _("Imported") }}</td><td class="num pos">{{ report.inserted }}</td></tr>
       <tr><td>{{ _("Already had") }}</td><td class="num sub">{{ report.duplicates }}</td></tr>
@@ -46,6 +49,8 @@
   <ul class="steps">
     <li><strong>Degiro</strong> — {{ _("Inbox → Account statement → choose the period → export CSV. That is the cash ledger: deposits, trades, dividends and fees. Set the start date back to when you opened the account and you get the whole history in one go.") }}</li>
     <li><strong>Trade Republic</strong> — {{ _("Profile → Transactions → export.") }}</li>
+    <li><strong>DKB</strong> — {{ _("Open the account or the Visa card → Umsätze → choose the period → CSV-Export. Girokonto, Tagesgeld and Visa all work, and so do files from the old portal. Pending (vorgemerkt) rows are left out until they are booked.") }}</li>
+    <li><strong>DKB Depot</strong> — {{ _("Postfach → filter by the Depot → download the Wertpapierabrechnungen as PDF and drop them all in here at once. The Depot's CSV says only what money moved; the PDFs say how many units, at what price, with what fee. Orders, fund purchases, dividends, interest, the Vorabpauschale and the half-year Sparplan overview are all read. A Storno is skipped and named.") }}</li>
   </ul>
   <p class="sub">{{ _("Export a period that overlaps what you already imported. Overlap costs nothing and a gap costs you transactions.") }}</p>
 </div>

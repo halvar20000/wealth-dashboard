@@ -23,9 +23,14 @@ a PSD2 API it connects directly, with credentials that are yours.
 - **Bank connections via [Enable Banking](https://enablebanking.com).**
   One registration covers a few thousand banks across the EEA. Balances
   and transactions are pulled straight from the bank into your database.
-- **Broker CSV import** — Degiro and Trade Republic. The file is
-  recognised by its columns, so there is nothing to choose, and
-  re-importing an overlapping period is harmless.
+- **People** — the household's members, each account ticked for one, several
+  or none of them, and a switch in the header between everyone's picture and
+  one person's. Every page adds up accordingly.
+- **CSV and PDF import** — Degiro and Trade Republic exports, DKB's
+  Girokonto, Tagesgeld and Visa CSVs, and DKB's Wertpapierabrechnung PDFs
+  for the Depot (many at once, or a ZIP). Each file is recognised by what
+  is in it, so there is nothing to choose, and re-importing what you
+  already loaded is harmless.
 - **Entries by hand**, for the account no bank and no export describes: a
   pension, a share plan, an exchange with no CSV. Purchases, sales,
   dividends, interest, fees and tax on a broker account; deposits,

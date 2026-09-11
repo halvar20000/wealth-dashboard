@@ -80,6 +80,32 @@ a:hover { text-decoration: underline; }
 }
 .navlink:hover { background: var(--bg-elevated); color: var(--text-primary); text-decoration: none; }
 .navlink.active { background: var(--bg-elevated); color: var(--text-primary); }
+/* Whose picture: a segmented switch of plain submit buttons, so it
+   works without a line of script and survives a page reload. */
+.viewswitch {
+  display: inline-flex; gap: 2px; padding: 3px;
+  border-radius: 10px; background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+.viewswitch button {
+  margin: 0; padding: 5px 12px; border-radius: 7px;
+  background: transparent; border: none; box-shadow: none;
+  color: var(--text-secondary); font-size: 12.5px; font-weight: 500;
+  cursor: pointer;
+}
+.viewswitch button:hover { color: var(--text-primary); }
+.viewswitch button.active {
+  background: linear-gradient(135deg, var(--accent-gold) 0%, #c9a637 100%);
+  color: #1a1308; font-weight: 600;
+}
+.view-note {
+  margin: 0 0 14px; font-size: 12.5px; color: var(--accent-gold);
+}
+.owners { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px 12px; margin: 10px 0 6px; }
+.owners legend { padding: 0 6px; font-size: 12.5px; color: var(--text-secondary); font-weight: 500; }
+.owners .check { display: inline-flex; align-items: center; gap: 8px; margin: 4px 18px 4px 0; font-weight: 400; }
+.owners .check input { width: auto; margin: 0; }
+.owners .sub { margin: 6px 0 0; }
 .topbar .who {
   color: var(--text-tertiary); font-size: 12.5px;
   padding-left: 10px; margin-left: 4px; border-left: 1px solid var(--border);
@@ -255,7 +281,7 @@ button:hover, .btn:hover { filter: brightness(1.08); text-decoration: none; }
   border: 1px solid var(--border);
 }
 .cat-edit { display: flex; align-items: center; gap: 8px; flex: 1 1 380px; }
-.cat-edit input[name="label"] { flex: 1 1 150px; min-width: 120px; padding: 6px 10px; font-size: 13px; }
+.cat-edit input[name="label"], .cat-edit input[name="name"] { flex: 1 1 150px; min-width: 120px; padding: 6px 10px; font-size: 13px; }
 .cat-edit select { width: auto; padding: 6px 10px; font-size: 12.5px; }
 .cat-row button { margin: 0; padding: 6px 12px; font-size: 12.5px; }
 /* Pushed right so the destructive button is never where Save was a row ago. */

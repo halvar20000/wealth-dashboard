@@ -30,6 +30,7 @@ import re
 import statistics
 from datetime import date, datetime
 
+from . import people
 from .db import get_conn
 
 # The rhythms worth naming, in days, with how far a gap may drift and
@@ -76,18 +77,20 @@ def _rhythm(gaps: list[float]) -> tuple[str | None, float]:
     return None, 0.0
 
 
-def detect(base_currency: str = "EUR", min_occurrences: int = 3) -> dict:
+def detect(base_currency: str = "EUR", min_occurrences: int = 3,
+           account_ids: list[int] | None = None) -> dict:
+    only, params = people.sql_in(account_ids, "t.account_id")
     with get_conn() as conn:
         rows = [dict(r) for r in conn.execute(
-            """
+            f"""
             SELECT t.id, t.txn_date, t.description, t.counterparty, t.amount,
                    t.currency, t.category, a.name AS account_name
               FROM transactions t JOIN accounts a ON a.id = t.account_id
              WHERE t.amount < 0 AND t.currency = ?
                AND t.kind NOT IN ('buy', 'sell')
-               AND COALESCE(t.category, '') NOT IN ('transfer', 'investment')
+               AND COALESCE(t.category, '') NOT IN ('transfer', 'investment'){only}
              ORDER BY t.txn_date
-            """, (base_currency,)).fetchall()]
+            """, (base_currency, *params)).fetchall()]
 
     groups: dict[str, list[dict]] = {}
     for r in rows:

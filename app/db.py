@@ -190,6 +190,22 @@ CREATE TABLE IF NOT EXISTS budgets (
     monthly  REAL NOT NULL
 );
 
+-- The people in the household, and which accounts are whose. An
+-- account can belong to one person, to several (a joint account) or to
+-- nobody yet. Nothing about the account itself changes: a person is a
+-- lens, not a permission. The header's switch picks one, and every page
+-- then adds up only that person's accounts — or everybody's.
+CREATE TABLE IF NOT EXISTS people (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS account_people (
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    person_id  INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+    PRIMARY KEY (account_id, person_id)
+);
+
 CREATE TABLE IF NOT EXISTS balances (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,

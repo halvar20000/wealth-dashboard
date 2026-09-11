@@ -96,6 +96,44 @@
   <p class="sub">{{ _("Also updated on start-up and every few hours in the background. A holding no price could be found for is valued at your last trade, and the pages say so.") }}</p>
 </div>
 
+<div class="card" id="people">
+  <div class="card-header">
+    <h2>{{ _("People") }}</h2>
+    <span class="card-subtitle">{{ _("whose accounts are whose") }}</span>
+  </div>
+  <p class="sub">{{ _("Add the people in your household, then tick on each account who it belongs to — one person, or several for a joint account. A switch appears in the header: Everyone shows the whole household, a name shows only that person's accounts on every page. An account ticked for nobody shows under Everyone only. This is a lens, not a lock: anyone who can sign in can flip it.") }}</p>
+
+  {% if people_list %}
+  <div class="cat-list">
+  {% for p in people_list %}
+    <div class="cat-row">
+      <form method="post" class="cat-edit">
+        <input type="hidden" name="form" value="person_rename">
+        <input type="hidden" name="id" value="{{ p.id }}">
+        <input name="name" value="{{ p.name }}" maxlength="60" aria-label="{{ _f('Name of {name}', name=p.name) }}">
+        <button type="submit" class="btn-ghost">{{ _("Save") }}</button>
+      </form>
+      <span class="sub cat-usage">{{ _n(p.accounts, "{n} account", "{n} accounts") }}</span>
+      <form method="post" class="cat-delete" onsubmit="return confirm({{ _f('Remove {name}? Their accounts stay.', name=p.name) | tojson }});">
+        <input type="hidden" name="form" value="person_delete">
+        <input type="hidden" name="id" value="{{ p.id }}">
+        <button class="btn-danger" type="submit">{{ _("Remove") }}</button>
+      </form>
+    </div>
+  {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" class="form inline cat-new">
+    <input type="hidden" name="form" value="person_add">
+    <div>
+      <label for="new_person">{{ _("New person") }}</label>
+      <input id="new_person" name="name" maxlength="60" placeholder="{{ _('Alex') }}">
+    </div>
+    <button type="submit">{{ _("Add person") }}</button>
+  </form>
+</div>
+
 <div class="card" id="categories">
   <div class="card-header">
     <h2>{{ _("Categories") }}</h2>

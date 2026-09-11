@@ -11,6 +11,65 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.15.0] — 2026-09-11
+
+### Added
+- **People.** A household's money is not one pile, and now the app knows
+  whose is whose. Under Settings → People, add the people in the household;
+  on each account, tick who it belongs to — one person, or several for a
+  joint account. A switch appears in the header: **Everyone** shows the whole
+  household, a name shows only that person's accounts, on every page —
+  Overview, Portfolio, Cash Flow, Budget, Subscriptions, Transactions,
+  Categorize and Accounts all add up only what is theirs, and say so under
+  the heading. An account ticked for nobody shows under Everyone only, so a
+  child's savings do not land in both parents' net worth. The choice sticks
+  for the session, and a new account made while looking at one person starts
+  as theirs. Removing a person leaves their accounts where they are. This is
+  a lens, not a lock: anyone who can sign in can flip it.
+
+## [0.14.0] — 2026-09-11
+
+### Added
+- **DKB Depot statements, from the PDFs.** DKB's Depot export is a cash
+  ledger: it says what money left the account, not how many units were
+  bought or at what price. The Wertpapierabrechnungen in the Postfach say
+  exactly that, and now they can be dropped onto the import page — all of
+  them at once, or as a ZIP, since there is one per order. Purchases, sales,
+  fund issues and redemptions, bond redemptions, dividends, interest, the
+  Vorabpauschale, the half-year Sparplan overview and a Depot transfer are
+  read, with quantity, price, fee and tax each in its own column. A bond is
+  kept as nominal ÷ 100 units at a per-cent price, so a market quote times
+  the quantity is its value. A Storno is skipped and named; a Kontoauszug
+  PDF is turned away with a pointer to the CSV. The text anchors follow
+  Portfolio Performance's DKB extractor, and the parser was checked against
+  its corpus of some sixty real (anonymised) statements from 2014 to 2025.
+- **Several files per upload.** The import page takes any number of CSVs
+  and PDFs, and ZIPs of them, in one go. Each file is recognised on its own;
+  one it cannot read is named in the report and the rest are imported around
+  it, rather than one stray document failing the lot.
+
+### Changed
+- `pypdf` is a new dependency — pure Python, nothing to compile — for
+  reading the statement PDFs.
+
+## [0.13.0] — 2026-09-11
+
+### Added
+- **DKB CSV import.** The Umsätze export of a Girokonto, Tagesgeld or Visa
+  card — Umsätze → period → CSV-Export — drops into a bank account like a
+  broker file drops into a broker one. All four layouts are recognised: the
+  current portal's files and the pre-2023 ones, which are still what an
+  archived download looks like, in their own Latin-1 encoding. The balance
+  printed above the column header is recorded as the account's balance,
+  because for an account without a bank connection this is the only balance
+  the app will ever get. Salary is filed as a deposit and so becomes income,
+  interest and fees as what they are, the monthly card settlement as a
+  transfer between your own accounts. A row still marked *vorgemerkt* is
+  left out and listed, not counted: it changes when it books, and importing
+  it now would bring it back as a second row later. Two identical lines on
+  one day — two coffees at the same counter — are two transactions, and
+  re-importing an overlapping export still adds nothing twice.
+
 ## [0.12.0] — 2026-09-11
 
 ### Added

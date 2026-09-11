@@ -1,8 +1,9 @@
-"""CSV importers, and the code that stores what they produce.
+"""CSV and PDF importers, and the code that stores what they produce.
 
 Adding a broker means adding one module with `SLUG`, `LABEL`,
 `matches(header, sample)` and `parse(content)` — and adding it to
-`IMPORTERS`. Nothing else in the app changes.
+`IMPORTERS` (a CSV) or `PDF_IMPORTERS` (a statement PDF, where
+`matches` is handed the extracted text). Nothing else in the app changes.
 
 The file is recognised rather than declared. Asking the user to pick
 "Degiro" from a dropdown before uploading a file that says Degiro all
@@ -17,21 +18,37 @@ import io
 
 from .. import categories
 from ..db import get_conn
-from . import degiro, trade_republic
+from . import degiro, dkb, dkb_pdf, trade_republic
 from .base import (ParsedTxn, ParseResult,  # noqa: F401  (re-exported)
                    normalise_csv_text)
 
-IMPORTERS = [degiro, trade_republic]
+IMPORTERS = [degiro, trade_republic, dkb]
+PDF_IMPORTERS = [dkb_pdf]
 
 
 def sniff(content: bytes | str):
     """Which importer, if any, recognises this file."""
+    if isinstance(content, bytes) and content.startswith(b"%PDF"):
+        try:
+            text = dkb_pdf.pdf_text(content)
+        except RuntimeError:
+            raise                        # pypdf missing: say so, not "unrecognised"
+        except Exception:                            # noqa: BLE001
+            return None
+        for module in PDF_IMPORTERS:
+            try:
+                if module.matches([], text):
+                    return module
+            except Exception:                        # noqa: BLE001
+                continue
+        return None
+
     text = content.decode("utf-8-sig", "replace") if isinstance(content, bytes) else content
     text = normalise_csv_text(text)
     sample = text[:8192]
     try:
         header = next(csv.reader(io.StringIO(sample)))
-    except StopIteration:
+    except (StopIteration, csv.Error):
         return None
     for module in IMPORTERS:
         try:

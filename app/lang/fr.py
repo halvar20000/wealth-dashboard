@@ -241,14 +241,6 @@ STRINGS: dict[str, str] = {
     # ─── Import ──────────────────────────────────────────────────────
     "Import": "Importer",
     "Import into {name}": "Importer dans {name}",
-    "CSV file": "Fichier CSV",
-    "Drop in a CSV your broker exported. The file is recognised by its "
-    "columns, so there is nothing to choose — and re-importing a period you "
-    "already loaded is harmless, because every row carries an id.":
-        "Dépose un CSV exporté par ton courtier. Le fichier est reconnu à ses "
-        "colonnes, il n'y a donc rien à choisir — et réimporter une période "
-        "déjà chargée ne fait aucun mal, puisque chaque ligne porte un "
-        "identifiant.",
     "Rows read": "Lignes lues",
     "Imported": "Importées",
     "Already had": "Déjà présentes",
@@ -271,18 +263,51 @@ STRINGS: dict[str, str] = {
         "frais. Remets la date de début à l'ouverture du compte et tu obtiens "
         "tout l'historique d'un coup.",
     "Profile → Transactions → export.": "Profil → Transactions → exporter.",
+    "Drop in a CSV your broker exported, or the statement PDFs from your bank's "
+    "mailbox — as many as you like, or a ZIP of them. Each file is recognised by "
+    "what is in it, so there is nothing to choose — and re-importing what you "
+    "already loaded is harmless, because every row carries an id.":
+        "Dépose un CSV exporté par ton courtier, ou les PDF d'avis d'opéré de la "
+        "messagerie de ta banque — autant que tu veux, ou un ZIP. Chaque fichier "
+        "est reconnu à son contenu, il n'y a donc rien à choisir — et réimporter "
+        "ce que tu as déjà chargé est sans risque, car chaque ligne porte un "
+        "identifiant.",
+    "CSV or PDF files":
+        "Fichiers CSV ou PDF",
+    "Files":
+        "Fichiers",
+    "Postfach → filter by the Depot → download the Wertpapierabrechnungen as PDF "
+    "and drop them all in here at once. The Depot's CSV says only what money "
+    "moved; the PDFs say how many units, at what price, with what fee. Orders, "
+    "fund purchases, dividends, interest, the Vorabpauschale and the half-year "
+    "Sparplan overview are all read. A Storno is skipped and named.":
+        "Postfach → filtrer sur le Depot → télécharger les Wertpapierabrechnungen en "
+        "PDF et les déposer toutes ici d'un coup. Le CSV du Depot dit seulement "
+        "quel argent a bougé ; les PDF disent combien de parts, à quel prix, avec "
+        "quels frais. Ordres, achats de fonds, dividendes, intérêts, la "
+        "Vorabpauschale et le récapitulatif semestriel du Sparplan sont tous lus. "
+        "Un Storno est ignoré et nommé.",
+    "Open the account or the Visa card → Umsätze → choose the period → "
+    "CSV-Export. Girokonto, Tagesgeld and Visa all work, and so do files from "
+    "the old portal. Pending (vorgemerkt) rows are left out until they are "
+    "booked.":
+        "Ouvre le compte ou la carte Visa → Umsätze → choisis la période → "
+        "CSV-Export. Girokonto, Tagesgeld et Visa fonctionnent tous, comme les "
+        "fichiers de l'ancien portail. Les lignes en attente (vorgemerkt) sont "
+        "laissées de côté jusqu'à ce qu'elles soient comptabilisées.",
     "Export a period that overlaps what you already imported. Overlap costs "
     "nothing and a gap costs you transactions.":
         "Exporte une période qui recouvre ce que tu as déjà importé. Le "
         "recouvrement ne coûte rien ; un trou te coûte des transactions.",
-    "Choose a CSV file first.": "Choisis d'abord un fichier CSV.",
-    "That file is larger than {mb} MB. A transaction export should be far "
+    "Choose a CSV or PDF file first.": "Choisis d'abord un fichier CSV ou PDF.",
+    "{name} is larger than {mb} MB. A transaction export should be far "
     "smaller — is it the right file?":
-        "Ce fichier dépasse {mb} Mo. Un export de transactions est bien plus "
+        "{name} dépasse {mb} Mo. Un export de transactions est bien plus "
         "petit — est-ce le bon fichier ?",
-    "That file's columns do not match any importer here. Supported: {list}":
-        "Les colonnes de ce fichier ne correspondent à aucun importateur ici. "
+    "None of those files match an importer here. Supported: {list}":
+        "Aucun de ces fichiers ne correspond à un importateur ici. "
         "Pris en charge : {list}",
+    "not recognised, left out": "non reconnu, laissé de côté",
     "{importer}: {new} new, {had} already had.":
         "{importer} : {new} nouvelles, {had} déjà présentes.",
 
@@ -904,4 +929,60 @@ STRINGS: dict[str, str] = {
     "{n} holdings priced.": "{n} positions valorisées.",
     "{ok} of {held} holdings priced. Could not price: {failed}.":
         "{ok} positions sur {held} valorisées. Pas de cours pour : {failed}.",
+
+    # ─── Personnes ───────────────────────────────────────────────────
+    "A person needs a name.":
+        "Une personne a besoin d'un nom.",
+    "Add person":
+        "Ajouter une personne",
+    "Add the people in your household, then tick on each account who it belongs to — one person, or several for a joint account. A switch appears in the header: Everyone shows the whole household, a name shows only that person's accounts on every page. An account ticked for nobody shows under Everyone only. This is a lens, not a lock: anyone who can sign in can flip it.":
+        "Ajoute les personnes de ton foyer, puis coche sur chaque compte à qui il appartient — une personne, ou plusieurs pour un compte joint. Un sélecteur apparaît dans l'en-tête : « Tout le monde » montre le foyer entier, un prénom ne montre que les comptes de cette personne sur chaque page. Un compte coché pour personne n'apparaît que sous « Tout le monde ». C'est une loupe, pas un verrou : quiconque peut se connecter peut basculer.",
+    "Alex":
+        "Alex",
+    "Everyone":
+        "Tout le monde",
+    "New person":
+        "Nouvelle personne",
+    "No people yet. Add the household under Settings → People, and each account can be somebody's.":
+        "Pas encore de personnes. Crée le foyer sous Réglages → Personnes, et chaque compte pourra appartenir à quelqu'un.",
+    "Only {name}'s accounts are counted on this page.":
+        "Seuls les comptes de {name} sont comptés sur cette page.",
+    "People":
+        "Personnes",
+    "Remove {name}? Their accounts stay.":
+        "Retirer {name} ? Ses comptes restent.",
+    "Removed. Their accounts stay; they just belong to one person fewer.":
+        "Retiré. Les comptes restent ; ils appartiennent juste à une personne de moins.",
+    "Renamed.":
+        "Renommé.",
+    "The budget itself is the household's; the spending measured against it here is {name}'s alone.":
+        "Le budget est celui du foyer ; les dépenses mesurées ici sont celles de {name} seulement.",
+    "There is already somebody called {name}.":
+        "Il y a déjà quelqu'un qui s'appelle {name}.",
+    "Tick one person, or several for a joint account. Nobody ticked means it shows only under Everyone.":
+        "Coche une personne, ou plusieurs pour un compte joint. Sans coche, il n'apparaît que sous « Tout le monde ».",
+    "Whose":
+        "À qui",
+    "Whose accounts":
+        "Les comptes de qui",
+    "Whose is it":
+        "À qui est-il",
+    "nobody yet":
+        "personne pour l'instant",
+    "whose accounts are whose":
+        "à qui est quel compte",
+    "{n} account":
+        "{n} compte",
+    "{n} accounts":
+        "{n} comptes",
+    "{n} more account belongs to somebody else, or to nobody yet — switch to Everyone to see it.":
+        "{n} autre compte appartient à quelqu'un d'autre, ou à personne encore — passe sur « Tout le monde » pour le voir.",
+    "{n} more accounts belong to somebody else, or to nobody yet — switch to Everyone to see them.":
+        "{n} autres comptes appartiennent à quelqu'un d'autre, ou à personne encore — passe sur « Tout le monde » pour les voir.",
+    "Belongs to {names}.":
+        "Appartient à {names}.",
+    "Belongs to nobody yet, so it shows under Everyone only.":
+        "N'appartient encore à personne, et n'apparaît donc que sous « Tout le monde ».",
+    "Change":
+        "Modifier",
 }

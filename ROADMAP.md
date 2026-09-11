@@ -13,7 +13,7 @@ it does not do yet.
       example): pick bank → bank's own login → session → link.
 - [x] Pull balance and transactions; re-syncing is idempotent.
 - [x] Consent expiry surfaced before it bites, not after.
-- [x] Broker CSV import (Degiro, Trade Republic), recognised by columns
+- [x] CSV import (Degiro, Trade Republic, DKB) and DKB Depot PDFs, recognised by content
       rather than chosen from a list.
 - [x] Holdings computed from imported trades.
 - [x] Overview page: net worth, cash vs securities, breakdown charts,
@@ -40,6 +40,11 @@ it does not do yet.
 - [x] Market prices from Yahoo Finance, resolved from the ISIN once per
       security, with a manual ticker override and a labelled fallback to
       the last trade.
+- [x] DKB Depot statements read from the Wertpapierabrechnung PDFs, many
+      at once or as a ZIP, since the Depot's CSV has no quantities.
+- [x] People: each account belongs to one, several or none of the
+      household, and a switch in the header shows everyone's picture or
+      one person's on every page.
 
 ## Next
 
@@ -55,7 +60,7 @@ themselves" becomes answerable from it.
 | Why It Moved | daily per-holding snapshots; there is no history to decompose until the app has been running |
 | Share Ideas | a fundamentals source and a nightly refresh job; independent of everything else here |
 | Income | a payslip importer, which is employer-specific in a way no generic parser fixes |
-| Expenses | more than one household member, and a per-transaction owner |
+| Expenses | a per-transaction owner — accounts now have people, transactions do not yet |
 
 **3. Balance history.**
 `balances` already stores every reading with its date. A chart over time

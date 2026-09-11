@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from . import categories, fx
+from . import categories, fx, people
 from .db import get_conn
 
 
@@ -46,7 +46,8 @@ def _month_rates(month: str) -> tuple[str | None, dict[str, float]]:
     return as_of, rates
 
 
-def monthly(months: int = 13, base_currency: str = "EUR") -> dict:
+def monthly(months: int = 13, base_currency: str = "EUR",
+            account_ids: list[int] | None = None) -> dict:
     """Income, spending and investment per calendar month.
 
     Every currency is counted, converted into the base at the ECB rate
@@ -59,9 +60,10 @@ def monthly(months: int = 13, base_currency: str = "EUR") -> dict:
     """
     since = _month_floor(months - 1)
     base = base_currency.upper()
+    only, params = people.sql_in(account_ids)
     with get_conn() as conn:
         rows = conn.execute(
-            """
+            f"""
             SELECT substr(txn_date, 1, 7) AS month,
                    COALESCE(NULLIF(category, ''), 'other') AS category,
                    UPPER(currency) AS currency,
@@ -69,10 +71,10 @@ def monthly(months: int = 13, base_currency: str = "EUR") -> dict:
                    COUNT(*)    AS n
               FROM transactions
              WHERE txn_date >= ?
-               AND kind NOT IN ('buy', 'sell')
+               AND kind NOT IN ('buy', 'sell'){only}
              GROUP BY month, category, currency
              ORDER BY month
-            """, (since,)).fetchall()
+            """, (since, *params)).fetchall()
 
     # Read once, not per row: the user can change which categories count
     # as spending, so this cannot be a constant fixed at import time.
@@ -161,7 +163,8 @@ def set_budget(category: str, monthly_amount: float | None) -> None:
                 (category, monthly_amount))
 
 
-def budget_report(base_currency: str = "EUR") -> dict:
+def budget_report(base_currency: str = "EUR",
+                  account_ids: list[int] | None = None) -> dict:
     """This month against the budget, with a typical month for context.
 
     The comparison people actually want is not "am I over" — halfway
@@ -172,7 +175,7 @@ def budget_report(base_currency: str = "EUR") -> dict:
     today = date.today()
     this_month = today.strftime("%Y-%m")
     limits = budgets()
-    data = monthly(months=13, base_currency=base_currency)
+    data = monthly(months=13, base_currency=base_currency, account_ids=account_ids)
 
     current = next((m for m in data["months"] if m["month"] == this_month), None)
     spent_now = (current or {}).get("categories", {})

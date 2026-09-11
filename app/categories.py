@@ -18,7 +18,7 @@ rule they cannot correct, and this list is meant to be looked at.
 
 from __future__ import annotations
 
-from . import i18n
+from . import i18n, people
 from .db import get_conn
 
 # The spending categories a fresh install starts with. Deliberately
@@ -471,24 +471,26 @@ def set_category(txn_id: int, category: str) -> None:
                      (category, txn_id))
 
 
-def uncategorised(limit: int = 60) -> list[dict]:
+def uncategorised(limit: int = 60,
+                  account_ids: list[int] | None = None) -> tuple[list[dict], int]:
     """The queue. Biggest amounts first, because categorising a €900 row
     changes the picture and categorising a €1.20 one does not — and the
     queue is long enough that the order decides whether it gets used."""
+    only, params = people.sql_in(account_ids, "t.account_id")
     with get_conn() as conn:
         rows = conn.execute(
-            """
+            f"""
             SELECT t.*, a.name AS account_name
               FROM transactions t JOIN accounts a ON a.id = t.account_id
              WHERE (t.category IS NULL OR t.category = '')
-               AND t.kind NOT IN ('buy', 'sell', 'transfer')
+               AND t.kind NOT IN ('buy', 'sell', 'transfer'){only}
              ORDER BY ABS(t.amount) DESC
              LIMIT ?
-            """, (limit,)).fetchall()
+            """, (*params, limit)).fetchall()
         total = conn.execute(
-            "SELECT COUNT(*) n FROM transactions "
-            " WHERE (category IS NULL OR category = '') "
-            "   AND kind NOT IN ('buy','sell','transfer')").fetchone()["n"]
+            f"SELECT COUNT(*) n FROM transactions t "
+            f" WHERE (t.category IS NULL OR t.category = '') "
+            f"   AND t.kind NOT IN ('buy','sell','transfer'){only}", params).fetchone()["n"]
     out = []
     for r in rows:
         item = dict(r)

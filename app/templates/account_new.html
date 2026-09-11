@@ -20,6 +20,18 @@
   <label for="currency">{{ _("Currency") }}</label>
   <input id="currency" name="currency" value="{{ base_currency }}" maxlength="3">
 
+
+  <fieldset class="owners">
+    <legend>{{ _("Whose is it") }}</legend>
+    {% if people %}
+    {% for p in people %}
+    <label class="check"><input type="checkbox" name="people" value="{{ p.id }}" {{ 'checked' if p.id in owner_ids }}> {{ p.name }}</label>
+    {% endfor %}
+    <p class="sub">{{ _("Tick one person, or several for a joint account. Nobody ticked means it shows only under Everyone.") }}</p>
+    {% else %}
+    <p class="sub">{{ _("No people yet. Add the household under Settings → People, and each account can be somebody's.") }}</p>
+    {% endif %}
+  </fieldset>
   <button type="submit">{{ _("Create account") }}</button>
 </form>
 {% endblock %}

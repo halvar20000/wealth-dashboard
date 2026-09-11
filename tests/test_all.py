@@ -772,6 +772,158 @@ check("...with the same ids",
       {r.external_id for r in tr_m.rows}, {r.external_id for r in tr.rows})
 
 # ---------------------------------------------------------------------------
+print("\n12b. DKB")
+# ---------------------------------------------------------------------------
+from app.importers import dkb                                         # noqa: E402
+
+for name in ("DKB_CSV_GIRO", "DKB_CSV_GIRO_OLD", "DKB_CSV_VISA", "DKB_CSV_VISA_OLD"):
+    raw = getattr(fixtures, name)
+    raw = raw if isinstance(raw, bytes) else raw.encode()
+    check(f"{name.lower()} is recognised without being told",
+          importers.sniff(raw).SLUG, "dkb")
+
+g = dkb.parse(fixtures.DKB_CSV_GIRO)
+check("every booked row was read", len(g.rows), 7)
+check("the pending row is listed, not imported",
+      [p for p in g.problems if "pending" in p and "line 6" in p] != [], True)
+check("...and nothing else is a problem", len(g.problems), 1)
+check("the balance comes from the preamble",
+      g.closing_balance, {"amount": 3210.55, "currency": "EUR", "as_of": "2026-08-25"})
+
+coffees = [r for r in g.rows if "KAFFEEBAR" in (r.counterparty or "")]
+check("two identical lines are two rows", len(coffees), 2)
+check("...with different ids", coffees[0].external_id != coffees[1].external_id, True)
+check("...both negative, with the € stripped", {r.amount for r in coffees}, {-3.40})
+check("the counterparty of an outgoing row is the payee",
+      coffees[0].counterparty, "KAFFEEBAR AM MARKT//BERLIN/DE")
+salary = find_row(g.rows, "LOHN 08/2026")
+check("salary is a deposit", salary.kind, "deposit")
+check("...whose counterparty is the payer", salary.counterparty, "Some Company GmbH")
+check("...with the thousands separator understood", salary.amount, 2345.67)
+check("the card settlement is a transfer, not spending",
+      find_row(g.rows, "Kreditkartenabrechnung").kind, "transfer")
+check("interest is interest", find_row(g.rows, "Zinsen").kind, "interest")
+check("the account fee is a fee", find_row(g.rows, "Kontoführung").kind, "fee")
+check("rent is nothing in particular", find_row(g.rows, "Miete").kind, "other")
+check("a two-digit year lands in the right century",
+      find_row(g.rows, "Miete").txn_date, "2026-08-15")
+
+# The overlapping export two weeks later. The ids must line up so that
+# only the newly booked row and the genuinely new one count as new.
+g2 = dkb.parse(fixtures.DKB_CSV_GIRO_OVERLAPPING)
+new_ids = {r.external_id for r in g2.rows} - {r.external_id for r in g.rows}
+check("an overlapping export shares its ids with the first", len(new_ids), 2)
+check("...and the balance moves with it", g2.closing_balance["as_of"], "2026-09-08")
+
+old = dkb.parse(fixtures.DKB_CSV_GIRO_OLD)
+check("the pre-2023 layout parses", len(old.rows), 2)
+check("...with no problems", old.problems, [])
+check("...its Latin-1 umlauts intact",
+      find_row(old.rows, "Brötchen").counterparty, "BÄCKEREI SCHÖN")
+check("...the booking text kept on the row",
+      "[Lastschrift]" in find_row(old.rows, "Brötchen").description, True)
+check("...its salary booking text understood",
+      find_row(old.rows, "Gehalt Oktober").kind, "deposit")
+check("...and its balance read",
+      old.closing_balance, {"amount": 1234.56, "currency": "EUR", "as_of": "2018-10-20"})
+
+v = dkb.parse(fixtures.DKB_CSV_VISA)
+check("the card export parses", len(v.rows), 4)
+check("a card purchase is spending", find_row(v.rows, "HOTEL BELLA").kind, "other")
+check("...dated when it happened, not when it settled",
+      find_row(v.rows, "HOTEL BELLA").txn_date, "2026-08-28")
+check("the monthly settlement is a transfer",
+      find_row(v.rows, "Ausgleich Kreditkarte").kind, "transfer")
+check("the card fee is a fee", find_row(v.rows, "Kartenpreis").kind, "fee")
+check("a negative card balance is read as such",
+      v.closing_balance, {"amount": -42.0, "currency": "EUR", "as_of": "2026-08-30"})
+
+vo = dkb.parse(fixtures.DKB_CSV_VISA_OLD)
+check("the pre-2023 card layout parses", len(vo.rows), 2)
+check("...using the receipt date", find_row(vo.rows, "SOME WEBSHOP").txn_date, "2018-10-01")
+check("...with the balance date from its own line",
+      vo.closing_balance, {"amount": 12345.67, "currency": "EUR", "as_of": "2018-10-19"})
+check("...and credit interest as interest", find_row(vo.rows, "HABENZINSEN").kind, "interest")
+
+bad = dkb.parse(fixtures.NOT_A_BROKER_CSV)
+check("a foreign file is refused, not half-parsed", bad.rows, [])
+check("...and says what it expected", "DKB" in bad.problems[0], True)
+
+# ---------------------------------------------------------------------------
+print("\n12c. DKB Wertpapierabrechnung PDFs")
+# ---------------------------------------------------------------------------
+from app.importers import dkb_pdf                                     # noqa: E402
+
+kauf = dkb_pdf.parse(fixtures.DKB_PDF_KAUF)
+check("a purchase statement yields one row", len(kauf.rows), 1)
+check("...with no problems", kauf.problems, [])
+k = kauf.rows[0]
+check("...a buy", k.kind, "buy")
+check("...dated on the Schlusstag", k.txn_date, "2026-03-12")
+check("...for the Ausmachender Betrag, money out", k.amount, -3512.50)
+check("...`Stück 2.000` is two thousand, not two", k.quantity, 2000.0)
+check("...priced at Kurswert ÷ quantity", k.price, 1.75)
+check("...with every fee line summed", k.fee, 12.50)
+check("...and the ISIN read", k.isin, "US0000000001")
+check("...and the name across both lines",
+      k.security_name, "EXAMPLE HOLDINGS INC. REGISTERED SHARES DL -,01")
+
+verkauf = dkb_pdf.parse(fixtures.DKB_PDF_VERKAUF).rows[0]
+check("a sale is a sell", verkauf.kind, "sell")
+check("...with money in", verkauf.amount, 1106.92)
+check("...a negative quantity", verkauf.quantity, -500.0)
+check("...the price from the Kurswert", verkauf.price, 2.40)
+check("...and the capital gains tax summed", verkauf.tax, 83.08)
+
+anleihe = dkb_pdf.parse(fixtures.DKB_PDF_ANLEIHE).rows[0]
+check("a bond's nominal becomes nominal ÷ 100 units", anleihe.quantity, 20.0)
+check("...priced in per cent", anleihe.price, 97.5)
+check("...for the full amount including accrued interest", anleihe.amount, -1993.00)
+
+div = dkb_pdf.parse(fixtures.DKB_PDF_DIVIDENDE).rows[0]
+check("a dividend credit is a dividend", div.kind, "dividend")
+check("...for the net amount", div.amount, 103.41)
+check("...dated when the money arrived", div.txn_date, "2026-05-18")
+check("...with withholding, KapSt and Soli summed as tax", div.tax, 35.48)
+check("...against its ISIN", div.isin, "US0000000001")
+
+vorab = dkb_pdf.parse(fixtures.DKB_PDF_VORABPAUSCHALE).rows[0]
+check("a Vorabpauschale is a tax", vorab.kind, "tax")
+check("...money out", vorab.amount, -3.82)
+check("...on the fund", vorab.isin, "IE0000000002")
+
+plan = dkb_pdf.parse(fixtures.DKB_PDF_SPARPLAN)
+check("a half-year Sparplan overview yields one row per purchase", len(plan.rows), 2)
+check("...each a buy for the rate plus the fee",
+      [(r.kind, r.amount, r.fee) for r in plan.rows],
+      [("buy", -200.49, 0.49), ("buy", -200.49, 0.49)])
+check("...with units and price", (plan.rows[1].quantity, plan.rows[1].price), (2.0921, 95.6))
+check("...on the Schlusstag", plan.rows[1].txn_date, "2026-03-05")
+check("...for the fund named above the table", plan.rows[0].isin, "IE0000000002")
+
+single = dkb_pdf.parse(fixtures.DKB_PDF_AUSGABE).rows[0]
+check("a savings-plan run's own statement is a buy", single.kind, "buy")
+check("...whose id equals the overview's line for the same order",
+      single.external_id, plan.rows[1].external_id)
+check("...while the other line differs", single.external_id != plan.rows[0].external_id, True)
+
+storno = dkb_pdf.parse(fixtures.DKB_PDF_STORNO)
+check("a Storno is not a trade", storno.rows, [])
+check("...and is named", "Storno" in storno.problems[0], True)
+auszug = dkb_pdf.parse(fixtures.DKB_PDF_KONTOAUSZUG)
+check("a Kontoauszug PDF is refused with a pointer to the CSV",
+      "CSV" in auszug.problems[0], True)
+check("an unrelated text is refused",
+      "not a DKB" in dkb_pdf.parse("Dear customer, hello.").problems[0], True)
+
+# The real PDF path: bytes in, text out, rows out.
+pdf = fixtures.pdf_from_text(fixtures.DKB_PDF_KAUF)
+check("a PDF is recognised by the sniffer", importers.sniff(pdf).SLUG, "dkb_pdf")
+check("...and parses to the same row", dkb_pdf.parse(pdf).rows[0], k)
+check("a PDF nobody wrote for us is not recognised",
+      importers.sniff(fixtures.pdf_from_text("Dear customer, hello.")), None)
+
+# ---------------------------------------------------------------------------
 print("\n13. Importing, through the web app")
 # ---------------------------------------------------------------------------
 import io                                                             # noqa: E402
@@ -782,14 +934,15 @@ broker_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
 
 
 def upload(account, text, name="export.csv"):
+    raw = text if isinstance(text, bytes) else text.encode()
     return c.post(f"/accounts/{account}/import",
-                  data={"file": (io.BytesIO(text.encode()), name)},
+                  data={"file": (io.BytesIO(raw), name)},
                   content_type="multipart/form-data", follow_redirects=True)
 
 
 r = upload(broker_id, fixtures.NOT_A_BROKER_CSV)
 check("an unrecognised file is refused",
-      b"do not match any importer" in r.data, True)
+      b"match an importer" in r.data, True)
 
 r = upload(broker_id, fixtures.DEGIRO_CSV)
 check("a Degiro export imports", b"11 new" in r.data, True)
@@ -841,6 +994,60 @@ tr_pos = {p["isin"]: p for p in importers.positions(tr_id)}
 check("the Trade Republic fund is held", "IE00BK5BQT80" in tr_pos, True)
 check("...and the stock nets buy minus sell",
       round(tr_pos["DE0007236101"]["quantity"], 6), -3.0)
+
+# A bank, not a broker: the DKB file goes into a bank account, and what
+# it says about the balance is recorded as the account's balance.
+r = c.post("/accounts/new", data={"name": "DKB Giro", "type": "bank",
+                                  "currency": "EUR"})
+dkb_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+r = upload(dkb_id, fixtures.DKB_CSV_GIRO)
+check("a DKB export imports", b"7 new" in r.data, True)
+check("...and the pending row is explained on the page", b"pending" in r.data, True)
+r = upload(dkb_id, fixtures.DKB_CSV_GIRO_OVERLAPPING)
+check("the overlapping DKB export adds only what is new", b"2 new" in r.data, True)
+with db.get_conn() as conn:
+    bal = conn.execute("SELECT amount, as_of FROM balances WHERE account_id = ? "
+                       "ORDER BY as_of DESC LIMIT 1", (dkb_id,)).fetchone()
+    salary_cat = conn.execute(
+        "SELECT category FROM transactions WHERE account_id = ? "
+        "AND description LIKE 'LOHN%'", (dkb_id,)).fetchone()["category"]
+check("the newest statement balance is the account balance",
+      (bal["amount"], bal["as_of"]), (3140.56, "2026-09-08"))
+check("salary into a bank account is income", salary_cat, "income")
+r = upload(dkb_id, fixtures.DKB_CSV_GIRO_OLD, name="umsaetze.csv")
+check("a Latin-1 export from the old portal imports", b"2 new" in r.data, True)
+
+# A Depot: several statement PDFs at once, plus a ZIP of more, in one
+# upload. Each is recognised on its own.
+import zipfile                                                        # noqa: E402
+
+r = c.post("/accounts/new", data={"name": "DKB Depot", "type": "broker",
+                                  "currency": "EUR"})
+depot_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+zbuf = io.BytesIO()
+with zipfile.ZipFile(zbuf, "w") as z:
+    z.writestr("Abrechnungen/Dividende.pdf", fixtures.pdf_from_text(fixtures.DKB_PDF_DIVIDENDE))
+    z.writestr("Abrechnungen/Sparplan.pdf", fixtures.pdf_from_text(fixtures.DKB_PDF_SPARPLAN))
+    z.writestr("Abrechnungen/Storno.pdf", fixtures.pdf_from_text(fixtures.DKB_PDF_STORNO))
+    z.writestr("__MACOSX/._Dividende.pdf", b"junk")
+    z.writestr("notes.txt", b"not a statement")
+r = c.post(f"/accounts/{depot_id}/import", data={"file": [
+    (io.BytesIO(fixtures.pdf_from_text(fixtures.DKB_PDF_KAUF)), "Kauf.pdf"),
+    (io.BytesIO(fixtures.pdf_from_text(fixtures.DKB_PDF_VERKAUF)), "Verkauf.pdf"),
+    (io.BytesIO(zbuf.getvalue()), "Postfach.zip"),
+]}, content_type="multipart/form-data", follow_redirects=True)
+check("PDFs and a ZIP of PDFs import in one go", b"5 new" in r.data, True)
+check("...the Storno is named, not silently dropped", b"Storno.pdf: A Storno" in r.data, True)
+check("...and the stray file is named too", b"notes.txt: not recognised" in r.data, True)
+r = c.post(f"/accounts/{depot_id}/import", data={"file": [
+    (io.BytesIO(fixtures.pdf_from_text(fixtures.DKB_PDF_AUSGABE)), "Ausgabe.pdf"),
+]}, content_type="multipart/form-data", follow_redirects=True)
+check("the single statement for a run already in the overview adds nothing",
+      b"0 new, 1 already had" in r.data, True)
+depot_pos = {p["isin"]: p for p in importers.positions(depot_id)}
+check("the Depot holds what the statements say",
+      round(depot_pos["US0000000001"]["quantity"], 6), 1500.0)
+check("...and the fund from the Sparplan", round(depot_pos["IE0000000002"]["quantity"], 4), 4.2637)
 
 # ---------------------------------------------------------------------------
 print("\n14. Categories and rules")
@@ -1393,6 +1600,125 @@ check("a rule applies to a row that arrives after it", arrived["arrived-1"], "sh
 check("a kind that settles it needs no rule", arrived["arrived-2"], "fee")
 check("a category somebody chose is not overwritten by a rule",
       arrived["kept-by-hand"], "restaurants")
+
+# ---------------------------------------------------------------------------
+print("\n20. Whose accounts are whose")
+# ---------------------------------------------------------------------------
+# A household: two people, one account each, a joint one, and one that
+# belongs to nobody yet. The header's switch is a lens on the same data.
+from app import overview, people                                      # noqa: E402
+
+r = c.get("/")
+check("with no people there is no switch", b'class="viewswitch"' in r.data, False)
+
+r = c.post("/settings", data={"form": "person_add", "name": "  Alex  "},
+           follow_redirects=True)
+check("a person is added from Settings", b"Alex" in r.data, True)
+c.post("/settings", data={"form": "person_add", "name": "Sam"})
+r = c.post("/settings", data={"form": "person_add", "name": "alex"}, follow_redirects=True)
+check("the same name twice is refused, case aside",
+      b"already somebody called alex" in r.data, True)
+r = c.post("/settings", data={"form": "person_add", "name": "   "}, follow_redirects=True)
+check("a blank name is refused", b"needs a name" in r.data, True)
+names = {p["name"]: p["id"] for p in people.all_people()}
+check("two people exist", sorted(names), ["Alex", "Sam"])
+alex, sam = names["Alex"], names["Sam"]
+
+r = c.get("/")
+check("now the switch is in the header", b'class="viewswitch"' in r.data, True)
+check("...offering everyone and each person",
+      all(x in r.data for x in (b">Everyone<", b">Alex<", b">Sam<")), True)
+
+# Assign: Alex gets the Degiro broker, Sam the DKB bank account, both the
+# hand-typed broker; the cash envelope belongs to nobody.
+c.post(f"/accounts/{broker_id}/edit", data={"name": "Degiro", "type": "broker",
+                                            "currency": "EUR", "people": [str(alex)]})
+c.post(f"/accounts/{dkb_id}/edit", data={"name": "DKB Giro", "type": "bank",
+                                         "currency": "EUR", "people": [str(sam)]})
+c.post(f"/accounts/{hand_id}/edit", data={"name": "By hand", "type": "broker",
+                                          "currency": "EUR", "people": [str(alex), str(sam)]})
+check("an account can belong to two people",
+      [p["name"] for p in people.for_account(hand_id)], ["Alex", "Sam"])
+check("...and the edit form shows both ticked",
+      c.get(f"/accounts/{hand_id}/edit").data.count(b"checked"), 2)
+check("an account nobody was ticked for belongs to nobody", people.for_account(cash_id), [])
+
+everyone = overview.summary("EUR")
+check("Everyone counts every account", everyone["hidden_accounts"], 0)
+mine = overview.summary("EUR", account_ids=people.account_ids(alex))
+check("one person's summary holds only their accounts",
+      sorted(a["name"] for a in mine["accounts"]), ["By hand", "Degiro"])
+check("...and says how many it leaves out",
+      mine["hidden_accounts"], everyone["account_count"] - 2)
+check("...with the holdings of those accounts only",
+      all(set(h["accounts"]) <= {"By hand", "Degiro"} for h in mine["holdings"]), True)
+check("...and the recent rows likewise",
+      {t["account_name"] for t in mine["recent"]} <= {"By hand", "Degiro"}, True)
+nobody = overview.summary("EUR", account_ids=[])
+check("a person with no accounts sees nothing, not everything",
+      (nobody["accounts"], nobody["holdings"], nobody["net_worth"]), ([], [], 0))
+check("the accounts page names whose each account is",
+      b"Alex, Sam" in c.get("/accounts").data, True)
+
+# The switch, through the web app.
+r = c.post("/view", data={"person": str(sam), "next": "/accounts"}, follow_redirects=True)
+check("switching lands back on the page it was pressed on", b"<h1>Accounts</h1>" in r.data, True)
+check("...says whose accounts are counted", b"Only Sam" in r.data, True)
+check("...lists only theirs", b"DKB Giro" in r.data and b"Degiro" not in r.data, True)
+check("...and says what it leaves out", b"switch to Everyone" in r.data, True)
+r = c.get("/transactions")
+check("the transactions page is filtered too",
+      b"KAFFEEBAR" in r.data and b"Achat 71" not in r.data, True)
+check("...down to the account filter it offers",
+      b"Degiro" not in r.data.split(b"<select")[1] if b"<select" in r.data else True, True)
+r = c.get("/cashflow")
+check("cash flow is filtered", b"Only Sam" in r.data, True)
+sam_flow = cf.monthly(13, "EUR", account_ids=people.account_ids(sam))
+all_flow = cf.monthly(13, "EUR")
+check("...and adds up less than the household",
+      sam_flow["total_spending"] < all_flow["total_spending"], True)
+check("the budget page says whose spending it measures",
+      b"is Sam" in c.get("/budget").data, True)
+check("the categorise queue is filtered",
+      cat.uncategorised(account_ids=people.account_ids(sam))[1]
+      <= cat.uncategorised()[1], True)
+for path in ("/", "/portfolio", "/subscriptions", "/categorize", "/budget"):
+    check(f"{path} renders under a person", c.get(path).status_code, 200)
+
+# A new account made while looking at Sam starts as Sam's.
+r = c.get("/accounts/new")
+check("the new-account form pre-ticks the person in view",
+      f'value="{sam}" checked'.encode() in r.data, True)
+r = c.post("/accounts/new", data={"name": "Sam savings", "type": "savings",
+                                  "currency": "EUR", "people": [str(sam)]})
+new_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+check("...and the tick is kept", [p["name"] for p in people.for_account(new_id)], ["Sam"])
+
+# A bad `next` is not followed off-site.
+r = c.post("/view", data={"person": "", "next": "//evil.example/x"})
+check("the switch never redirects off the site",
+      r.headers["Location"].startswith("/") and "evil" not in r.headers["Location"], True)
+r = c.get("/accounts")
+check("Everyone shows every account again", b"Degiro" in r.data and b"DKB Giro" in r.data, True)
+
+# Removing a person: the accounts stay, and a browser still set to them
+# falls back to Everyone.
+c.post("/view", data={"person": str(alex), "next": "/"})
+r = c.post("/settings", data={"form": "person_rename", "id": str(alex), "name": "Alexandra"},
+           follow_redirects=True)
+check("a person can be renamed", b"Alexandra" in r.data, True)
+c.post("/settings", data={"form": "person_delete", "id": str(alex)}, follow_redirects=True)
+check("a removed person is gone", [p["name"] for p in people.all_people()], ["Sam"])
+check("...their accounts are not", c.get(f"/accounts/{broker_id}").status_code, 200)
+check("...the joint account is now Sam's alone",
+      [p["name"] for p in people.for_account(hand_id)], ["Sam"])
+r = c.get("/accounts")
+check("...and a view set to them falls back to Everyone",
+      b"Only " not in r.data and b"Degiro" in r.data, True)
+with db.get_conn() as conn:
+    check("the link rows went with the person", conn.execute(
+        "SELECT COUNT(*) AS n FROM account_people WHERE person_id = ?",
+        (alex,)).fetchone()["n"], 0)
 
 # ---------------------------------------------------------------------------
 print("\n13. Four languages")

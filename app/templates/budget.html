@@ -6,7 +6,8 @@
    categories first, then unbudgeted ones with spending. #}
 {% set charted = report.rows | selectattr('budget') | list + report.rows | rejectattr('budget') | selectattr('spent') | list %}
 {% block lede %}
-<p class="lede">{{ _("Measured against how far through the month you are, not against the whole month. Halfway through, everyone is under budget — the useful question is whether you are ahead of the pace.") }}</p>
+<p class="lede">{{ _("Measured against how far through the month you are, not against the whole month. Halfway through, everyone is under budget — the useful question is whether you are ahead of the pace.") }}
+{% if view_person %}{{ _f("The budget itself is the household's; the spending measured against it here is {name}'s alone.", name=view_person.name) }}{% endif %}</p>
 {% endblock %}
 {% block content %}
 {% macro fx_note(x) %}

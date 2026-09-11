@@ -25,7 +25,7 @@ many are at their last trade.
 
 from __future__ import annotations
 
-from . import fx, prices
+from . import fx, people, prices
 from .db import get_conn
 from .importers import positions
 
@@ -43,20 +43,28 @@ def _latest_balances(conn) -> dict[int, dict]:
     return {r["account_id"]: dict(r) for r in rows}
 
 
-def summary(base_currency: str = "EUR") -> dict:
+def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) -> dict:
+    """Everything, or one person's share of it — see people.scope()."""
+    only, params = people.sql_in(account_ids, "id")
+    only_t, params_t = people.sql_in(account_ids, "t.account_id")
     with get_conn() as conn:
         accounts = [dict(r) for r in conn.execute(
-            "SELECT * FROM accounts ORDER BY name").fetchall()]
+            f"SELECT * FROM accounts WHERE 1=1{only} ORDER BY name", params).fetchall()]
         balances = _latest_balances(conn)
         counts = {r["account_id"]: r["n"] for r in conn.execute(
             "SELECT account_id, COUNT(*) AS n FROM transactions "
             "GROUP BY account_id").fetchall()}
         banks = {r["account_id"]: r["aspsp_name"] for r in conn.execute(
             "SELECT account_id, aspsp_name FROM bank_links").fetchall()}
+        owners = people.by_account(conn)
         recent = [dict(r) for r in conn.execute(
-            "SELECT t.*, a.name AS account_name FROM transactions t "
-            "JOIN accounts a ON a.id = t.account_id "
-            "ORDER BY t.txn_date DESC, t.id DESC LIMIT 12").fetchall()]
+            f"SELECT t.*, a.name AS account_name FROM transactions t "
+            f"JOIN accounts a ON a.id = t.account_id WHERE 1=1{only_t} "
+            f"ORDER BY t.txn_date DESC, t.id DESC LIMIT 12", params_t).fetchall()]
+        # How many accounts the lens leaves out, so the accounts page
+        # can say so instead of looking like the others were deleted.
+        hidden = 0 if account_ids is None else conn.execute(
+            "SELECT COUNT(*) AS n FROM accounts").fetchone()["n"] - len(accounts)
 
     # ── Cash, per account ────────────────────────────────────────
     # What one euro is worth in each currency on the newest day the ECB
@@ -100,6 +108,7 @@ def summary(base_currency: str = "EUR") -> dict:
             "balance_as_of": bal["as_of"] if bal else None,
             "transactions": counts.get(acct["id"], 0),
             "bank": banks.get(acct["id"]),
+            "people": owners.get(acct["id"], []),
         })
 
     # ── Securities, across every account ─────────────────────────
@@ -228,7 +237,8 @@ def summary(base_currency: str = "EUR") -> dict:
         "account_count": len(rows),
         "connected_count": sum(1 for r in rows if r["bank"]),
         "holdings": holdings_list,
-        "transaction_count": sum(counts.values()),
+        "transaction_count": sum(counts.get(a["id"], 0) for a in accounts),
+        "hidden_accounts": hidden,
         "by_account": by_account[:10],
         "by_class": by_class,
         "recent": recent,
