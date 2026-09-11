@@ -21,11 +21,32 @@
     <label for="base_currency">{{ _("Base currency") }}</label>
     <input id="base_currency" name="base_currency" value="{{ cfg.base_currency }}" maxlength="3">
 
+    <label class="check" style="margin-top:10px"><input type="checkbox" name="auto_sync" value="1" {{ 'checked' if cfg.auto_sync }}> {{ _("Sync connected accounts automatically every day") }}</label>
+    <label for="sync_time">{{ _("At") }}</label>
+    <input id="sync_time" name="sync_time" type="time" value="{{ cfg.sync_time }}" style="width:auto">
+    <p class="sub">{{ _("Local time of the machine this runs on. A day that was slept through — the machine was off at that hour — is caught up as soon as it is next awake.") }}</p>
+
     <label for="redirect_url">{{ _("Redirect URL") }}</label>
     <input id="redirect_url" name="redirect_url" value="{{ cfg.redirect_url }}">
     <p class="sub">{{ _("Where your bank sends you back after you authorise. This exact string must also be registered in the Enable Banking Control Panel — if the two differ by so much as a trailing slash, the bank refuses the handover and the error it shows names nothing useful.") }}</p>
 
     <button type="submit">{{ _("Save") }}</button>
+  </form>
+</div>
+
+<div class="card" id="sync">
+  <div class="card-header">
+    <h2>{{ _("Bank sync") }}</h2>
+    <span class="card-subtitle">{{ _n(connected_links, "{n} account connected", "{n} accounts connected") }}</span>
+  </div>
+  <p class="sub">
+    {% if last_auto_sync %}{{ _f("Last automatic sync: {when}.", when=last_auto_sync[:16].replace('T', ' ')) }}
+    {% else %}{{ _("No automatic sync has run yet.") }}{% endif %}
+    {% if cfg.auto_sync %}{{ _f("The next one is at {time}.", time=cfg.sync_time) }}{% else %}{{ _("Automatic sync is off.") }}{% endif %}
+  </p>
+  <form method="post">
+    <input type="hidden" name="form" value="sync_all">
+    <button type="submit">{{ _("Sync all accounts now") }}</button>
   </form>
 </div>
 

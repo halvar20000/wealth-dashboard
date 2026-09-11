@@ -28,7 +28,7 @@ import secrets
 import threading
 import time
 import urllib.parse
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from flask import (Flask, flash, g, redirect, render_template, request,
@@ -37,8 +37,9 @@ from flask import (Flask, flash, g, redirect, render_template, request,
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import (cashflow, categories, importers, manual, overview, people,
-               subscriptions)
+from . import (cashflow, categories, forecast, importers, manual, overview,
+               people, subscriptions)
+from . import db as db_state
 from .db import get_conn, has_users, init_db
 
 APP_DIR = Path(__file__).resolve().parent
@@ -793,6 +794,26 @@ def budget_page():
                                       account_ids=people.scope()))
 
 
+@app.route("/forecast", methods=["GET", "POST"])
+@auth.login_required
+def forecast_page():
+    """Where the money is heading, from today's balance and the user's
+    own assumptions. The inputs are kept, so the page answers the same
+    question next month with next month's balance."""
+    cfg = settings.load()
+    if request.method == "POST":
+        cfg["forecast"] = forecast.clean(request.form)
+        settings.save(cfg)
+        return redirect(url_for("forecast_page"))
+    inputs = forecast.clean(cfg.get("forecast") or {})
+    base = cfg.get("base_currency", "EUR")
+    s = overview.summary(base, account_ids=people.scope())
+    return render_template("forecast.html", active_page="forecast",
+                           inputs=inputs, s=s,
+                           plan=forecast.plan(s["net_worth"], inputs),
+                           max_years=forecast.MAX_YEARS, max_rate=forecast.MAX_RATE)
+
+
 @app.route("/subscriptions")
 @auth.login_required
 def subscriptions_page():
@@ -876,6 +897,18 @@ def _person_error(message: str) -> str:
     return _t("A person needs a name.")
 
 
+def _valid_hhmm(value: str) -> bool:
+    parts = value.split(":")
+    return (len(parts) == 2 and all(p.isdigit() for p in parts)
+            and 0 <= int(parts[0]) < 24 and 0 <= int(parts[1]) < 60)
+
+
+def _connected_count() -> int:
+    with get_conn() as conn:
+        return conn.execute("SELECT COUNT(*) AS n FROM bank_links "
+                            "WHERE account_uid IS NOT NULL").fetchone()["n"]
+
+
 def _people_with_counts() -> list[dict]:
     """Each person with how many accounts are theirs, for Settings."""
     with get_conn() as conn:
@@ -933,6 +966,21 @@ def settings_page():
             except ValueError as exc:
                 flash(str(exc), "error")
             return redirect(url_for("settings_page") + "#prices")
+        elif request.form.get("form") == "sync_all":
+            results = banksync.sync_all()
+            failed = [r for r in results if r["error"]]
+            new_rows = sum(r["inserted"] for r in results)
+            if failed:
+                flash(_f("{ok} of {total} accounts synced. Failed: {names}.",
+                         ok=len(results) - len(failed), total=len(results),
+                         names=", ".join(r["account"] for r in failed)), "error")
+            elif not results:
+                flash(_t("No account is connected to a bank yet."), "error")
+            else:
+                flash(_n(new_rows, "{n} new transaction across {accounts} accounts.",
+                         "{n} new transactions across {accounts} accounts.",
+                         accounts=len(results)), "ok")
+            return redirect(url_for("settings_page") + "#sync")
         elif request.form.get("form") == "fx_refresh":
             # In the request, because the user asked for it and is
             # waiting for the answer. The automatic one is on a thread.
@@ -954,6 +1002,9 @@ def settings_page():
             # browser", which is also what the blank option posts.
             chosen = (request.form.get("language") or "").strip()
             cfg["language"] = chosen if i18n.known(chosen) else ""
+            cfg["auto_sync"] = bool(request.form.get("auto_sync"))
+            when = (request.form.get("sync_time") or "12:00").strip()
+            cfg["sync_time"] = when if _valid_hhmm(when) else "12:00"
             settings.save(cfg)
             # The language decided at the top of this request is the old
             # one. Forget it, so the confirmation of the change is
@@ -980,6 +1031,8 @@ def settings_page():
                            catalogue=categories.catalogue(),
                            groups=categories.GROUPS,
                            rates=fx.status(),
+                           last_auto_sync=db_state.get_state("last_auto_sync"),
+                           connected_links=_connected_count(),
                            securities=prices.status(),
                            prices_hours_ago=prices.fetched_hours_ago(),
                            check=check)
@@ -1202,6 +1255,34 @@ def _start_rate_refresher() -> None:
             time.sleep(prices.FRESH_HOURS * 3600)
 
     threading.Thread(target=price_loop, name="prices-refresh", daemon=True).start()
+
+    def sync_loop() -> None:
+        # Once a day, at the time under Settings. Checked every minute
+        # rather than slept until, so a changed time takes effect
+        # without a restart and a laptop lid closed over noon still
+        # gets its sync when it opens.
+        while True:
+            try:
+                cfg = settings.load()
+                if (banksync.credentials_present()
+                        and banksync.sync_due(datetime.now(), cfg,
+                                              db_state.get_state("last_auto_sync"))):
+                    db_state.set_state("last_auto_sync",
+                                       datetime.now().isoformat(timespec="seconds"))
+                    results = banksync.sync_all()
+                    for r in results:
+                        if r["error"]:
+                            print(f"  sync: {r['account']}: {r['error']}", flush=True)
+                        else:
+                            print(f"  sync: {r['account']}: {r['inserted']} new",
+                                  flush=True)
+                    if not results:
+                        print("  sync: nothing connected", flush=True)
+            except Exception as exc:                      # noqa: BLE001
+                print(f"  sync: unexpected: {exc}", flush=True)
+            time.sleep(60)
+
+    threading.Thread(target=sync_loop, name="bank-sync", daemon=True).start()
 
 
 def main() -> None:

@@ -66,6 +66,11 @@ DEFAULTS: dict[str, Any] = {
     # How long to ask the bank to keep the consent alive. PSD2 caps this
     # at 90 days for most banks; asking for more is refused outright.
     "consent_days": 90,
+    # Pull every connected account once a day, at this local time. A
+    # bank's overnight batch has usually landed by noon, and a sync at
+    # noon is one nobody has to remember.
+    "auto_sync": True,
+    "sync_time": "12:00",
 }
 
 

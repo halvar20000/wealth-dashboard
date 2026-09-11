@@ -1721,6 +1721,113 @@ with db.get_conn() as conn:
         (alex,)).fetchone()["n"], 0)
 
 # ---------------------------------------------------------------------------
+print("\n21. Forecast")
+# ---------------------------------------------------------------------------
+from app import forecast                                              # noqa: E402
+
+# At 0 % the arithmetic is plain: start plus twelve deposits a year.
+flat = forecast.project(1000, 100, 0.0, 2, first_year=2026)
+check("year 0 is today", (flat[0]["year"], flat[0]["value"]), (2026, 1000.0))
+check("at 0 % a year adds twelve deposits", round(flat[1]["value"], 2), 2200.0)
+check("...and nothing is earned", flat[2]["returns"], 0.0)
+check("one point per year, plus today", len(flat), 3)
+
+# At 6 % the closed form says: 1000·1.005^12 + 100·(1.005^12−1)/0.005
+g = 1.005 ** 12
+expected = 1000 * g + 100 * (g - 1) / 0.005
+grown = forecast.project(1000, 100, 6.0, 1)
+check("at 6 % the year matches the annuity formula",
+      round(grown[1]["value"], 6), round(expected, 6))
+check("...contributions are counted apart from returns",
+      (grown[1]["contributed"], round(grown[1]["returns"], 6)),
+      (2200.0, round(expected - 2200, 6)))
+check("a negative rate is allowed and shrinks",
+      forecast.project(1000, 0, -10.0, 1)[1]["value"] < 1000, True)
+
+# The inverse: what a month must be to hit a target, and it round-trips.
+m = forecast.required_monthly(1000, 50000, 6.0, 10)
+check("the required monthly lands on the target",
+      round(forecast.project(1000, m, 6.0, 10)[-1]["value"], 4), 50000.0)
+check("at 0 % it is the gap divided by the months",
+      forecast.required_monthly(1000, 13000, 0.0, 1), 1000.0)
+check("a target already met needs nothing", forecast.required_monthly(5000, 4000, 5.0, 3), 0.0)
+check("...never a negative", forecast.required_monthly(100000, 1000, 5.0, 1), 0.0)
+check("years to reach a goal", forecast.years_to_reach(1000, 100, 0.0, 3400), 2)
+check("...None when it is out of reach", forecast.years_to_reach(0, 1, 0.0, 10**9), None)
+
+# Inputs are bounded, and nonsense falls back rather than failing.
+cleaned = forecast.clean({"mode": "target", "monthly": "abc", "rate": "99",
+                          "years": "400", "target": "1.500,50"})
+check("an unreadable number takes the default", cleaned["monthly"], 500.0)
+check("the rate is capped", cleaned["rate"], forecast.MAX_RATE)
+check("the horizon is capped", cleaned["years"], forecast.MAX_YEARS)
+check("a German-style amount is read", cleaned["target"], 1500.5)
+check("the mode is one of two", forecast.clean({"mode": "x"})["mode"], "project")
+
+plan = forecast.plan(10000, {"mode": "target", "target": 100000, "rate": 5.0,
+                             "years": 15, "monthly": 0})
+check("a goal plan works out the monthly", plan["monthly"] > 0, True)
+check("...and the projection ends on the goal", round(plan["end_value"]), 100000)
+plan2 = forecast.plan(10000, {"mode": "project", "target": 20000, "rate": 0.0,
+                              "years": 5, "monthly": 500})
+check("a savings plan with a goal says when it gets there", plan2["reach_years"], 2)
+
+# The page: remembers what was typed, starts from the real balance, and
+# follows the header's person.
+c.post("/view", data={"person": "", "next": "/"})
+r = c.get("/forecast")
+check("the forecast page renders", r.status_code, 200)
+check("...with the chart", b"chart-forecast" in r.data, True)
+check("...starting from the household's net worth", b"Starting from" in r.data, True)
+r = c.post("/forecast", data={"mode": "target", "target": "250000", "years": "12",
+                              "rate": "4.5"}, follow_redirects=True)
+check("a goal is remembered", b'value="250000"' in r.data, True)
+check("...and the answer is a monthly figure", b"Save per month" in r.data, True)
+check("...kept in the settings file", settings.load()["forecast"]["years"], 12)
+r = c.post("/forecast", data={"mode": "project", "monthly": "300", "years": "10",
+                              "rate": "5"}, follow_redirects=True)
+check("switching to a savings plan shows the end value",
+      b"In 20" in r.data and b"You put in" in r.data, True)
+sam_id = people.all_people()[0]["id"]
+c.post("/view", data={"person": str(sam_id), "next": "/forecast"})
+r = c.get("/forecast")
+check("under a person the forecast starts from their balance",
+      b"what Sam adds up to" in r.data, True)
+c.post("/view", data={"person": "", "next": "/"})
+
+# ---------------------------------------------------------------------------
+print("\n22. Syncing every day, without being asked")
+# ---------------------------------------------------------------------------
+from datetime import datetime as _dt                                  # noqa: E402
+
+cfg = {"auto_sync": True, "sync_time": "12:00"}
+noon = _dt(2026, 9, 11, 12, 0)
+check("due at the configured minute", banksync.sync_due(noon, cfg, None), True)
+check("not before it", banksync.sync_due(_dt(2026, 9, 11, 11, 59), cfg, None), False)
+check("still due later the same day if it was missed",
+      banksync.sync_due(_dt(2026, 9, 11, 18, 30), cfg, "2026-09-10T12:00:05"), True)
+check("not twice on one day",
+      banksync.sync_due(_dt(2026, 9, 11, 12, 1), cfg, "2026-09-11T12:00:05"), False)
+check("off means off", banksync.sync_due(noon, {"auto_sync": False}, None), False)
+check("a broken time falls back to noon",
+      banksync.sync_due(noon, {"auto_sync": True, "sync_time": "x"}, None), True)
+
+results = banksync.sync_all()
+check("sync_all reaches every connected account", len(results), 1)
+check("...and reports per account, without error", results[0]["error"], None)
+r = c.post("/settings", data={"form": "sync_all"}, follow_redirects=True)
+check("the Settings button syncs them all", b"across 1 accounts" in r.data, True)
+r = c.post("/settings", data={"base_currency": "EUR", "redirect_url": "http://x/cb",
+                              "auto_sync": "1", "sync_time": "07:30"},
+           follow_redirects=True)
+check("the sync time is saved", settings.load()["sync_time"], "07:30")
+check("...and shown", b"07:30" in r.data, True)
+r = c.post("/settings", data={"base_currency": "EUR", "redirect_url": "http://x/cb",
+                              "sync_time": "25:99"}, follow_redirects=True)
+check("an unticked box turns it off", settings.load()["auto_sync"], False)
+check("an impossible time falls back to noon", settings.load()["sync_time"], "12:00")
+
+# ---------------------------------------------------------------------------
 print("\n13. Four languages")
 # ---------------------------------------------------------------------------
 # The catalogues are checked against the strings the code actually asks

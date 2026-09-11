@@ -985,4 +985,106 @@ STRINGS: dict[str, str] = {
         "N'appartient encore à personne, et n'apparaît donc que sous « Tout le monde ».",
     "Change":
         "Modifier",
+
+    # ─── Projection et synchronisation ───────────────────────────────
+    "A goal to mark, in {currency}":
+        "Un objectif à marquer, en {currency}",
+    "Amounts in a currency with no rate on file are not in that figure.":
+        "Les montants dans une devise sans taux enregistré ne sont pas dans ce chiffre.",
+    "At":
+        "À",
+    "Automatic sync is off.":
+        "La synchronisation automatique est désactivée.",
+    "Average return per year, in %":
+        "Rendement moyen par an, en %",
+    "Bank sync":
+        "Synchronisation bancaire",
+    "Before inflation. Broad stock-market funds have averaged around 6–8 % a year over long periods, savings accounts far less; a cautious plan uses a lower number than history did.":
+        "Avant inflation. Les fonds actions larges ont fait en moyenne 6–8 % par an sur de longues périodes, les livrets bien moins ; un plan prudent prend un chiffre plus bas que l'histoire.",
+    "Calculate":
+        "Calculer",
+    "Forecast":
+        "Projection",
+    "Goal":
+        "Objectif",
+    "Goal, in {currency}":
+        "Objectif, en {currency}",
+    "I have a goal":
+        "J'ai un objectif",
+    "I save a fixed amount":
+        "J'épargne un montant fixe",
+    "In {year}":
+        "En {year}",
+    "Last automatic sync: {when}.":
+        "Dernière synchronisation automatique : {when}.",
+    "Local time of the machine this runs on. A day that was slept through — the machine was off at that hour — is caught up as soon as it is next awake.":
+        "Heure locale de la machine qui fait tourner l'app. Un jour manqué — la machine était éteinte à cette heure — est rattrapé dès qu'elle est de nouveau allumée.",
+    "No account is connected to a bank yet.":
+        "Aucun compte n'est encore connecté à une banque.",
+    "No automatic sync has run yet.":
+        "Aucune synchronisation automatique n'a encore eu lieu.",
+    "Returns":
+        "Rendement",
+    "Returns earn":
+        "Le rendement rapporte",
+    "Save per month":
+        "À épargner par mois",
+    "Saved per month, in {currency}":
+        "Épargné par mois, en {currency}",
+    "Show as a table":
+        "Afficher en tableau",
+    "Starting from {amount}: what {who} adds up to today across {n} accounts.":
+        "À partir de {amount} : ce que {who} totalise aujourd'hui sur {n} comptes.",
+    "Sync all accounts now":
+        "Synchroniser tous les comptes maintenant",
+    "Sync connected accounts automatically every day":
+        "Synchroniser les comptes connectés automatiquement chaque jour",
+    "The goal is already met — nothing more is needed.":
+        "L'objectif est déjà atteint — rien de plus n'est nécessaire.",
+    "The next one is at {time}.":
+        "La prochaine est à {time}.",
+    "What to work out":
+        "Que calculer",
+    "Where the money is heading, starting from what the accounts add up to today. The return is your assumption, not a prediction — the page only does the arithmetic, and shows how much of the result is your own deposits.":
+        "Où va l'argent, à partir de ce que les comptes totalisent aujourd'hui. Le rendement est ton hypothèse, pas une prédiction — la page ne fait que le calcul, et montre quelle part du résultat vient de tes propres versements.",
+    "With returns":
+        "Avec rendement",
+    "Year":
+        "Année",
+    "Year by year":
+        "Année par année",
+    "Years from now":
+        "Années à partir d'aujourd'hui",
+    "You put in":
+        "Tu verses",
+    "and want to know what it takes a month":
+        "et veux savoir ce que ça demande par mois",
+    "and want to see where it leads":
+        "et veux voir où ça mène",
+    "at {rate} % a year, compounding monthly":
+        "à {rate} % par an, capitalisé mensuellement",
+    "the goal is not reached in this time":
+        "l'objectif n'est pas atteint dans ce délai",
+    "the goal is reached in {year}":
+        "l'objectif est atteint en {year}",
+    "the household":
+        "le foyer",
+    "to reach {target} by {year}":
+        "pour atteindre {target} d'ici {year}",
+    "today's {start} plus {monthly} a month":
+        "les {start} d'aujourd'hui plus {monthly} par mois",
+    "{n} account connected":
+        "{n} compte connecté",
+    "{n} accounts connected":
+        "{n} comptes connectés",
+    "{n} new transaction across {accounts} accounts.":
+        "{n} nouvelle transaction sur {accounts} comptes.",
+    "{n} new transactions across {accounts} accounts.":
+        "{n} nouvelles transactions sur {accounts} comptes.",
+    "{n} year from now":
+        "dans {n} an",
+    "{n} years from now":
+        "dans {n} ans",
+    "{ok} of {total} accounts synced. Failed: {names}.":
+        "{ok} comptes sur {total} synchronisés. Échec : {names}.",
 }

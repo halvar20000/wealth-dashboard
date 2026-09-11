@@ -11,6 +11,25 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.16.0] — 2026-09-11
+
+### Added
+- **Forecast.** Where the money is heading, from what the accounts add up
+  to today. Two questions: *I save this much a month at this return — where
+  am I in N years?* and its inverse, *I want this much by then — what does
+  it take a month?* A chart year by year with the deposits and the returns
+  drawn apart, so "€600k in twenty-five years" is seen for what it is when
+  a third of it is your own money; an optional goal line; a table for the
+  numbers. The inputs are kept, so next month the same question is answered
+  from next month's balance, and under a person in the header the forecast
+  starts from theirs. The return is the user's assumption, and the page
+  says so.
+- **Automatic bank sync.** Every connected account is pulled once a day at
+  a time set under Settings (12:00 by default), and a day the machine slept
+  through is caught up when it wakes. Until now a sync happened only when
+  the button was pressed. Settings also gained a **Sync all accounts now**
+  button and shows when the last automatic run was.
+
 ## [0.15.0] — 2026-09-11
 
 ### Added

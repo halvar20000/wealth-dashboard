@@ -45,6 +45,9 @@ it does not do yet.
 - [x] People: each account belongs to one, several or none of the
       household, and a switch in the header shows everyone's picture or
       one person's on every page.
+- [x] Forecast: a savings plan or a goal, projected from today's balance
+      with deposits and returns shown apart.
+- [x] Connected accounts synced automatically once a day.
 
 ## Next
 

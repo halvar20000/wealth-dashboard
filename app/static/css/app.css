@@ -103,8 +103,8 @@ a:hover { text-decoration: underline; }
 }
 .owners { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px 12px; margin: 10px 0 6px; }
 .owners legend { padding: 0 6px; font-size: 12.5px; color: var(--text-secondary); font-weight: 500; }
-.owners .check { display: inline-flex; align-items: center; gap: 8px; margin: 4px 18px 4px 0; font-weight: 400; }
-.owners .check input { width: auto; margin: 0; }
+.owners .check, .form .check { display: inline-flex; align-items: center; gap: 8px; margin: 4px 18px 4px 0; font-weight: 400; }
+.owners .check input, .form .check input { width: auto; margin: 0; }
 .owners .sub { margin: 6px 0 0; }
 .topbar .who {
   color: var(--text-tertiary); font-size: 12.5px;
@@ -357,3 +357,23 @@ footer {
   main { padding: 22px 18px 56px; }
   .hero-value { font-size: 34px; }
 }
+
+/* ─── Forecast ────────────────────────────────────────────────── */
+
+.forecast-layout { grid-template-columns: minmax(280px, 380px) 1fr; align-items: start; }
+@media (max-width: 860px) { .forecast-layout { grid-template-columns: 1fr; } }
+.forecast-form { max-width: none; }
+.mode-switch { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.mode {
+  display: flex; flex-direction: column; gap: 2px; padding: 10px 14px;
+  border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
+  background: var(--bg-elevated); font-weight: 400;
+}
+.mode input { position: absolute; opacity: 0; pointer-events: none; }
+.mode.active { border-color: var(--accent-gold); box-shadow: 0 0 0 1px var(--accent-gold) inset; }
+.mode strong { font-size: 13.5px; }
+.forecast-stats { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.forecast-table { margin-top: 12px; }
+.forecast-table summary { cursor: pointer; }
+.forecast-table .table-wrap { margin-top: 10px; }
+@media (max-width: 560px) { .forecast-stats { grid-template-columns: 1fr; } }

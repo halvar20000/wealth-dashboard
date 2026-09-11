@@ -240,6 +240,37 @@ def sync_link(link_id: int) -> dict:
     return result
 
 
+def sync_all() -> list[dict]:
+    """Every connected account, one after another. Each result carries
+    its own error, so one bank refusing does not stop the next."""
+    with get_conn() as conn:
+        ids = [int(r["id"]) for r in conn.execute(
+            "SELECT id FROM bank_links WHERE account_uid IS NOT NULL ORDER BY id")]
+    return [sync_link(i) for i in ids]
+
+
+def sync_due(now: datetime, cfg: dict, last_run: str | None) -> bool:
+    """Whether the daily sync should run at `now`.
+
+    Once a day at the configured time, and never twice on one day even
+    if the clock is checked more often than once a minute. A day whose
+    time slot was slept through — the machine was off at noon — is
+    caught up the moment the app is next awake past that time, because
+    "it runs at noon" must not mean "it does not run today".
+    """
+    if not cfg.get("auto_sync", True):
+        return False
+    hhmm = str(cfg.get("sync_time") or "12:00")
+    try:
+        hour, minute = (int(x) for x in hhmm.split(":", 1))
+    except ValueError:
+        hour, minute = 12, 0
+    today = now.date().isoformat()
+    if last_run and last_run[:10] >= today:
+        return False
+    return (now.hour, now.minute) >= (hour, minute)
+
+
 def sync_account(account_id: int) -> dict | None:
     """Sync whichever link belongs to this account, if any."""
     with get_conn() as conn:

@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Forecast") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Forecast") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("Where the money is heading, starting from what the accounts add up to today. The return is your assumption, not a prediction — the page only does the arithmetic, and shows how much of the result is your own deposits.") }}</p>
+{% endblock %}
+{% block content %}
+
+<div class="grid-2 forecast-layout">
+<form method="post" class="card form forecast-form">
+  <div class="mode-switch" role="radiogroup" aria-label="{{ _('What to work out') }}">
+    <label class="mode {{ 'active' if inputs.mode == 'project' }}">
+      <input type="radio" name="mode" value="project" {{ 'checked' if inputs.mode == 'project' }}>
+      <strong>{{ _("I save a fixed amount") }}</strong>
+      <span class="sub">{{ _("and want to see where it leads") }}</span>
+    </label>
+    <label class="mode {{ 'active' if inputs.mode == 'target' }}">
+      <input type="radio" name="mode" value="target" {{ 'checked' if inputs.mode == 'target' }}>
+      <strong>{{ _("I have a goal") }}</strong>
+      <span class="sub">{{ _("and want to know what it takes a month") }}</span>
+    </label>
+  </div>
+
+  <div data-mode="project">
+    <label for="monthly">{{ _f("Saved per month, in {currency}", currency=s.base_currency) }}</label>
+    <input id="monthly" name="monthly" inputmode="decimal" value="{{ '%g' | format(inputs.monthly) }}">
+  </div>
+  <div data-mode="target">
+    <label for="target">{{ _f("Goal, in {currency}", currency=s.base_currency) }}</label>
+    <input id="target" name="target" inputmode="decimal" value="{{ '%g' | format(inputs.target) if inputs.target else '' }}" placeholder="500000">
+  </div>
+
+  <label for="years">{{ _("Years from now") }}</label>
+  <input id="years" name="years" type="number" min="1" max="{{ max_years }}" value="{{ inputs.years }}">
+
+  <label for="rate">{{ _("Average return per year, in %") }}</label>
+  <input id="rate" name="rate" inputmode="decimal" value="{{ '%g' | format(inputs.rate) }}">
+  <p class="sub">{{ _("Before inflation. Broad stock-market funds have averaged around 6–8 % a year over long periods, savings accounts far less; a cautious plan uses a lower number than history did.") }}</p>
+
+  <div data-mode="project">
+    <label for="target2">{{ _f("A goal to mark, in {currency}", currency=s.base_currency) }} <span class="sub">{{ _("optional") }}</span></label>
+    <input id="target2" name="target" inputmode="decimal" value="{{ '%g' | format(inputs.target) if inputs.target else '' }}" placeholder="500000" disabled>
+  </div>
+
+  <button type="submit">{{ _("Calculate") }}</button>
+  <p class="sub">{{ _f("Starting from {amount}: what {who} adds up to today across {n} accounts.", amount=money(s.net_worth, s.base_currency), who=(view_person.name if view_person else _("the household")), n=s.account_count) }}
+  {% if s.unconverted %}{{ _("Amounts in a currency with no rate on file are not in that figure.") }}{% endif %}</p>
+</form>
+
+<div>
+<section class="stat-strip forecast-stats">
+  {% if plan.mode == 'target' %}
+  <div class="stat-card stat-gold">
+    <div class="stat-label">{{ _("Save per month") }}</div>
+    <div class="stat-value">{{ money(plan.monthly, s.base_currency) }}</div>
+    <div class="stat-sub">
+      {% if plan.already_there %}{{ _("The goal is already met — nothing more is needed.") }}
+      {% else %}{{ _f("to reach {target} by {year}", target=money(plan.target, s.base_currency), year=plan.end_year) }}{% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="stat-card stat-gold">
+    <div class="stat-label">{{ _f("In {year}", year=plan.end_year) }}</div>
+    <div class="stat-value">{{ money(plan.end_value, s.base_currency) }}</div>
+    <div class="stat-sub">{{ _n(plan.years, "{n} year from now", "{n} years from now") }}
+      {%- if plan.target %} · {% if plan.reach_years is not none %}{{ _f("the goal is reached in {year}", year=plan.points[0].year + plan.reach_years) }}{% else %}{{ _("the goal is not reached in this time") }}{% endif %}{% endif %}</div>
+  </div>
+  {% endif %}
+  <div class="stat-card stat-blue">
+    <div class="stat-label">{{ _("You put in") }}</div>
+    <div class="stat-value">{{ money(plan.end_contributed, s.base_currency) }}</div>
+    <div class="stat-sub">{{ _f("today's {start} plus {monthly} a month", start=money(plan.start, s.base_currency), monthly=money(plan.monthly, s.base_currency)) }}</div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-label">{{ _("Returns earn") }}</div>
+    <div class="stat-value {{ 'gain' if plan.end_returns > 0 }}">{{ money(plan.end_returns, s.base_currency) }}</div>
+    <div class="stat-sub">{{ _f("at {rate} % a year, compounding monthly", rate=('%g' | format(plan.rate))) }}</div>
+  </div>
+</section>
+
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("Year by year") }}</h2>
+    <span class="card-subtitle">{{ s.base_currency }}</span>
+  </div>
+  <div class="chart-wrap" style="height:320px"><canvas id="chart-forecast"></canvas></div>
+  <details class="forecast-table">
+    <summary class="sub">{{ _("Show as a table") }}</summary>
+    <div class="table-wrap">
+      <table class="grid">
+        <thead><tr><th>{{ _("Year") }}</th><th class="num">{{ _("Value") }}</th><th class="num">{{ _("You put in") }}</th><th class="num">{{ _("Returns") }}</th></tr></thead>
+        <tbody>
+        {% for p in plan.points %}
+          <tr><td>{{ p.year }}</td><td class="num">{{ money(p.value, s.base_currency) }}</td>
+              <td class="num">{{ money(p.contributed, s.base_currency) }}</td>
+              <td class="num {{ 'pos' if p.returns > 0 }}">{{ money(p.returns, s.base_currency) }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const P = {{ plan.points | tojson }};
+const TARGET = {{ (plan.target or 0) | tojson }};
+const CCY = {{ s.base_currency | tojson }};
+const GRID = '#232c44', TICK = '#95a0b9';
+const fmt = v => new Intl.NumberFormat({{ lang | tojson }}, { style: 'currency', currency: CCY, maximumFractionDigits: 0 }).format(v);
+const compact = v => new Intl.NumberFormat({{ lang | tojson }}, { notation: 'compact', maximumFractionDigits: 1 }).format(v);
+
+const datasets = [
+  { label: {{ _("With returns") | tojson }}, data: P.map(p => p.value),
+    borderColor: '#f5d76e', backgroundColor: 'rgba(245,215,110,0.18)',
+    fill: '+1', borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.25 },
+  { label: {{ _("You put in") | tojson }}, data: P.map(p => p.contributed),
+    borderColor: '#5b9dff', backgroundColor: 'rgba(91,157,255,0.10)',
+    fill: 'origin', borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.25 },
+];
+if (TARGET > 0) {
+  datasets.push({ label: {{ _("Goal") | tojson }}, data: P.map(() => TARGET),
+    borderColor: '#95a0b9', borderDash: [6, 5], borderWidth: 1.5,
+    pointRadius: 0, pointHoverRadius: 0, fill: false });
+}
+new Chart(document.getElementById('chart-forecast'), {
+  type: 'line',
+  data: { labels: P.map(p => p.year), datasets },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    scales: {
+      x: { grid: { color: GRID }, ticks: { color: TICK, maxTicksLimit: 12 } },
+      y: { grid: { color: GRID }, ticks: { color: TICK, callback: compact }, beginAtZero: true },
+    },
+    plugins: {
+      legend: { labels: { color: TICK, boxWidth: 12, padding: 14 } },
+      tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y)}` } },
+    },
+  },
+});
+
+// The form shows the fields the chosen mode needs; the other mode's
+// are disabled so they do not post. Without script both post and the
+// server takes whichever the mode uses.
+const form = document.querySelector('.forecast-form');
+function showMode() {
+  const mode = form.querySelector('input[name=mode]:checked').value;
+  form.querySelectorAll('[data-mode]').forEach(el => {
+    const on = el.dataset.mode === mode;
+    el.hidden = !on;
+    el.querySelectorAll('input').forEach(i => { i.disabled = !on; });
+  });
+  form.querySelectorAll('.mode').forEach(l => l.classList.toggle('active', l.querySelector('input').value === mode));
+}
+form.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', showMode));
+showMode();
+</script>
+{% endblock %}

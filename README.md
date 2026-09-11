@@ -23,6 +23,9 @@ a PSD2 API it connects directly, with credentials that are yours.
 - **Bank connections via [Enable Banking](https://enablebanking.com).**
   One registration covers a few thousand banks across the EEA. Balances
   and transactions are pulled straight from the bank into your database.
+- **Forecast** — a monthly amount and a return, or a goal and a year, from
+  today's balance; deposits and returns drawn apart, year by year.
+- **Daily bank sync** at a time you choose, plus a sync-everything button.
 - **People** — the household's members, each account ticked for one, several
   or none of them, and a switch in the header between everyone's picture and
   one person's. Every page adds up accordingly.
