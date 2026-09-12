@@ -11,6 +11,32 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.26.0] — 2026-09-12
+
+### Added
+- **Any bank's CSV, mapped once.** A CSV no importer knows is no
+  longer refused: the import page shows its columns and the first
+  rows, guesses which is the date, the amount, the description, the
+  ISIN and so on — in English, German, French or Spanish headings —
+  and lets you correct the guess, preview the rows as they would be
+  read, and import. The mapping is saved under the file's header, so
+  the next export from the same bank is recognised by itself, like a
+  Degiro file is. Debit and credit columns, a signed amount with the
+  signs the wrong way round, a fixed currency, a kind column in any of
+  the four languages, and a kind worked out from the row when there is
+  none — a trade from an ISIN and units, a dividend from an ISIN and
+  money in — are all handled. Saved mappings are listed under Settings
+  and can be forgotten. The built-in importers still come first.
+- **Export as CSV**, on the Transactions page (every row the filters
+  match, not just the four hundred shown), on an account, on a
+  security's page, and on the Portfolio page for the holdings with
+  every figure on them — price, value, unrealised and realised gain,
+  TWR and MWR. The file follows the language: semicolons and a decimal
+  comma for German, French and Spanish, as their Excel expects; commas
+  and a point for English; `?sep=,` or `?sep=;` to force either. ISO
+  dates, a byte-order mark so Excel gets the encoding right. The
+  app reads its own export back through a mapping.
+
 ## [0.25.0] — 2026-09-12
 
 ### Added

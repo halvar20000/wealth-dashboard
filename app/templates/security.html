@@ -88,7 +88,7 @@
 <div class="card">
   <div class="card-header">
     <h2>{{ _("Every row behind this holding") }}</h2>
-    <span class="card-subtitle">{{ _n(rows | length, "{n} row", "{n} rows") }} · {{ _("by year and month, newest first") }}</span>
+    <span class="card-subtitle">{{ _n(rows | length, "{n} row", "{n} rows") }} · {{ _("by year and month, newest first") }} · <a href="{{ url_for('security_csv', isin=isin) }}">{{ _("Export as CSV") }}</a></span>
   </div>
   <p class="sub">{{ _("If a figure is wrong — a quantity a statement read badly, a price in the wrong currency — correct it here. A correction stays: the next import recognises the row and leaves it alone. Sizes are typed unsigned; the kind supplies the sign. The amount is the whole cash effect as the broker booked it, fees and taxes included.") }}</p>
   <div class="sec-filter">

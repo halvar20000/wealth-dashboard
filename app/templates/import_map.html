@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Map the columns") }} · {{ account.name }}{% endblock %}
+{% block heading %}{{ _("Map the columns") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("No importer here knows this file, and it does not need to: say which column is which, once. The mapping is kept under the file's header, so the next export from the same bank is recognised by itself — like a Degiro file is.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% set labels = {
+  'txn_date': _("Date"), 'amount': _("Amount, signed"), 'debit': _("Debit (money out)"), 'credit': _("Credit (money in)"),
+  'description': _("Description"), 'counterparty': _("Counterparty"), 'currency': _("Currency"),
+  'isin': _("ISIN"), 'security_name': _("Security name"), 'quantity': _("Quantity"), 'price': _("Price"),
+  'fee': _("Fee"), 'tax': _("Tax"), 'kind': _("Kind") } %}
+{% set hints = {
+  'txn_date': _("Written year-month-day, day.month.year or day/month/year. A US month-first date is not guessed."),
+  'amount': _("Money in positive, money out negative. If the file has one column for each, leave this blank and map the two below."),
+  'debit': _("Only when there is no signed amount column."),
+  'credit': _("Only when there is no signed amount column."),
+  'description': _("What the row says; the counterparty stands in when this is blank."),
+  'counterparty': _("Who paid or was paid."),
+  'currency': _("Blank means the account's currency, or the one typed in below."),
+  'isin': _("Blank means the ISIN is looked for in the description."),
+  'security_name': "", 'quantity': _("The kind gives the sign: a buy's units come in, a sale's go out."),
+  'price': "", 'fee': "", 'tax': "",
+  'kind': _("Buy, sell, dividend, interest, fee, tax, deposit, withdrawal or transfer — in English, German, French or Spanish. Left blank, the kind is worked out from the row: an ISIN and units is a trade, an ISIN and money in a dividend, plain money a deposit or a withdrawal.") } %}
+
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("The file") }}</h2>
+    <span class="card-subtitle">{{ header | length }} {{ _("columns") }} · {{ _f("separated by {delimiter}", delimiter=("tab" if delimiter == "\t" else delimiter)) }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr>{% for h in header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for row in sample %}<tr>{% for h in header %}<td class="sub">{{ row[loop.index0] if loop.index0 < row | length else '' }}</td>{% endfor %}</tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<form method="post" class="card form" id="map-form">
+  <div class="card-header">
+    <h2>{{ _("Which column is which") }}</h2>
+    {% if saved %}<span class="card-subtitle">{{ _f("saved as {name} — this changes it", name=saved.name) }}</span>{% endif %}
+  </div>
+  <label for="name">{{ _("Call this mapping") }}</label>
+  <input id="name" name="name" value="{{ name }}" maxlength="80" placeholder="{{ _('the bank, say') }}">
+  <div class="map-grid">
+  {% for f in fields %}
+    <div class="map-row {{ 'is-wrong' if f in wrong or (f == 'amount' and 'amount' in wrong) }}">
+      <label for="col_{{ f }}">{{ labels[f] }}{% if f == 'txn_date' %} *{% endif %}</label>
+      <select id="col_{{ f }}" name="col_{{ f }}">
+        <option value="">—</option>
+        {% for h in header %}<option value="{{ h }}" {{ 'selected' if mapping.get(f) == h }}>{{ h }}</option>{% endfor %}
+      </select>
+      {% if hints[f] %}<span class="sub">{{ hints[f] }}</span>{% endif %}
+    </div>
+  {% endfor %}
+  </div>
+  <label class="check" style="margin-top:10px"><input type="checkbox" name="negate" value="1" {{ 'checked' if mapping.get('negate') }}> {{ _("The file writes money out as positive — flip every sign") }}</label>
+  <label for="currency_fixed">{{ _("Currency when the file has no column for it") }}</label>
+  <input id="currency_fixed" name="currency_fixed" value="{{ mapping.get('currency_fixed', '') }}" maxlength="3" placeholder="{{ account.currency }}" style="width:90px">
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px">
+    <button type="submit" name="action" value="preview" class="btn btn-ghost">{{ _("Show me the first rows") }}</button>
+    <button type="submit" name="action" value="import">{{ _("Save the mapping and import") }}</button>
+    <a class="btn btn-ghost" href="{{ url_for('account_import', account_id=account.id) }}">{{ _("Cancel") }}</a>
+  </div>
+</form>
+
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("Read through this mapping") }}</h2>
+    <span class="card-subtitle">{{ _("the first rows, as they would be imported") }}</span>
+  </div>
+  {% if preview %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Kind") }}</th><th>{{ _("Description") }}</th><th>{{ _("ISIN") }}</th>
+                 <th class="num">{{ _("Quantity") }}</th><th class="num">{{ _("Price") }}</th><th class="num">{{ _("Amount") }}</th></tr></thead>
+      <tbody>
+      {% for r in preview %}
+        <tr>
+          <td class="nowrap">{{ d(r.txn_date) }}</td>
+          <td><span class="sec-badge is-{{ r.kind }}">{{ kind_label(r.kind) }}</span></td>
+          <td>{{ r.description[:60] }}{% if r.counterparty %}<span class="sub">{{ r.counterparty }}</span>{% endif %}</td>
+          <td class="sub nowrap">{{ r.isin or '—' }}</td>
+          <td class="num {{ 'neg' if r.quantity and r.quantity < 0 }}">{{ qty(r.quantity) if r.quantity is not none else '—' }}</td>
+          <td class="num">{{ qty(r.price) if r.price else '—' }}</td>
+          <td class="num {{ 'pos' if r.amount > 0 else ('neg' if r.amount < 0) }}">{{ money(r.amount, r.currency) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="sub">{{ _("Nothing readable yet — the date or the amount column is not the right one.") }}</p>
+  {% endif %}
+  {% if problems %}
+  <div class="flash flash-warn">
+    <ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+  <p class="sub">{{ _("If a kind, a sign or a date looks wrong here it will be wrong in the account: change the mapping and look again before importing. Every row is imported; a row without a readable date is listed and left out.") }}</p>
+</div>
+{% endblock %}

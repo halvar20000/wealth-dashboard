@@ -362,6 +362,18 @@ CREATE TABLE IF NOT EXISTS screener_watchlist (
     note     TEXT,
     added_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- A column mapping the user drew for a CSV no built-in importer knows,
+-- keyed on the file's header so the next export from the same bank is
+-- recognised without asking again. See importers/generic.py.
+CREATE TABLE IF NOT EXISTS csv_mappings (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    header_key TEXT NOT NULL UNIQUE,
+    delimiter  TEXT NOT NULL DEFAULT ',',
+    mapping    TEXT NOT NULL,                 -- JSON {field: column, …options}
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 # Indexes live apart from the tables, and the separation is not tidiness.

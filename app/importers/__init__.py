@@ -18,7 +18,7 @@ import io
 
 from .. import categories
 from ..db import get_conn
-from . import (ca_switzerland, degiro, dkb, dkb_pdf, swissquote_beleg_pdf,
+from . import (ca_switzerland, degiro, dkb, dkb_pdf, generic, swissquote_beleg_pdf,
                swissquote_pdf, trade_republic)
 from .base import (ParsedTxn, ParseResult,  # noqa: F401  (re-exported)
                    normalise_csv_text)
@@ -57,7 +57,10 @@ def sniff(content: bytes | str):
                 return module
         except Exception:                            # noqa: BLE001
             continue
-    return None
+    # Then the mappings the user drew, by the file's header — see
+    # generic.py. After the built-ins on purpose: a mapping saved for a
+    # Degiro file would be a mistake, and the built-in is the right one.
+    return generic.sniff(content)
 
 
 def store(account_id: int, parsed: ParseResult, source: str) -> dict:

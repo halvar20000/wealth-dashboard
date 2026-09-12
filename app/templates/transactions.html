@@ -40,6 +40,7 @@
     <span class="card-subtitle">
       {{ _f("net {amount}", amount=money(total, base_currency)) }}{% if matched > rows|length %} ·
       {{ _f("showing the {n} most recent", n=rows|length) }}{% endif %}
+      · <a href="{{ url_for('transactions_csv', q=q or None, category=category or None, account=account_id or None, kind=kind or None) }}" title="{{ _('Every row these filters match, not just the ones shown, in a file a spreadsheet opens right.') }}">{{ _("Export as CSV") }}</a>
     </span>
   </div>
   <div class="table-wrap">

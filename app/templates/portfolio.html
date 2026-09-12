@@ -81,7 +81,7 @@
 
 <section class="card">
   <div class="card-header"><h2>{{ _("Holdings") }}</h2>
-    <span class="card-subtitle">{{ _("largest first") }}</span></div>
+    <span class="card-subtitle">{{ _("largest first") }} · <a href="{{ url_for('portfolio_csv') }}" title="{{ _('This table with every figure on it — price, value, gains, TWR and MWR — in a file a spreadsheet opens right.') }}">{{ _("Export as CSV") }}</a></span></div>
   <div class="table-wrap">
     <table class="grid">
       <thead><tr><th>{{ _("Security") }}</th><th>{{ _("ISIN") }}</th><th>{{ _("Where") }}</th><th class="num">{{ _("Quantity") }}</th>

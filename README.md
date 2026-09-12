@@ -39,7 +39,9 @@ a PSD2 API it connects directly, with credentials that are yours.
   trade receipts, and Crédit Agricole next bank (Suisse)'s Buchungsliste
   CSV (many at once, or a ZIP). Each file is recognised by what is in it,
   so there is nothing to choose, and re-importing what you already loaded
-  is harmless.
+  is harmless. **Any other bank's CSV** is mapped once — which column is
+  the date, the amount, the ISIN — and recognised by its header from then
+  on. Everything can be **exported as CSV** again, filtered as the page is.
 - **Entries by hand**, for the account no bank and no export describes: a
   pension, a share plan, an exchange with no CSV. Purchases, sales,
   dividends, interest, fees and tax on a broker account; deposits,

@@ -1128,7 +1128,10 @@ def upload(account, text, name="export.csv"):
 
 
 r = upload(broker_id, fixtures.NOT_A_BROKER_CSV)
-check("an unrecognised file is refused",
+check("an unrecognised CSV is not refused: it is sent to the mapping page",
+      b"Map the columns" in r.data, True)
+r = upload(broker_id, "just one line of prose, no columns at all")
+check("...while a file that is not even a table is refused",
       b"match an importer" in r.data, True)
 
 r = upload(broker_id, fixtures.DEGIRO_CSV)
@@ -4377,6 +4380,153 @@ check("the MCP tool answers per security under the asked method", (out["method"]
 mcp.revoke()
 c.post(f"/accounts/{lid}/delete", data={"confirm": "Lots test"})
 c.post(f"/accounts/{lid2}/delete", data={"confirm": "Lots test 2"})
+
+# ---------------------------------------------------------------------------
+print("\n33. A CSV nobody knows, mapped by hand and remembered")
+# ---------------------------------------------------------------------------
+from app.importers import generic                           # noqa: E402
+
+BANK_CSV = (
+    "Buchungsdatum;Umsatzart;Beschreibung;Soll;Haben;Währung;ISIN;Stück;Kurs\n"
+    "03.02.2026;Kauf;Vanguard FTSE All-World;1.234,50;;EUR;IE00BK5BQT80;10;123,45\n"
+    "10.02.2026;Dividende;Vanguard FTSE All-World;;12,30;EUR;IE00BK5BQT80;10;\n"
+    "15.02.2026;Überweisung;Gehalt Februar;;2.500,00;EUR;;;\n"
+    "20.02.2026;Verkauf;Vanguard FTSE All-World;;650,00;EUR;IE00BK5BQT80;5;130,00\n"
+    "Summe;;;;;;;;\n"
+)
+check("the delimiter is read off the header", generic.detect_delimiter(BANK_CSV), ";")
+hdr, body, delim = generic.read(BANK_CSV)
+check("the header and the rows come apart", (len(hdr), len(body), delim), (9, 5, ";"))
+check("a saved mapping is keyed on the header, whatever its case and spacing",
+      generic.header_key(["Datum ", " BETRAG"]), generic.header_key(["datum", "betrag"]))
+check("nothing is recognised before a mapping exists", importers.sniff(BANK_CSV.encode()), None)
+check("...but it is a CSV a mapping could be drawn for", generic.is_csv(BANK_CSV.encode()), True)
+check("a PDF is not", generic.is_csv(b"%PDF-1.4 whatever"), False)
+
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Mapped bank', 'broker', 'EUR')")
+    mid = conn.execute("SELECT id FROM accounts WHERE name = 'Mapped bank'").fetchone()["id"]
+r = c.post(f"/accounts/{mid}/import", data={"file": (io.BytesIO(BANK_CSV.encode()), "hausbank.csv")},
+           content_type="multipart/form-data")
+check("an unknown CSV is sent to the mapping page, not refused", (r.status_code, "/import/map/" in r.headers.get("Location", "")), (302, True))
+map_url = r.headers["Location"]
+r = c.get(map_url)
+check("the page shows the file's columns and a first guess",
+      (b"Buchungsdatum" in r.data, b'name="col_txn_date"' in r.data, b"Map the columns" in r.data), (True, True, True))
+guess = main._guess_mapping(hdr)
+check("the guess found the date, the two money columns, the ISIN and the units",
+      (guess.get("txn_date"), guess.get("debit"), guess.get("credit"), guess.get("isin"), guess.get("quantity"), guess.get("kind")),
+      ("Buchungsdatum", "Soll", "Haben", "ISIN", "Stück", "Umsatzart"))
+check("...and did not pair a signed amount with a debit column",
+      main._guess_mapping(["Datum", "Betrag", "Soll"]).get("debit"), None)
+
+form = {"name": "Hausbank", "col_txn_date": "Buchungsdatum", "col_kind": "Umsatzart", "col_description": "Beschreibung",
+        "col_debit": "Soll", "col_credit": "Haben", "col_currency": "Währung", "col_isin": "ISIN",
+        "col_quantity": "Stück", "col_price": "Kurs", "action": "preview"}
+r = c.post(map_url, data=form)
+check("a preview reads the rows through the mapping without importing",
+      (r.status_code, b"IE00BK5BQT80" in r.data, b"Gehalt Februar" in r.data), (200, True, True))
+with db.get_conn() as conn:
+    n = conn.execute("SELECT COUNT(*) n FROM transactions WHERE account_id = ?", (mid,)).fetchone()["n"]
+check("...nothing imported yet", n, 0)
+r = c.post(map_url, data={**form, "col_txn_date": "", "action": "import"})
+check("a mapping without a date column is refused", b"least a mapping needs" in r.data, True)
+r = c.post(map_url, data={**form, "action": "import"})
+check("saving imports the file", (r.status_code, b"Hausbank" in r.data, b"4" in r.data), (200, True, True))
+with db.get_conn() as conn:
+    rows = [dict(x) for x in conn.execute(
+        "SELECT txn_date, kind, amount, isin, quantity, price, source FROM transactions WHERE account_id = ? ORDER BY txn_date", (mid,)).fetchall()]
+check("the summary line at the bottom, with no date, is left out", len(rows), 4)
+check("debit and credit become a signed amount, European decimals read",
+      [r_["amount"] for r_ in rows], [-1234.5, 12.3, 2500.0, 650.0])
+check("the kind column's German words are understood", [r_["kind"] for r_ in rows], ["buy", "dividend", "transfer", "sell"])
+check("the kind gives the units their sign, and a dividend's 'units held' are not units that arrived",
+      [r_["quantity"] for r_ in rows], [10.0, None, None, -5.0])
+check("the price is read, and the source names the mapping", (rows[0]["price"], rows[0]["source"].startswith("csv:")), (123.45, True))
+check("the mapping is saved under the header", generic.find(hdr)["name"], "Hausbank")
+check("...and the same file is now recognised like any other", importers.sniff(BANK_CSV.encode()).LABEL, "Hausbank")
+r = c.post(f"/accounts/{mid}/import", data={"file": (io.BytesIO(BANK_CSV.encode()), "hausbank-again.csv")},
+           content_type="multipart/form-data", follow_redirects=True)
+check("re-importing goes straight through, and is harmless", b"Hausbank: 0 new, 4 already had" in r.data, True)
+# One more row: a second export that overlaps.
+more = BANK_CSV.replace("Summe;;;;;;;;\n", "25.02.2026;Gebühr;Depotgebühr;5,00;;EUR;;;\nSumme;;;;;;;;\n")
+r = c.post(f"/accounts/{mid}/import", data={"file": (io.BytesIO(more.encode()), "hausbank-march.csv")},
+           content_type="multipart/form-data", follow_redirects=True)
+check("the next export from the same bank imports the new row only", b"Hausbank: 1 new, 4 already had" in r.data, True)
+with db.get_conn() as conn:
+    fee_kind = conn.execute("SELECT kind, amount FROM transactions WHERE account_id = ? AND txn_date = '2025-02-25' OR (account_id = ? AND description = 'Depotgebühr')", (mid, mid)).fetchone()
+check("...as a fee, money out", (fee_kind["kind"], fee_kind["amount"]), ("fee", -5.0))
+check("a holding follows from the mapped trades",
+      [(h["isin"], h["quantity"]) for h in importers.positions(mid)], [("IE00BK5BQT80", 5.0)])
+check("the kind is worked out when the file has no column for it",
+      (generic._kind("", "IE00BK5BQT80", 3, -300.0), generic._kind("", "IE00BK5BQT80", 3, 300.0),
+       generic._kind("", "IE00BK5BQT80", None, 12.0), generic._kind("", None, None, 100.0), generic._kind("", None, None, -100.0)),
+      ("buy", "sell", "dividend", "deposit", "withdrawal"))
+check("a signed amount column with the signs the wrong way round can be flipped",
+      [t.amount for t in generic.parse_with({"txn_date": "d", "amount": "a", "negate": True}, "d,a\n2026-01-01,50\n").rows], [-50.0])
+check("no currency column: the account's, or the one the mapping fixes",
+      ([t.currency for t in generic.parse_with({"txn_date": "d", "amount": "a"}, "d,a\n2026-01-01,5\n", "CHF").rows],
+       [t.currency for t in generic.parse_with({"txn_date": "d", "amount": "a", "currency_fixed": "USD"}, "d,a\n2026-01-01,5\n", "CHF").rows]),
+      (["CHF"], ["USD"]))
+check("an ISIN in the description is found when no column carries one",
+      generic.parse_with({"txn_date": "d", "amount": "a", "description": "t"}, "d,a,t\n2026-01-01,-5,Kauf IE00BK5BQT80 Vanguard\n").rows[0].isin, "IE00BK5BQT80")
+r = c.get("/settings")
+check("Settings lists the mapping", (b"CSV mappings" in r.data, b"Hausbank" in r.data), (True, True))
+r = c.post("/settings", data={"form": "csv_mapping_delete", "mapping_id": generic.find(hdr)["id"]}, follow_redirects=True)
+check("...and forgets it on request", (b"Mapping forgotten" in r.data, generic.find(hdr)), (True, None))
+check("an expired token is refused, not a crash",
+      c.get(f"/accounts/{mid}/import/map/nonsense").status_code, 302)
+c.post(f"/accounts/{mid}/delete", data={"confirm": "Mapped bank"})
+
+# ---------------------------------------------------------------------------
+print("\n34. CSV out, filtered as the page is")
+# ---------------------------------------------------------------------------
+from app import export                                      # noqa: E402
+
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Export test', 'broker', 'EUR')")
+    xid = conn.execute("SELECT id FROM accounts WHERE name = 'Export test'").fetchone()["id"]
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, counterparty, amount, currency, kind, isin, security_name, quantity, price, external_id, source, category) "
+                 "VALUES (?, '2026-03-03', 'Buy; with a semicolon', 'Broker \"X\"', -1234.5, 'EUR', 'buy', 'XX0000009999', 'Export Fund', 10, 123.45, 'x1', 'manual', 'investing')", (xid,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, external_id, source) "
+                 "VALUES (?, '2026-03-04', 'Coffee', -3.2, 'EUR', 'withdrawal', 'x2', 'manual')", (xid,))
+r = c.get("/transactions.csv", query_string={"account": xid})
+check("the transactions export is a CSV attachment",
+      (r.status_code, r.mimetype, "attachment" in r.headers.get("Content-Disposition", "")), (200, "text/csv", True))
+body = r.data.decode("utf-8")
+check("...with a byte-order mark for Excel and CRLF lines", (body.startswith("﻿"), "\r\n" in body), (True, True))
+lines = body.lstrip("﻿").splitlines()
+check("...a header, and the rows the filter matched", (lines[0].startswith("date,account,kind"), len(lines)), (True, 3))
+check("...English: comma and a decimal point, ISO dates, quoted where needed",
+      lines[1].startswith('2026-03-04,Export test,withdrawal,Coffee,,-3.20,EUR'), True)
+check("a semicolon in a description and quotes in a counterparty survive",
+      'Buy; with a semicolon' in lines[2] and '"Broker ""X"""' in lines[2], True)
+r = c.get("/transactions.csv", query_string={"account": xid, "kind": "buy"})
+check("the page's filters apply — a kind narrows it", len(r.data.decode().splitlines()), 2)
+r = c.get("/transactions.csv", query_string={"account": xid, "q": "coffee"})
+check("...and so does the search", b"Coffee" in r.data and b"semicolon" not in r.data, True)
+r = c.get("/transactions.csv", query_string={"account": xid, "sep": ";"})
+check("a semicolon file has a decimal comma", b";-3,20;EUR;" in r.data, True)
+r = c.get("/transactions.csv", query_string={"account": xid}, headers={"Accept-Language": "de"})
+check("a German reader gets the semicolon file without asking", b";-3,20;EUR;" in r.data, True)
+r = c.get(f"/accounts/{xid}/transactions.csv")
+check("an account exports its own rows, named after itself",
+      (len(r.data.decode().splitlines()), "export-test-" in r.headers["Content-Disposition"]), (3, True))
+r = c.get("/securities/XX0000009999.csv")
+check("a security exports the rows behind it", (len(r.data.decode().splitlines()), b"Export Fund" in r.data), (2, True))
+r = c.get("/portfolio.csv")
+hl = r.data.decode().lstrip("﻿").splitlines()
+check("the holdings export has the page's columns",
+      hl[0], "isin,name,accounts,quantity,price,price_as_of,currency,net_invested,value,unrealised,realised,twr,twr_annual,mwr")
+row = next((l for l in hl if l.startswith("XX0000009999")), "")
+check("...and the holding with its figures", row.startswith("XX0000009999,Export Fund,Export test,10,123.45,,EUR,1234.50,1234.50,"), True)
+check("the pages link to their export",
+      (b"Export as CSV" in c.get("/transactions").data, b"Export as CSV" in c.get("/portfolio").data,
+       b"Export as CSV" in c.get(f"/accounts/{xid}").data, b"Export as CSV" in c.get("/securities/XX0000009999").data),
+      (True, True, True, True))
+check("numbers are written plainly, not in scientific notation",
+      (export._num(0.000001, "."), export._num(1234567.0, "."), export._num(None, ".")), ("0.000001", "1234567", ""))
+c.post(f"/accounts/{xid}/delete", data={"confirm": "Export test"})
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

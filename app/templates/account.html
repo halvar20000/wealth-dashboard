@@ -148,7 +148,7 @@
 <p class="sub">{{ _("Quantities are the running sum of every buy and sell, imported or typed in. The last two columns use the price of your most recent trade, not a market price — this app has no price feed yet, and a stale number presented as a valuation is worse than none.") }} {{ _("Click a security to see, and correct, every row behind it.") }}</p>
 {% endif %}
 
-<h2>{{ _("Recent transactions") }}</h2>
+<h2>{{ _("Recent transactions") }}{% if transactions %} <a class="sub" style="font-weight:normal; font-size:13px" href="{{ url_for('account_csv', account_id=account.id) }}">{{ _("Export as CSV") }}</a>{% endif %}</h2>
 {% if transactions %}
 <table class="grid">
   {% set by_hand = transactions | selectattr('source', 'equalto', 'manual') | list %}

@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import io
 import os
-import re
 import secrets
 import threading
 import time
@@ -42,7 +41,7 @@ from flask import (Flask, flash, g, jsonify, redirect, render_template,
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import (cashflow, categories, crypto, export, forecast, gains, history, importers, loans,
+from . import (cashflow, categories, crypto, forecast, history, importers, loans,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, subscriptions)
 from . import brokers
@@ -511,12 +510,6 @@ def account_import(account_id: int):
             flash(str(exc), "error")
             return redirect(url_for("account_import", account_id=account_id))
         if report is None:
-            # A CSV nobody here knows is not a dead end: the user says
-            # which column is which, once, and the header is remembered.
-            csvs = [(n, c) for n, c in files if importers.generic.is_csv(c)]
-            if csvs:
-                token = _stash_upload(account_id, *csvs[0])
-                return redirect(url_for("import_map", account_id=account_id, token=token))
             flash(_f("None of those files match an importer here. "
                      "Supported: {list}",
                      list=", ".join(m.LABEL for m in importers.IMPORTERS
@@ -538,122 +531,6 @@ def account_import(account_id: int):
 # A ZIP is opened, but not blindly: a few hundred statements is a big
 # Depot; a hundred thousand entries is not a Depot.
 MAX_ZIP_MEMBERS = 2000
-
-# An upload that is waiting for its column mapping, in memory under a
-# token for half an hour. Not on disk: it is a bank statement, and a
-# user who walks away from the mapping page should leave nothing behind.
-_PENDING: dict[str, dict] = {}
-PENDING_TTL = 30 * 60
-
-
-def _stash_upload(account_id: int, name: str, content: bytes) -> str:
-    now = time.time()
-    for tok in [t for t, p in _PENDING.items() if now - p["at"] > PENDING_TTL]:
-        _PENDING.pop(tok, None)
-    token = secrets.token_urlsafe(16)
-    _PENDING[token] = {"account_id": account_id, "name": name, "content": content, "at": now}
-    return token
-
-
-# What a column heading usually means, for the first guess on the
-# mapping page — in the languages the banks this app targets write in.
-# A guess the user corrects in one click; a blank form is twelve.
-_HEADER_GUESSES = {
-    "txn_date": ("date", "datum", "fecha", "buchungstag", "buchungsdatum", "valuta", "booking"),
-    "amount": ("amount", "betrag", "montant", "importe", "value", "umsatz", "wert"),
-    "debit": ("debit", "soll", "débit", "debe", "ausgang", "lastschrift"),
-    "credit": ("credit", "haben", "crédit", "haber", "eingang", "gutschrift"),
-    "description": ("description", "beschreibung", "verwendungszweck", "libellé", "libelle",
-                    "concepto", "text", "buchungstext", "memo", "details", "purpose"),
-    "counterparty": ("counterparty", "payee", "empfänger", "beneficiary", "auftraggeber",
-                     "gegenkonto", "bénéficiaire", "contrapartida", "zahlungsempfänger", "name"),
-    "currency": ("currency", "währung", "devise", "divisa", "ccy"),
-    "isin": ("isin",),
-    "security_name": ("security", "wertpapier", "titre", "producto", "product", "produkt",
-                      "bezeichnung", "instrument", "valor"),
-    "quantity": ("quantity", "anzahl", "stück", "quantité", "cantidad", "units", "nominal", "shares"),
-    "price": ("price", "kurs", "prix", "precio", "rate"),
-    "fee": ("fee", "gebühr", "frais", "comisión", "commission", "kosten"),
-    "tax": ("tax", "steuer", "impôt", "impuesto", "withholding"),
-    "kind": ("type", "typ", "art", "kind", "transaktion", "transaction type", "tipo", "opération",
-             "umsatzart", "buchungsart", "transaktionsart", "geschäftsart", "vorgang", "nature"),
-}
-
-
-def _guess_mapping(header: list[str]) -> dict:
-    guess: dict[str, str] = {}
-    lowered = [(h, h.lower()) for h in header]
-    # A heading matches a word whole — "Umsatzart" is a kind, not an
-    # "Umsatz"; "Betrag (EUR)" is an amount. Kind before amount, so the
-    # kind column is not taken for money first.
-    order = ["kind"] + [f for f in _HEADER_GUESSES if f != "kind"]
-    for field in order:
-        words = _HEADER_GUESSES[field]
-        for h, low in lowered:
-            if h in guess.values():
-                continue
-            if any(re.search(rf"(^|[^a-zäöüéèàñ]){re.escape(w)}([^a-zäöüéèàñ]|$)", low) for w in words):
-                guess[field] = h
-                break
-    # Debit and credit only make sense as a pair; a lone "debit" guess
-    # beside a signed amount column is the amount column's job.
-    if guess.get("amount") and (guess.get("debit") or guess.get("credit")):
-        guess.pop("debit", None); guess.pop("credit", None)
-    return guess
-
-
-@app.route("/accounts/<int:account_id>/import/map/<token>", methods=["GET", "POST"])
-@auth.login_required
-def import_map(account_id: int, token: str):
-    """Draw the column mapping for a CSV no importer knows, see the
-    first rows read through it, and import — the mapping is kept under
-    the file's header, so the next export from that bank is recognised
-    like any other."""
-    from .importers import generic
-    account = _load_account(account_id)
-    if account is None:
-        return render_template("missing.html", what=_t("That account does not exist.")), 404
-    pending = _PENDING.get(token)
-    if pending is None or pending["account_id"] != account_id \
-            or time.time() - pending["at"] > PENDING_TTL:
-        flash(_t("That upload has expired — choose the file again."), "error")
-        return redirect(url_for("account_import", account_id=account_id))
-    header, rows, delimiter = generic.read(pending["content"])
-    saved = generic.find(header)
-    mapping = (saved["mapping"] if saved else None) or _guess_mapping(header)
-    name = saved["name"] if saved else os.path.splitext(os.path.basename(pending["name"]))[0][:40]
-    preview, problems, wrong = None, [], []
-    if request.method == "POST":
-        mapping = {f: request.form.get(f"col_{f}") for f in generic.FIELDS
-                   if request.form.get(f"col_{f}") in header}
-        if request.form.get("negate"):
-            mapping["negate"] = True
-        fixed = (request.form.get("currency_fixed") or "").strip().upper()[:3]
-        if fixed and not mapping.get("currency"):
-            mapping["currency_fixed"] = fixed
-        name = " ".join((request.form.get("name") or "").split())[:80] or name
-        wrong = generic.check(mapping)
-        if wrong:
-            flash(_t("A date column and an amount column — or a debit and a credit column — are the least a mapping needs."), "error")
-        elif request.form.get("action") == "import":
-            generic.save(name, header, delimiter, mapping)
-            report = _import_files(account_id, account["currency"], [(pending["name"], pending["content"])])
-            _PENDING.pop(token, None)
-            if report and report["parsed"]:
-                flash(_f("{importer}: {new} new, {had} already had.", importer=report["label"],
-                         new=report["inserted"], had=report["duplicates"]), "ok")
-                flash(_f("The mapping is saved as {name}; the next file with this header is recognised by itself.", name=name), "ok")
-                return render_template("import.html", account=account, report=report,
-                                       importers=importers.IMPORTERS + importers.PDF_IMPORTERS)
-            flash((report["problems"][0] if report and report["problems"] else _t("Not one row could be read through that mapping.")), "error")
-            return redirect(url_for("account_import", account_id=account_id))
-    parsed = generic.parse_with(mapping, pending["content"], account["currency"], delimiter, limit=8)
-    preview, problems = parsed.rows, parsed.problems[:5]
-    return render_template("import_map.html", account=account, token=token, name=name,
-                           header=header, sample=rows[:5], delimiter=delimiter,
-                           mapping=mapping, fields=generic.FIELDS, preview=preview,
-                           problems=problems, wrong=wrong, saved=saved,
-                           kind_words=sorted(w for ws in generic.KIND_WORDS.values() for w in ws))
 
 
 def _unpack(name: str, content: bytes) -> list[tuple[str, bytes]]:
@@ -1095,7 +972,27 @@ def mcp_endpoint():
 def transactions():
     """Everything, filterable. The page people go to when a number
     elsewhere looks wrong, so the filters are the feature."""
-    q, category, account_id, kind, clause, params = _transactions_filter()
+    q = (request.args.get("q") or "").strip()
+    category = request.args.get("category") or ""
+    account_id = request.args.get("account") or ""
+    kind = request.args.get("kind") or ""
+
+    where, params = ["1=1"], []
+    if q:
+        where.append("(LOWER(t.description) LIKE ? OR LOWER(COALESCE(t.counterparty,'')) LIKE ?)")
+        params += [f"%{q.lower()}%"] * 2
+    if category:
+        where.append("COALESCE(NULLIF(t.category,''),'other') = ?")
+        params.append(category)
+    if account_id.isdigit():
+        where.append("t.account_id = ?")
+        params.append(int(account_id))
+    if kind:
+        where.append("t.kind = ?")
+        params.append(kind)
+    only, only_params = people.sql_in(people.scope(), "t.account_id")
+    clause = " AND ".join(where) + only
+    params += only_params
 
     only_a, a_params = people.sql_in(people.scope(), "id")
     with get_conn() as conn:
@@ -1116,82 +1013,6 @@ def transactions():
                            rows=rows, matched=total["n"], total=total["s"] or 0,
                            accounts=accounts_list, kinds=kinds,
                            q=q, category=category, account_id=account_id, kind=kind)
-
-
-def _transactions_filter():
-    """The page's filters as a WHERE clause — shared with the export,
-    so a CSV holds exactly the rows the page shows."""
-    q = (request.args.get("q") or "").strip()
-    category = request.args.get("category") or ""
-    account_id = request.args.get("account") or ""
-    kind = request.args.get("kind") or ""
-    where, params = ["1=1"], []
-    if q:
-        where.append("(LOWER(t.description) LIKE ? OR LOWER(COALESCE(t.counterparty,'')) LIKE ?)")
-        params += [f"%{q.lower()}%"] * 2
-    if category:
-        where.append("COALESCE(NULLIF(t.category,''),'other') = ?")
-        params.append(category)
-    if account_id.isdigit():
-        where.append("t.account_id = ?")
-        params.append(int(account_id))
-    if kind:
-        where.append("t.kind = ?")
-        params.append(kind)
-    only, only_params = people.sql_in(people.scope(), "t.account_id")
-    return q, category, account_id, kind, " AND ".join(where) + only, params + only_params
-
-
-@app.route("/transactions.csv")
-@auth.login_required
-def transactions_csv():
-    """Every row the Transactions page would show under its filters —
-    not just the first four hundred — as a CSV. See export.py."""
-    _, _, _, _, clause, params = _transactions_filter()
-    with get_conn() as conn:
-        rows = [dict(r) for r in conn.execute(
-            f"SELECT t.*, a.name AS account_name FROM transactions t "
-            f"JOIN accounts a ON a.id = t.account_id WHERE {clause} "
-            f"ORDER BY t.txn_date DESC, t.id DESC", params).fetchall()]
-    return export.response(export.transactions(rows, request.args.get("sep")),
-                           f"transactions-{date.today().isoformat()}.csv")
-
-
-@app.route("/accounts/<int:account_id>/transactions.csv")
-@auth.login_required
-def account_csv(account_id: int):
-    account = _load_account(account_id)
-    if account is None:
-        return render_template("missing.html", what=_t("That account does not exist.")), 404
-    with get_conn() as conn:
-        rows = [dict(r) for r in conn.execute(
-            "SELECT t.*, a.name AS account_name FROM transactions t JOIN accounts a ON a.id = t.account_id "
-            "WHERE t.account_id = ? ORDER BY t.txn_date DESC, t.id DESC", (account_id,)).fetchall()]
-    slug = "".join(ch if ch.isalnum() else "-" for ch in account["name"]).strip("-").lower() or "account"
-    return export.response(export.transactions(rows, request.args.get("sep")),
-                           f"{slug}-{date.today().isoformat()}.csv")
-
-
-@app.route("/securities/<isin>.csv")
-@auth.login_required
-def security_csv(isin: str):
-    only, params = people.sql_in(people.scope(), "t.account_id")
-    with get_conn() as conn:
-        rows = [dict(r) for r in conn.execute(
-            f"SELECT t.*, a.name AS account_name FROM transactions t JOIN accounts a ON a.id = t.account_id "
-            f"WHERE t.isin = ?{only} ORDER BY t.txn_date DESC, t.id DESC", [isin.strip(), *params]).fetchall()]
-    return export.response(export.transactions(rows, request.args.get("sep")),
-                           f"{isin.strip()}-{date.today().isoformat()}.csv")
-
-
-@app.route("/portfolio.csv")
-@auth.login_required
-def portfolio_csv():
-    """The holdings table, one row per security, with the figures the
-    page computes — price, value, unrealised and realised gain, TWR
-    and MWR (in percent)."""
-    return export.response(export.holdings(_holdings_with_figures()[0], request.args.get("sep")),
-                           f"holdings-{date.today().isoformat()}.csv")
 
 
 @app.route("/transactions/<int:txn_id>/category", methods=["POST"])
@@ -1384,14 +1205,6 @@ def subscriptions_page():
 @app.route("/portfolio")
 @auth.login_required
 def portfolio_page():
-    holdings, s, perf, realised = _holdings_with_figures()
-    return render_template("portfolio.html", active_page="portfolio", s=s, perf=perf,
-                           realised=realised)
-
-
-def _holdings_with_figures():
-    """The holdings with every figure the Portfolio page shows on them
-    — the page and its CSV export share this so they cannot disagree."""
     base = settings.get("base_currency", "EUR")
     scope = people.scope()
     s = overview.summary(base, account_ids=scope)
@@ -1406,18 +1219,7 @@ def _holdings_with_figures():
     }
     for h in s["holdings"]:
         h["perf"] = performance.for_security(h["isin"], scope)
-        # The gain by lots: what the sales of this holding made, and
-        # what the units still held cost — the basis the market price
-        # is measured against — under the method chosen in Settings.
-        r = gains.realised(h["isin"], scope)
-        h["realised"] = r["total"] if r["sales"] else None
-        h["open_cost"] = r["open_cost"]
-        h["unrealised"] = (h["quantity"] * h["price"] - r["open_cost"]) \
-            if h["price"] is not None and r["open_quantity"] > 1e-12 else None
-    # Every security ever sold, held or not: a position closed last
-    # year still made what it made.
-    realised = gains.summary(scope)
-    return s["holdings"], s, perf, realised
+    return render_template("portfolio.html", active_page="portfolio", s=s, perf=perf)
 
 
 # ─── Share Ideas ─────────────────────────────────────────────────────
@@ -1702,14 +1504,6 @@ def settings_page():
                          "{n} new transactions across {accounts} accounts.",
                          accounts=len(results)), "ok")
             return redirect(url_for("settings_page") + "#sync")
-        elif request.form.get("form") == "csv_mapping_delete":
-            from .importers import generic
-            try:
-                generic.delete(int(request.form.get("mapping_id") or 0))
-            except ValueError:
-                pass
-            flash(_t("Mapping forgotten. The next file with that header asks again."), "ok")
-            return redirect(url_for("settings_page") + "#mappings")
         elif request.form.get("form") == "fx_refresh":
             # In the request, because the user asked for it and is
             # waiting for the answer. The automatic one is on a thread.
@@ -1773,7 +1567,6 @@ def settings_page():
                            kraken_state=kraken.describe(),
                            broker_links=brokers.links(),
                            mcp_url=request.host_url.rstrip("/") + "/mcp",
-                           csv_mappings=importers.generic.all_mappings(),
                            check=check)
 
 
