@@ -18,12 +18,13 @@ import io
 
 from .. import categories
 from ..db import get_conn
-from . import degiro, dkb, dkb_pdf, trade_republic
+from . import (ca_switzerland, degiro, dkb, dkb_pdf, swissquote_beleg_pdf,
+               swissquote_pdf, trade_republic)
 from .base import (ParsedTxn, ParseResult,  # noqa: F401  (re-exported)
                    normalise_csv_text)
 
-IMPORTERS = [degiro, trade_republic, dkb]
-PDF_IMPORTERS = [dkb_pdf]
+IMPORTERS = [degiro, trade_republic, dkb, ca_switzerland]
+PDF_IMPORTERS = [dkb_pdf, swissquote_pdf, swissquote_beleg_pdf]
 
 
 def sniff(content: bytes | str):

@@ -11,6 +11,29 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.20.0] — 2026-09-12
+
+### Added
+- **Swissquote and Yuh**, from their statements. Switzerland is outside
+  PSD2, so no aggregator reaches a Swiss account; Swissquote's monthly
+  **Kontoauszug** PDF and the web portal's **Transaktionsaufstellung**
+  export (a different layout since July 2026) are both read, section by
+  currency: deposits, payments, card payments named by merchant, currency
+  exchanges as transfers, fees, dividends net of the tax withheld, and
+  every trade with its ISIN, quantity, price, commission and stamp duty —
+  so holdings are computed from statements alone. The old layout prints
+  amounts unsigned; the direction is read off the running balance. Yuh's
+  statements are the same document with a different letterhead and come
+  through the same parser. The **Transaktionsbeleg** receipt Swissquote
+  mails after each trade is read too, for the month that has no statement
+  yet; it produces the same id as the statement's row, so importing both
+  adds nothing twice. Validated against every statement and receipt on
+  hand: each one reconciles to the cent with its own opening and closing
+  balance.
+- **Crédit Agricole next bank (Suisse)**, from its Buchungsliste CSV:
+  Latin-1, one line per booking, the bank's own Auftragsnummer as the id,
+  and the running balance taken as the account's balance.
+
 ## [0.19.2] — 2026-09-12
 
 ### Fixed

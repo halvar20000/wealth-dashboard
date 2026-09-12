@@ -467,3 +467,313 @@ def pdf_from_text(text: str) -> bytes:
     out += (b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n"
             % (len(objects) + 1, xref))
     return bytes(out)
+
+
+# ─── Swissquote, Yuh, Crédit Agricole (Suisse) ─────────────────────────
+# The shapes of the real documents as pypdf reads them, with made-up
+# names and numbers. The old layout carries page furniture in the middle
+# of the table, which the parser must step over.
+
+SWISSQUOTE_KONTOAUSZUG = """Dieser Transaktionsbeleg sowie die aufgeführte Transaktion unterliegen unseren Allgemeinen Geschäftsbedingungen und Depotreglement.
+Swissquote Bank AG, 33 chemin de la CrØtaux, CH-1196 Gland
+Seite 1 / 3
+Herrn Max Muster
+IBAN CH67 0878 1000 3163 2010 0
+Kunde 3163201
+Kontoart TRADING
+Ihr Kontoauszug
+Kontoauszug vom 01.05.2026 bis 31.05.2026
+Dokument erstellt am 01.06.2026
+Anfangssaldo 22’443.21 CHF
+Endsaldo 21’295.65 CHF
+Kontoauszug in CHF
+Saldo per 01.05.2026 22’443.21 CHF
+Total Belastung 8’067.56 CHF
+Total Gutschrift 6’920.00 CHF
+Saldo per 31.05.2026 21’295.65 CHF
+DATUM INFORMATION REFERENZ BELASTUNG GUTSCHRIFT VALUTA-DATUM SALDO (CHF) 
+01.05.2026
+ Anfangsbestand 22’443.21
+04.05.2026
+ Zahlung von
+MAX MUSTER
+RUE DU RHIN 1
+68680 KEMBS France
+CH6508243119173342001
+1090000001 6’900.00 04.05.2026 29’343.21
+05.05.2026
+ Kauf
+SS SPDR MSCI All County World
+(ACWI)
+Anzahl: 30
+Preis: CHF 228.00
+Betrag: CHF 6’840.00
+Kommission: CHF 9.85
+Taxen: CHF 10.26
+Handelsplatz: SIX Swiss Exchange
+ISIN: IE00B44Z5B48
+1090000002 6’862.64 07.05.2026 22’480.57
+06.05.2026
+ Zahlung an
+Erika Beispiel
+FR7610278030710002071330218
+CREDIT MUTUEL
+Transfer
+1090000003 102.00 06.05.2026 22’378.57
+07.05.2026
+ Automatisierter Währungstausch
+CHF - EUR
+1 CHF = 1.08173 EUR
+1090000004 99.84 07.05.2026 22’278.73
+Dokument erstellt am 01.06.2026
+Vom 01.05.2026 bis 31.05.2026
+Herrn Max Muster
+IBAN : CH67 0878 1000 3163 2010 0
+Dieser Transaktionsbeleg sowie die aufgeführte Transaktion unterliegen unseren Allgemeinen Geschäftsbedingungen und Depotreglement.
+Swissquote Bank AG, 33 chemin de la CrØtaux, CH-1196 Gland
+Seite 2 / 3
+DATUM INFORMATION REFERENZ BELASTUNG GUTSCHRIFT VALUTA-DATUM SALDO (CHF) 
+11.05.2026
+ Zahlung per Debitkarte
+xxxx 5861 -
+CFF GenŁve Cornavin WC
+Pl. de Cornavin 1
+1201 GenŁve
+1090000005 1.50 09.05.2026 22’277.23
+12.05.2026
+ Dividende
+iSh Cor SPI CH CHF D (CHSPI)
+Anzahl: 12.631
+Betrag: CHF 9.85
+Taxen: CHF 3.45
+Total: CHF 6.40
+1090000006 6.40 12.05.2026 22’283.63
+31.05.2026
+ Depotgebühren 20.00 31.05.2026 22’263.63
+31.05.2026
+ Transfer 1090000007 6.90 31.05.2026 22’256.73
+31.05.2026
+ Zahlung an
+Max Muster
+CH3608781000317056500
+1090000008 961.08 31.05.2026 21’295.65
+31.05.2026
+ Schlussbilanz 21’295.65
+Kontoauszug in EUR
+Saldo per 01.05.2026 0.00 EUR
+Total Belastung 108.00 EUR
+Total Gutschrift 108.00 EUR
+Saldo per 31.05.2026 0.00 EUR
+DATUM INFORMATION REFERENZ BELASTUNG GUTSCHRIFT VALUTA-DATUM SALDO (EUR) 
+01.05.2026
+ Anfangsbestand 0.00
+07.05.2026
+ Zahlung per Debitkarte
+xxxx 5861 -
+CLAUDE.AI SUBSCRIPTION
+D02 H210 DUBLIN
+1090000009 108.00 07.05.2026 -108.00
+07.05.2026
+ Automatisierter Währungstausch
+CHF - EUR
+1 EUR = 0.92444 CHF
+1090000004 108.00 07.05.2026 0.00
+31.05.2026
+ Schlussbilanz 0.00
+Vertriebsentschädigungen
+Im Rahmen des Vertriebs von Finanzprodukten erhält Swissquote Bank AG Vertriebsentschädigungen.
+"""
+
+SWISSQUOTE_TRANSAKTIONSAUFSTELLUNG = """24.07.2026 bis 24.08.2026 - Erstellt am 25.08.2026
+Referenzwährung
+Anfangssaldo
+Endsaldo
+18’957.33 CHF
+13’844.10 CHF
+Max Muster
+Kunde
+IBAN
+SWIFT
+CH67 0878 1000 3163 2010 0
+3163201
+SWQBCHZZ XXX
+Transaktionsaufstellung
+Swissquote Bank AG, 33 chemin de la Crétaux, CH-1196 Gland - Customer Care : +41 44 825 88 88 1
+Alle
+ / 2
+Transaktionsaufstellung in CHF Max Muster
+IBAN: CH67 0878 1000 3163 2010 0 (CHF)24.07.2026 bis 24.08.2026 - Erstellt am 25.08.2026
+Anfangssaldo
+18’957.33 CHF
+Einzahlung
+11’616.00 CHF
+Auszahlung
+16’729.23 CHF
+Endsaldo
+13’844.10 CHF
+Datum Referenz Information Gebühren und
+Steuern Betrag Valuta-Datum Saldo
+24.07.2026 1142225922 Eingehende Zahlung
+BEISPIEL AG
+WURMISWEG 576 4303 KAISERAUGST
+IBAN: CH1287801001000300007
++11’616.00 CHF 24.07.2026 30’573.33 CHF
+27.07.2026 1143867441 Einzahlung für Max Muster
+IBAN: FR7617206005719302143281247
+BIC/SWIFT: AGRIFRPP872
+2 CHF -1’428.00 CHF 27.07.2026 29’145.33 CHF
+28.07.2026 1144621900 Kartenzahlung - mit der Endnummer 5861
+Digitec Galaxus AG
+Steinentorberg 20, Schweiz
+-444.90 CHF 28.07.2026 28’700.43 CHF
+04.08.2026 1148865375 Kartengebühren -6.90 CHF 04.08.2026 28’693.53 CHF
+10.08.2026 1152885176 Automatisierte Überweisung CHF an EUR
+Wechselkurs: 1 CHF = 1.069284 EUR
+Betrag: 56.42 EUR
+-53.28 CHF 10.08.2026 28’640.25 CHF
+21.08.2026 1150239202 Einzahlung für Helsana Versicherungen AG
+IBAN: CH0230000002319545324
+Referenz: 100686290826006038876100001
+-14’796.15 CHF 21.08.2026 13’844.10 CHF
+Swissquote Bank AG, 33 chemin de la Crétaux, CH-1196 Gland - Customer Care : +41 44 825 88 88 2
+Alle
+ / 2
+Transaktionsaufstellung in EUR Max Muster
+IBAN: CH67 0878 1000 3163 2010 0 (CHF)24.07.2026 bis 24.08.2026 - Erstellt am 25.08.2026
+Anfangssaldo
+0.00 EUR
+Einzahlung
+56.42 EUR
+Auszahlung
+56.42 EUR
+Endsaldo
+0.00 EUR
+Datum Referenz Information Gebühren und
+Steuern Betrag Valuta-Datum Saldo
+10.08.2026 1152345178 Kartenzahlung - mit der Endnummer 5861
+pay.amazon.com
+5 rue plaetis, Luxemburg
+-56.42 EUR 10.08.2026 -56.42 EUR
+10.08.2026 1152885176 Automatisierte Überweisung CHF an EUR
+Wechselkurs: 1 CHF = 1.069284 EUR
+Betrag: 53.28 CHF
++56.42 EUR 10.08.2026 0.00 EUR
+Vertriebsentschädigungen
+Die Swissquote Bank AG nimmt Vertriebsentschädigungen entgegen.
+"""
+
+YUH_KONTOAUSZUG = """Die vorliegende Benachrichtigung sowie die Transaktionen unterliegen unseren Allgemeinen Geschäftsbedingungen für Yuh-Konten und allen sonstigen Bedingungen, die zwischen
+dir und Yuh Ltd und/oder Swissquote Bank Ltd bezüglich deines Yuh-Kontos gelten.
+Swissquote Bank Ltd, Chemin de la CrØtaux 33, CH-1196 | Gland
+© 2022 Yuh Ltd Seite 1 / 2
+Dein Kontoauszug
+Kontoauszug vom 01.11.2025 bis 30.11.2025
+Dokument erstellt am 01.12.2025
+Yuh account
+IBAN CH71 0878 1000 2892 0620 0
+Kunde 2892062
+Anfangssaldo 994.25 CHF
+Endsaldo 81.10 CHF
+Kontoauszug in CHF
+Saldo per 01.11.2025 994.25 CHF
+Total Belastung 1’913.15 CHF
+Total Gutschrift 1’000.00 CHF
+Saldo per 30.11.2025 81.10 CHF
+DATUM INFORMATION REFERENZ BELASTUNG GUTSCHRIFT VALUTA-DATUM SALDO (CHF) 
+01.11.2025
+ Anfangsbestand 994.25
+07.11.2025
+ Kauf
+LOGITECH N (LOGN)
+Anzahl: 2.5741
+Preis: CHF 97.12
+Betrag: CHF 250.00
+Kommission: CHF 1.25
+Taxen: CHF 0.20
+Handelsplatz: SIX Swiss Exchange
+ISIN: CH0025751329
+972551649 251.45 10.11.2025 742.80
+27.11.2025
+ Zahlung von
+MAX MUSTER
+CH6508243119173342001
+984637474 1’000.00 27.11.2025 1’742.80
+28.11.2025
+ Kauf
+UBSETF SMIM CHF dis (SMMCHA)
+Anzahl: 3.3933
+Preis: CHF 294.70
+Betrag: CHF 1’000.00
+Kommission: CHF 5.00
+Taxen: CHF 0.75
+Handelsplatz: SIX Swiss Exchange
+ISIN: CH0111762537
+985446144 1’005.75 01.12.2025 737.05
+28.11.2025
+ Kauf
+UBSETF SMIM CHF dis (SMMCHA)
+Anzahl: 2.2198
+Preis: CHF 293.80
+Betrag: CHF 652.20
+Kommission: CHF 3.25
+Taxen: CHF 0.50
+Handelsplatz: SIX Swiss Exchange
+ISIN: CH0111762537
+985501567 655.95 01.12.2025 81.10
+30.11.2025
+ Schlussbilanz 81.10
+Vertriebsentschädigungen
+"""
+
+SWISSQUOTE_BELEG = """TRANSAKTIONSBELEG
+Kunde: 3163201 - TRADING
+IBAN: CH6708781000316320100
+Gland, 05.05.2026
+Swissquote Bank AG, 33 chemin de la Crétaux, CH-1196 Gland
+Unsere Referenz: 1090000002 
+Herrn Max Muster
+Börsentransaktion: Kauf
+Total CHF 6'840.00
+Kommission Swissquote Bank AG CHF 9.85
+Abgabe (Eidg. Stempelsteuer) CHF 10.26
+Börsengebühren CHF 2.53
+Zu Ihren Lasten CHF 6'862.64
+Titel Börse
+SPDR MSCI ACWI ISIN: IE00B44Z5B48
+NKN: 12930745
+SIX Swiss Exchange 
+Gemäss Ihrem Kaufauftrag vom 05.05.2026 haben wir folgende Transaktionen vorgenommen:
+Betrag belastet auf Kontonummer  316320100, Valutadatum 07.05.2026
+Anzahl Preis Betrag
+30 228 CHF 6'840.00
+Vielen Dank für Ihren Auftrag.
+"""
+
+SWISSQUOTE_BELEG_VERKAUF = """TRANSAKTIONSBELEG
+Kunde: 3170565 - Invest Easy
+Gland, 12.06.2026
+Swissquote Bank AG, 33 chemin de la Crétaux, CH-1196 Gland
+Unsere Referenz: 1100000001 
+Börsentransaktion: Verkauf
+Total CHF 1'013.30
+Börsengebühren CHF 0.07
+Zu Ihren Gunsten CHF 1'013.23
+Titel Börse
+Ambitious Portfolio IndexIndex ISIN: CH1236310558
+SIX Swiss Exchange 
+Gemäss Ihrem Verkaufsauftrag vom 12.06.2026 haben wir folgende Transaktionen vorgenommen:
+Anzahl Preis Betrag
+28 36.19 CHF 1'013.32
+"""
+
+CA_SWITZERLAND_CSV = (
+    "Transaktionsdatum;Valutadatum;Auftragsnummer;Text;Belastungsbetrag (CHF);Gutschriftsbetrag (CHF);Saldo (CHF)\n"
+    "24.08.2026;24.08.2026;236765220;Paiement en faveur de: Swissquote Bank SA;3700.00;;11.26\n"
+    "21.08.2026;21.08.2026;236618546;\"Schweizerische Stiftung, Aeschengraben 26, 4051 Basel, CH\";;3714.80;3711.26\n"
+    "30.07.2026;31.07.2026;234080873;Refund discounted fee;;3.00;-3.54\n"
+    "24.07.2026;31.07.2026;233428503;Basic Fee - Debit Order: MUSTER MAX;15.00;;-6.54\n"
+    "23.07.2026;23.07.2026;233171117;Instant Payment in favour of: Max Muster;3705.00;;8.46\n"
+    "30.06.2026;30.06.2026;230690990;31.03.26-30.06.26;0.15;;-1.34\n"
+    "31.12.2025;31.12.2025;210924780;31.12.24-31.12.25;;98.57;49387.41\n"
+    "15.12.2025;15.12.2025;209467357;Paiement en faveur de: Café Zürich Müller;300.00;;49288.84\n"
+).encode("cp1252")

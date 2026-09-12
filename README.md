@@ -34,10 +34,12 @@ a PSD2 API it connects directly, with credentials that are yours.
   or none of them, and a switch in the header between everyone's picture and
   one person's. Every page adds up accordingly.
 - **CSV and PDF import** — Degiro and Trade Republic exports, DKB's
-  Girokonto, Tagesgeld and Visa CSVs, and DKB's Wertpapierabrechnung PDFs
-  for the Depot (many at once, or a ZIP). Each file is recognised by what
-  is in it, so there is nothing to choose, and re-importing what you
-  already loaded is harmless.
+  Girokonto, Tagesgeld and Visa CSVs, DKB's Wertpapierabrechnung PDFs
+  for the Depot, Swissquote's and Yuh's statement PDFs and Swissquote's
+  trade receipts, and Crédit Agricole next bank (Suisse)'s Buchungsliste
+  CSV (many at once, or a ZIP). Each file is recognised by what is in it,
+  so there is nothing to choose, and re-importing what you already loaded
+  is harmless.
 - **Entries by hand**, for the account no bank and no export describes: a
   pension, a share plan, an exchange with no CSV. Purchases, sales,
   dividends, interest, fees and tax on a broker account; deposits,
@@ -62,6 +64,26 @@ a PSD2 API it connects directly, with credentials that are yours.
 ## What is not here yet
 
 Balance history, forecasting. See [ROADMAP.md](ROADMAP.md).
+
+## Swiss accounts — Swissquote, Yuh, Crédit Agricole (Suisse)
+
+Switzerland is outside PSD2, so no bank aggregator reaches a Swiss account
+— the "Swissquote Bank Luxembourg" you may see in Enable Banking's list is
+a different, EU-licensed bank. Swiss accounts are file imports:
+
+- **Swissquote**: the monthly *Kontoauszug* PDF the bank emails, or the
+  *Transaktionsaufstellung* PDF exported from the web portal for any
+  period. Both carry every trade with its ISIN, quantity and price, so
+  holdings are computed from statements alone. For the current month,
+  before the statement exists, drop in the *Transaktionsbeleg* receipts
+  the bank mails after each trade — a receipt and the statement it later
+  appears in are recognised as the same trade. Two Swissquote accounts
+  (Trading and Invest Easy, say) are two accounts here: import each
+  account's statements into its own.
+- **Yuh**: the same statement with a different letterhead; the Yuh app's
+  yearly and monthly *Kontoauszug* PDFs import the same way.
+- **Crédit Agricole next bank (Suisse)**: the *Buchungsliste* CSV from the
+  e-banking, for each account.
 
 ## Share Ideas
 
@@ -420,7 +442,7 @@ and knows your Application ID can act as your application. It is stored
 python3 tests/test_all.py
 ```
 
-1081 checks, no network, no pytest, no credentials. The whole bank flow —
+1144 checks, no network, no pytest, no credentials. The whole bank flow —
 JWT signing, pagination, normalisation, connect, sync, dedupe, consent
 expiry — runs against a fake, so it works on a NAS with an unhelpful
 Python and no internet.

@@ -979,6 +979,135 @@ check("a PDF nobody wrote for us is not recognised",
       importers.sniff(fixtures.pdf_from_text("Dear customer, hello.")), None)
 
 # ---------------------------------------------------------------------------
+print("\n12d. Swissquote, Yuh and Crédit Agricole (Suisse)")
+# ---------------------------------------------------------------------------
+# Switzerland is outside PSD2, so these three arrive as files: the
+# Swissquote statement in both of its layouts (which Yuh shares), the
+# per-trade receipt, and the CA next bank CSV.
+from app.importers import ca_switzerland, swissquote_beleg_pdf, swissquote_pdf  # noqa: E402
+
+old = swissquote_pdf.parse(fixtures.SWISSQUOTE_KONTOAUSZUG, "CHF")
+check("the old-layout statement parses without problems", old.problems, [])
+chf = [r for r in old.rows if r.currency == "CHF"]
+eur = [r for r in old.rows if r.currency == "EUR"]
+check("every row of the CHF section is read", len(chf), 9)
+check("...and the EUR section's too", len(eur), 2)
+check("the rows add up to the statement's own movement",
+      round(sum(r.amount for r in chf), 2), round(21295.65 - 22443.21, 2))
+check("...in the EUR section as well", round(sum(r.amount for r in eur), 2), 0.0)
+check("the direction is read off the running balance",
+      [r.amount for r in chf[:3]], [6900.0, -6862.64, -102.0])
+by = {r.external_id: r for r in old.rows}
+kauf = by["sq:3163201:1090000002:CHF"]
+check("a Kauf is a buy with ISIN, quantity, price, fee and tax",
+      (kauf.kind, kauf.isin, kauf.quantity, kauf.price, kauf.fee, kauf.tax),
+      ("buy", "IE00B44Z5B48", 30.0, 228.0, 9.85, 10.26))
+check("...named without its ticker", kauf.security_name, "SS SPDR MSCI All County World")
+div = by["sq:3163201:1090000006:CHF"]
+check("a Dividende is a dividend net of the tax, which is kept",
+      (div.kind, div.amount, div.tax, div.security_name), ("dividend", 6.4, 3.45, "iSh Cor SPI CH CHF D"))
+card = by["sq:3163201:1090000005:CHF"]
+check("a card payment names the merchant", (card.kind, card.counterparty),
+      ("withdrawal", "CFF Genève Cornavin WC"))
+check("...with pypdf's mangled accents put back", "Genève" in card.description, True)
+check("an incoming payment names the sender",
+      (by["sq:3163201:1090000001:CHF"].kind, by["sq:3163201:1090000001:CHF"].counterparty),
+      ("deposit", "MAX MUSTER"))
+check("an outgoing one the payee",
+      (by["sq:3163201:1090000003:CHF"].kind, by["sq:3163201:1090000003:CHF"].counterparty),
+      ("withdrawal", "Erika Beispiel"))
+fx = [r for r in old.rows if r.kind == "transfer" and "1090000004" in r.external_id]
+check("a currency exchange is one reference in two sections, both transfers",
+      sorted((r.currency, r.amount) for r in fx), [("CHF", -99.84), ("EUR", 108.0)])
+check("...with distinct ids", len({r.external_id for r in fx}), 2)
+check("a single-line fee row without a reference is still a row",
+      next(r for r in chf if r.kind == "fee").amount, -20.0)
+check("a single-line row with a reference too",
+      by["sq:3163201:1090000007:CHF"].amount, -6.9)
+check("the page furniture in the middle of the table is stepped over",
+      by["sq:3163201:1090000008:CHF"].amount, -961.08)
+check("the closing balance is the statement's, in the account currency",
+      old.closing_balance, {"amount": 21295.65, "currency": "CHF", "as_of": "2026-05-31"})
+check("...or the first section's when the account currency is elsewhere",
+      swissquote_pdf.parse(fixtures.SWISSQUOTE_KONTOAUSZUG, "USD").closing_balance["currency"], "CHF")
+
+new = swissquote_pdf.parse(fixtures.SWISSQUOTE_TRANSAKTIONSAUFSTELLUNG, "CHF")
+check("the new-layout export parses without problems", new.problems, [])
+check("...every row", len(new.rows), 8)
+check("...adding up to the export's own movement",
+      round(sum(r.amount for r in new.rows if r.currency == "CHF"), 2), round(13844.10 - 18957.33, 2))
+nby = {r.external_id: r for r in new.rows}
+check("the signed amount is taken as printed",
+      nby["sq:3163201:1142225922:CHF"].amount, 11616.0)
+check("...and the sender from the line below", nby["sq:3163201:1142225922:CHF"].counterparty, "BEISPIEL AG")
+check("the optional fee column is read", nby["sq:3163201:1143867441:CHF"].fee, 2.0)
+check("...and an exchange's 'Betrag:' line is not mistaken for one",
+      nby["sq:3163201:1152885176:CHF"].fee, None)
+check("a one-line fee row is a fee", (nby["sq:3163201:1148865375:CHF"].kind,
+                                     nby["sq:3163201:1148865375:CHF"].amount), ("fee", -6.9))
+check("a card payment names the merchant", nby["sq:3163201:1144621900:CHF"].counterparty, "Digitec Galaxus AG")
+check("'Einzahlung für' is money out, to the named payee",
+      (nby["sq:3163201:1150239202:CHF"].kind, nby["sq:3163201:1150239202:CHF"].counterparty),
+      ("withdrawal", "Helsana Versicherungen AG"))
+check("the closing balance is the export's Endsaldo",
+      new.closing_balance, {"amount": 13844.10, "currency": "CHF", "as_of": "2026-08-24"})
+
+yuh = swissquote_pdf.parse(fixtures.YUH_KONTOAUSZUG, "CHF")
+check("a Yuh statement is the same layout and parses", (yuh.problems, len(yuh.rows)), ([], 4))
+check("...its fractional trades kept to four decimals",
+      [r.quantity for r in yuh.rows if r.kind == "buy"], [2.5741, 3.3933, 2.2198])
+check("...under its own customer number", yuh.rows[0].external_id, "sq:2892062:972551649:CHF")
+check("...adding up", round(sum(r.amount for r in yuh.rows), 2), round(81.10 - 994.25, 2))
+
+rc = swissquote_beleg_pdf.parse(fixtures.SWISSQUOTE_BELEG)
+check("a trade receipt yields one row", (rc.problems, len(rc.rows)), ([], 1))
+t = rc.rows[0]
+check("...a buy with everything the statement will later say",
+      (t.kind, t.txn_date, t.amount, t.isin, t.quantity, t.price, t.security_name),
+      ("buy", "2026-05-05", -6862.64, "IE00B44Z5B48", 30.0, 228.0, "SPDR MSCI ACWI"))
+check("...fees summed", t.fee, 22.64)
+check("...and the SAME id as the statement's row, so both can be imported",
+      t.external_id, kauf.external_id)
+sell = swissquote_beleg_pdf.parse(fixtures.SWISSQUOTE_BELEG_VERKAUF).rows[0]
+check("a sale is money in with a negative quantity",
+      (sell.kind, sell.amount, sell.quantity), ("sell", 1013.23, -28.0))
+check("...and the glued column header is taken off the name",
+      sell.security_name, "Ambitious Portfolio Index")
+check("a receipt that is not one says so",
+      "not a Swissquote" in swissquote_beleg_pdf.parse("Hello there").problems[0], True)
+check("a statement that is not one says so",
+      "not a Swissquote" in swissquote_pdf.parse("Kontoauszug Nummer 3").problems[0], True)
+
+cs = ca_switzerland.parse(fixtures.CA_SWITZERLAND_CSV)
+check("the CA Suisse CSV parses without problems", cs.problems, [])
+check("...every row, Latin-1 decoded", (len(cs.rows), cs.rows[-1].description),
+      (8, "Paiement en faveur de: Café Zürich Müller"))
+check("debit and credit become one signed amount",
+      [r.amount for r in cs.rows[:2]], [-3700.0, 3714.8])
+check("the Auftragsnummer is the id", cs.rows[0].external_id, "ca-ch:236765220")
+check("a payment names its payee", (cs.rows[0].kind, cs.rows[0].counterparty),
+      ("withdrawal", "Swissquote Bank SA"))
+check("a credit names its sender, address dropped",
+      (cs.rows[1].kind, cs.rows[1].counterparty), ("deposit", "Schweizerische Stiftung"))
+check("fees are fees, refunded or not", [r.kind for r in cs.rows[2:4]], ["fee", "fee"])
+check("an interest period on the credit side is interest", cs.rows[6].kind, "interest")
+check("...and on the debit side the tax on it", cs.rows[5].kind, "tax")
+check("the newest row's balance is the closing balance",
+      cs.closing_balance, {"amount": 11.26, "currency": "CHF", "as_of": "2026-08-24"})
+check("the CSV is recognised by the sniffer",
+      importers.sniff(fixtures.CA_SWITZERLAND_CSV).SLUG, "ca_switzerland")
+for fx_text, slug in ((fixtures.SWISSQUOTE_KONTOAUSZUG, "swissquote_pdf"),
+                      (fixtures.SWISSQUOTE_TRANSAKTIONSAUFSTELLUNG, "swissquote_pdf"),
+                      (fixtures.YUH_KONTOAUSZUG, "swissquote_pdf"),
+                      (fixtures.SWISSQUOTE_BELEG, "swissquote_beleg_pdf")):
+    pdf = fixtures.pdf_from_text(fx_text)
+    got = importers.sniff(pdf)
+    check(f"a {slug} PDF is recognised by the sniffer", got.SLUG if got else None, slug)
+check("...and a real PDF parses to the same rows as its text",
+      [r.external_id for r in swissquote_pdf.parse(fixtures.pdf_from_text(fixtures.YUH_KONTOAUSZUG)).rows],
+      [r.external_id for r in yuh.rows])
+
+# ---------------------------------------------------------------------------
 print("\n13. Importing, through the web app")
 # ---------------------------------------------------------------------------
 import io                                                             # noqa: E402
@@ -1092,6 +1221,7 @@ r = c.post(f"/accounts/{depot_id}/import", data={"file": [
     (io.BytesIO(zbuf.getvalue()), "Postfach.zip"),
 ]}, content_type="multipart/form-data", follow_redirects=True)
 check("PDFs and a ZIP of PDFs import in one go", b"5 new" in r.data, True)
+
 check("...the Storno is named, not silently dropped", b"Storno.pdf: A Storno" in r.data, True)
 check("...and the stray file is named too", b"notes.txt: not recognised" in r.data, True)
 r = c.post(f"/accounts/{depot_id}/import", data={"file": [
@@ -1103,6 +1233,32 @@ depot_pos = {p["isin"]: p for p in importers.positions(depot_id)}
 check("the Depot holds what the statements say",
       round(depot_pos["US0000000001"]["quantity"], 6), 1500.0)
 check("...and the fund from the Sparplan", round(depot_pos["IE0000000002"]["quantity"], 4), 4.2637)
+
+# A Swissquote account: the monthly statement and the receipt of one of
+# its trades, uploaded together — the trade must land once.
+r = c.post("/accounts/new", data={"name": "Swissquote Trading", "type": "broker",
+                                  "currency": "CHF"})
+sq_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+r = c.post(f"/accounts/{sq_id}/import", data={"file": [
+    (io.BytesIO(fixtures.pdf_from_text(fixtures.SWISSQUOTE_KONTOAUSZUG)), "Kontoauszug_3163201_20260601.pdf"),
+    (io.BytesIO(fixtures.pdf_from_text(fixtures.SWISSQUOTE_BELEG)), "Borsenabrechnung_3163201_1090000002_20260505.pdf"),
+]}, content_type="multipart/form-data", follow_redirects=True)
+check("a Swissquote statement and a receipt import together",
+      b"11 new" in r.data and b"1 already had" in r.data, True)
+sq_pos = importers.positions(sq_id)
+check("...and the trade is held once", [(p["isin"], p["quantity"]) for p in sq_pos],
+      [("IE00B44Z5B48", 30.0)])
+with db.get_conn() as conn:
+    sq_bal = conn.execute("SELECT amount, currency, as_of FROM balances WHERE account_id = ? "
+                          "ORDER BY as_of DESC LIMIT 1", (sq_id,)).fetchone()
+check("...with the statement's closing balance recorded",
+      (sq_bal["amount"], sq_bal["currency"], sq_bal["as_of"]), (21295.65, "CHF", "2026-05-31"))
+r = c.post(f"/accounts/{sq_id}/import", data={"file": [
+    (io.BytesIO(fixtures.pdf_from_text(fixtures.SWISSQUOTE_TRANSAKTIONSAUFSTELLUNG)), "Kontoauszug_3163201_20260825.pdf")]},
+    content_type="multipart/form-data", follow_redirects=True)
+check("the web export of a later period imports on top", b"8 new" in r.data, True)
+# Gone again, so the CHF balance does not sit in every later total.
+c.post(f"/accounts/{sq_id}/delete", data={"confirm": "Swissquote Trading"})
 
 # ---------------------------------------------------------------------------
 print("\n14. Categories and rules")

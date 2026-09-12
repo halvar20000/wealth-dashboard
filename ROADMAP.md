@@ -13,7 +13,8 @@ it does not do yet.
       example): pick bank → bank's own login → session → link.
 - [x] Pull balance and transactions; re-syncing is idempotent.
 - [x] Consent expiry surfaced before it bites, not after.
-- [x] CSV import (Degiro, Trade Republic, DKB) and DKB Depot PDFs, recognised by content
+- [x] CSV import (Degiro, Trade Republic, DKB, Crédit Agricole Suisse) and
+      statement PDFs (DKB Depot, Swissquote, Yuh), recognised by content
       rather than chosen from a list.
 - [x] Holdings computed from imported trades.
 - [x] Overview page: net worth, cash vs securities, breakdown charts,
