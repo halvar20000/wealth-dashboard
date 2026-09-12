@@ -55,6 +55,8 @@ it does not do yet.
       ETFs — over a nightly Yahoo cache the app fills itself.
 - [x] An MCP endpoint with a revocable token, so an assistant can
       categorise, budget, and read everything the pages show.
+- [x] Saxo Bank by OAuth, with the token chain kept alive in-app, and
+      Kraken by a read-only API key.
 
 ## Next
 

@@ -118,6 +118,12 @@ def positions(account_id: int) -> list[dict]:
     buy and sell, and a holding sold down to nothing disappears rather
     than lingering at zero.
 
+    Every row that carries a quantity moves units — a buy, a sale, a
+    transfer in from another broker, a staking reward — and all of
+    them count towards what is held. Only a buy or a sale moves money
+    in or out for it, so net_invested is theirs alone: a position
+    transferred in has a quantity and no cost here, which is the truth.
+
     `last_price` is the price of the most recent trade, NOT a market
     price — this app has no price feed yet. It is labelled as such on
     the page, because a stale number presented as a valuation is worse
@@ -137,7 +143,7 @@ def positions(account_id: int) -> list[dict]:
                    MAX(currency)                    AS currency
               FROM transactions
              WHERE account_id = ? AND isin IS NOT NULL
-               AND kind IN ('buy', 'sell') AND quantity IS NOT NULL
+               AND quantity IS NOT NULL
              GROUP BY isin
              ORDER BY name
             """, (account_id,)).fetchall()

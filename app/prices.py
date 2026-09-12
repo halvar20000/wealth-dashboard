@@ -123,8 +123,28 @@ def pick_symbol(quotes: list[dict], base_currency: str = "EUR") -> str | None:
     return best
 
 
+# What a crypto holding is keyed on: the asset code with this prefix,
+# because a coin has no ISIN. Yahoo quotes it as BTC-EUR.
+CRYPTO_PREFIX = "CRYPTO:"
+
+
 def resolve(isin: str, base_currency: str = "EUR", get=None) -> dict:
-    """ISIN → {symbol, name}, from the search endpoint. Raises PriceError."""
+    """ISIN → {symbol, name}, from the search endpoint. Raises PriceError.
+
+    A crypto key (`CRYPTO:BTC`) has no ISIN to search for; Yahoo's pair
+    symbol is the code and the base currency, and the search confirms
+    it exists rather than choosing among listings.
+    """
+    if isin.upper().startswith(CRYPTO_PREFIX):
+        code = isin[len(CRYPTO_PREFIX):].upper()
+        want = f"{code}-{base_currency.upper()}"
+        data = (get or _get_json)(SEARCH_URL.format(q=urllib.parse.quote(want)))
+        quotes = data.get("quotes") or []
+        match = next((q for q in quotes if (q.get("symbol") or "").upper() == want), None)
+        if match is None:
+            raise PriceError(f"Yahoo has no {want} pair. Type the ticker in under "
+                             f"Settings — the one Yahoo uses, like BTC-EUR.")
+        return {"symbol": want, "name": match.get("longname") or match.get("shortname") or code}
     data = (get or _get_json)(SEARCH_URL.format(q=urllib.parse.quote(isin)))
     quotes = data.get("quotes") or []
     symbol = pick_symbol(quotes, base_currency)
@@ -178,8 +198,7 @@ def held_isins() -> list[str]:
     with get_conn() as conn:
         rows = conn.execute(
             "SELECT isin FROM transactions "
-            " WHERE isin IS NOT NULL AND kind IN ('buy', 'sell') "
-            "   AND quantity IS NOT NULL "
+            " WHERE isin IS NOT NULL AND quantity IS NOT NULL "
             " GROUP BY isin HAVING ABS(SUM(quantity)) > 1e-9 "
             " ORDER BY isin").fetchall()
     return [r["isin"] for r in rows]

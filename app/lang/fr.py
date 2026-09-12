@@ -1587,4 +1587,59 @@ STRINGS: dict[str, str] = {
     'Token revoked. Anything connected with it is cut off.': 'Jeton révoqué. Tout ce qui y était connecté est coupé.',
     'a token exists': 'un jeton existe',
     'off — no token': 'désactivé — pas de jeton',
+
+    # ─── Saxo und Kraken ───────────────────────────────────────────────
+    'API key': 'Clé API',
+    'Add your Kraken API key under Settings first.': "Ajoutez d'abord votre clé API Kraken dans les Réglages.",
+    "At developer.saxo → Apps, create an application: Live (or Simulation, to try it against Saxo's demo account), grant type Authorization Code, and this exact redirect URL:":
+        "Sur developer.saxo → Apps, créez une application : Live (ou Simulation, pour l'essayer sur le compte de démonstration de Saxo), type d'octroi Authorization Code, et exactement cette URL de redirection :",
+    'Broker connection': 'Connexion au courtier',
+    'Connect Kraken': 'Connecter Kraken',
+    'Connect Saxo': 'Connecter Saxo',
+    'Connect Saxo again': 'Reconnecter Saxo',
+    'Connected. Imported {n} transaction.': 'Connecté. {n} opération importée.',
+    'Connected. Imported {n} transactions.': 'Connecté. {n} opérations importées.',
+    'Environment': 'Environnement',
+    'Finish by hand': 'Terminer à la main',
+    'Forget Saxo': 'Oublier Saxo',
+    'Forget the Kraken key': 'Oublier la clé Kraken',
+    "It is your dashboard's address plus /saxo/callback, taken from the redirect URL above. If Saxo will not accept it, register it anyway and use “Finish by hand” on the account page.":
+        "C'est l'adresse de votre tableau de bord suivie de /saxo/callback, dérivée de l'URL de redirection ci-dessus. Si Saxo la refuse, enregistrez-la quand même et utilisez « Terminer à la main » sur la page du compte.",
+    'Kraken key forgotten. The account and its history stay.': 'Clé Kraken oubliée. Le compte et son historique restent.',
+    'Kraken key works. Balances: {assets}. Now connect an account from its page.':
+        'La clé Kraken fonctionne. Soldes : {assets}. Connectez maintenant un compte depuis sa page.',
+    'Kraken needs an API key of your own: kraken.com → Settings → API → Add key. Give it only Query Funds, Query Closed Orders & Trades and Query Ledger Entries — nothing that can trade, withdraw or stake. A key that can only read cannot lose you a coin. Paste the key and the private key here; the private key is shown once when the key is created and is kept 0600 beside the bank key.':
+        "Kraken demande une clé API à vous : kraken.com → Settings → API → Add key. Ne lui donnez que Query Funds, Query Closed Orders & Trades et Query Ledger Entries — rien qui puisse trader, retirer ou staker. Une clé qui ne peut que lire ne peut pas vous faire perdre une pièce. Collez ici la clé et la clé privée ; la clé privée n'est montrée qu'une fois à la création et est gardée en 0600 à côté de la clé bancaire.",
+    'Kraken: link this account to the API key under Settings and pull every trade, deposit and reward.':
+        'Kraken : liez ce compte à la clé API des Réglages et récupérez chaque trade, dépôt et récompense.',
+    'Landed on a dead page after the Saxo login? Paste its address here.':
+        'Arrivé sur une page morte après la connexion Saxo ? Collez son adresse ici.',
+    'No code and state in that. Paste the whole address, including the ?code=… part.':
+        "Ni code ni state là-dedans. Collez l'adresse entière, y compris la partie ?code=…",
+    'Open a broker account here and press Connect Saxo.': 'Ouvrez ici un compte de courtier et appuyez sur « Connecter Saxo ».',
+    'Paste the AppKey and the AppSecret below.': "Collez l'AppKey et l'AppSecret ci-dessous.",
+    'Private key': 'Clé privée',
+    'Read-only key; syncs with the daily sync.': 'Clé en lecture seule ; synchronisée avec la synchronisation quotidienne.',
+    'Save Saxo credentials': 'Enregistrer les identifiants Saxo',
+    'Save and check the key': 'Enregistrer et vérifier la clé',
+    'Saxo Bank: log in at Saxo and this account becomes your first Saxo account; any others are created beside it.':
+        'Saxo Bank : connectez-vous chez Saxo et ce compte devient votre premier compte Saxo ; les autres sont créés à côté.',
+    'Saxo credentials saved. Now connect an account from its page.':
+        'Identifiants Saxo enregistrés. Connectez maintenant un compte depuis sa page.',
+    'Saxo forgotten. The accounts and their history stay.': 'Saxo oublié. Les comptes et leur historique restent.',
+    'Saxo refused the login: {reason}': 'Saxo a refusé la connexion : {reason}',
+    'Saxo sent us back without a code. Paste the address bar on the account page.':
+        "Saxo nous a renvoyés sans code. Collez la barre d'adresse sur la page du compte.",
+    "Saxo's OpenAPI is OAuth: you register an application of your own in Saxo's developer portal, paste its AppKey and AppSecret here, and connect an account from its page — Saxo's login, then straight back. The tokens Saxo hands out die within the hour, so the app renews them every five minutes while it runs; if it was down for longer, the account page says so and connecting again is one click.":
+        "L'OpenAPI de Saxo est en OAuth : vous enregistrez une application à vous sur le portail développeur de Saxo, collez ici son AppKey et son AppSecret, et connectez un compte depuis sa page — la connexion Saxo, puis retour direct. Les jetons que Saxo délivre meurent en moins d'une heure, l'application les renouvelle donc toutes les cinq minutes tant qu'elle tourne ; si elle est restée arrêtée plus longtemps, la page du compte le dit et se reconnecter tient en un clic.",
+    'Simulation': 'Simulation',
+    'The Saxo login has lapsed — connect again to resume syncing.': 'La connexion Saxo a expiré — reconnectez-vous pour reprendre la synchronisation.',
+    'The login is being kept alive.': 'La connexion est maintenue en vie.',
+    'account {id}': 'compte {id}',
+    'connected · client {id}': 'connecté · client {id}',
+    'credentials saved, nothing connected yet': 'identifiants enregistrés, rien de connecté encore',
+    'key saved': 'clé enregistrée',
+    'login lapsed': 'connexion expirée',
+    'not set up': 'non configuré',
+    'simulation': 'simulation',
 }

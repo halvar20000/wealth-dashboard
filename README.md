@@ -47,6 +47,11 @@ a PSD2 API it connects directly, with credentials that are yours.
   beside the imported rows and count the same way.
 - **Holdings**, computed from the trades — imported or typed in: what you
   own, how much, and what you put in.
+- **Saxo Bank by API** — an application of your own in Saxo's developer
+  portal, one login, and every trade, dividend, fee and balance arrives
+  on its own; the app keeps Saxo's short-lived login alive while it runs.
+  **Kraken by API key** — a read-only key, and every fill, deposit and
+  staking reward is pulled, with the balances checked against the rows.
 - **Market prices** from Yahoo Finance — free, no key. Every holding is
   valued at its last market price and every total names the day; a
   holding no price could be found for is valued at your last trade, and
@@ -64,6 +69,49 @@ a PSD2 API it connects directly, with credentials that are yours.
 ## What is not here yet
 
 Balance history, forecasting. See [ROADMAP.md](ROADMAP.md).
+
+## Brokers by API — Saxo Bank and Kraken
+
+Two brokers connect directly, each with credentials that are yours.
+
+**Saxo Bank** speaks OAuth. Once: at
+[developer.saxo](https://www.developer.saxo/openapi/appmanagement) create an
+application — environment *Live* (or *Simulation*, to try it against Saxo's
+demo account first; a switch under Settings picks which), grant type
+*Authorization Code*, and as redirect URL the one the Settings page shows
+you, which is your dashboard's address plus `/saxo/callback`. Paste the
+AppKey and AppSecret under **Settings → Saxo Bank**. Then open an account
+of type broker and press **Connect Saxo**: Saxo's login, then straight
+back. A client with several Saxo accounts gets one dashboard account each,
+because two balances added together is not a balance.
+
+Saxo's tokens are short-lived — the access token twenty minutes, the
+refresh token about an hour and single-use — so the app renews the chain
+every five minutes for as long as it runs. If it was down for longer, the
+account page says the login has lapsed and *Connect Saxo again* is one
+click; the history stays. If Saxo will not accept a LAN redirect URL, use
+*Finish by hand* on the account page with the address of the dead page
+the browser lands on, exactly as with a bank.
+
+Saxo does not hand out ISINs, so a Saxo instrument is keyed by Saxo's own
+id and given the Yahoo ticker its symbol and exchange imply
+(`IWDA:xams` → `IWDA.AS`), which the price feed then quotes; correct it
+under Settings like any other ticker. A position that was transferred in
+from another broker has no purchase in Saxo's history; it is recorded as a
+transfer at Saxo's average open price, so the holding is right.
+
+**Kraken** needs an API key: kraken.com → Settings → API → Add key, with
+only *Query Funds*, *Query Closed Orders & Trades* and *Query Ledger
+Entries* ticked — nothing that can trade, withdraw or stake. Paste the key
+and the private key under **Settings → Kraken**; the app checks the key
+and shows the balances. Then **Connect Kraken** on a broker account. Every
+fill is a buy or a sale of the coin for the currency it settled in, coin
+deposits and withdrawals move units without money, staking rewards are
+income in kind, and Kraken's balances are checked against what the rows
+add up to — a gap is reported, never patched. A coin has no ISIN: it is
+keyed `CRYPTO:BTC` and priced as Yahoo's `BTC-EUR`.
+
+Both sync with the daily sync and with *Sync everything*.
 
 ## Swiss accounts — Swissquote, Yuh, Crédit Agricole (Suisse)
 
@@ -350,7 +398,7 @@ data/
   wealth.db              your database — this is the thing to back up
   settings.json
   screener*.json         your additions and corrections to the Share Ideas lists
-  secrets/               Application ID, private key, session key (0600)
+  secrets/               bank, Saxo and Kraken credentials, session key, MCP token (0600)
 ```
 
 **Back up `data/`.** RAID and snapshots protect against a disk dying, not
@@ -442,7 +490,7 @@ and knows your Application ID can act as your application. It is stored
 python3 tests/test_all.py
 ```
 
-1144 checks, no network, no pytest, no credentials. The whole bank flow —
+1213 checks, no network, no pytest, no credentials. The whole bank flow —
 JWT signing, pagination, normalisation, connect, sync, dedupe, consent
 expiry — runs against a fake, so it works on a NAS with an unhelpful
 Python and no internet.

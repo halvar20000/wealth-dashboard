@@ -40,6 +40,46 @@
   </div>
 </div>
 
+{% if broker or (account.type == 'broker' and not link and (saxo_state.configured or kraken_ready)) %}
+<div class="card">
+  <h2>{{ _("Broker connection") }}</h2>
+  {% if broker %}
+    <p><strong>{{ 'Saxo Bank' if broker.provider == 'saxo' else 'Kraken' }}</strong>
+       {% if broker.remote_label and broker.provider == 'saxo' %}· {{ _f("account {id}", id=broker.remote_label) }}{% endif %}
+       {% if broker.provider == 'saxo' and saxo_state.environment == 'sim' %}· {{ _("simulation") }}{% endif %}</p>
+    <p class="sub">{{ _f("Last sync: {when}.", when=(d(broker.last_sync_at) if broker.last_sync_at else _("never"))) }}
+      {% if broker.provider == 'saxo' %}
+        {% if saxo_state.alive %}{{ _("The login is being kept alive.") }}
+        {% else %}{{ _("The Saxo login has lapsed — connect again to resume syncing.") }}{% endif %}
+      {% else %}{{ _("Read-only key; syncs with the daily sync.") }}{% endif %}
+    </p>
+    {% if broker.last_error %}<div class="flash flash-error">{{ broker.last_error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('account_sync', account_id=account.id) }}">
+      <button type="submit">{{ _("Sync now") }}</button>
+    </form>
+    {% if broker.provider == 'saxo' and not saxo_state.alive %}
+      <p><a class="btn" href="{{ url_for('saxo_connect', account_id=account.id) }}">{{ _("Connect Saxo again") }}</a></p>
+    {% endif %}
+  {% else %}
+    {% if saxo_state.configured %}
+      <p class="sub">{{ _("Saxo Bank: log in at Saxo and this account becomes your first Saxo account; any others are created beside it.") }}</p>
+      <p><a class="btn" href="{{ url_for('saxo_connect', account_id=account.id) }}">{{ _("Connect Saxo") }}</a></p>
+      <form method="post" action="{{ url_for('saxo_paste', account_id=account.id) }}" class="form inline">
+        <div><label for="saxo-pasted">{{ _("Landed on a dead page after the Saxo login? Paste its address here.") }}</label>
+          <input id="saxo-pasted" name="pasted" placeholder="http://…/saxo/callback?code=…&state=…"></div>
+        <button type="submit" class="btn-ghost">{{ _("Finish by hand") }}</button>
+      </form>
+    {% endif %}
+    {% if kraken_ready %}
+      <form method="post" action="{{ url_for('kraken_connect', account_id=account.id) }}">
+        <p class="sub">{{ _("Kraken: link this account to the API key under Settings and pull every trade, deposit and reward.") }}</p>
+        <button type="submit">{{ _("Connect Kraken") }}</button>
+      </form>
+    {% endif %}
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="card">
   <h2>{{ _("Bank connection") }}</h2>
   {% if link %}

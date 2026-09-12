@@ -3818,7 +3818,7 @@ kr_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
 r = c.get(f"/accounts/{kr_id}")
 check("a broker account offers the Kraken connection once a key exists", b"Connect Kraken" in r.data, True)
 r = c.post(f"/accounts/{kr_id}/connect/kraken", follow_redirects=True)
-check("connecting pulls everything", b"Connected. Imported 9 transactions" in r.data, True)
+check("connecting pulls everything", b"Connected. Imported 9 new transactions" in r.data, True)
 kl = brokers.link_for(kr_id)
 check("...and records the link", (kl["provider"], kl["last_error"]), ("kraken", None))
 pos = {p_["isin"]: p_ for p_ in importers.positions(kr_id)}

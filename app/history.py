@@ -85,8 +85,8 @@ def series(base_currency: str = "EUR", account_ids: list[int] | None = None,
         trades: dict[str, tuple[list[str], list[float], list[tuple[float, str]]]] = {}
         for r in conn.execute(
                 f"SELECT t.isin, t.txn_date, t.quantity, t.price, t.currency "
-                f"FROM transactions t WHERE t.isin IS NOT NULL AND t.quantity IS NOT NULL "
-                f"AND t.kind IN ('buy', 'sell'){only_t} ORDER BY t.txn_date, t.id",
+                f"FROM transactions t WHERE t.isin IS NOT NULL AND t.quantity IS NOT NULL"
+                f"{only_t} ORDER BY t.txn_date, t.id",
                 params_t):
             days, qty, paid = trades.setdefault(r["isin"], ([], [], []))
             running = (qty[-1] if qty else 0.0) + (r["quantity"] or 0.0)

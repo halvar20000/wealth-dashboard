@@ -11,6 +11,47 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.21.0] — 2026-09-12
+
+### Added
+- **Saxo Bank, by API.** Register an application of your own in Saxo's
+  developer portal (Live, or Simulation to try it on Saxo's demo
+  account), paste its AppKey and AppSecret under Settings, press
+  *Connect Saxo* on an account: Saxo's login, then straight back, with
+  one dashboard account per Saxo account. Every fill of the last 400
+  days becomes a buy or a sale with quantity and price; dividends,
+  interest, fees, taxes and cash movements come from the bookings; the
+  cash is the balance reading; and a position Saxo holds that its trade
+  history does not explain — one transferred in from another broker —
+  is recorded as a transfer at Saxo's average open price, so the holding
+  is right. Saxo's tokens die within the hour and the refresh token is
+  single-use, so the app renews the chain every five minutes while it
+  runs; when it cannot, the account page says the login has lapsed and
+  connecting again is one click. Saxo does not hand out ISINs, so its
+  instruments are keyed by Saxo's own id and given the Yahoo ticker
+  their symbol and exchange imply, correctable under Settings.
+- **Kraken, by API key.** Create a key on kraken.com with only *Query
+  Funds*, *Query Closed Orders & Trades* and *Query Ledger Entries*,
+  paste it under Settings — the app checks it and shows the balances —
+  and press *Connect Kraken* on an account. Every fill is a buy or a sale
+  of the coin for the currency it settled in, fee included; coin
+  deposits and withdrawals move units without money; staking rewards
+  are income in kind; and a coin-for-coin swap moves both. Kraken's own
+  balances are checked against what the rows add up to, and a gap is
+  reported rather than papered over. Requests are signed with the
+  private key, which never leaves the machine and is kept 0600 beside
+  the bank key.
+- A coin has no ISIN: crypto holdings are keyed `CRYPTO:BTC` and the
+  price feed quotes them as Yahoo's `BTC-EUR` pair.
+- Broker connections sync with the daily sync and with *Sync everything*.
+
+### Changed
+- A holding's quantity now counts every row that moves units — a
+  transfer in from another broker, a staking reward — not only buys
+  and sales. Money in and out still counts for buys and sales alone, so
+  a position transferred in has a quantity and no cost here, which is
+  the truth. DKB's Depotbuchung transfers now count as well.
+
 ## [0.20.0] — 2026-09-12
 
 ### Added

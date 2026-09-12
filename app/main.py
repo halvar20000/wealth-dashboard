@@ -17,6 +17,8 @@ The route list is the whole product so far, in order of first use:
     /accounts/<id>/sync   pull balance and transactions
     /accounts/<id>/import upload a broker CSV
     /screener           share ideas: four ranked boards over a Yahoo cache
+    /saxo/connect/<id>  Saxo: OAuth login, then /saxo/callback links the accounts
+    /accounts/<id>/connect/kraken   Kraken: link this account to the API key
     /mcp                the MCP endpoint, for an assistant with a token
 
 Every page except /setup and /login requires a signed-in user.
@@ -42,6 +44,8 @@ from .banks import sync as banksync
 from . import (cashflow, categories, forecast, history, importers, manual,
                mcp, overview, people, screener, screener_etf, screener_jobs,
                subscriptions)
+from . import brokers
+from .brokers import kraken, saxo
 from . import db as db_state
 from .db import get_conn, has_users, init_db
 
@@ -352,6 +356,9 @@ def account_detail(account_id: int):
     if link:
         link["days_left"] = banksync.days_until_expiry(link.get("valid_until"))
     return render_template("account.html", account=dict(account), link=link,
+                           broker=brokers.link_for(account_id),
+                           saxo_state=saxo.describe(),
+                           kraken_ready=kraken.credentials_present(),
                            positions=importers.positions(account_id),
                            balance=dict(balance) if balance else None,
                            transactions=[dict(t) for t in txns],
@@ -651,6 +658,15 @@ def transaction_delete(account_id: int, txn_id: int):
 @app.route("/accounts/<int:account_id>/sync", methods=["POST"])
 @auth.login_required
 def account_sync(account_id: int):
+    broker = brokers.link_for(account_id)
+    if broker:
+        result = brokers.sync_link(broker)
+        if result["error"]:
+            flash(_f("Sync failed: {reason}", reason=result["error"]), "error")
+        else:
+            flash(_n(result["inserted"], "Imported {n} new transaction.",
+                     "Imported {n} new transactions."), "ok")
+        return redirect(url_for("account_detail", account_id=account_id))
     with get_conn() as conn:
         link = conn.execute("SELECT id FROM bank_links WHERE account_id = ? LIMIT 1",
                             (account_id,)).fetchone()
@@ -663,6 +679,85 @@ def account_sync(account_id: int):
         else:
             flash(_n(result["inserted"], "Imported {n} new transaction.",
                      "Imported {n} new transactions."), "ok")
+    return redirect(url_for("account_detail", account_id=account_id))
+
+
+# ─── Brokers by API: Saxo and Kraken ─────────────────────────────────
+
+@app.route("/saxo/connect/<int:account_id>")
+@auth.login_required
+def saxo_connect(account_id: int):
+    """Off to Saxo's login. What comes back lands on /saxo/callback."""
+    try:
+        return redirect(saxo.begin_connect(account_id))
+    except saxo.SaxoError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+
+
+def _finish_saxo(code: str, state_token: str):
+    try:
+        result = saxo.complete_connect(code, state_token)
+    except saxo.SaxoError as exc:
+        flash(str(exc), "error")
+        return None
+    flash(_f("Connected: {accounts}", accounts=", ".join(result["linked"])), "ok")
+    for r in brokers.sync_all():
+        if r["provider"] != "saxo":
+            continue
+        if r["error"]:
+            flash(_f("Connected, but the first sync failed: {reason}", reason=r["error"]), "error")
+        else:
+            flash(_n(r["inserted"], "Imported {n} transaction.", "Imported {n} transactions."), "ok")
+    return result
+
+
+@app.route("/saxo/callback")
+@auth.login_required
+def saxo_callback():
+    code, state_token = request.args.get("code"), request.args.get("state")
+    if request.args.get("error"):
+        flash(_f("Saxo refused the login: {reason}", reason=request.args["error"]), "error")
+        return redirect(url_for("accounts"))
+    if not code or not state_token:
+        flash(_t("Saxo sent us back without a code. Paste the address bar on the account page."), "error")
+        return redirect(url_for("accounts"))
+    result = _finish_saxo(code, state_token)
+    if result and result.get("account_id"):
+        return redirect(url_for("account_detail", account_id=result["account_id"]))
+    return redirect(url_for("accounts"))
+
+
+@app.route("/saxo/paste/<int:account_id>", methods=["POST"])
+@auth.login_required
+def saxo_paste(account_id: int):
+    """The same finish, from the address bar of the dead page Saxo left
+    the browser on — for a redirect URL that points at a host the
+    browser could not reach."""
+    code, state_token = _parse_pasted_redirect(request.form.get("pasted") or "")
+    if not code or not state_token:
+        flash(_t("No code and state in that. Paste the whole address, including "
+                 "the ?code=… part."), "error")
+    else:
+        _finish_saxo(code, state_token)
+    return redirect(url_for("account_detail", account_id=account_id))
+
+
+@app.route("/accounts/<int:account_id>/connect/kraken", methods=["POST"])
+@auth.login_required
+def kraken_connect(account_id: int):
+    """One key, one balance sheet: link it to this account and pull."""
+    if not kraken.credentials_present():
+        flash(_t("Add your Kraken API key under Settings first."), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+    link_id = brokers.add_link(account_id, "kraken", remote_id="kraken",
+                               remote_label="Kraken")
+    result = brokers.sync_link(next(l for l in brokers.links() if l["id"] == link_id))
+    if result["error"]:
+        flash(_f("Connected, but the first sync failed: {reason}", reason=result["error"]), "error")
+    else:
+        flash(_n(result["inserted"], "Connected. Imported {n} transaction.",
+                 "Connected. Imported {n} transactions."), "ok")
     return redirect(url_for("account_detail", account_id=account_id))
 
 
@@ -1169,6 +1264,37 @@ def settings_page():
             else:
                 flash(_t("A refresh is already running."), "error")
             return redirect(url_for("settings_page") + "#ideas")
+        elif request.form.get("form") == "saxo_credentials":
+            try:
+                saxo.save_credentials(request.form.get("app_key", ""),
+                                      request.form.get("app_secret", ""),
+                                      request.form.get("environment", "live"))
+                flash(_t("Saxo credentials saved. Now connect an account from its page."), "ok")
+            except ValueError as exc:
+                flash(str(exc), "error")
+            return redirect(url_for("settings_page") + "#saxo")
+        elif request.form.get("form") == "saxo_forget":
+            saxo.forget()
+            brokers.remove_links("saxo")
+            flash(_t("Saxo forgotten. The accounts and their history stay."), "ok")
+            return redirect(url_for("settings_page") + "#saxo")
+        elif request.form.get("form") == "kraken_credentials":
+            try:
+                kraken.save_credentials(request.form.get("api_key", ""),
+                                        request.form.get("api_secret", ""))
+                info = kraken.check()
+                flash(_f("Kraken key works. Balances: {assets}. Now connect an account "
+                         "from its page.", assets=", ".join(
+                             f"{v:g} {k}" for k, v in sorted(info["assets"].items())) or "none"),
+                      "ok")
+            except (ValueError, kraken.KrakenError) as exc:
+                flash(str(exc), "error")
+            return redirect(url_for("settings_page") + "#kraken")
+        elif request.form.get("form") == "kraken_forget":
+            kraken.forget_credentials()
+            brokers.remove_links("kraken")
+            flash(_t("Kraken key forgotten. The account and its history stay."), "ok")
+            return redirect(url_for("settings_page") + "#kraken")
         elif request.form.get("form") == "mcp_token":
             if request.form.get("action") == "revoke":
                 mcp.revoke()
@@ -1178,7 +1304,7 @@ def settings_page():
                 flash(_t("Token created. Any earlier token stopped working."), "ok")
             return redirect(url_for("settings_page") + "#mcp")
         elif request.form.get("form") == "sync_all":
-            results = banksync.sync_all()
+            results = banksync.sync_all() + brokers.sync_all()
             failed = [r for r in results if r["error"]]
             new_rows = sum(r["inserted"] for r in results)
             if failed:
@@ -1249,6 +1375,9 @@ def settings_page():
                            prices_hours_ago=prices.fetched_hours_ago(),
                            ideas=screener_jobs.status(),
                            mcp_token=mcp.token(),
+                           saxo_state=saxo.describe(),
+                           kraken_state=kraken.describe(),
+                           broker_links=brokers.links(),
                            mcp_url=request.host_url.rstrip("/") + "/mcp",
                            check=check)
 
@@ -1479,12 +1608,12 @@ def _start_rate_refresher() -> None:
         while True:
             try:
                 cfg = settings.load()
-                if (banksync.credentials_present()
+                if ((banksync.credentials_present() or brokers.links())
                         and banksync.sync_due(datetime.now(), cfg,
                                               db_state.get_state("last_auto_sync"))):
                     db_state.set_state("last_auto_sync",
                                        datetime.now().isoformat(timespec="seconds"))
-                    results = banksync.sync_all()
+                    results = banksync.sync_all() + brokers.sync_all()
                     for r in results:
                         if r["error"]:
                             print(f"  sync: {r['account']}: {r['error']}", flush=True)
@@ -1503,6 +1632,21 @@ def _start_rate_refresher() -> None:
     # older than a day, so the boards are current without a cron.
     threading.Thread(target=screener_jobs.loop, name="ideas-refresh",
                      daemon=True).start()
+
+    def saxo_loop() -> None:
+        # Saxo's refresh token is single-use and dies in an hour, so the
+        # chain is renewed every five minutes while the app runs. When
+        # nothing is connected, a tick costs a file read.
+        while True:
+            try:
+                info = saxo.keepalive()
+                if info["status"] == "error":
+                    print(f"  saxo: {info['message']}", flush=True)
+            except Exception as exc:                      # noqa: BLE001
+                print(f"  saxo: unexpected: {exc}", flush=True)
+            time.sleep(saxo.KEEPALIVE_S)
+
+    threading.Thread(target=saxo_loop, name="saxo-keepalive", daemon=True).start()
 
 
 def main() -> None:

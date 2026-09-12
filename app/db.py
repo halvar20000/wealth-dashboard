@@ -314,6 +314,25 @@ CREATE TABLE IF NOT EXISTS screener_etfs (
     last_error       TEXT
 );
 
+-- A broker connected by API — Saxo through OAuth, Kraken through a key —
+-- as a separate row pointing at an account, for the same reason a bank
+-- link is: the connection can lapse (a Saxo refresh chain breaks, a
+-- Kraken key is revoked) and the account, its history and its balance
+-- must not. `remote_id` is the broker's own handle for the sub-account
+-- (Saxo's AccountKey; nothing for Kraken, which has one balance sheet
+-- per key), so a client with several Saxo accounts gets several rows.
+CREATE TABLE IF NOT EXISTS broker_links (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    provider     TEXT NOT NULL,           -- 'saxo' | 'kraken'
+    remote_id    TEXT,
+    remote_label TEXT,
+    currency     TEXT,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    last_sync_at TEXT,
+    last_error   TEXT
+);
+
 -- Starred and dismissed, keyed on the bare symbol so one list serves all
 -- four boards: starring an ETF and starring a share are the same act.
 CREATE TABLE IF NOT EXISTS screener_watchlist (
@@ -349,6 +368,8 @@ CREATE INDEX IF NOT EXISTS idx_txn_category ON transactions(category, txn_date);
 
 CREATE INDEX IF NOT EXISTS idx_balances_account
     ON balances(account_id, as_of DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_broker_links_remote
+    ON broker_links(provider, remote_id) WHERE remote_id IS NOT NULL;
 
 -- Every conversion asks the same question: the newest publication day
 -- at or before some date.

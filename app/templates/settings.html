@@ -117,6 +117,68 @@
   <p class="sub">{{ _("Also updated on start-up and every few hours in the background. A holding no price could be found for is valued at your last trade, and the pages say so.") }}</p>
 </div>
 
+<div class="card" id="saxo">
+  <div class="card-header">
+    <h2>Saxo Bank</h2>
+    <span class="card-subtitle">
+      {% if saxo_state.connected and saxo_state.alive %}{{ _f("connected · client {id}", id=saxo_state.client_id) }}
+      {% elif saxo_state.connected %}{{ _("login lapsed") }}
+      {% elif saxo_state.configured %}{{ _("credentials saved, nothing connected yet") }}
+      {% else %}{{ _("not set up") }}{% endif %}
+      {% if saxo_state.environment == 'sim' %} · {{ _("simulation") }}{% endif %}
+    </span>
+  </div>
+  <p class="sub">{{ _("Saxo's OpenAPI is OAuth: you register an application of your own in Saxo's developer portal, paste its AppKey and AppSecret here, and connect an account from its page — Saxo's login, then straight back. The tokens Saxo hands out die within the hour, so the app renews them every five minutes while it runs; if it was down for longer, the account page says so and connecting again is one click.") }}</p>
+  <ol class="sub">
+    <li>{{ _("At developer.saxo → Apps, create an application: Live (or Simulation, to try it against Saxo's demo account), grant type Authorization Code, and this exact redirect URL:") }}
+      <pre class="mcp-cmd">{{ saxo_state.redirect_uri }}</pre>
+      {{ _("It is your dashboard's address plus /saxo/callback, taken from the redirect URL above. If Saxo will not accept it, register it anyway and use “Finish by hand” on the account page.") }}</li>
+    <li>{{ _("Paste the AppKey and the AppSecret below.") }}</li>
+    <li>{{ _("Open a broker account here and press Connect Saxo.") }}</li>
+  </ol>
+  <form method="post" class="form">
+    <input type="hidden" name="form" value="saxo_credentials">
+    <label for="saxo_app_key">AppKey</label>
+    <input id="saxo_app_key" name="app_key" value="{{ saxo_state.app_key or '' }}" autocomplete="off">
+    <label for="saxo_app_secret">AppSecret</label>
+    <input id="saxo_app_secret" name="app_secret" type="password" autocomplete="off" placeholder="{{ '••••••••' if saxo_state.configured else '' }}">
+    <label for="saxo_env">{{ _("Environment") }}</label>
+    <select id="saxo_env" name="environment" style="width:auto">
+      <option value="live" {{ 'selected' if saxo_state.environment != 'sim' }}>Live</option>
+      <option value="sim" {{ 'selected' if saxo_state.environment == 'sim' }}>{{ _("Simulation") }}</option>
+    </select>
+    <div><button type="submit">{{ _("Save Saxo credentials") }}</button></div>
+  </form>
+  {% if saxo_state.configured %}
+  <form method="post" style="margin-top:8px">
+    <input type="hidden" name="form" value="saxo_forget">
+    <button type="submit" class="btn-danger">{{ _("Forget Saxo") }}</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card" id="kraken">
+  <div class="card-header">
+    <h2>Kraken</h2>
+    <span class="card-subtitle">{% if kraken_state.configured %}{{ _("key saved") }}{% else %}{{ _("not set up") }}{% endif %}</span>
+  </div>
+  <p class="sub">{{ _("Kraken needs an API key of your own: kraken.com → Settings → API → Add key. Give it only Query Funds, Query Closed Orders & Trades and Query Ledger Entries — nothing that can trade, withdraw or stake. A key that can only read cannot lose you a coin. Paste the key and the private key here; the private key is shown once when the key is created and is kept 0600 beside the bank key.") }}</p>
+  <form method="post" class="form">
+    <input type="hidden" name="form" value="kraken_credentials">
+    <label for="kraken_key">{{ _("API key") }}</label>
+    <input id="kraken_key" name="api_key" autocomplete="off">
+    <label for="kraken_secret">{{ _("Private key") }}</label>
+    <input id="kraken_secret" name="api_secret" type="password" autocomplete="off">
+    <div><button type="submit">{{ _("Save and check the key") }}</button></div>
+  </form>
+  {% if kraken_state.configured %}
+  <form method="post" style="margin-top:8px">
+    <input type="hidden" name="form" value="kraken_forget">
+    <button type="submit" class="btn-danger">{{ _("Forget the Kraken key") }}</button>
+  </form>
+  {% endif %}
+</div>
+
 <div class="card" id="ideas">
   <div class="card-header">
     <h2>{{ _("Share Ideas") }}</h2>
