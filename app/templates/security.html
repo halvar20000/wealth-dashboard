@@ -32,34 +32,66 @@
 <div class="card">
   <div class="card-header">
     <h2>{{ _("Every row behind this holding") }}</h2>
-    <span class="card-subtitle">{{ _("oldest first, with the quantity as it ran") }}</span>
+    <span class="card-subtitle">{{ _n(rows | length, "{n} row", "{n} rows") }} · {{ _("by year and month, newest first") }}</span>
   </div>
   <p class="sub">{{ _("If a figure is wrong — a quantity a statement read badly, a price in the wrong currency — correct it here. A correction stays: the next import recognises the row and leaves it alone. Sizes are typed unsigned; the kind supplies the sign. The amount is the whole cash effect as the broker booked it, fees and taxes included.") }}</p>
-  <div class="table-wrap">
-    <table class="grid">
-      <thead><tr>
-        <th>{{ _("Date") }}</th><th>{{ _("Account") }}</th><th>{{ _("Kind") }}</th><th>{{ _("Description") }}</th>
-        <th class="num">{{ _("Quantity") }}</th><th class="num">{{ _("Price") }}</th><th class="num">{{ _("Amount") }}</th>
-        <th class="num">{{ _("Fee") }}</th><th class="num">{{ _("Tax") }}</th><th class="num">{{ _("Running") }}</th><th></th>
-      </tr></thead>
-      <tbody>
-      {% for r in rows %}
-        <tr id="txn-{{ r.id }}">
-          <td class="nowrap">{{ d(r.txn_date) }}</td>
-          <td class="sub">{{ r.account_name }}</td>
-          <td>{{ kind_label(r.kind) }}</td>
-          <td>{{ r.description[:60] }}
-            <span class="sub">{{ r.source or '—' }}{% if r.edited_at %} · {{ _f("corrected {date}", date=d(r.edited_at)) }}{% endif %}</span></td>
-          <td class="num {{ 'neg' if r.quantity and r.quantity < 0 }}">{{ qty(r.quantity) if r.quantity is not none else '—' }}</td>
-          <td class="num">{{ qty(r.price) if r.price else '—' }}</td>
-          <td class="num {{ 'pos' if r.amount > 0 else ('neg' if r.amount < 0) }}">{{ money(r.amount, r.currency) }}</td>
-          <td class="num sub">{{ qty(r.fee) if r.fee else '—' }}</td>
-          <td class="num sub">{{ qty(r.tax) if r.tax else '—' }}</td>
-          <td class="num sub">{{ qty(r.running) }}</td>
-          <td class="num"><button type="button" class="btn btn-ghost sec-edit" data-target="edit-{{ r.id }}">{{ _("Correct") }}</button></td>
-        </tr>
-        <tr class="sec-editrow" id="edit-{{ r.id }}" hidden>
-          <td colspan="11">
+  <div class="sec-filter">
+    <label class="scr-ctl">{{ _("Show") }}
+      <select id="sec-kind" style="width:auto">
+        <option value="">{{ _("everything") }}</option>
+        <option value="buy">{{ kind_label('buy') }}</option>
+        <option value="sell">{{ kind_label('sell') }}</option>
+        <option value="dividend">{{ kind_label('dividend') }}</option>
+        <option value="transfer">{{ kind_label('transfer') }}</option>
+      </select></label>
+    <button type="button" class="btn btn-ghost sec-toggle-all" data-open="0">{{ _("Expand all") }}</button>
+  </div>
+
+  {% for y in groups %}
+  <div class="sec-year {{ 'is-open' if loop.first }}" data-year="{{ y.year }}">
+    <div class="sec-head sec-year-head">
+      <span class="sec-chev">▸</span>
+      <span class="sec-title">{{ y.year }}</span>
+      <span class="sec-sum">{{ _n(y.count, "{n} row", "{n} rows") }}
+        {% if y.bought %} · {{ _f("{amount} bought", amount=money(y.bought, currency)) }}{% endif %}
+        {% if y.sold %} · {{ _f("{amount} sold", amount=money(y.sold, currency)) }}{% endif %}
+        {% if y.income %} · {{ _f("{amount} paid out", amount=money(y.income, currency)) }}{% endif %}</span>
+    </div>
+    <div class="sec-body">
+    {% for mo in y.months %}
+      <div class="sec-month {{ 'is-open' if loop.first and y.year == groups[0].year }}">
+        <div class="sec-head sec-month-head">
+          <span class="sec-chev">▸</span>
+          <span class="sec-title">{{ mon(mo.month) }}</span>
+          <span class="sec-sum">{{ _n(mo.count, "{n} row", "{n} rows") }}
+            {% if mo.bought %} · {{ _f("{amount} bought", amount=money(mo.bought, currency)) }}{% endif %}
+            {% if mo.sold %} · {{ _f("{amount} sold", amount=money(mo.sold, currency)) }}{% endif %}
+            {% if mo.income %} · {{ _f("{amount} paid out", amount=money(mo.income, currency)) }}{% endif %}</span>
+        </div>
+        <div class="sec-body">
+        {% for r in mo.rows %}
+          <div class="sec-row" id="txn-{{ r.id }}" data-kind="{{ r.kind }}">
+            <div class="sec-when">
+              <span class="sec-badge is-{{ r.kind }}">{{ kind_label(r.kind) }}</span>
+              <span class="sub">{{ d(r.txn_date) }}</span>
+            </div>
+            <div class="sec-what">
+              <span class="sub">{{ r.account_name }} · {{ r.source or '—' }}{% if r.edited_at %} · {{ _f("corrected {date}", date=d(r.edited_at)) }}{% endif %}</span>
+              <strong>{{ r.description[:80] }}</strong>
+            </div>
+            <div class="sec-costs num">
+              <span class="sub">{{ _("fee") }} {{ qty(r.fee) if r.fee else '—' }}</span>
+              <span class="sub">{{ _("tax") }} {{ qty(r.tax) if r.tax else '—' }}</span>
+            </div>
+            <div class="sec-money num">
+              <strong class="{{ 'pos' if r.amount > 0 else ('neg' if r.amount < 0) }}">{{ money(r.amount, r.currency) }}</strong>
+              <span>{% if r.quantity is not none %}<span class="sec-chip {{ 'is-out' if r.quantity < 0 }}">{{ qty(r.quantity) }}×</span>{% endif %}
+                {% if r.price %}{{ qty(r.price) }}{% endif %}
+                <span class="sub" title="{{ _('the quantity as it ran') }}">→ {{ qty(r.running) }}</span></span>
+            </div>
+            <div class="sec-act"><button type="button" class="btn btn-ghost sec-edit" data-target="edit-{{ r.id }}">{{ _("Correct") }}</button></div>
+          </div>
+          <div class="sec-editrow" id="edit-{{ r.id }}" hidden>
             <form method="post" action="{{ url_for('transaction_edit', txn_id=r.id) }}" class="form inline sec-form">
               <input type="hidden" name="back" value="{{ url_for('security_page', isin=isin) }}#txn-{{ r.id }}">
               <div><label>{{ _("Date") }}</label><input name="txn_date" type="date" value="{{ r.txn_date }}" style="width:auto"></div>
@@ -88,28 +120,59 @@
               <button type="submit" class="btn-danger">{{ _("Remove this row") }}</button>
             </form>
             {% endif %}
-          </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+          </div>
+        {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+    </div>
   </div>
+  {% endfor %}
   <p class="sub">{{ _("An imported row cannot be removed — it would only come back with the next import — but it can be corrected to a quantity of zero. A row typed in by hand can be removed.") }}</p>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+const open = (el, on) => el.classList.toggle('is-open', on);
+document.querySelectorAll('.sec-head').forEach((h) => {
+  h.addEventListener('click', () => open(h.parentElement, !h.parentElement.classList.contains('is-open')));
+});
+document.querySelector('.sec-toggle-all').addEventListener('click', (ev) => {
+  const on = ev.target.dataset.open !== '1';
+  document.querySelectorAll('.sec-year, .sec-month').forEach((el) => open(el, on));
+  ev.target.dataset.open = on ? '1' : '0';
+  ev.target.textContent = on ? {{ _("Collapse all") | tojson }} : {{ _("Expand all") | tojson }};
+});
 document.querySelectorAll('.sec-edit').forEach((b) => {
   b.addEventListener('click', () => {
     const row = document.getElementById(b.dataset.target);
     row.hidden = !row.hidden;
   });
 });
-// A correction that just landed: open the row it landed on.
+document.getElementById('sec-kind').addEventListener('change', (ev) => {
+  const want = ev.target.value;
+  document.querySelectorAll('.sec-row').forEach((r) => {
+    const show = !want || r.dataset.kind === want;
+    r.hidden = !show;
+    document.getElementById('edit-' + r.id.slice(4)).hidden = true;
+  });
+  document.querySelectorAll('.sec-month').forEach((m) => {
+    m.hidden = ![...m.querySelectorAll('.sec-row')].some((r) => !r.hidden);
+  });
+  document.querySelectorAll('.sec-year').forEach((y) => {
+    y.hidden = ![...y.querySelectorAll('.sec-month')].some((m) => !m.hidden);
+  });
+});
+// A correction that just landed: open the year and month it sits in,
+// and the form it came from.
 if (location.hash.startsWith('#txn-')) {
-  const row = document.getElementById('edit-' + location.hash.slice(5));
-  if (row) row.hidden = false;
+  const row = document.getElementById(location.hash.slice(1));
+  if (row) {
+    open(row.closest('.sec-month'), true); open(row.closest('.sec-year'), true);
+    document.getElementById('edit-' + location.hash.slice(5)).hidden = false;
+    row.scrollIntoView({ block: 'center' });
+  }
 }
 </script>
 {% endblock %}

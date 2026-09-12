@@ -11,6 +11,18 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.22.1] — 2026-09-12
+
+### Changed
+- The security page groups its rows by **year and month**, newest first,
+  each level a header that opens and closes and carries what happened
+  in it — rows, bought, sold, paid out — so twelve identical savings-plan
+  buys read as "6 rows · 1 200 bought" rather than a flat list. Only the
+  current year and month start open; *Expand all* opens the rest, and a
+  kind filter shows only the buys, the sales, the dividends or the
+  transfers. Each row shows its kind as a badge, the quantity as a chip
+  beside the price, and the quantity as it ran after that row.
+
 ## [0.22.0] — 2026-09-12
 
 ### Added

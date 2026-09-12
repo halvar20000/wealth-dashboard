@@ -559,10 +559,56 @@ footer {
 }
 
 /* ─── A security's rows ───────────────────────────────────────── */
+/* Year → month → row, each level a header that opens and closes. The
+   header carries the month's totals, so a collapsed year still says
+   what happened in it. */
 
-.sec-editrow td { background: var(--bg-elevated); border-bottom: 1px solid var(--border-strong); }
+.sec-filter { display: flex; align-items: center; gap: 16px; margin: 0 0 12px; }
+.sec-filter .btn { margin: 0; padding: 5px 12px; font-size: 12.5px; }
+.sec-year { border-top: 1px solid var(--border); }
+.sec-head {
+  display: flex; align-items: baseline; gap: 12px; padding: 12px 6px; cursor: pointer; user-select: none;
+}
+.sec-head:hover { background: var(--bg-card-hover); }
+.sec-year-head .sec-title { font-size: 17px; font-weight: 700; }
+.sec-month-head { padding-left: 28px; }
+.sec-month-head .sec-title { font-weight: 600; }
+.sec-chev { color: var(--text-tertiary); transition: transform 0.12s; width: 12px; }
+.is-open > .sec-head > .sec-chev { transform: rotate(90deg); }
+.sec-sum { color: var(--text-secondary); font-size: 12.5px; margin-left: auto; text-align: right; }
+.sec-body { display: none; }
+.is-open > .sec-body { display: block; }
+.sec-row {
+  display: grid; grid-template-columns: 130px 1fr 120px 210px 90px; gap: 12px; align-items: center;
+  margin: 4px 0 4px 50px; padding: 10px 14px; border-radius: 10px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+}
+.sec-row .sub { display: block; }
+.sec-what strong { display: block; }
+.sec-costs, .sec-money { text-align: right; }
+.sec-money strong { display: block; font-size: 15px; }
+.sec-chip {
+  display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 12px;
+  background: var(--bg-card); border: 1px solid var(--border-strong); margin-right: 6px;
+}
+.sec-chip.is-out { color: var(--loss); }
+.sec-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  background: var(--bg-card); color: var(--text-secondary); margin-bottom: 4px;
+}
+.sec-badge.is-buy { background: rgba(91,157,255,0.16); color: var(--accent-blue); }
+.sec-badge.is-sell { background: var(--warn-soft); color: var(--warn); }
+.sec-badge.is-dividend, .sec-badge.is-interest { background: var(--gain-soft); color: var(--gain); }
+.sec-badge.is-transfer { background: rgba(167,139,250,0.14); color: var(--accent-purple); }
+.sec-act { text-align: right; }
+.sec-act .btn { margin: 0; padding: 5px 12px; font-size: 12.5px; }
+.sec-editrow { margin: 0 0 8px 50px; padding: 12px 14px; border-radius: 10px; background: var(--bg-elevated); border: 1px dashed var(--border-strong); }
 .sec-editrow[hidden] { display: none; }
 .sec-form { gap: 8px 14px; }
 .sec-form label { margin-top: 0; }
 .sec-form button { margin-top: 0; align-self: flex-end; }
-.grid .sec-edit { margin: 0; }
+@media (max-width: 800px) {
+  .sec-row { grid-template-columns: 1fr 1fr; margin-left: 12px; }
+  .sec-editrow { margin-left: 12px; }
+  .sec-month-head { padding-left: 12px; }
+}

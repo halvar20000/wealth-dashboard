@@ -666,6 +666,10 @@ def security_page(isin: str):
         running += r["quantity"] or 0.0
         r["running"] = running
         r["kinds"] = manual.kinds_for(r["account_type"])
+    # Year → month, newest first, each with what was bought, sold and
+    # paid out. Twelve identical savings-plan buys are noise as a flat
+    # list and a story grouped: "six buys this year, 1 200 in".
+    groups = _cluster(rows)
     name = next((r["security_name"] for r in reversed(rows) if r["security_name"]), None) \
         or (sec["name"] if sec else None) or isin
     price = prices.latest().get(isin)
@@ -673,13 +677,37 @@ def security_page(isin: str):
         - sum(r["amount"] for r in rows if r["kind"] == "sell")
     income = sum(r["amount"] for r in rows if r["kind"] in ("dividend", "interest"))
     return render_template("security.html", active_page="portfolio", isin=isin, name=name,
-                           rows=rows, quantity=running, net_invested=net_invested,
+                           rows=rows, groups=groups, quantity=running, net_invested=net_invested,
                            income=income, price=price,
                            currency=next((r["currency"] for r in rows if r["kind"] in ("buy", "sell")),
                                          rows[0]["currency"]),
                            symbol=sec["symbol"] if sec else None,
                            trades=manual.TRADES, directional=manual.DIRECTIONAL,
                            accounts=sorted({r["account_name"] for r in rows}))
+
+
+def _cluster(rows: list[dict]) -> list[dict]:
+    """[{year, months: [{month, rows, ...totals}], ...totals}], newest
+    first, rows within a month newest first too. The totals are the
+    money that went into buys, came out of sales, and was paid as
+    dividends or interest — the three things a person asks of a month."""
+    def totals(items):
+        return {"count": len(items),
+                "bought": sum(-r["amount"] for r in items if r["kind"] == "buy"),
+                "sold": sum(r["amount"] for r in items if r["kind"] == "sell"),
+                "income": sum(r["amount"] for r in items if r["kind"] in ("dividend", "interest")),
+                "units": sum(r["quantity"] or 0.0 for r in items)}
+    years: dict[str, dict] = {}
+    for r in rows:
+        y, m = r["txn_date"][:4], r["txn_date"][:7]
+        year = years.setdefault(y, {"year": y, "months": {}})
+        year["months"].setdefault(m, []).append(r)
+    out = []
+    for y in sorted(years, reverse=True):
+        months = [{"month": m, "rows": sorted(items, key=lambda r: (r["txn_date"], r["id"]), reverse=True),
+                   **totals(items)} for m, items in sorted(years[y]["months"].items(), reverse=True)]
+        out.append({"year": y, "months": months, **totals([r for mo in months for r in mo["rows"]])})
+    return out
 
 
 @app.route("/transactions/<int:txn_id>/edit", methods=["POST"])
