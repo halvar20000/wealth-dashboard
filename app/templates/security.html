@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ name }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ name }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ isin }}{% if symbol %} · {{ symbol }}{% endif %} · {{ accounts | join(', ') }}</p>
+{% endblock %}
+{% block content %}
+
+<section class="stat-strip">
+  <div class="stat-card stat-gold">
+    <div class="stat-label">{{ _("Held") }}</div>
+    <div class="stat-value {{ 'loss' if quantity < 0 }}">{{ qty(quantity) }}</div>
+    <div class="stat-sub">{{ _("the running sum of every row below") }}</div>
+  </div>
+  <div class="stat-card stat-blue">
+    <div class="stat-label">{{ _("Net invested") }}</div>
+    <div class="stat-value">{{ money(net_invested, currency) }}</div>
+    <div class="stat-sub">{{ _("buys minus sales, fees included") }}</div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-label">{{ _("Income") }}</div>
+    <div class="stat-value">{{ money(income, currency) }}</div>
+    <div class="stat-sub">{{ _("dividends and interest") }}</div>
+  </div>
+  <div class="stat-card stat-purple">
+    <div class="stat-label">{{ _("Value") }}</div>
+    <div class="stat-value">{% if price %}{{ money(quantity * price.price, price.currency) }}{% else %}—{% endif %}</div>
+    <div class="stat-sub">{% if price %}{{ _f("at {price} on {date}", price=qty(price.price), date=d(price.as_of)) }}{% else %}{{ _("no market price yet") }}{% endif %}</div>
+  </div>
+</section>
+
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("Every row behind this holding") }}</h2>
+    <span class="card-subtitle">{{ _("oldest first, with the quantity as it ran") }}</span>
+  </div>
+  <p class="sub">{{ _("If a figure is wrong — a quantity a statement read badly, a price in the wrong currency — correct it here. A correction stays: the next import recognises the row and leaves it alone. Sizes are typed unsigned; the kind supplies the sign. The amount is the whole cash effect as the broker booked it, fees and taxes included.") }}</p>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr>
+        <th>{{ _("Date") }}</th><th>{{ _("Account") }}</th><th>{{ _("Kind") }}</th><th>{{ _("Description") }}</th>
+        <th class="num">{{ _("Quantity") }}</th><th class="num">{{ _("Price") }}</th><th class="num">{{ _("Amount") }}</th>
+        <th class="num">{{ _("Fee") }}</th><th class="num">{{ _("Tax") }}</th><th class="num">{{ _("Running") }}</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr id="txn-{{ r.id }}">
+          <td class="nowrap">{{ d(r.txn_date) }}</td>
+          <td class="sub">{{ r.account_name }}</td>
+          <td>{{ kind_label(r.kind) }}</td>
+          <td>{{ r.description[:60] }}
+            <span class="sub">{{ r.source or '—' }}{% if r.edited_at %} · {{ _f("corrected {date}", date=d(r.edited_at)) }}{% endif %}</span></td>
+          <td class="num {{ 'neg' if r.quantity and r.quantity < 0 }}">{{ qty(r.quantity) if r.quantity is not none else '—' }}</td>
+          <td class="num">{{ qty(r.price) if r.price else '—' }}</td>
+          <td class="num {{ 'pos' if r.amount > 0 else ('neg' if r.amount < 0) }}">{{ money(r.amount, r.currency) }}</td>
+          <td class="num sub">{{ qty(r.fee) if r.fee else '—' }}</td>
+          <td class="num sub">{{ qty(r.tax) if r.tax else '—' }}</td>
+          <td class="num sub">{{ qty(r.running) }}</td>
+          <td class="num"><button type="button" class="btn btn-ghost sec-edit" data-target="edit-{{ r.id }}">{{ _("Correct") }}</button></td>
+        </tr>
+        <tr class="sec-editrow" id="edit-{{ r.id }}" hidden>
+          <td colspan="11">
+            <form method="post" action="{{ url_for('transaction_edit', txn_id=r.id) }}" class="form inline sec-form">
+              <input type="hidden" name="back" value="{{ url_for('security_page', isin=isin) }}#txn-{{ r.id }}">
+              <div><label>{{ _("Date") }}</label><input name="txn_date" type="date" value="{{ r.txn_date }}" style="width:auto"></div>
+              <div><label>{{ _("Kind") }}</label>
+                <select name="kind" style="width:auto">
+                  {% for k in r.kinds %}<option value="{{ k }}" {{ 'selected' if k == r.kind }}>{{ kind_label(k) }}</option>{% endfor %}
+                </select></div>
+              <div><label>{{ _("Quantity") }}</label><input name="quantity" inputmode="decimal" value="{{ '%g' | format(r.quantity | abs) if r.quantity is not none else '' }}" style="width:110px"></div>
+              <div><label>{{ _("Price") }}</label><input name="price" inputmode="decimal" value="{{ '%g' | format(r.price) if r.price else '' }}" style="width:110px"></div>
+              <div><label>{{ _f("Amount in {currency}", currency=r.currency) }}</label><input name="amount" inputmode="decimal" value="{{ '%.2f' | format(r.amount | abs) }}" style="width:120px"></div>
+              {% if r.kind in directional %}
+              <div><label>{{ _("Direction") }}</label>
+                <select name="direction" style="width:auto"><option value="in" {{ 'selected' if r.amount >= 0 }}>{{ _("in") }}</option><option value="out" {{ 'selected' if r.amount < 0 }}>{{ _("out") }}</option></select></div>
+              <div><label>{{ _("Units") }}</label>
+                <select name="quantity_direction" style="width:auto"><option value="in" {{ 'selected' if not r.quantity or r.quantity >= 0 }}>{{ _("in") }}</option><option value="out" {{ 'selected' if r.quantity and r.quantity < 0 }}>{{ _("out") }}</option></select></div>
+              {% endif %}
+              <div><label>{{ _("Fee") }}</label><input name="fee" inputmode="decimal" value="{{ '%g' | format(r.fee) if r.fee else '' }}" style="width:90px"></div>
+              <div><label>{{ _("Tax") }}</label><input name="tax" inputmode="decimal" value="{{ '%g' | format(r.tax) if r.tax else '' }}" style="width:90px"></div>
+              <div style="flex-basis:100%"><label>{{ _("Description") }}</label><input name="description" value="{{ r.description }}"></div>
+              <div><label>{{ _("Security name") }}</label><input name="security_name" value="{{ r.security_name or '' }}" style="width:260px"></div>
+              <button type="submit">{{ _("Save correction") }}</button>
+            </form>
+            {% if r.source == 'manual' %}
+            <form method="post" action="{{ url_for('transaction_delete', account_id=r.account_id, txn_id=r.id) }}" style="margin-top:6px">
+              <input type="hidden" name="back" value="{{ url_for('security_page', isin=isin) }}">
+              <button type="submit" class="btn-danger">{{ _("Remove this row") }}</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="sub">{{ _("An imported row cannot be removed — it would only come back with the next import — but it can be corrected to a quantity of zero. A row typed in by hand can be removed.") }}</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.sec-edit').forEach((b) => {
+  b.addEventListener('click', () => {
+    const row = document.getElementById(b.dataset.target);
+    row.hidden = !row.hidden;
+  });
+});
+// A correction that just landed: open the row it landed on.
+if (location.hash.startsWith('#txn-')) {
+  const row = document.getElementById('edit-' + location.hash.slice(5));
+  if (row) row.hidden = false;
+}
+</script>
+{% endblock %}

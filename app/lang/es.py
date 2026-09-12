@@ -1637,4 +1637,32 @@ STRINGS: dict[str, str] = {
     'login lapsed': 'sesión caducada',
     'not set up': 'sin configurar',
     'simulation': 'simulación',
+
+    # ─── Die Zeilen eines Wertpapiers ─────────────────────────────────
+    'Amount in {currency}': 'Importe en {currency}',
+    'An imported row cannot be removed — it would only come back with the next import — but it can be corrected to a quantity of zero. A row typed in by hand can be removed.':
+        'Una fila importada no se puede eliminar (volvería con la siguiente importación), pero sí corregir a una cantidad de cero. Una fila tecleada a mano sí se puede eliminar.',
+    'Click a security to see, and correct, every row behind it.': 'Pulsa un valor para ver, y corregir, cada fila que hay detrás.',
+    'Correct': 'Corregir',
+    'Corrected.': 'Corregido.',
+    'Every row behind this holding': 'Cada fila detrás de esta posición',
+    'Held': 'En cartera',
+    'If a figure is wrong — a quantity a statement read badly, a price in the wrong currency — correct it here. A correction stays: the next import recognises the row and leaves it alone. Sizes are typed unsigned; the kind supplies the sign. The amount is the whole cash effect as the broker booked it, fees and taxes included.':
+        'Si una cifra está mal (una cantidad mal leída de un extracto, un precio en la moneda equivocada), corrígela aquí. La corrección se mantiene: la siguiente importación reconoce la fila y la deja en paz. Las cantidades se escriben sin signo; el tipo pone el signo. El importe es el efecto total en efectivo tal como lo contabilizó el bróker, con comisiones e impuestos.',
+    'No transaction carries that security.': 'Ninguna transacción lleva ese valor.',
+    'Remove this row': 'Eliminar esta fila',
+    'Running': 'Acumulado',
+    'Save correction': 'Guardar la corrección',
+    'Security name': 'Nombre del valor',
+    'That transaction does not exist.': 'Esa transacción no existe.',
+    'Units': 'Unidades',
+    'at {price} on {date}': 'a {price} el {date}',
+    'buys minus sales, fees included': 'compras menos ventas, comisiones incluidas',
+    'corrected {date}': 'corregido el {date}',
+    'dividends and interest': 'dividendos e intereses',
+    'in': 'entrada',
+    'no market price yet': 'aún sin precio de mercado',
+    'oldest first, with the quantity as it ran': 'de más antiguo a más reciente, con la cantidad acumulada',
+    'out': 'salida',
+    'the running sum of every row below': 'la suma acumulada de cada fila de abajo',
 }

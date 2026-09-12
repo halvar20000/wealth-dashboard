@@ -103,7 +103,11 @@ CREATE TABLE IF NOT EXISTS transactions (
     -- Which importer produced the row. Worth keeping: when a broker
     -- changes its export format, the first question is which rows came
     -- from the old parser.
-    source       TEXT
+    source       TEXT,
+    -- When the user corrected the row by hand. The correction survives
+    -- a re-import — the row is recognised by its id and left alone —
+    -- and the page says the figures are the user's, not the file's.
+    edited_at    TEXT
 );
 -- A correction the user made, kept as a rule so it applies to what is
 -- already imported as well as to what arrives next. Plain substrings,
@@ -425,6 +429,7 @@ _ADDED_COLUMNS = {
         ("quote_type", "TEXT"),
     ],
     "transactions": [
+        ("edited_at", "TEXT"),
         ("kind", "TEXT NOT NULL DEFAULT 'other'"),
         ("isin", "TEXT"),
         ("security_name", "TEXT"),

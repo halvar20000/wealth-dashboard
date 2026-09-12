@@ -557,3 +557,12 @@ footer {
   font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap;
   word-break: break-all; user-select: all;
 }
+
+/* ─── A security's rows ───────────────────────────────────────── */
+
+.sec-editrow td { background: var(--bg-elevated); border-bottom: 1px solid var(--border-strong); }
+.sec-editrow[hidden] { display: none; }
+.sec-form { gap: 8px 14px; }
+.sec-form label { margin-top: 0; }
+.sec-form button { margin-top: 0; align-self: flex-end; }
+.grid .sec-edit { margin: 0; }

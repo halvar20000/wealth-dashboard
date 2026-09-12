@@ -11,6 +11,21 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.22.0] — 2026-09-12
+
+### Added
+- **A page per security**, reached by clicking a holding on the Portfolio
+  page or on an account: what is held, what was invested, what it paid,
+  what it is worth — and every row behind it across every account, oldest
+  first, with the quantity as it ran. Each row can be **corrected** in
+  place: date, kind, quantity, price, amount, fee, tax, description.
+  Sizes are typed unsigned and the kind supplies the sign, so turning a
+  buy into a sale flips both. A correction stays — the next import
+  recognises the row by its id and leaves it alone — and the row says
+  when it was corrected. An imported row still cannot be removed (it
+  would only come back), but it can be corrected to a quantity of zero;
+  a row typed in by hand can be removed from here as well.
+
 ## [0.21.0] — 2026-09-12
 
 ### Added

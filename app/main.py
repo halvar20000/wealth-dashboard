@@ -642,6 +642,62 @@ def account_balance(account_id: int):
     return redirect(url_for("account_detail", account_id=account_id))
 
 
+@app.route("/securities/<path:isin>")
+@auth.login_required
+def security_page(isin: str):
+    """One security, and every row behind its holding — the buys, the
+    sales, the dividends, the transfers — across every account, each
+    row editable. The place to go when a quantity on the portfolio
+    page looks wrong: the answer is always one of these rows.
+    """
+    isin = isin.strip()
+    only, params = people.sql_in(people.scope(), "t.account_id")
+    with get_conn() as conn:
+        rows = [dict(r) for r in conn.execute(
+            f"SELECT t.*, a.name AS account_name, a.type AS account_type, "
+            f"a.currency AS account_currency FROM transactions t "
+            f"JOIN accounts a ON a.id = t.account_id WHERE t.isin = ?{only} "
+            f"ORDER BY t.txn_date, t.id", [isin, *params]).fetchall()]
+        sec = conn.execute("SELECT * FROM securities WHERE isin = ?", (isin,)).fetchone()
+    if not rows:
+        return render_template("missing.html", what=_t("No transaction carries that security.")), 404
+    running = 0.0
+    for r in rows:
+        running += r["quantity"] or 0.0
+        r["running"] = running
+        r["kinds"] = manual.kinds_for(r["account_type"])
+    name = next((r["security_name"] for r in reversed(rows) if r["security_name"]), None) \
+        or (sec["name"] if sec else None) or isin
+    price = prices.latest().get(isin)
+    net_invested = sum(-r["amount"] for r in rows if r["kind"] == "buy") \
+        - sum(r["amount"] for r in rows if r["kind"] == "sell")
+    income = sum(r["amount"] for r in rows if r["kind"] in ("dividend", "interest"))
+    return render_template("security.html", active_page="portfolio", isin=isin, name=name,
+                           rows=rows, quantity=running, net_invested=net_invested,
+                           income=income, price=price,
+                           currency=next((r["currency"] for r in rows if r["kind"] in ("buy", "sell")),
+                                         rows[0]["currency"]),
+                           symbol=sec["symbol"] if sec else None,
+                           trades=manual.TRADES, directional=manual.DIRECTIONAL,
+                           accounts=sorted({r["account_name"] for r in rows}))
+
+
+@app.route("/transactions/<int:txn_id>/edit", methods=["POST"])
+@auth.login_required
+def transaction_edit(txn_id: int):
+    """Correct one row. Back to wherever the form was, which is the
+    security page when it came from there."""
+    try:
+        manual.update_transaction(txn_id, request.form)
+        flash(_t("Corrected."), "ok")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    back = request.form.get("back") or ""
+    if not back.startswith("/") or back.startswith("//"):
+        back = url_for("transactions")
+    return redirect(back)
+
+
 @app.route("/accounts/<int:account_id>/transactions/<int:txn_id>/delete",
            methods=["POST"])
 @auth.login_required
@@ -652,6 +708,9 @@ def transaction_delete(account_id: int, txn_id: int):
         flash(_t("Only a transaction typed in by hand can be removed. An "
                  "imported one would only come back with the next import."),
               "error")
+    back = request.form.get("back") or ""
+    if back.startswith("/") and not back.startswith("//"):
+        return redirect(back)
     return redirect(url_for("account_detail", account_id=account_id))
 
 

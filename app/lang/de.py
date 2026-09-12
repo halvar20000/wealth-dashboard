@@ -1635,4 +1635,32 @@ STRINGS: dict[str, str] = {
     'login lapsed': 'Anmeldung abgelaufen',
     'not set up': 'nicht eingerichtet',
     'simulation': 'Simulation',
+
+    # ─── Die Zeilen eines Wertpapiers ─────────────────────────────────
+    'Amount in {currency}': 'Betrag in {currency}',
+    'An imported row cannot be removed — it would only come back with the next import — but it can be corrected to a quantity of zero. A row typed in by hand can be removed.':
+        'Eine importierte Zeile lässt sich nicht entfernen — sie käme mit dem nächsten Import zurück — aber auf eine Stückzahl von null korrigieren. Eine von Hand eingetippte Zeile lässt sich entfernen.',
+    'Click a security to see, and correct, every row behind it.': 'Klicke auf ein Wertpapier, um jede Zeile dahinter zu sehen und zu korrigieren.',
+    'Correct': 'Korrigieren',
+    'Corrected.': 'Korrigiert.',
+    'Every row behind this holding': 'Jede Zeile hinter dieser Position',
+    'Held': 'Bestand',
+    'If a figure is wrong — a quantity a statement read badly, a price in the wrong currency — correct it here. A correction stays: the next import recognises the row and leaves it alone. Sizes are typed unsigned; the kind supplies the sign. The amount is the whole cash effect as the broker booked it, fees and taxes included.':
+        'Stimmt eine Zahl nicht — eine falsch gelesene Stückzahl, ein Kurs in der falschen Währung — korrigiere sie hier. Eine Korrektur bleibt: der nächste Import erkennt die Zeile und lässt sie in Ruhe. Größen werden ohne Vorzeichen eingegeben; die Art liefert das Vorzeichen. Der Betrag ist die gesamte Geldbewegung, wie der Broker sie gebucht hat, samt Gebühren und Steuern.',
+    'No transaction carries that security.': 'Keine Transaktion trägt dieses Wertpapier.',
+    'Remove this row': 'Diese Zeile entfernen',
+    'Running': 'Laufend',
+    'Save correction': 'Korrektur speichern',
+    'Security name': 'Name des Wertpapiers',
+    'That transaction does not exist.': 'Diese Transaktion gibt es nicht.',
+    'Units': 'Stücke',
+    'at {price} on {date}': 'zu {price} am {date}',
+    'buys minus sales, fees included': 'Käufe minus Verkäufe, samt Gebühren',
+    'corrected {date}': 'korrigiert am {date}',
+    'dividends and interest': 'Dividenden und Zinsen',
+    'in': 'rein',
+    'no market price yet': 'noch kein Marktpreis',
+    'oldest first, with the quantity as it ran': 'älteste zuerst, mit dem jeweiligen Bestand',
+    'out': 'raus',
+    'the running sum of every row below': 'die laufende Summe aller Zeilen unten',
 }

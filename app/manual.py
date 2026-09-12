@@ -202,3 +202,72 @@ def set_balance(account: dict, form) -> dict:
             "as_of) VALUES (?, ?, ?, ?, ?)",
             (account["id"], amount, account["currency"], SOURCE, as_of))
     return {"amount": amount, "currency": account["currency"], "as_of": as_of}
+
+
+# The fields a correction may touch, and nothing else: the id that
+# recognises the row on the next import stays, and so do the account
+# and the source.
+EDITABLE = ("txn_date", "kind", "description", "counterparty", "quantity",
+            "price", "amount", "fee", "tax", "security_name")
+
+
+def update_transaction(txn_id: int, form) -> dict:
+    """Correct a row the user says is wrong — imported or typed in.
+
+    Editing is safe where deleting is not: a re-import recognises the
+    row by its id and leaves it alone, so the corrected figures stay.
+    Sizes are typed unsigned, as when adding; the kind supplies the
+    sign, so a sale's quantity is stored negative and a buy's money
+    negative whatever was typed. The amount is the whole cash effect —
+    fees and taxes included, as the broker booked it — and is taken as
+    given rather than recomputed, because the statement is the truth.
+    """
+    with get_conn() as conn:
+        row = conn.execute("SELECT t.*, a.type AS account_type FROM transactions t "
+                           "JOIN accounts a ON a.id = t.account_id WHERE t.id = ?",
+                           (txn_id,)).fetchone()
+    if row is None:
+        raise ValueError(i18n.t("That transaction does not exist."))
+    kind = (form.get("kind") or row["kind"]).strip()
+    if kind not in kinds_for(row["account_type"]):
+        raise ValueError(i18n.t("Pick what kind of entry this is."))
+    txn_date = _date(form.get("txn_date") or row["txn_date"])
+    description = " ".join((form.get("description") or "").split())[:500] or row["description"]
+    counterparty = " ".join((form.get("counterparty") or "").split())[:200] or None
+    name = " ".join((form.get("security_name") or "").split())[:200] or row["security_name"]
+
+    amount = _number(form.get("amount"), i18n.t("The amount"), allow_zero=True)
+    if amount is None:
+        raise ValueError(i18n.t("The amount is missing."))
+    if kind in _SIGN:
+        amount = _SIGN[kind] * amount
+    elif kind in DIRECTIONAL:
+        amount = amount if (form.get("direction") or ("in" if row["amount"] >= 0 else "out")) == "in" \
+            else -amount
+
+    quantity = price = fee = tax = None
+    if row["isin"]:
+        quantity = _number(form.get("quantity"), i18n.t("The quantity"), allow_zero=True)
+        if quantity is not None:
+            if kind == "sell":
+                quantity = -abs(quantity)
+            elif kind == "buy":
+                quantity = abs(quantity)
+            elif form.get("quantity_direction") == "out":
+                quantity = -abs(quantity)
+            if quantity == 0:
+                quantity = None
+        price = _number(form.get("price"), i18n.t("The price"), allow_zero=True) or None
+    fee = _number(form.get("fee"), i18n.t("The fee"), allow_zero=True) or None
+    tax = _number(form.get("tax"), i18n.t("The tax"), allow_zero=True) or None
+
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE transactions SET txn_date = ?, kind = ?, description = ?, "
+            "counterparty = ?, security_name = ?, amount = ?, quantity = ?, price = ?, "
+            "fee = ?, tax = ?, edited_at = datetime('now') WHERE id = ?",
+            (txn_date, kind, description, counterparty, name, amount, quantity, price,
+             fee, tax, txn_id))
+    return {"id": txn_id, "txn_date": txn_date, "kind": kind, "amount": amount,
+            "quantity": quantity, "price": price}
+

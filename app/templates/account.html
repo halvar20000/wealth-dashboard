@@ -129,7 +129,7 @@
   <tbody>
   {% for p in positions %}
     <tr>
-      <td>{{ p.name or '—' }}<span class="sub">{{ _n(p.trades, "{n} trade", "{n} trades") }}, {{ _f("last {date}", date=d(p.last_trade)) }}</span></td>
+      <td><a href="{{ url_for('security_page', isin=p.isin) }}">{{ p.name or p.isin }}</a><span class="sub">{{ _n(p.trades, "{n} trade", "{n} trades") }}, {{ _f("last {date}", date=d(p.last_trade)) }}</span></td>
       <td class="sub nowrap">{{ p.isin }}</td>
       <td class="num {{ 'neg' if p.incomplete_history }}">
         {{ qty(p.quantity) }}
@@ -145,7 +145,7 @@
 {% if positions | selectattr('incomplete_history') | list %}
 <p class="sub">{{ _("A negative quantity is not a short position: it is a sale whose purchase is older than the file you imported. Export a period that starts when you opened the account and re-import — overlap is free.") }}</p>
 {% endif %}
-<p class="sub">{{ _("Quantities are the running sum of every buy and sell, imported or typed in. The last two columns use the price of your most recent trade, not a market price — this app has no price feed yet, and a stale number presented as a valuation is worse than none.") }}</p>
+<p class="sub">{{ _("Quantities are the running sum of every buy and sell, imported or typed in. The last two columns use the price of your most recent trade, not a market price — this app has no price feed yet, and a stale number presented as a valuation is worse than none.") }} {{ _("Click a security to see, and correct, every row behind it.") }}</p>
 {% endif %}
 
 <h2>{{ _("Recent transactions") }}</h2>

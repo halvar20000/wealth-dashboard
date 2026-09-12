@@ -50,7 +50,7 @@
            down a table is a bug that only shows up in the rows. #}
         {% set delta = (h.value - h.net_invested) if h.value else None %}
         <tr>
-          <td>{{ h.name or h.isin }}<span class="sub">{{ _f("last trade {date}", date=d(h.last_trade)) }}</span></td>
+          <td><a href="{{ url_for('security_page', isin=h.isin) }}">{{ h.name or h.isin }}</a><span class="sub">{{ _f("last trade {date}", date=d(h.last_trade)) }}</span></td>
           <td class="sub nowrap">{{ h.isin }}</td>
           <td class="sub">{{ h.accounts | unique | join(', ') }}</td>
           <td class="num {{ 'neg' if h.incomplete_history }}">{{ qty(h.quantity) }}</td>

@@ -4014,5 +4014,67 @@ for aid in (sx_id, links_["AK2"]["account_id"]):
     c.post(f"/accounts/{aid}/delete", data={"confirm": nm})
 
 # ---------------------------------------------------------------------------
+print("\n28. A security's rows, and correcting one")
+# ---------------------------------------------------------------------------
+# The rows behind IWDA at the Degiro account, from the earlier imports.
+r = c.get("/securities/IE00B4L5Y983")
+check("the security page renders", r.status_code, 200)
+check("...naming the accounts it is held in", b"Degiro" in r.data, True)
+check("...with a correction form per row", r.data.count(b"Save correction") >= 1, True)
+r = c.get("/securities/XX0000000000")
+check("an unknown security is a 404, not a crash", r.status_code, 404)
+r = c.get("/portfolio")
+check("the portfolio's holdings link to the security page", b"/securities/IE00B4L5Y983" in r.data, True)
+r = c.get(f"/accounts/{broker_id}")
+check("...and so does the account's holdings table", b"/securities/IE00B4L5Y983" in r.data, True)
+
+with db.get_conn() as conn:
+    row = dict(conn.execute("SELECT * FROM transactions WHERE isin = 'IE00B4L5Y983' AND kind = 'buy' "
+                            "AND source != 'manual' ORDER BY id LIMIT 1").fetchone())
+before = importers.positions(row["account_id"])
+q_before = next(p_["quantity"] for p_ in before if p_["isin"] == "IE00B4L5Y983")
+r = c.post(f"/transactions/{row['id']}/edit", data={
+    "txn_date": row["txn_date"], "kind": "buy", "quantity": str(abs(row["quantity"]) + 5),
+    "price": str(row["price"]), "amount": str(abs(row["amount"]) + 1), "fee": "1.50",
+    "description": row["description"], "back": "/securities/IE00B4L5Y983"}, follow_redirects=True)
+check("a correction is accepted and returns to the security page", b"Corrected." in r.data and b"IE00B4L5Y983" in r.data, True)
+with db.get_conn() as conn:
+    after = dict(conn.execute("SELECT * FROM transactions WHERE id = ?", (row["id"],)).fetchone())
+check("...the quantity, amount and fee are the corrected ones, with the sign the kind supplies",
+      (after["quantity"], after["amount"], after["fee"]),
+      (abs(row["quantity"]) + 5, -(abs(row["amount"]) + 1), 1.5))
+check("...the id that recognises the row on re-import is untouched", after["external_id"], row["external_id"])
+check("...and the row says when it was corrected", bool(after["edited_at"]), True)
+q_after = next(p_["quantity"] for p_ in importers.positions(row["account_id"]) if p_["isin"] == "IE00B4L5Y983")
+check("the holding follows the correction", round(q_after - q_before, 6), 5.0)
+r = upload(broker_id, fixtures.DEGIRO_CSV)
+with db.get_conn() as conn:
+    again = dict(conn.execute("SELECT quantity FROM transactions WHERE id = ?", (row["id"],)).fetchone())
+check("re-importing the file leaves the correction alone", again["quantity"], abs(row["quantity"]) + 5)
+r = c.post(f"/transactions/{row['id']}/edit", data={
+    "txn_date": row["txn_date"], "kind": "sell", "quantity": "3", "price": "80",
+    "amount": "240", "back": "/securities/IE00B4L5Y983"}, follow_redirects=True)
+with db.get_conn() as conn:
+    sold = dict(conn.execute("SELECT kind, quantity, amount FROM transactions WHERE id = ?", (row["id"],)).fetchone())
+check("changing a buy into a sale flips both signs", (sold["kind"], sold["quantity"], sold["amount"]), ("sell", -3.0, 240.0))
+r = c.post(f"/transactions/{row['id']}/edit", data={"txn_date": "2999-01-01", "kind": "buy", "amount": "1",
+                                                     "back": "/securities/IE00B4L5Y983"}, follow_redirects=True)
+check("a date in the future is refused with the reason", b"in the future" in r.data, True)
+r = c.post(f"/transactions/{row['id']}/edit", data={"txn_date": row["txn_date"], "kind": "buy", "amount": "",
+                                                     "back": "/securities/IE00B4L5Y983"}, follow_redirects=True)
+check("a missing amount is refused", b"amount is missing" in r.data, True)
+r = c.post(f"/transactions/{row['id']}/edit", data={"txn_date": row["txn_date"], "kind": "buy", "amount": "2",
+                                                     "back": "https://evil.example/x"}, follow_redirects=False)
+check("an off-site 'back' is not followed", "evil" not in r.headers["Location"] and r.headers["Location"].endswith("/transactions"), True)
+# Put the row back as it was, so later sections see the file's figures.
+c.post(f"/transactions/{row['id']}/edit", data={
+    "txn_date": row["txn_date"], "kind": "buy", "quantity": str(abs(row["quantity"])),
+    "price": str(row["price"]), "amount": str(abs(row["amount"])), "fee": str(row["fee"] or ""),
+    "description": row["description"], "back": "/securities/IE00B4L5Y983"})
+check("a correction of a transaction that does not exist is refused",
+      b"does not exist" in c.post("/transactions/99999999/edit", data={"amount": "1", "kind": "buy"},
+                                  follow_redirects=True).data, True)
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)
