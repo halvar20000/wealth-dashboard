@@ -420,7 +420,7 @@ and knows your Application ID can act as your application. It is stored
 python3 tests/test_all.py
 ```
 
-1079 checks, no network, no pytest, no credentials. The whole bank flow —
+1081 checks, no network, no pytest, no credentials. The whole bank flow —
 JWT signing, pagination, normalisation, connect, sync, dedupe, consent
 expiry — runs against a fake, so it works on a NAS with an unhelpful
 Python and no internet.

@@ -11,6 +11,18 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.19.2] — 2026-09-12
+
+### Fixed
+- **Trade Republic, second attempt.** 0.19.1 asked for the next page with
+  the continuation key alone, which the connector calls a "wrong
+  continuation key": the key is bound to the strategy as well, and the
+  one thing the connector refuses is our `BOOK` status. So on the
+  connector's complaint the page is now asked for with the original
+  parameters and no status, then with `BOTH`; pending rows that arrive
+  are dropped on normalisation as they always were. Other banks are
+  still asked once, as before.
+
 ## [0.19.1] — 2026-09-12
 
 ### Fixed

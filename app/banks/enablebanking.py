@@ -248,13 +248,17 @@ class Client:
 
         A continuation key is only valid with the parameters of the
         request that produced it, and the follow-up request repeats them
-        — which is right for most banks. Not for all: the Trade Republic
-        connector hands back a key stamped with a different transaction
-        status than the one it was asked for, then rejects the identical
-        repeat with a 422 that names the continuation key. The key itself
-        carries everything the connector needs, so that page is asked for
-        again with the key alone. Only on that exact error: a 422 for any
-        other reason is still an error.
+        — the documented rule, and right for most banks. Not for all:
+        the Trade Republic connector hands back a key stamped with a
+        transaction status other than the `BOOK` it was asked for, then
+        rejects the identical repeat with a 422 naming the continuation
+        key. The key is bound to the rest (asked for alone it is "wrong"),
+        so on exactly that error the page is asked for again with the
+        same parameters and the status the connector will accept: none,
+        then BOTH. Pending rows that come back are dropped on
+        normalisation as they always were. A 422 for any other reason
+        is still an error, and a bank that accepts the repeat is never
+        asked twice.
         """
         cont = None
         seen_keys: set[str] = set()
@@ -262,11 +266,9 @@ class Client:
             try:
                 page = self.transactions(account_uid, continuation_key=cont, **kwargs)
             except EnableBankingError as exc:
-                if cont is None or exc.status != 422 \
-                        or "continuationkey" not in exc.body.replace("_", "").lower():
+                if cont is None or not _refuses_continuation(exc):
                     raise
-                page = self.transactions(account_uid, continuation_key=cont,
-                                         strategy=None, transaction_status=None)
+                page = self._continue_anyway(account_uid, cont, kwargs, exc)
             for txn in (page.get("transactions") or []):
                 yield txn
             cont = page.get("continuation_key")
@@ -278,6 +280,27 @@ class Client:
             if cont in seen_keys:
                 return
             seen_keys.add(cont)
+
+
+    def _continue_anyway(self, account_uid: str, cont: str, kwargs: dict,
+                         first: EnableBankingError) -> dict:
+        """The next page from a connector that refused the repeat."""
+        last = first
+        for status in (None, "BOTH"):
+            try:
+                return self.transactions(account_uid, continuation_key=cont,
+                                         **{**kwargs, "transaction_status": status})
+            except EnableBankingError as exc:
+                if not _refuses_continuation(exc):
+                    raise
+                last = exc
+        raise last
+
+
+def _refuses_continuation(exc: EnableBankingError) -> bool:
+    """A 422 whose complaint is the continuation key — the connector's
+    idea of what the key is bound to differs from ours."""
+    return exc.status == 422 and "continuation" in exc.body.replace("_", "").lower()
 
 
 # ─── Normalisation ───────────────────────────────────────────────────
