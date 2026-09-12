@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Crypto") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Crypto") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("Every coin you hold, at today's price, with the wallet's value over time. Coins arrive from Kraken or from a row typed in by hand with the code as its ISIN — CRYPTO:BTC — and are priced from Yahoo like everything else.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% if not coins %}
+<div class="card empty">
+  <p>{{ _("No coins yet.") }}</p>
+  <p class="sub">{{ _("Connect Kraken under Settings, or add a buy by hand on a broker account with CRYPTO:BTC as the ISIN.") }}</p>
+</div>
+{% else %}
+
+{% if coins | length > 1 %}
+<div class="period-pills" role="tablist" style="margin-bottom:16px">
+  {% for c in coins %}
+  <a class="period-btn {{ 'active' if c.isin == coin.isin }}" href="{{ url_for('crypto_page', coin=c.code) }}">{{ c.code }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<section class="stat-strip">
+  <div class="stat-card stat-gold">
+    <div class="stat-label">{{ _("Wallet") }}</div>
+    <div class="stat-value">{% if coin.value is not none %}{{ money(coin.value, coin.price_currency) }}{% else %}—{% endif %}</div>
+    <div class="stat-sub">{{ qty(coin.quantity) }} {{ coin.code }} · {{ coin.accounts | unique | join(', ') }}</div>
+  </div>
+  <div class="stat-card stat-blue">
+    <div class="stat-label">{{ _f("{code} price", code=coin.code) }}</div>
+    <div class="stat-value">{% if coin.price %}{{ money(coin.price, coin.price_currency) }}{% else %}—{% endif %}</div>
+    <div class="stat-sub">{% if coin.price %}{{ coin.symbol }} · {{ d(coin.price_as_of) }}{% else %}{{ _("no price yet — it arrives with the next price refresh") }}{% endif %}</div>
+  </div>
+  <div class="stat-card stat-purple">
+    <div class="stat-label">{{ _("Cost basis") }}</div>
+    <div class="stat-value">{{ money(coin.net_invested, coin.currency) }}</div>
+    <div class="stat-sub">{% if coin.avg_cost %}{{ _f("avg {price} per {code}", price=money(coin.avg_cost, coin.currency), code=coin.code) }}{% else %}{{ _("buys minus sales, fees included") }}{% endif %}</div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-label">{{ _("Unrealised gain") }}</div>
+    <div class="stat-value {{ 'gain' if coin.gain and coin.gain > 0 else ('loss' if coin.gain and coin.gain < 0) }}">{% if coin.gain is not none %}{{ money(coin.gain, coin.price_currency) }}{% else %}—{% endif %}</div>
+    <div class="stat-sub">{% if coin.gain_pct is not none %}{{ '%+.1f' | format(coin.gain_pct) }} %{% else %}—{% endif %}</div>
+  </div>
+</section>
+
+<div class="card">
+  <div class="card-header" style="flex-wrap:wrap; gap:12px">
+    <div><h2 style="margin:0">{{ _("Price chart") }}</h2>
+      <span class="card-subtitle" id="cr-meta">{{ _("Loading…") }}</span></div>
+    <div style="display:flex; gap:18px; flex-wrap:wrap; margin-left:auto">
+      <div class="period-pills" id="cr-mode" role="tablist">
+        <button type="button" class="period-btn active" data-mode="price">{{ _("Price") }}</button>
+        <button type="button" class="period-btn" data-mode="wallet">{{ _("Wallet") }}</button>
+      </div>
+      <div class="period-pills" id="cr-range" role="tablist">
+        {% for r, label in (("1m", "1M"), ("3m", "3M"), ("1y", "1Y"), ("5y", "5Y"), ("max", _("All"))) %}
+        <button type="button" class="period-btn {{ 'active' if r == '3m' }}" data-range="{{ r }}">{{ label }}</button>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="sec-change" id="cr-change" hidden>
+    <span class="sec-change-value" id="cr-change-value"></span>
+    <span class="sec-change-pct" id="cr-change-pct"></span>
+    <span class="sub" id="cr-change-note"></span>
+  </div>
+  <div class="chart-wrap" style="height:340px"><canvas id="cr-chart"></canvas></div>
+  <p class="sub" id="cr-note">{{ _("Price: Yahoo's daily close of the pair, in the base currency. Wallet: that price times the units held on each day, from the rows below — so a purchase shows as a step up and a sale as a step down.") }}</p>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("Latest rows") }}</h2>
+    <span class="card-subtitle"><a href="{{ url_for('security_page', isin=coin.isin) }}">{{ _("every row, and corrections") }} →</a></span>
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Kind") }}</th><th>{{ _("Account") }}</th><th>{{ _("Description") }}</th>
+                 <th class="num">{{ _("Quantity") }}</th><th class="num">{{ _("Price") }}</th><th class="num">{{ _("Amount") }}</th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td class="nowrap">{{ d(r.txn_date) }}</td>
+          <td><span class="sec-badge is-{{ r.kind }}">{{ kind_label(r.kind) }}</span></td>
+          <td class="sub">{{ r.account_name }}</td>
+          <td>{{ r.description[:60] }}</td>
+          <td class="num {{ 'neg' if r.quantity and r.quantity < 0 }}">{{ qty(r.quantity) if r.quantity is not none else '—' }}</td>
+          <td class="num">{{ qty(r.price) if r.price else '—' }}</td>
+          <td class="num {{ 'pos' if r.amount > 0 else ('neg' if r.amount < 0) }}">{{ money(r.amount, r.currency) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if coins %}
+<script>
+const LANG = {{ lang | tojson }};
+const URL_BASE = {{ url_for('api_crypto_chart', coin=coin.code) | tojson }};
+let MODE = 'price', RANGE = '3m', chart = null;
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fmt = (v, ccy) => v == null ? '—' : v.toLocaleString(LANG, { minimumFractionDigits: 0, maximumFractionDigits: v < 100 ? 2 : 0 }) + ' ' + ccy;
+
+async function load() {
+  const meta = document.getElementById('cr-meta');
+  meta.textContent = {{ _("Loading…") | tojson }};
+  let data;
+  try {
+    const res = await fetch(`${URL_BASE}?range=${RANGE}&mode=${MODE}`);
+    data = await res.json();
+    if (data.error) throw new Error(data.error);
+  } catch (e) {
+    meta.textContent = {{ _("Failed to load") | tojson }} + ' — ' + e.message;
+    return;
+  }
+  const pts = data.points || [];
+  if (!pts.length) { meta.textContent = {{ _("no prices for this range") | tojson }}; return; }
+  meta.textContent = `${data.symbol} · ${data.from} → ${data.to}`;
+  const el = document.getElementById('cr-change');
+  if (data.change != null) {
+    el.hidden = false;
+    const up = data.change >= 0;
+    document.getElementById('cr-change-value').textContent = (up ? '+' : '') + fmt(data.change, data.currency);
+    document.getElementById('cr-change-value').className = 'sec-change-value ' + (up ? 'pos' : 'neg');
+    document.getElementById('cr-change-pct').textContent = data.change_pct == null ? '' : (up ? '+' : '') + data.change_pct.toLocaleString(LANG, { maximumFractionDigits: 1 }) + '%';
+    document.getElementById('cr-change-pct').className = 'sec-change-pct ' + (up ? 'pos' : 'neg');
+    document.getElementById('cr-change-note').textContent = MODE === 'wallet' ? {{ _("wallet value over the range — units bought or sold count too") | tojson }} : {{ _("over the range") | tojson }};
+  } else { el.hidden = true; }
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('cr-chart'), {
+    type: 'line',
+    data: { labels: pts.map((p) => p.date), datasets: [{
+      label: MODE === 'wallet' ? {{ _("Wallet") | tojson }} : {{ _("Price") | tojson }},
+      data: pts.map((p) => p.value), borderColor: css('--accent-gold'),
+      backgroundColor: 'rgba(245,215,110,0.08)', fill: true, pointRadius: 0, borderWidth: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => fmt(c.parsed.y, data.currency) + (MODE === 'wallet' && pts[c.dataIndex].units != null ? ` · ${pts[c.dataIndex].units.toLocaleString(LANG, { maximumFractionDigits: 6 })} ${ {{ coin.code | tojson }} }` : '') } } },
+      scales: { x: { ticks: { color: css('--text-tertiary'), maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } },
+                y: { ticks: { color: css('--text-tertiary'), callback: (v) => fmt(v, data.currency) }, grid: { color: css('--border') } } } },
+  });
+}
+document.querySelectorAll('#cr-mode .period-btn').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('#cr-mode .period-btn').forEach((x) => x.classList.toggle('active', x === b));
+  MODE = b.dataset.mode; load();
+}));
+document.querySelectorAll('#cr-range .period-btn').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('#cr-range .period-btn').forEach((x) => x.classList.toggle('active', x === b));
+  RANGE = b.dataset.range; load();
+}));
+load();
+</script>
+{% endif %}
+{% endblock %}

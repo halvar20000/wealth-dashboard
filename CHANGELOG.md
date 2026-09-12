@@ -11,6 +11,33 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.23.0] — 2026-09-12
+
+### Added
+- **Performance since the first purchase**, on every security's page: a
+  chart of what the holding was worth against what went in, day by day,
+  with dividends and interest as their own line and the gain in money
+  and in percent at the top. To draw it the price feed now **backfills
+  daily prices** back to each security's first trade, once per security
+  from Yahoo — which also makes the net-worth line on the overview true
+  for the time before the app was installed.
+- **A Crypto page**: every coin held, with the wallet's value, the
+  price, the cost basis with the average per coin, and the unrealised
+  gain; a price chart over 1M · 3M · 1Y · 5Y · All that can also show
+  the wallet's value over the range — the price times the units held on
+  each day, so a purchase is a step up; and the latest rows. A coin can
+  be typed in by hand with `CRYPTO:BTC` as its ISIN.
+- **Loans and mortgages**: a page to enter each loan's terms — principal,
+  rate, first instalment, how often, the instalment or the term — and
+  see the amortisation schedule, what is still owed today, what was
+  paid and how much of it was interest, the payoff date, and the
+  balance over time. Dated extra repayments shorten the schedule. Each
+  loan is an account of type *loan*, so it belongs to people, its
+  balance is written from the schedule every day, and the overview
+  subtracts the debt from the net worth and shows it as its own tile. A
+  balance typed in by hand on the loan's account still wins on its day.
+  The arithmetic reproduces a bank's own instalment split to the cent.
+
 ## [0.22.1] — 2026-09-12
 
 ### Changed

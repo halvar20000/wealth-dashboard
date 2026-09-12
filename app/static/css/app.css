@@ -612,3 +612,18 @@ footer {
   .sec-editrow { margin-left: 12px; }
   .sec-month-head { padding-left: 12px; }
 }
+
+.sec-change { display: flex; align-items: baseline; gap: 12px; margin: -4px 0 10px; }
+.sec-change-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sec-change-pct { font-size: 14px; font-weight: 600; }
+a.period-btn { display: inline-block; text-decoration: none; }
+a.period-btn:hover { text-decoration: none; }
+
+/* ─── Loans ───────────────────────────────────────────────────── */
+
+.loan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.loan-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 18px; }
+.loan-figs strong { display: block; font-size: 17px; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.loan-figs .sub { display: block; }
+.check-row { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 6px; }
+@media (max-width: 800px) { .loan-grid { grid-template-columns: 1fr; } }

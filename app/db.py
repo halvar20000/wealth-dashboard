@@ -337,6 +337,23 @@ CREATE TABLE IF NOT EXISTS broker_links (
     last_error   TEXT
 );
 
+-- A loan's terms. The loan itself is an account of type `loan`, so it
+-- belongs to people and carries a balance like any other; this row is
+-- what lets that balance be computed rather than typed. See loans.py.
+CREATE TABLE IF NOT EXISTS loans (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id    INTEGER NOT NULL UNIQUE REFERENCES accounts(id) ON DELETE CASCADE,
+    principal     REAL NOT NULL,
+    rate_pct      REAL NOT NULL DEFAULT 0,      -- nominal, per year
+    first_payment TEXT NOT NULL,                -- ISO date of the first instalment
+    period_months INTEGER NOT NULL DEFAULT 1,   -- 1 monthly, 3 quarterly, 6, 12
+    payment       REAL,                         -- per period; NULL = from the term
+    term_months   INTEGER,
+    extras        TEXT,                         -- JSON [{date, amount}] lump sums
+    notes         TEXT,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Starred and dismissed, keyed on the bare symbol so one list serves all
 -- four boards: starring an ETF and starring a share are the same act.
 CREATE TABLE IF NOT EXISTS screener_watchlist (

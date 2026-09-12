@@ -23,6 +23,7 @@ one, dated the day it was true.
 
 from __future__ import annotations
 
+import re
 from datetime import date
 
 from . import categories, i18n
@@ -106,7 +107,10 @@ def clean_transaction(account: dict, form) -> dict:
     }
 
     if kind in TRADES:
-        isin = find_isin(form.get("isin"))
+        raw_isin = (form.get("isin") or "").strip().upper()
+        isin = find_isin(raw_isin)
+        if not isin and re.match(r"^CRYPTO:[A-Z0-9]{2,10}$", raw_isin):
+            isin = raw_isin                      # a coin, keyed by its code
         if not isin:
             raise ValueError(i18n.t("A trade needs the security's ISIN — two "
                                     "letters and ten characters, like "

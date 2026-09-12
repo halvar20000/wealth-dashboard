@@ -57,12 +57,14 @@ it does not do yet.
       categorise, budget, and read everything the pages show.
 - [x] Saxo Bank by OAuth, with the token chain kept alive in-app, and
       Kraken by a read-only API key.
+- [x] A page per security with every row behind it, correctable, and its
+      performance since the first purchase; daily prices backfilled.
+- [x] A Crypto page, and loans and mortgages with a computed schedule.
 
 ## Next
 
-**1. Price history.** `prices` already keeps every reading with its day.
-Once the app has been running a while, "what did the assets earn by
-themselves" becomes answerable from it.
+**1. Price history.** *(Done in 0.23.0: daily prices are backfilled from
+each security's first trade, so the question is answerable from day one.)*
 
 **2. The pages that are still blocked.** Each waits on one thing:
 

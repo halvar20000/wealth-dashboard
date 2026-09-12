@@ -2186,7 +2186,7 @@ from app import changelog, i18n, main                      # noqa: E402
 
 TEMPLATES = pathlib.Path(__file__).resolve().parent.parent / "app" / "templates"
 SOURCES = [pathlib.Path(__file__).resolve().parent.parent / "app" / f
-           for f in ("main.py", "categories.py", "auth.py", "manual.py",
+           for f in ("main.py", "categories.py", "auth.py", "manual.py", "loans.py",
                      "screener.py", "screener_etf.py")]
 
 
@@ -4074,6 +4074,160 @@ c.post(f"/transactions/{row['id']}/edit", data={
 check("a correction of a transaction that does not exist is refused",
       b"does not exist" in c.post("/transactions/99999999/edit", data={"amount": "1", "kind": "buy"},
                                   follow_redirects=True).data, True)
+
+# ---------------------------------------------------------------------------
+print("\n29. Price history, the performance chart, the crypto page")
+# ---------------------------------------------------------------------------
+from app import crypto                                      # noqa: E402
+
+# Daily history from Yahoo, and the backfill that runs once per security.
+DAILY = {"chart": {"result": [{"meta": {"currency": "EUR"},
+         "timestamp": [1767225600 + i * 86400 for i in range(5)],
+         "indicators": {"quote": [{"close": [100.0, 101.0, None, 103.0, 104.0]}]}}]}}
+hist_rows = prices.history("IWDA.AS", "2026-01-01", get=lambda url: DAILY)
+check("daily history is (day, close, currency), gaps dropped",
+      (len(hist_rows), hist_rows[0], hist_rows[-1][1]), (4, ("2026-01-01", 100.0, "EUR"), 104.0))
+check("pence become pounds in history too",
+      prices.history("X.L", "2026-01-01", get=lambda url: {"chart": {"result": [{"meta": {"currency": "GBp"},
+          "timestamp": [1767225600], "indicators": {"quote": [{"close": [2650.0]}]}}]}})[0][1:], (26.5, "GBP"))
+calls = []
+def daily_get(url):
+    calls.append(url)
+    if "period1=" in url:
+        return DAILY
+    return fake_get(url)
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM app_state WHERE key LIKE 'price_backfilled:%'")
+    conn.execute("DELETE FROM prices WHERE isin = 'IE00B4L5Y983' AND as_of < '2026-09-01'")
+info = prices.backfill(get=daily_get, isins=["IE00B4L5Y983"])
+check("a held security is backfilled from its first trade", info["backfilled"], 1)
+with db.get_conn() as conn:
+    n = conn.execute("SELECT COUNT(*) AS n FROM prices WHERE isin = 'IE00B4L5Y983' AND as_of < '2026-09-01'").fetchone()["n"]
+check("...the daily prices are stored", n, 4)
+calls.clear()
+prices.backfill(get=daily_get, isins=["IE00B4L5Y983"])
+check("...and asked for once, never again", any("period1=" in u for u in calls), False)
+check("a symbol Yahoo cannot chart is not asked about again either",
+      (prices.backfill(get=lambda url: (_ for _ in ()).throw(prices.PriceError("no")), isins=["XX1234567890"])["backfilled"],
+       db.get_state("price_backfilled:XX1234567890")), (0, "failed"))
+
+series = prices.series_for("IE00B4L5Y983")
+check("the security's series runs from its first row to today",
+      (series["first"], series["points"][0]["date"], len(series["points"]) > 100), (series["points"][0]["date"], series["first"], True))
+pt = next(p_ for p_ in series["points"] if p_["date"] == "2026-09-05")
+check("...a day without a price uses the last one before it", bool(pt["value"]) and pt["quantity"] > 0, True)
+check("...invested and income run alongside", ("invested" in pt, "income" in pt), (True, True))
+r = c.get("/api/securities/IE00B4L5Y983/history")
+check("the history API answers", (r.status_code, len(r.get_json()["points"]) > 0), (200, True))
+r = c.get("/securities/IE00B4L5Y983")
+check("the security page draws the chart", b"sec-chart" in r.data and b"Since the first purchase" in r.data, True)
+
+# The crypto page: nothing held yet, then a coin typed in by hand.
+r = c.get("/crypto")
+check("the crypto page renders with nothing held", (r.status_code, b"No coins yet" in r.data), (200, True))
+r = c.post(f"/accounts/{broker_id}/add", data={"kind": "buy", "txn_date": "2026-06-01", "isin": "CRYPTO:BTC",
+                                              "security_name": "Bitcoin", "quantity": "0.05", "price": "60000",
+                                              "fee": "5"}, follow_redirects=True)
+check("a coin can be typed in with CRYPTO:BTC as its ISIN", b"Added." in r.data, True)
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO securities (isin, symbol, name, symbol_source) VALUES ('CRYPTO:BTC', 'BTC-EUR', 'Bitcoin EUR', 'yahoo') "
+                 "ON CONFLICT(isin) DO UPDATE SET symbol = 'BTC-EUR'")
+    conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency) VALUES ('CRYPTO:BTC', '2026-09-11', 66000, 'EUR')")
+held_coins = crypto.coins("EUR")
+check("the coin is held with its cost basis and gain",
+      (held_coins[0]["code"], held_coins[0]["quantity"], held_coins[0]["net_invested"], round(held_coins[0]["gain"], 2)),
+      ("BTC", 0.05, 3005.0, round(0.05 * 66000 - 3005, 2)))
+r = c.get("/crypto")
+check("the crypto page shows the wallet", b"BTC" in r.data and b"Unrealised gain" in r.data, True)
+BTC_DAILY = {"chart": {"result": [{"meta": {"currency": "EUR"},
+             "timestamp": [1780000000 + i * 86400 for i in range(10)],
+             "indicators": {"quote": [{"close": [60000 + i * 500 for i in range(10)]}]}}]}}
+prices._get_json = lambda url: BTC_DAILY
+crypto._cache.clear()
+ch = crypto.chart("CRYPTO:BTC", "1m", "price", "EUR")
+check("the price chart runs over the range with the change",
+      (len(ch["points"]), ch["points"][0]["value"], round(ch["change"]), round(ch["change_pct"], 1)), (10, 60000.0, 4500, 7.5))
+wl = crypto.chart("CRYPTO:BTC", "1m", "wallet", "EUR")
+check("the wallet chart is price times units held on the day",
+      (wl["points"][-1]["value"], wl["points"][-1]["units"]), (0.05 * 64500, 0.05))
+r = c.get("/api/crypto/BTC/chart?range=1m&mode=wallet")
+check("the chart API answers", (r.status_code, len(r.get_json()["points"])), (200, 10))
+check("an unknown coin is a 404", c.get("/crypto/DOGE").status_code, 404)
+prices._get_json = fake_get
+
+# ---------------------------------------------------------------------------
+print("\n30. Loans and mortgages")
+# ---------------------------------------------------------------------------
+from app import loans                                       # noqa: E402
+
+# The bank's own worked example: 168 249 CHF, quarterly, first instalment
+# 4 271.21 on 2019-10-10 of which 128.61 interest.
+MORTGAGE = {"principal": 168249.0, "rate_pct": 128.61 / 168249 * 4 * 100, "first_payment": "2019-10-10",
+            "period_months": 3, "payment": 4271.21, "extras": "[]"}
+sched = loans.schedule(MORTGAGE)
+check("the first instalment reproduces the bank's split to the cent",
+      (sched[0]["interest"], sched[0]["capital"], sched[0]["balance"]), (128.61, 4142.60, 164106.40))
+check("the loan is paid off in the 41st instalment, in autumn 2029",
+      (len(sched), sched[-1]["date"][:7]), (41, "2029-10"))
+check("...and the last instalment is only what is left", sched[-1]["balance"], 0.0)
+st = loans.status(MORTGAGE, date(2026, 6, 1))
+check("the balance as of a day is the schedule's",
+      (st["payments_done"], 55000 < st["balance"] < 55600), (27, True))
+check("a term instead of a payment gives a constant annuity",
+      round(loans.annuity(100000, 0.03 / 12, 240), 2), 554.60)
+check("a zero rate divides evenly", loans.annuity(1200, 0.0, 12), 100.0)
+with_extra = loans.schedule({**MORTGAGE, "extras": json.dumps([{"date": "2027-04-10", "amount": 20000}])})
+check("an extra repayment shortens the loan", len(with_extra) < 41, True)
+check("...and is applied on its date", next(r_ for r_ in with_extra if r_["date"] == "2027-04-10")["extra"], 20000.0)
+
+r = c.get("/loans")
+check("the loans page renders empty", (r.status_code, b"Add a loan" in r.data), (200, True))
+r = c.post("/loans", data={"form": "loan_add", "name": "Mortgage, house", "principal": "168249", "currency": "CHF",
+                           "rate_pct": f"{MORTGAGE['rate_pct']:.6f}", "first_payment": "2019-10-10",
+                           "period_months": "3", "payment": "4271.21"}, follow_redirects=True)
+check("a loan is added", b"Loan added" in r.data and b"Mortgage, house" in r.data, True)
+loan = loans.all_loans()[0]
+with db.get_conn() as conn:
+    acct = conn.execute("SELECT * FROM accounts WHERE id = ?", (loan["account_id"],)).fetchone()
+    bal = conn.execute("SELECT amount, currency, balance_type FROM balances WHERE account_id = ? ORDER BY as_of DESC, id DESC LIMIT 1",
+                       (loan["account_id"],)).fetchone()
+check("...with an account of type loan", (acct["type"], acct["currency"]), ("loan", "CHF"))
+check("...whose balance is today's schedule figure, negative, from the schedule",
+      (bal["amount"] < 0, bal["currency"], bal["balance_type"]), (True, "CHF", "schedule"))
+sm = ov.summary("EUR")
+check("the overview subtracts the debt from the net worth",
+      (sm["debt"] > 0, round(sm["net_worth"], 2) == round(sm["cash"] + sm["securities"] - sm["debt"], 2)), (True, True))
+r = c.get("/")
+check("...and shows it", b"Debt" in r.data, True)
+check("the schedule is on the page", b"instalment by instalment" in r.data or b"Balance after" in c.get("/loans").data, True)
+r = c.post("/loans", data={"form": "loan_add", "name": "Bad", "principal": "1000", "currency": "EUR", "rate_pct": "60",
+                           "first_payment": "2026-01-01", "period_months": "1", "payment": "10"}, follow_redirects=True)
+check("a payment that cannot cover the interest is refused", b"never end" in r.data, True)
+r = c.post("/loans", data={"form": "loan_add", "name": "Car", "principal": "12000", "currency": "EUR", "rate_pct": "4.5",
+                           "first_payment": "2026-02-01", "period_months": "1", "payment": "", "term_months": "48"},
+           follow_redirects=True)
+car = next(l_ for l_ in loans.all_loans() if l_["name"] == "Car")
+check("a term without a payment works the payment out", round(loans.status(car)["payment"], 2), 273.64)
+r = c.post("/loans", data={"form": "loan_edit", "id": car["id"], "name": "Car loan", "principal": "12000", "currency": "EUR",
+                           "rate_pct": "4.5", "first_payment": "2026-02-01", "period_months": "1", "payment": "300",
+                           "extras": "2027-02-01 2000\n"}, follow_redirects=True)
+car2 = loans.get(car["id"])
+check("the terms can be changed", (b"Loan updated" in r.data, car2["name"], car2["payment"], "2027-02-01" in car2["extras"]),
+      (True, "Car loan", 300.0, True))
+r = c.post("/loans", data={"form": "loan_delete", "id": car["id"], "confirm": "wrong"}, follow_redirects=True)
+check("deleting asks for the name", b"exactly" in r.data and loans.get(car["id"]) is not None, True)
+r = c.post("/loans", data={"form": "loan_delete", "id": car["id"], "confirm": "Car loan"}, follow_redirects=True)
+with db.get_conn() as conn:
+    gone = conn.execute("SELECT 1 FROM accounts WHERE id = ?", (car["account_id"],)).fetchone()
+check("...and then removes the loan and its account", (loans.get(car["id"]), gone), (None, None))
+# A balance typed in by hand on the loan's account wins for its day.
+c.post(f"/accounts/{loan['account_id']}/balance", data={"amount": "-55000", "as_of": date.today().isoformat()})
+loans.write_all_balances()
+with db.get_conn() as conn:
+    newest = conn.execute("SELECT amount, balance_type FROM balances WHERE account_id = ? ORDER BY as_of DESC, id DESC LIMIT 1",
+                          (loan["account_id"],)).fetchone()
+check("a reading typed in today is not overwritten by the schedule", (newest["amount"], newest["balance_type"]), (-55000.0, "manual"))
+c.post("/loans", data={"form": "loan_delete", "id": loan["id"], "confirm": "Mortgage, house"})
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

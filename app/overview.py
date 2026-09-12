@@ -93,13 +93,17 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
         return between(amount, currency, base_currency)
 
     cash_by_currency: dict[str, float] = {}
+    debt_by_currency: dict[str, float] = {}
     rows = []
     for acct in accounts:
         bal = balances.get(acct["id"])
         amount = bal["amount"] if bal else None
         currency = (bal["currency"] if bal else None) or acct["currency"]
         if amount is not None:
-            cash_by_currency[currency] = cash_by_currency.get(currency, 0.0) + amount
+            # A loan's reading is negative — money owed — and is debt,
+            # not cash: the net worth subtracts it, the cash tile does not.
+            pile = debt_by_currency if acct["type"] == "loan" else cash_by_currency
+            pile[currency] = pile.get(currency, 0.0) + amount
         rows.append({
             **acct,
             "balance": amount,
@@ -168,7 +172,7 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
 
     # ── Totals ───────────────────────────────────────────────────
     totals_by_currency: dict[str, float] = {}
-    for source in (cash_by_currency, securities_by_currency):
+    for source in (cash_by_currency, securities_by_currency, debt_by_currency):
         for ccy, amount in source.items():
             totals_by_currency[ccy] = totals_by_currency.get(ccy, 0.0) + amount
 
@@ -218,6 +222,9 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
     sec_base = sum(v for v in (to_base(a, c)
                                for c, a in securities_by_currency.items())
                    if v is not None)
+    debt_base = -sum(v for v in (to_base(a, c)
+                                 for c, a in debt_by_currency.items())
+                     if v is not None)
     if cash_base:
         by_class.append({"name": "Cash", "value": cash_base})
     if sec_base:
@@ -225,9 +232,10 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
 
     return {
         "base_currency": base_currency,
-        "net_worth": cash_base + sec_base,
+        "net_worth": cash_base + sec_base - debt_base,
         "cash": cash_base,
         "securities": sec_base,
+        "debt": debt_base,
         "unconverted": unconverted,
         "converted": converted,
         # The date of the rates used, so the total can name it. None

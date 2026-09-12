@@ -41,7 +41,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from .db import get_conn, get_state, set_state
 
@@ -258,7 +258,156 @@ def refresh(base_currency: str = "EUR", get=None,
                     "ON CONFLICT(isin) DO UPDATE SET last_error = excluded.last_error",
                     (isin, str(exc)))
     set_state(FETCHED_AT, datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    try:
+        backfill(get, isins)
+    except Exception:                                   # noqa: BLE001
+        pass                                            # history is a bonus, never a condition
     return {"priced": priced, "failed": failed, "held": len(isins)}
+
+
+# ─── History ─────────────────────────────────────────────────────────
+
+HISTORY_URL = ("https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+               "?period1={p1}&period2={p2}&interval=1d")
+BACKFILLED = "price_backfilled:"
+
+
+def history(symbol: str, since: str, get=None) -> list[tuple[str, float, str]]:
+    """Daily closes from `since` to today: [(day, close, currency)].
+
+    The raw close, not the adjusted one: the app holds units and books
+    every distribution as its own row, so a price that folded them back
+    in would count them twice. Pence become pounds as in `quote()`.
+    """
+    import time
+    from datetime import date as _date
+    p1 = int(time.mktime(_date.fromisoformat(since).timetuple()))
+    url = HISTORY_URL.format(symbol=urllib.parse.quote(symbol), p1=p1, p2=int(time.time()))
+    data = (get or _get_json)(url)
+    chart = data.get("chart") or {}
+    if chart.get("error"):
+        raise PriceError(f"Yahoo has no history for {symbol}: "
+                         f"{chart['error'].get('description') or chart['error'].get('code')}")
+    results = chart.get("result") or []
+    if not results:
+        raise PriceError(f"Yahoo has no history for {symbol}.")
+    r = results[0]
+    meta = r.get("meta") or {}
+    currency = (meta.get("currency") or "").strip()
+    div = 1.0
+    if len(currency) == 3 and currency[-1].islower():
+        div, currency = 100.0, currency.upper()
+    closes = ((r.get("indicators") or {}).get("quote") or [{}])[0].get("close") or []
+    out = []
+    for ts, c in zip(r.get("timestamp") or [], closes):
+        if c is None or c != c or c <= 0:
+            continue
+        day = datetime.fromtimestamp(int(ts), tz=timezone.utc).date().isoformat()
+        out.append((day, float(c) / div, currency.upper()))
+    return out
+
+
+def backfill(get=None, isins: list[str] | None = None) -> dict:
+    """Once per security: the daily prices back to its first trade.
+
+    The feed only records a price from the day it was first asked, so a
+    holding bought two years ago has two years of history the net-worth
+    line and the security page cannot draw. Yahoo has it; one chart
+    request fills it in, and a state flag makes sure it is asked once —
+    for a security Yahoo has no history for as well, so a symbol nobody
+    can chart is not asked about every six hours for ever.
+    """
+    get = get or _get_json
+    isins = held_isins() if isins is None else isins
+    done, failed = 0, []
+    with get_conn() as conn:
+        symbols = {r["isin"]: r["symbol"] for r in conn.execute(
+            "SELECT isin, symbol FROM securities WHERE symbol IS NOT NULL").fetchall()}
+        firsts = {r["isin"]: r["first"] for r in conn.execute(
+            "SELECT isin, MIN(txn_date) AS first FROM transactions "
+            "WHERE isin IS NOT NULL AND quantity IS NOT NULL GROUP BY isin").fetchall()}
+    for isin in isins:
+        symbol, first = symbols.get(isin), firsts.get(isin)
+        if not symbol or not first or get_state(BACKFILLED + isin):
+            continue
+        try:
+            rows = history(symbol, first, get)
+        except PriceError as exc:
+            failed.append({"isin": isin, "error": str(exc)})
+            set_state(BACKFILLED + isin, "failed")
+            continue
+        with get_conn() as conn:
+            conn.executemany(
+                "INSERT INTO prices (isin, as_of, price, currency, fetched_at) "
+                "VALUES (?, ?, ?, ?, datetime('now')) ON CONFLICT(isin, as_of) DO NOTHING",
+                [(isin, day, price, ccy) for day, price, ccy in rows])
+        set_state(BACKFILLED + isin, datetime.now(timezone.utc).date().isoformat())
+        done += 1
+    return {"backfilled": done, "failed": failed}
+
+
+def series_for(isin: str, account_ids: list[int] | None = None,
+               today: date | None = None) -> dict:
+    """One holding, day by day since its first row: the units held, what
+    was put in, and what it was worth at that day's price.
+
+    Invested is buys minus sales, fees included — the money that left
+    the pocket and came back — and value is units × the newest price at
+    or before the day; a day before any price is drawn with the last
+    trade price, as the portfolio does. A day the holding was empty is
+    a gap, not a zero.
+    """
+    from bisect import bisect_right
+    from datetime import date as _date, timedelta
+    from . import people
+    today = today or _date.today()
+    only, params = people.sql_in(account_ids, "account_id")
+    with get_conn() as conn:
+        rows = [dict(r) for r in conn.execute(
+            f"SELECT txn_date, kind, quantity, price, amount, currency FROM transactions "
+            f"WHERE isin = ? AND quantity IS NOT NULL{only} ORDER BY txn_date, id",
+            [isin, *params]).fetchall()]
+        income = [dict(r) for r in conn.execute(
+            f"SELECT txn_date, amount FROM transactions WHERE isin = ? "
+            f"AND kind IN ('dividend', 'interest'){only} ORDER BY txn_date", [isin, *params]).fetchall()]
+        pr = [(r["as_of"], r["price"], r["currency"]) for r in conn.execute(
+            "SELECT as_of, price, currency FROM prices WHERE isin = ? ORDER BY as_of", (isin,))]
+    if not rows:
+        return {"points": [], "currency": None}
+    days, qty, invested, paid = [], [], [], []
+    q = inv = 0.0
+    last_paid = None
+    for r in rows:
+        q += r["quantity"] or 0.0
+        if r["kind"] == "buy":
+            inv += -r["amount"]
+        elif r["kind"] == "sell":
+            inv -= r["amount"]
+        if r["price"]:
+            last_paid = r["price"]
+        days.append(r["txn_date"]); qty.append(q); invested.append(inv); paid.append(last_paid)
+    idays, iamt = [], []
+    acc = 0.0
+    for r in income:
+        acc += r["amount"]; idays.append(r["txn_date"]); iamt.append(acc)
+    pdays = [d for d, _, _ in pr]
+    currency = pr[-1][2] if pr else rows[0]["currency"]
+    start = _date.fromisoformat(days[0])
+    points = []
+    d = start
+    while d <= today:
+        ds = d.isoformat()
+        i = bisect_right(days, ds)
+        held = qty[i - 1] if i else 0.0
+        j = bisect_right(pdays, ds)
+        price = pr[j - 1][1] if j else (paid[i - 1] if i else None)
+        k = bisect_right(idays, ds)
+        points.append({"date": ds, "quantity": held,
+                       "invested": invested[i - 1] if i else 0.0,
+                       "value": (held * price) if (price is not None and abs(held) > 1e-12) else None,
+                       "income": iamt[k - 1] if k else 0.0})
+        d += timedelta(days=1)
+    return {"points": points, "currency": currency, "first": days[0]}
 
 
 def set_symbol(isin: str, symbol: str | None) -> None:

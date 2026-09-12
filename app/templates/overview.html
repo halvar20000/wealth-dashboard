@@ -10,6 +10,7 @@
       <div class="hero-sub">
         {{ _("Cash") }} <strong>{{ money(s.cash, s.base_currency) }}</strong>
         · {{ _("Securities") }} <strong>{{ money(s.securities, s.base_currency) }}</strong>
+        {% if s.debt %}· {{ _("Debt") }} <strong class="loss">−{{ money(s.debt, s.base_currency) }}</strong>{% endif %}
       </div>
       {% if s.converted %}
       {% set amounts %}{% for u in s.converted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}{% endset %}
@@ -95,6 +96,13 @@
       {%- if s.holdings_unpriced %}, {{ _f("{n} with no price", n=s.holdings_unpriced) }}{% endif %}
     </div>
   </div>
+  {% if s.debt %}
+  <div class="stat-card stat-purple">
+    <div class="stat-label">{{ _("Debt") }}</div>
+    <div class="stat-value loss">{{ money(s.debt, s.base_currency) }}</div>
+    <div class="stat-sub"><a href="{{ url_for('loans_page') }}">{{ _("loans and mortgages") }}</a></div>
+  </div>
+  {% endif %}
   <div class="stat-card stat-green">
     <div class="stat-label">{{ _("Transactions") }}</div>
     <div class="stat-value">{{ qty(s.transaction_count) }}</div>

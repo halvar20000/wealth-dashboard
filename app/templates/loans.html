@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Loans") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Loans and mortgages") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("What you owe, computed from the terms rather than typed in: the schedule gives the balance as of today, the overview subtracts it from the net worth, and nothing needs updating month by month. A balance typed in on the loan's account page — from the bank's letter — still wins on the day it is typed.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% if loans %}
+<section class="stat-strip">
+  <div class="stat-card stat-purple">
+    <div class="stat-label">{{ _("Owed today") }}</div>
+    <div class="stat-value loss">{{ money(total_debt, base_currency) }}</div>
+    <div class="stat-sub">{{ _n(loans | length, "{n} loan", "{n} loans") }}</div>
+  </div>
+  <div class="stat-card stat-blue">
+    <div class="stat-label">{{ _("Per month") }}</div>
+    <div class="stat-value">{{ money(per_month, base_currency) }}</div>
+    <div class="stat-sub">{{ _("all instalments, as a monthly figure") }}</div>
+  </div>
+</section>
+{% endif %}
+
+{% for l in loans %}
+<div class="card" id="loan-{{ l.id }}">
+  <div class="card-header">
+    <h2>{{ l.name }}</h2>
+    <span class="card-subtitle">{{ periods[l.period_months] | replace('-', ' ') }} · {{ '%g' | format(l.rate_pct) }} % · <a href="{{ url_for('account_detail', account_id=l.account_id) }}">{{ _("the account") }}</a>{% if l.owners %} · {{ l.owners | map(attribute='name') | join(', ') }}{% endif %}</span>
+  </div>
+  <div class="loan-grid">
+    <div>
+      <div class="loan-figs">
+        <div><span class="stat-label">{{ _("Still owed") }}</span><strong class="loss">{{ money(l.status.balance, l.currency) }}</strong></div>
+        <div><span class="stat-label">{{ _("Of") }}</span><strong>{{ money(l.principal, l.currency) }}</strong></div>
+        <div><span class="stat-label">{{ _("Instalment") }}</span><strong>{{ money(l.status.payment, l.currency) }}</strong></div>
+        <div><span class="stat-label">{{ _("Paid so far") }}</span><strong>{{ money(l.status.paid_total, l.currency) }}</strong><span class="sub">{{ _f("{interest} of it interest", interest=money(l.status.paid_interest, l.currency)) }}</span></div>
+        <div><span class="stat-label">{{ _("Interest over the whole loan") }}</span><strong>{{ money(l.status.total_interest, l.currency) }}</strong></div>
+        <div><span class="stat-label">{{ _("Paid off") }}</span><strong>{% if l.status.endless %}{{ _("never at this payment") }}{% else %}{{ d(l.status.payoff) }}{% endif %}</strong><span class="sub">{{ _n(l.status.payments_left, "{n} instalment left", "{n} instalments left") }}{% if l.status.next %} · {{ _f("next {date}", date=d(l.status.next.date)) }}{% endif %}</span></div>
+      </div>
+      <div class="pbar-wrap" style="margin-top:12px">
+        <div class="pbar"><div class="pbar-fill pbar-gain" style="width:{{ (100 * l.status.progress) | round(1) }}%"></div></div>
+        <span class="pbar-pct">{{ (100 * l.status.progress) | round(0) | int }} % {{ _("repaid") }}</span>
+      </div>
+      {% if l.notes %}<p class="sub" style="margin-top:10px">{{ l.notes }}</p>{% endif %}
+    </div>
+    <div class="chart-wrap" style="height:220px"><canvas id="loan-chart-{{ l.id }}"></canvas></div>
+  </div>
+
+  <details style="margin-top:14px">
+    <summary class="sub">{{ _("The schedule, instalment by instalment") }}</summary>
+    <div class="table-wrap">
+      <table class="grid">
+        <thead><tr><th>#</th><th>{{ _("Date") }}</th><th class="num">{{ _("Instalment") }}</th><th class="num">{{ _("Interest") }}</th><th class="num">{{ _("Capital") }}</th><th class="num">{{ _("Extra") }}</th><th class="num">{{ _("Balance after") }}</th></tr></thead>
+        <tbody>
+        {% for r in l.schedule %}
+          <tr class="{{ 'sub' if r.date <= today }}">
+            <td>{{ r.n }}</td><td class="nowrap">{{ d(r.date) }}</td>
+            <td class="num">{{ money(r.payment, l.currency) }}</td>
+            <td class="num">{{ money(r.interest, l.currency) }}</td>
+            <td class="num">{{ money(r.capital, l.currency) }}</td>
+            <td class="num">{{ money(r.extra, l.currency) if r.extra else '—' }}</td>
+            <td class="num">{{ money(r.balance, l.currency) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <details style="margin-top:8px">
+    <summary class="sub">{{ _("Change the terms, or delete") }}</summary>
+    <form method="post" class="form" style="margin-top:8px">
+      <input type="hidden" name="form" value="loan_edit"><input type="hidden" name="id" value="{{ l.id }}">
+      {% with loan=l %}{% include "_loan_fields.html" %}{% endwith %}
+      <div><button type="submit">{{ _("Save the terms") }}</button></div>
+    </form>
+    <form method="post" class="form inline" style="margin-top:12px">
+      <input type="hidden" name="form" value="loan_delete"><input type="hidden" name="id" value="{{ l.id }}">
+      <div><label>{{ _f("Type “{name}” to delete this loan and its account", name=l.name) }}</label><input name="confirm" autocomplete="off"></div>
+      <button type="submit" class="btn-danger">{{ _("Delete") }}</button>
+    </form>
+  </details>
+</div>
+{% endfor %}
+
+<div class="card">
+  <div class="card-header"><h2>{{ _("Add a loan") }}</h2>
+    <span class="card-subtitle">{{ _("a mortgage, a car loan, a consumer credit — anything paid off in instalments") }}</span></div>
+  <form method="post" class="form">
+    <input type="hidden" name="form" value="loan_add">
+    {% with loan=none %}{% include "_loan_fields.html" %}{% endwith %}
+    {% if people %}
+    <label>{{ _("Whose") }}</label>
+    <div class="check-row">
+      {% for p in people %}<label class="check"><input type="checkbox" name="people" value="{{ p.id }}" {{ 'checked' if viewing and viewing.id == p.id }}> {{ p.name }}</label>{% endfor %}
+    </div>
+    {% endif %}
+    <div><button type="submit">{{ _("Add the loan") }}</button></div>
+  </form>
+  <p class="sub">{{ _("The instalment is the figure on the contract. Leave it blank and give the term instead, and it is worked out as a constant annuity — the usual shape of a mortgage. Interest is rounded to the cent each period, the way a bank does it, so the schedule reproduces the bank's own figures.") }}</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const LANG = {{ lang | tojson }};
+{% for l in loans %}
+new Chart(document.getElementById('loan-chart-{{ l.id }}'), {
+  type: 'line',
+  data: { labels: {{ l.schedule | map(attribute='date') | list | tojson }},
+          datasets: [{ label: {{ _("Balance after") | tojson }}, data: {{ l.schedule | map(attribute='balance') | list | tojson }},
+                       borderColor: css('--accent-purple'), backgroundColor: 'rgba(167,139,250,0.10)', fill: true, pointRadius: 0, borderWidth: 2 }] },
+  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false },
+             tooltip: { callbacks: { label: (c) => c.parsed.y.toLocaleString(LANG, { maximumFractionDigits: 0 }) + ' ' + {{ l.currency | tojson }} } } },
+             scales: { x: { ticks: { color: css('--text-tertiary'), maxTicksLimit: 6, maxRotation: 0 }, grid: { display: false } },
+                       y: { ticks: { color: css('--text-tertiary'), callback: (v) => v.toLocaleString(LANG, { maximumFractionDigits: 0 }) }, grid: { color: css('--border') }, beginAtZero: true } } },
+});
+{% endfor %}
+</script>
+{% endblock %}

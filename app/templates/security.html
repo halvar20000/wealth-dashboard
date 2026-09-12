@@ -31,6 +31,20 @@
 
 <div class="card">
   <div class="card-header">
+    <h2>{{ _("Since the first purchase") }}</h2>
+    <span class="card-subtitle" id="sec-chart-sub">{{ _("what it was worth against what went in, day by day") }}</span>
+  </div>
+  <div class="sec-change" id="sec-change" hidden>
+    <span class="sec-change-value" id="sec-change-value"></span>
+    <span class="sec-change-pct" id="sec-change-pct"></span>
+    <span class="sub" id="sec-change-note"></span>
+  </div>
+  <div class="chart-wrap" style="height:300px"><canvas id="sec-chart"></canvas></div>
+  <p class="sub">{{ _("Value is the units held times the price of the day — the market price where the app has one, the last price paid before that. Invested is buys minus sales, fees included. Dividends and interest are drawn as their own line, because they are return that never shows in the value.") }}</p>
+</div>
+
+<div class="card">
+  <div class="card-header">
     <h2>{{ _("Every row behind this holding") }}</h2>
     <span class="card-subtitle">{{ _n(rows | length, "{n} row", "{n} rows") }} · {{ _("by year and month, newest first") }}</span>
   </div>
@@ -134,6 +148,41 @@
 
 {% block scripts %}
 <script>
+(async () => {
+  const res = await fetch({{ url_for('api_security_history', isin=isin) | tojson }});
+  const data = await res.json();
+  const pts = (data.points || []).filter((p) => p.value !== null || p.invested);
+  if (!pts.length) { document.getElementById('sec-chart-sub').textContent = {{ _("no price history yet — it arrives with the next price refresh") | tojson }}; return; }
+  const lang = {{ lang | tojson }};
+  const ccy = data.currency || {{ currency | tojson }};
+  const fmt = (v) => v == null ? '—' : v.toLocaleString(lang, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + '\u00a0' + ccy;
+  const last = pts[pts.length - 1];
+  const gain = last.value != null ? last.value + last.income - last.invested : null;
+  const el = document.getElementById('sec-change');
+  if (gain != null) {
+    el.hidden = false;
+    document.getElementById('sec-change-value').textContent = (gain >= 0 ? '+' : '') + fmt(gain);
+    document.getElementById('sec-change-value').className = 'sec-change-value ' + (gain >= 0 ? 'pos' : 'neg');
+    document.getElementById('sec-change-pct').textContent = last.invested ? ((gain >= 0 ? '+' : '') + (100 * gain / last.invested).toLocaleString(lang, { maximumFractionDigits: 1 }) + '%') : '';
+    document.getElementById('sec-change-pct').className = 'sec-change-pct ' + (gain >= 0 ? 'pos' : 'neg');
+    document.getElementById('sec-change-note').textContent = {{ _("value plus income, against what went in, since {date}") | tojson }}.replace('{date}', data.first || pts[0].date);
+  }
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  new Chart(document.getElementById('sec-chart'), {
+    type: 'line',
+    data: { labels: pts.map((p) => p.date), datasets: [
+      { label: {{ _("Value") | tojson }}, data: pts.map((p) => p.value), borderColor: css('--accent-gold'), backgroundColor: 'rgba(245,215,110,0.08)', fill: true, pointRadius: 0, borderWidth: 2, spanGaps: true },
+      { label: {{ _("Invested") | tojson }}, data: pts.map((p) => p.invested), borderColor: css('--accent-blue'), pointRadius: 0, borderWidth: 2, stepped: true },
+      { label: {{ _("Income") | tojson }}, data: pts.map((p) => p.income), borderColor: css('--gain'), pointRadius: 0, borderWidth: 1.5, borderDash: [4, 4], stepped: true },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: css('--text-secondary') } },
+                 tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmt(c.parsed.y)}` } } },
+      scales: { x: { ticks: { color: css('--text-tertiary'), maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } },
+                y: { ticks: { color: css('--text-tertiary'), callback: (v) => fmt(v) }, grid: { color: css('--border') } } } },
+  });
+})();
+
 const open = (el, on) => el.classList.toggle('is-open', on);
 document.querySelectorAll('.sec-head').forEach((h) => {
   h.addEventListener('click', () => open(h.parentElement, !h.parentElement.classList.contains('is-open')));

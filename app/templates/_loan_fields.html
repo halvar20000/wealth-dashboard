@@ -1,0 +1,18 @@
+<label>{{ _("Name") }}</label>
+<input name="name" value="{{ loan.name if loan else '' }}" placeholder="{{ _('Mortgage, house') }}" maxlength="80">
+<div class="form inline" style="max-width:none">
+  <div><label>{{ _("Principal") }}</label><input name="principal" inputmode="decimal" value="{{ '%g' | format(loan.principal) if loan else '' }}" style="width:140px"></div>
+  <div><label>{{ _("Currency") }}</label><input name="currency" value="{{ loan.currency if loan else base_currency }}" maxlength="3" style="width:70px"></div>
+  <div><label>{{ _("Rate, % per year") }}</label><input name="rate_pct" inputmode="decimal" value="{{ '%g' | format(loan.rate_pct) if loan else '' }}" style="width:100px"></div>
+  <div><label>{{ _("First instalment") }}</label><input name="first_payment" type="date" value="{{ loan.first_payment if loan else '' }}" style="width:auto"></div>
+  <div><label>{{ _("Every") }}</label>
+    <select name="period_months" style="width:auto">
+      {% for m, label in periods.items() %}<option value="{{ m }}" {{ 'selected' if loan and loan.period_months == m }}>{{ _(label ~ " [rhythm]") if label in ('monthly', 'quarterly', 'half-yearly', 'yearly') else label }}</option>{% endfor %}
+    </select></div>
+  <div><label>{{ _("Instalment") }}</label><input name="payment" inputmode="decimal" value="{{ '%g' | format(loan.payment) if loan and loan.payment else '' }}" placeholder="{{ _('or leave blank') }}" style="width:120px"></div>
+  <div><label>{{ _("Term, months") }}</label><input name="term_months" inputmode="number" value="{{ loan.term_months or '' if loan else '' }}" placeholder="240" style="width:90px"></div>
+</div>
+<label>{{ _("Extra repayments") }} <span class="sub">{{ _("one per line: date and amount") }}</span></label>
+<textarea name="extras" rows="2" placeholder="2027-04-10 20000">{{ loan.extras_text if loan else '' }}</textarea>
+<label>{{ _("Notes") }} <span class="sub">{{ _("optional") }}</span></label>
+<input name="notes" value="{{ loan.notes or '' if loan else '' }}" maxlength="500">

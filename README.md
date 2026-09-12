@@ -48,7 +48,12 @@ a PSD2 API it connects directly, with credentials that are yours.
 - **Holdings**, computed from the trades — imported or typed in: what you
   own, how much, and what you put in. Click one and every row behind it
   is listed and can be corrected in place; a correction survives the
-  next import.
+  next import. Each has a chart of its performance since the first
+  purchase — value against what went in, with the income drawn apart.
+- **Crypto** — every coin held, its price and the wallet's value over
+  time, from Kraken or typed in by hand.
+- **Loans and mortgages** — the terms in, the amortisation schedule out:
+  what is owed today, computed, and subtracted from the net worth.
 - **Saxo Bank by API** — an application of your own in Saxo's developer
   portal, one login, and every trade, dividend, fee and balance arrives
   on its own; the app keeps Saxo's short-lived login alive while it runs.
@@ -492,7 +497,7 @@ and knows your Application ID can act as your application. It is stored
 python3 tests/test_all.py
 ```
 
-1235 checks, no network, no pytest, no credentials. The whole bank flow —
+1285 checks, no network, no pytest, no credentials. The whole bank flow —
 JWT signing, pagination, normalisation, connect, sync, dedupe, consent
 expiry — runs against a fake, so it works on a NAS with an unhelpful
 Python and no internet.

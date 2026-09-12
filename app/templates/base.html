@@ -38,6 +38,8 @@
     <nav>
       <a class="navlink {{ 'active' if active_page == 'overview' }}" href="{{ url_for('index') }}">{{ _("Overview") }}</a>
       <a class="navlink {{ 'active' if active_page == 'portfolio' }}" href="{{ url_for('portfolio_page') }}">{{ _("Portfolio") }}</a>
+      <a class="navlink {{ 'active' if active_page == 'crypto' }}" href="{{ url_for('crypto_page') }}">{{ _("Crypto") }}</a>
+      <a class="navlink {{ 'active' if active_page == 'loans' }}" href="{{ url_for('loans_page') }}">{{ _("Loans") }}</a>
       <a class="navlink {{ 'active' if active_page == 'screener' }}" href="{{ url_for('screener_page') }}">{{ _("Share Ideas") }}</a>
       <a class="navlink {{ 'active' if active_page == 'cashflow' }}" href="{{ url_for('cashflow_page') }}">{{ _("Cash Flow") }}</a>
       <a class="navlink {{ 'active' if active_page == 'budget' }}" href="{{ url_for('budget_page') }}">{{ _("Budget") }}</a>
@@ -65,7 +67,7 @@
       <h1>{% block heading %}{% endblock %}</h1>
       {% endif %}
     {% endblock %}
-    {% if view_person and active_page in ('overview', 'portfolio', 'cashflow', 'budget', 'forecast', 'subscriptions', 'transactions', 'categorize', 'accounts') %}
+    {% if view_person and active_page in ('overview', 'portfolio', 'crypto', 'loans', 'cashflow', 'budget', 'forecast', 'subscriptions', 'transactions', 'categorize', 'accounts') %}
     <p class="view-note">{{ _f("Only {name}'s accounts are counted on this page.", name=view_person.name) }}</p>
     {% endif %}
     {% block lede %}{% endblock %}

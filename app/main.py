@@ -41,8 +41,8 @@ from flask import (Flask, flash, g, jsonify, redirect, render_template,
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import (cashflow, categories, forecast, history, importers, manual,
-               mcp, overview, people, screener, screener_etf, screener_jobs,
+from . import (cashflow, categories, crypto, forecast, history, importers, loans,
+               manual, mcp, overview, people, screener, screener_etf, screener_jobs,
                subscriptions)
 from . import brokers
 from .brokers import kraken, saxo
@@ -145,7 +145,7 @@ def _month(value) -> str:
 # while the database still says "bank" and an export still matches.
 ACCOUNT_TYPES = {"bank": "Bank account", "savings": "Savings",
                  "card": "Credit card", "broker": "Broker",
-                 "other": "Other"}
+                 "loan": "Loan or mortgage", "other": "Other"}
 
 
 def _type_label(slug: str) -> str:
@@ -708,6 +708,82 @@ def _cluster(rows: list[dict]) -> list[dict]:
                    **totals(items)} for m, items in sorted(years[y]["months"].items(), reverse=True)]
         out.append({"year": y, "months": months, **totals([r for mo in months for r in mo["rows"]])})
     return out
+
+
+@app.route("/crypto")
+@app.route("/crypto/<coin>")
+@auth.login_required
+def crypto_page(coin: str | None = None):
+    base = settings.get("base_currency", "EUR")
+    held = crypto.coins(base, people.scope())
+    chosen = next((c for c in held if c["code"] == (coin or "").upper()), held[0] if held else None)
+    if coin and chosen and chosen["code"] != coin.upper():
+        return render_template("missing.html", what=_t("No such coin is held.")), 404
+    return render_template("crypto.html", active_page="crypto", coins=held, coin=chosen,
+                           rows=crypto.recent(chosen["isin"], people.scope()) if chosen else [])
+
+
+@app.route("/api/crypto/<coin>/chart")
+@auth.login_required
+def api_crypto_chart(coin: str):
+    range_key = request.args.get("range", "3m")
+    if range_key not in crypto.RANGES:
+        range_key = "3m"
+    mode = "wallet" if request.args.get("mode") == "wallet" else "price"
+    try:
+        return crypto.chart(f"{prices.CRYPTO_PREFIX}{coin.upper()}", range_key, mode,
+                            settings.get("base_currency", "EUR"), people.scope())
+    except prices.PriceError as exc:
+        return {"points": [], "error": str(exc)}
+
+
+# ─── Loans and mortgages ─────────────────────────────────────────────
+
+@app.route("/loans", methods=["GET", "POST"])
+@auth.login_required
+def loans_page():
+    if request.method == "POST":
+        action = request.form.get("form")
+        try:
+            if action == "loan_add":
+                loans.add(request.form, request.form.getlist("people"))
+                flash(_t("Loan added. Its balance is on the overview from today."), "ok")
+            elif action == "loan_edit":
+                loans.update(int(request.form.get("id", "0")), request.form)
+                flash(_t("Loan updated."), "ok")
+            elif action == "loan_delete":
+                loan = loans.get(int(request.form.get("id", "0")))
+                if loan and (request.form.get("confirm") or "").strip() != loan["name"]:
+                    flash(_t("Type the loan's name exactly to confirm the deletion."), "error")
+                else:
+                    loans.delete(int(request.form.get("id", "0")))
+                    flash(_t("Loan deleted, with its account."), "ok")
+        except ValueError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("loans_page"))
+    loans.write_all_balances()
+    items = []
+    for loan in loans.all_loans(people.scope()):
+        st = loans.status(loan)
+        items.append({**loan, "status": st, "schedule": loans.schedule(loan),
+                      "extras_text": "\n".join(f"{e['date']} {e['amount']:g}" for e in loans._extras(loan)),
+                      "owners": people.for_account(loan["account_id"])})
+    base = settings.get("base_currency", "EUR")
+    total = sum(v for v in (fx.convert(i["status"]["balance"], i["currency"], base)[0]
+                            for i in items) if v is not None)
+    per_month = sum(v for v in (fx.convert(i["status"]["per_month"], i["currency"], base)[0]
+                                for i in items) if v is not None)
+    return render_template("loans.html", active_page="loans", loans=items,
+                           total_debt=total, per_month=per_month, base_currency=base,
+                           periods=loans.PERIODS, today=date.today().isoformat(),
+                           viewing=people.current())
+
+
+@app.route("/api/securities/<path:isin>/history")
+@auth.login_required
+def api_security_history(isin: str):
+    """Day by day since the first row: units, invested, value, income."""
+    return prices.series_for(isin.strip(), people.scope())
 
 
 @app.route("/transactions/<int:txn_id>/edit", methods=["POST"])
@@ -1695,11 +1771,12 @@ def _start_rate_refresher() -> None:
         while True:
             try:
                 cfg = settings.load()
-                if ((banksync.credentials_present() or brokers.links())
+                if ((banksync.credentials_present() or brokers.links() or loans.all_loans())
                         and banksync.sync_due(datetime.now(), cfg,
                                               db_state.get_state("last_auto_sync"))):
                     db_state.set_state("last_auto_sync",
                                        datetime.now().isoformat(timespec="seconds"))
+                    loans.write_all_balances()
                     results = banksync.sync_all() + brokers.sync_all()
                     for r in results:
                         if r["error"]:
