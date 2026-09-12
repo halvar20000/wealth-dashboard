@@ -11,6 +11,18 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.19.1] — 2026-09-12
+
+### Fixed
+- **Trade Republic over Enable Banking stopped after the first page of
+  transactions** with `422: transactionStatus in request is not the same
+  as in continuationKey`. The connector hands back a continuation key
+  stamped with a transaction status of its own choosing and then refuses
+  the follow-up request that repeats the parameters of the first — which
+  is what every other bank requires. On exactly that error the page is
+  asked for again with the key alone; any other 422 is still an error,
+  and banks that accept the repeat are asked the same way as before.
+
 ## [0.19.0] — 2026-09-11
 
 ### Added

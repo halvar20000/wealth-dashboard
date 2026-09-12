@@ -244,11 +244,29 @@ class Client:
                                     "transaction_status": transaction_status})
 
     def all_transactions(self, account_uid: str, **kwargs) -> Iterator[dict]:
-        """Walk the paginated response. The bank decides the page size."""
+        """Walk the paginated response. The bank decides the page size.
+
+        A continuation key is only valid with the parameters of the
+        request that produced it, and the follow-up request repeats them
+        — which is right for most banks. Not for all: the Trade Republic
+        connector hands back a key stamped with a different transaction
+        status than the one it was asked for, then rejects the identical
+        repeat with a 422 that names the continuation key. The key itself
+        carries everything the connector needs, so that page is asked for
+        again with the key alone. Only on that exact error: a 422 for any
+        other reason is still an error.
+        """
         cont = None
         seen_keys: set[str] = set()
         while True:
-            page = self.transactions(account_uid, continuation_key=cont, **kwargs)
+            try:
+                page = self.transactions(account_uid, continuation_key=cont, **kwargs)
+            except EnableBankingError as exc:
+                if cont is None or exc.status != 422 \
+                        or "continuationkey" not in exc.body.replace("_", "").lower():
+                    raise
+                page = self.transactions(account_uid, continuation_key=cont,
+                                         strategy=None, transaction_status=None)
             for txn in (page.get("transactions") or []):
                 yield txn
             cont = page.get("continuation_key")

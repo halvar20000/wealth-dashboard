@@ -221,6 +221,51 @@ list(eb.Client(fake_bank.APP_ID, PRIVATE_KEY, transport=looper.transport)
 check("a repeated continuation key stops instead of looping for ever",
       len(looper.calls) < 5, True)
 
+
+class StrictBank(fake_bank.FakeBank):
+    """Trade Republic through Enable Banking: the continuation key is
+    stamped with a transaction status of the connector's own choosing,
+    and a follow-up request that repeats ours is refused."""
+
+    def transport(self, method, url, headers, body):
+        status, data = super().transport(method, url, headers, body)
+        params = self.calls[-1]["params"]
+        if params.get("continuation_key") and params.get("transaction_status"):
+            return 422, json.dumps({"code": 422, "message":
+                "transactionStatus in request is not the same as in continuationKey. "
+                "Continuation key is only valid for the same getAccountTransactions "
+                "parameters", "detail": {"error_name": "ParameterValidationException"}}).encode()
+        return status, data
+
+
+strict = StrictBank()
+rows_ = list(eb.Client(fake_bank.APP_ID, PRIVATE_KEY, transport=strict.transport)
+             .all_transactions("acct-uid-0001"))
+check("a connector that rejects the repeated parameters still yields every page",
+      len(rows_), 5)
+check("...because the page is asked for again with the key alone",
+      [c["params"] for c in strict.calls][-1], {"continuation_key": "page-2"})
+check("...and the first page was still asked for with the full parameters",
+      strict.calls[0]["params"]["transaction_status"], "BOOK")
+
+
+class BrokenBank(fake_bank.FakeBank):
+    """A 422 for any other reason is still an error."""
+
+    def transport(self, method, url, headers, body):
+        status, data = super().transport(method, url, headers, body)
+        if self.calls[-1]["params"].get("continuation_key"):
+            return 422, json.dumps({"message": "date_from is malformed"}).encode()
+        return status, data
+
+
+try:
+    list(eb.Client(fake_bank.APP_ID, PRIVATE_KEY, transport=BrokenBank().transport)
+         .all_transactions("acct-uid-0001"))
+    check("any other 422 on a later page is raised, not retried", False, True)
+except eb.EnableBankingError as exc:
+    check("any other 422 on a later page is raised, not retried", exc.status, 422)
+
 # ---------------------------------------------------------------------------
 print("\n7. Users and passwords")
 # ---------------------------------------------------------------------------
