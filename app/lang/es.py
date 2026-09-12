@@ -1768,4 +1768,28 @@ STRINGS: dict[str, str] = {
     'The loan needs a name.': 'El préstamo necesita un nombre.',
     'The principal must be a positive amount.': 'El capital prestado debe ser un importe positivo.',
     'The rate is a percentage per year, like 3.2.': 'El tipo es un porcentaje anual, como 3.2.',
+    'Last twelve months': 'Últimos doce meses',
+    "Measured from {date}, day by day, on the prices the app has — backfilled to each security's first trade. A dash means there is nothing to measure yet.":
+        'Medido desde el {date}, día a día, con los precios que tiene la app, recuperados hasta la primera operación de cada valor. Un guion significa que aún no hay nada que medir.',
+    'Money-weighted (MWR), a year': 'Ponderado por dinero (MWR), anual',
+    'Money-weighted, a year.': 'Ponderado por dinero, anual.',
+    'Money-weighted, the internal rate of return: the annual rate your own money earned, timing included — what a savings account would have had to pay.':
+        'Ponderado por dinero, la tasa interna de retorno: el tipo anual que ganó tu propio dinero, momentos incluidos; lo que una cuenta de ahorro habría tenido que pagar.',
+    'Return': 'Rentabilidad',
+    'Return (TWR)': 'Rentabilidad (TWR)',
+    'Since the first trade': 'Desde la primera operación',
+    'This year': 'Este año',
+    'Time-weighted (TWR)': 'Ponderado por tiempo (TWR)',
+    'Time-weighted, since the first purchase; a year when it is longer than one.':
+        'Ponderado por tiempo, desde la primera compra; anual cuando supera un año.',
+    'Time-weighted: the return of the investment itself, with the timing of your own money taken out — what compares one holding to another.':
+        'Ponderado por tiempo: la rentabilidad de la inversión en sí, sin el efecto de cuándo llegó tu dinero; lo que permite comparar una posición con otra.',
+    'Your money (MWR)': 'Tu dinero (MWR)',
+    'a year': 'anual',
+    'a year, on what went in and came out': 'anual, sobre lo que entró y salió',
+    'since {date}': 'desde el {date}',
+    'the securities as one investment, in the base currency; cash left out on purpose':
+        'los valores como una sola inversión, en la moneda base; el efectivo queda fuera a propósito',
+    '{pct} % a year': '{pct} % anual',
+    '{pct} % a year, since {date}': '{pct} % anual, desde el {date}',
 }

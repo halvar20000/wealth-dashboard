@@ -60,6 +60,8 @@ it does not do yet.
 - [x] A page per security with every row behind it, correctable, and its
       performance since the first purchase; daily prices backfilled.
 - [x] A Crypto page, and loans and mortgages with a computed schedule.
+- [x] Time-weighted and money-weighted return, per security and for the
+      portfolio.
 
 ## Next
 

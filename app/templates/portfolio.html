@@ -36,6 +36,28 @@
 </section>
 
 {% if s.holdings %}
+{% macro pct(v) %}{% if v is none %}—{% else %}<span class="{{ 'pos' if v > 0 else ('neg' if v < 0) }}">{{ '%+.1f' | format(100 * v) }} %</span>{% endif %}{% endmacro %}
+<section class="card">
+  <div class="card-header"><h2>{{ _("Return") }}</h2>
+    <span class="card-subtitle">{{ _("the securities as one investment, in the base currency; cash left out on purpose") }}</span></div>
+  <div class="table-wrap">
+    <table class="grid perf-grid">
+      <thead><tr><th></th><th class="num">{{ _("Since the first trade") }}</th><th class="num">{{ _("This year") }}</th><th class="num">{{ _("Last twelve months") }}</th></tr></thead>
+      <tbody>
+        <tr><td title="{{ _('Time-weighted: the return of the investment itself, with the timing of your own money taken out — what compares one holding to another.') }}">{{ _("Time-weighted (TWR)") }}</td>
+            <td class="num">{{ pct(perf.all.twr) }}{% if perf.all.twr_annual is not none %}<span class="sub">{{ _f("{pct} % a year", pct='%+.1f' | format(100 * perf.all.twr_annual)) }}</span>{% endif %}</td>
+            <td class="num">{{ pct(perf.ytd.twr) }}</td>
+            <td class="num">{{ pct(perf['1y'].twr) }}</td></tr>
+        <tr><td title="{{ _('Money-weighted, the internal rate of return: the annual rate your own money earned, timing included — what a savings account would have had to pay.') }}">{{ _("Money-weighted (MWR), a year") }}</td>
+            <td class="num">{{ pct(perf.all.mwr) }}</td>
+            <td class="num">{{ pct(perf.ytd.mwr) }}</td>
+            <td class="num">{{ pct(perf['1y'].mwr) }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="sub">{% if perf.all.since %}{{ _f("Measured from {date}, day by day, on the prices the app has — backfilled to each security's first trade. A dash means there is nothing to measure yet.", date=d(perf.all.since)) }}{% endif %}</p>
+</section>
+
 <section class="card">
   <div class="card-header"><h2>{{ _("Holdings") }}</h2>
     <span class="card-subtitle">{{ _("largest first") }}</span></div>
@@ -43,7 +65,9 @@
     <table class="grid">
       <thead><tr><th>{{ _("Security") }}</th><th>{{ _("ISIN") }}</th><th>{{ _("Where") }}</th><th class="num">{{ _("Quantity") }}</th>
                  <th class="num">{{ _("Price") }}</th><th class="num">{{ _("Net invested") }}</th>
-                 <th class="num">{{ _("Value") }}</th><th class="num">{{ _("Difference") }}</th></tr></thead>
+                 <th class="num">{{ _("Value") }}</th><th class="num">{{ _("Difference") }}</th>
+                 <th class="num" title="{{ _('Time-weighted, since the first purchase; a year when it is longer than one.') }}">TWR</th>
+                 <th class="num" title="{{ _('Money-weighted, a year.') }}">MWR</th></tr></thead>
       <tbody>
       {% for h in s.holdings %}
         {# Not `d`: that is the date helper, and a global shadowed halfway
@@ -63,6 +87,8 @@
           <td class="num">{{ money(h.value, h.currency) if h.value else '—' }}</td>
           <td class="num {{ 'pos' if delta and delta > 0 else ('neg' if delta else '') }}">
             {{ money(delta, h.currency) if delta is not none else '—' }}</td>
+          <td class="num">{{ pct(h.perf.twr_annual if h.perf.twr_annual is not none else h.perf.twr) }}{% if h.perf.twr_annual is not none %}<span class="sub">{{ _("a year") }}</span>{% endif %}</td>
+          <td class="num">{{ pct(h.perf.mwr) }}</td>
         </tr>
       {% endfor %}
       </tbody>

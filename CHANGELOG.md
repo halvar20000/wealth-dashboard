@@ -11,6 +11,26 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.24.0] — 2026-09-12
+
+### Added
+- **Time-weighted and money-weighted return.** TWR — chain-linked day
+  by day, with the timing of your own money taken out — is the return
+  of the investment itself, the figure that compares one holding to
+  another. MWR — the internal rate of return, annual — is the return of
+  your money, timing included, the figure a statement means by
+  "performance". Both are on every security's page (since the first
+  purchase, TWR also annualised) and on the Portfolio page for the
+  securities as one investment since the first trade, this year and
+  the last twelve months, with a TWR and MWR column per holding. Cash
+  is left out of the portfolio figure on purpose. Nothing is stored:
+  a corrected row or a backfilled price changes the number on the
+  next page load. The MCP tool `performance` returns the same figures.
+
+### Changed
+- The net-worth history's daily valuation now lives in a reusable
+  `Valuer`, which the returns use as well; the line it draws is unchanged.
+
 ## [0.23.0] — 2026-09-12
 
 ### Added

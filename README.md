@@ -49,7 +49,9 @@ a PSD2 API it connects directly, with credentials that are yours.
   own, how much, and what you put in. Click one and every row behind it
   is listed and can be corrected in place; a correction survives the
   next import. Each has a chart of its performance since the first
-  purchase — value against what went in, with the income drawn apart.
+  purchase — value against what went in, with the income drawn apart —
+  and its **time-weighted and money-weighted return**; the Portfolio
+  page has both for the securities as one investment.
 - **Crypto** — every coin held, its price and the wallet's value over
   time, from Kraken or typed in by hand.
 - **Loans and mortgages** — the terms in, the amortisation schedule out:
@@ -497,7 +499,7 @@ and knows your Application ID can act as your application. It is stored
 python3 tests/test_all.py
 ```
 
-1285 checks, no network, no pytest, no credentials. The whole bank flow —
+1306 checks, no network, no pytest, no credentials. The whole bank flow —
 JWT signing, pagination, normalisation, connect, sync, dedupe, consent
 expiry — runs against a fake, so it works on a NAS with an unhelpful
 Python and no internet.

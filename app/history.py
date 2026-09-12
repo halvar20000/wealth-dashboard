@@ -55,6 +55,110 @@ def _sample_dates(start: date, end: date) -> list[date]:
     return out
 
 
+class Valuer:
+    """Everything needed to say what a set of accounts was worth on any
+    day, loaded once: the balance readings, the trades with their
+    running quantities, the prices, the ECB rates. `value_on(day)` is
+    then a handful of bisects — cheap enough to call for every day of
+    a decade, which the performance figures do.
+
+    Built once per request for one set of accounts, because the
+    loading is the expensive half and the same facts answer both "what
+    was the net worth on the 3rd" and "on the 4th".
+    """
+
+    def __init__(self, base_currency: str = "EUR", account_ids: list[int] | None = None):
+        self.base = base_currency.upper()
+        only, params = people.sql_in(account_ids)
+        only_t, params_t = people.sql_in(account_ids, "t.account_id")
+        with get_conn() as conn:
+            self.balances: dict[int, tuple[list[str], list[tuple[float, str]]]] = {}
+            for r in conn.execute(
+                    f"SELECT account_id, as_of, amount, currency FROM balances "
+                    f"WHERE 1=1{only} ORDER BY account_id, as_of, id", params):
+                days, vals = self.balances.setdefault(r["account_id"], ([], []))
+                if days and days[-1] == r["as_of"]:
+                    vals[-1] = (r["amount"], r["currency"])   # newest reading of a day
+                else:
+                    days.append(r["as_of"])
+                    vals.append((r["amount"], r["currency"]))
+
+            # Per holding: the trades in date order, with the running
+            # quantity and the price paid, so "held on day d" is one bisect.
+            self.trades: dict[str, tuple[list[str], list[float], list[tuple[float, str]]]] = {}
+            for r in conn.execute(
+                    f"SELECT t.isin, t.txn_date, t.quantity, t.price, t.currency "
+                    f"FROM transactions t WHERE t.isin IS NOT NULL AND t.quantity IS NOT NULL"
+                    f"{only_t} ORDER BY t.txn_date, t.id",
+                    params_t):
+                days, qty, paid = self.trades.setdefault(r["isin"], ([], [], []))
+                running = (qty[-1] if qty else 0.0) + (r["quantity"] or 0.0)
+                last_paid = (r["price"], r["currency"]) if r["price"] else (
+                    paid[-1] if paid else (None, None))
+                days.append(r["txn_date"]); qty.append(running); paid.append(last_paid)
+
+            self.prices: dict[str, tuple[list[str], list[tuple[float, str]]]] = {}
+            if self.trades:
+                marks = ",".join("?" * len(self.trades))
+                for r in conn.execute(
+                        f"SELECT isin, as_of, price, currency FROM prices "
+                        f"WHERE isin IN ({marks}) ORDER BY isin, as_of", list(self.trades)):
+                    days, vals = self.prices.setdefault(r["isin"], ([], []))
+                    days.append(r["as_of"]); vals.append((r["price"], r["currency"]))
+
+            self.fx_days: list[str] = [r["as_of"] for r in conn.execute(
+                "SELECT DISTINCT as_of FROM fx_rates ORDER BY as_of")]
+            fx_rows = conn.execute("SELECT as_of, currency, per_eur FROM fx_rates").fetchall()
+        self.fx: dict[str, dict[str, float]] = {}
+        for r in fx_rows:
+            self.fx.setdefault(r["as_of"], {"EUR": 1.0})[r["currency"]] = r["per_eur"]
+        firsts = [d[0] for d, _ in self.balances.values() if d] + \
+                 [d[0] for d, _, _ in self.trades.values() if d]
+        self.first_date: str | None = min(firsts) if firsts else None
+
+    def rates_at(self, day: str) -> dict[str, float]:
+        i = bisect_right(self.fx_days, day)
+        return self.fx[self.fx_days[i - 1]] if i else {"EUR": 1.0}
+
+    def to_base(self, amount: float, ccy: str, day: str,
+                rates: dict[str, float] | None = None) -> float | None:
+        ccy = (ccy or self.base).upper()
+        if ccy == self.base:
+            return amount
+        rates = rates or self.rates_at(day)
+        if ccy in rates and self.base in rates:
+            return amount / rates[ccy] * rates[self.base]
+        return None
+
+    def value_on(self, day: str) -> tuple[float | None, float | None]:
+        """(cash, securities) in the base currency on `day`; None where
+        nothing is known yet. A holding with no market price on the day
+        is valued at the last price it was traded at."""
+        rates = self.rates_at(day)
+        cash = sec = 0.0
+        known_cash = known_sec = False
+        for days, vals in self.balances.values():
+            i = bisect_right(days, day)
+            if not i:
+                continue
+            v = self.to_base(vals[i - 1][0], vals[i - 1][1], day, rates)
+            if v is not None:
+                cash += v; known_cash = True
+        for isin, (days, qty, paid) in self.trades.items():
+            i = bisect_right(days, day)
+            if not i or abs(qty[i - 1]) < 1e-9:
+                continue
+            pdays, pvals = self.prices.get(isin, ([], []))
+            j = bisect_right(pdays, day)
+            price, ccy = pvals[j - 1] if j else paid[i - 1]
+            if price is None:
+                continue
+            v = self.to_base(qty[i - 1] * price, ccy, day, rates)
+            if v is not None:
+                sec += v; known_sec = True
+        return (cash if known_cash else None), (sec if known_sec else None)
+
+
 def series(base_currency: str = "EUR", account_ids: list[int] | None = None,
            period: str = "ytd", today: date | None = None) -> dict:
     """The net worth on a set of days across the period.
@@ -63,70 +167,9 @@ def series(base_currency: str = "EUR", account_ids: list[int] | None = None,
     A point whose day predates every record is None rather than zero:
     the money existed, the app just has no reading of it.
     """
-    base = base_currency.upper()
     today = today or date.today()
-    only, params = people.sql_in(account_ids)
-    only_t, params_t = people.sql_in(account_ids, "t.account_id")
-
-    with get_conn() as conn:
-        balances: dict[int, tuple[list[str], list[tuple[float, str]]]] = {}
-        for r in conn.execute(
-                f"SELECT account_id, as_of, amount, currency FROM balances "
-                f"WHERE 1=1{only} ORDER BY account_id, as_of, id", params):
-            days, vals = balances.setdefault(r["account_id"], ([], []))
-            if days and days[-1] == r["as_of"]:
-                vals[-1] = (r["amount"], r["currency"])   # newest reading of a day
-            else:
-                days.append(r["as_of"])
-                vals.append((r["amount"], r["currency"]))
-
-        # Per holding: the trades in date order, with the running quantity
-        # and the price paid, so "held on day d" is one bisect.
-        trades: dict[str, tuple[list[str], list[float], list[tuple[float, str]]]] = {}
-        for r in conn.execute(
-                f"SELECT t.isin, t.txn_date, t.quantity, t.price, t.currency "
-                f"FROM transactions t WHERE t.isin IS NOT NULL AND t.quantity IS NOT NULL"
-                f"{only_t} ORDER BY t.txn_date, t.id",
-                params_t):
-            days, qty, paid = trades.setdefault(r["isin"], ([], [], []))
-            running = (qty[-1] if qty else 0.0) + (r["quantity"] or 0.0)
-            last_paid = (r["price"], r["currency"]) if r["price"] else (
-                paid[-1] if paid else (None, None))
-            days.append(r["txn_date"]); qty.append(running); paid.append(last_paid)
-
-        prices: dict[str, tuple[list[str], list[tuple[float, str]]]] = {}
-        if trades:
-            marks = ",".join("?" * len(trades))
-            for r in conn.execute(
-                    f"SELECT isin, as_of, price, currency FROM prices "
-                    f"WHERE isin IN ({marks}) ORDER BY isin, as_of", list(trades)):
-                days, vals = prices.setdefault(r["isin"], ([], []))
-                days.append(r["as_of"]); vals.append((r["price"], r["currency"]))
-
-        fx_days: list[str] = [r["as_of"] for r in conn.execute(
-            "SELECT DISTINCT as_of FROM fx_rates ORDER BY as_of")]
-        fx_rows = conn.execute(
-            "SELECT as_of, currency, per_eur FROM fx_rates").fetchall()
-
-    fx: dict[str, dict[str, float]] = {}
-    for r in fx_rows:
-        fx.setdefault(r["as_of"], {"EUR": 1.0})[r["currency"]] = r["per_eur"]
-
-    def rates_at(day: str) -> dict[str, float]:
-        i = bisect_right(fx_days, day)
-        return fx[fx_days[i - 1]] if i else {"EUR": 1.0}
-
-    def to_base(amount: float, ccy: str, rates: dict[str, float]) -> float | None:
-        ccy = (ccy or base).upper()
-        if ccy == base:
-            return amount
-        if ccy in rates and base in rates:
-            return amount / rates[ccy] * rates[base]
-        return None
-
-    first_candidates = [d[0] for d, _ in balances.values() if d] + \
-                       [d[0] for d, _, _ in trades.values() if d]
-    first_date = min(first_candidates) if first_candidates else None
+    v = Valuer(base_currency, account_ids)
+    first_date = v.first_date
     start = period_start(period, today)
     if start is None:
         start = date.fromisoformat(first_date) if first_date else today
@@ -137,31 +180,11 @@ def series(base_currency: str = "EUR", account_ids: list[int] | None = None,
     points = []
     for day in _sample_dates(start, today):
         d = day.isoformat()
-        rates = rates_at(d)
-        cash = sec = 0.0
-        known = False
-        for days, vals in balances.values():
-            i = bisect_right(days, d)
-            if not i:
-                continue
-            v = to_base(vals[i - 1][0], vals[i - 1][1], rates)
-            if v is not None:
-                cash += v; known = True
-        for isin, (days, qty, paid) in trades.items():
-            i = bisect_right(days, d)
-            if not i or abs(qty[i - 1]) < 1e-9:
-                continue
-            pdays, pvals = prices.get(isin, ([], []))
-            j = bisect_right(pdays, d)
-            price, ccy = pvals[j - 1] if j else paid[i - 1]
-            if price is None:
-                continue
-            v = to_base(qty[i - 1] * price, ccy, rates)
-            if v is not None:
-                sec += v; known = True
-        points.append({"date": d, "net_worth": (cash + sec) if known else None,
-                       "cash": cash if known else None,
-                       "securities": sec if known else None})
+        cash, sec = v.value_on(d)
+        known = cash is not None or sec is not None
+        points.append({"date": d, "net_worth": ((cash or 0.0) + (sec or 0.0)) if known else None,
+                       "cash": (cash or 0.0) if known else None,
+                       "securities": (sec or 0.0) if known else None})
 
     firsts = [p for p in points if p["net_worth"] is not None]
     return {
@@ -169,5 +192,5 @@ def series(base_currency: str = "EUR", account_ids: list[int] | None = None,
         "points": points,
         "first_date": first_date,
         "start": firsts[0] if firsts else None,
-        "base_currency": base,
+        "base_currency": v.base,
     }

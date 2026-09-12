@@ -204,6 +204,25 @@ def _holdings(person=None):
             "holdings": s["holdings"]}
 
 
+@tool("performance",
+      "Time-weighted (TWR) and money-weighted (MWR) return of the securities held, "
+      "as fractions: since the first trade, this year, and the last twelve months; "
+      "and per holding. Cash is left out; MWR is annual; TWR total plus annualised.",
+      {"person": PERSON})
+def _performance(person=None):
+    from . import performance
+    from datetime import date as _date, timedelta as _td
+    scope = _scope(person)
+    today = _date.today()
+    out = {"all": performance.for_accounts(_base(), scope),
+           "ytd": performance.for_accounts(_base(), scope, start=_date(today.year, 1, 1)),
+           "1y": performance.for_accounts(_base(), scope, start=today - _td(days=365)),
+           "holdings": {}}
+    for h in overview.summary(_base(), account_ids=scope)["holdings"]:
+        out["holdings"][h["isin"]] = {"name": h["name"], **performance.for_security(h["isin"], scope)}
+    return out
+
+
 @tool("net_worth_history",
       "Net worth on a set of days across a period, rebuilt from the records.",
       {"period": {"type": "string", "enum": sorted(history.PERIODS),

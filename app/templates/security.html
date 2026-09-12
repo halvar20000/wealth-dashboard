@@ -22,6 +22,16 @@
     <div class="stat-value">{{ money(income, currency) }}</div>
     <div class="stat-sub">{{ _("dividends and interest") }}</div>
   </div>
+  <div class="stat-card stat-gold">
+    <div class="stat-label" title="{{ _('Time-weighted: the return of the investment itself, with the timing of your own money taken out — what compares one holding to another.') }}">{{ _("Return (TWR)") }}</div>
+    <div class="stat-value {{ 'gain' if perf.twr and perf.twr > 0 else ('loss' if perf.twr and perf.twr < 0) }}">{% if perf.twr is not none %}{{ '%+.1f' | format(100 * perf.twr) }} %{% else %}—{% endif %}</div>
+    <div class="stat-sub">{% if perf.twr_annual is not none %}{{ _f("{pct} % a year, since {date}", pct='%+.1f' | format(100 * perf.twr_annual), date=d(perf.since)) }}{% elif perf.since %}{{ _f("since {date}", date=d(perf.since)) }}{% else %}{{ _("no price history yet — it arrives with the next price refresh") }}{% endif %}</div>
+  </div>
+  <div class="stat-card stat-blue">
+    <div class="stat-label" title="{{ _('Money-weighted, the internal rate of return: the annual rate your own money earned, timing included — what a savings account would have had to pay.') }}">{{ _("Your money (MWR)") }}</div>
+    <div class="stat-value {{ 'gain' if perf.mwr and perf.mwr > 0 else ('loss' if perf.mwr and perf.mwr < 0) }}">{% if perf.mwr is not none %}{{ '%+.1f' | format(100 * perf.mwr) }} %{% else %}—{% endif %}</div>
+    <div class="stat-sub">{{ _("a year, on what went in and came out") }}</div>
+  </div>
   <div class="stat-card stat-purple">
     <div class="stat-label">{{ _("Value") }}</div>
     <div class="stat-value">{% if price %}{{ money(quantity * price.price, price.currency) }}{% else %}—{% endif %}</div>

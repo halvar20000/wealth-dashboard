@@ -1766,4 +1766,28 @@ STRINGS: dict[str, str] = {
     'The loan needs a name.': 'Der Kredit braucht einen Namen.',
     'The principal must be a positive amount.': 'Der Darlehensbetrag muss positiv sein.',
     'The rate is a percentage per year, like 3.2.': 'Der Zins ist ein Prozentsatz pro Jahr, etwa 3.2.',
+    'Last twelve months': 'Letzte zwölf Monate',
+    "Measured from {date}, day by day, on the prices the app has — backfilled to each security's first trade. A dash means there is nothing to measure yet.":
+        'Gemessen ab {date}, Tag für Tag, auf den Kursen, die die App hat — bis zum ersten Trade jedes Wertpapiers nachgeladen. Ein Strich heißt: noch nichts zu messen.',
+    'Money-weighted (MWR), a year': 'Geldgewichtet (MWR), pro Jahr',
+    'Money-weighted, a year.': 'Geldgewichtet, pro Jahr.',
+    'Money-weighted, the internal rate of return: the annual rate your own money earned, timing included — what a savings account would have had to pay.':
+        'Geldgewichtet, der interne Zinsfuß: der Jahreszins, den dein eigenes Geld verdient hat, Zeitpunkte eingerechnet — was ein Sparkonto hätte zahlen müssen.',
+    'Return': 'Rendite',
+    'Return (TWR)': 'Rendite (TWR)',
+    'Since the first trade': 'Seit dem ersten Trade',
+    'This year': 'Dieses Jahr',
+    'Time-weighted (TWR)': 'Zeitgewichtet (TWR)',
+    'Time-weighted, since the first purchase; a year when it is longer than one.':
+        'Zeitgewichtet, seit dem ersten Kauf; pro Jahr, wenn es länger als eines ist.',
+    'Time-weighted: the return of the investment itself, with the timing of your own money taken out — what compares one holding to another.':
+        'Zeitgewichtet: die Rendite der Anlage selbst, ohne den Einfluss davon, wann dein Geld kam — das, was eine Position mit einer anderen vergleichbar macht.',
+    'Your money (MWR)': 'Dein Geld (MWR)',
+    'a year': 'pro Jahr',
+    'a year, on what went in and came out': 'pro Jahr, auf das, was hinein- und herausfloss',
+    'since {date}': 'seit {date}',
+    'the securities as one investment, in the base currency; cash left out on purpose':
+        'die Wertpapiere als eine Anlage, in der Basiswährung; Bargeld absichtlich ausgelassen',
+    '{pct} % a year': '{pct} % pro Jahr',
+    '{pct} % a year, since {date}': '{pct} % pro Jahr, seit {date}',
 }

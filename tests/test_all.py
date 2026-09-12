@@ -3693,7 +3693,12 @@ finally:
     banksync.sync_all = _real_sync_all
 check("sync_banks runs the sync and returns its report", synced[0]["inserted"], 3)
 check("refresh_prices prices the holdings", call("refresh_prices")["priced"] >= 1, True)
-check("refresh_share_ideas reports its state", "running" in call("refresh_share_ideas"), True)
+_real_start = screener_jobs.start_background
+screener_jobs.start_background = lambda force=False, log=print: True     # never Yahoo from a test
+try:
+    check("refresh_share_ideas reports its state", "running" in call("refresh_share_ideas"), True)
+finally:
+    screener_jobs.start_background = _real_start
 
 # --- the settings page and revocation ---
 r = c.get("/settings")
@@ -4228,6 +4233,75 @@ with db.get_conn() as conn:
                           (loan["account_id"],)).fetchone()
 check("a reading typed in today is not overwritten by the schedule", (newest["amount"], newest["balance_type"]), (-55000.0, "manual"))
 c.post("/loans", data={"form": "loan_delete", "id": loan["id"], "confirm": "Mortgage, house"})
+
+# ---------------------------------------------------------------------------
+print("\n31. Time-weighted and money-weighted return")
+# ---------------------------------------------------------------------------
+from app import performance                                 # noqa: E402
+
+check("a 10% rise with no flows is 10%", round(performance.twr([("a", 100.0), ("b", 105.0), ("c", 110.0)], {}), 4), 0.1)
+check("money added is not return",
+      round(performance.twr([("a", 100.0), ("b", 200.0), ("c", 220.0)], {"b": 100.0}), 4), 0.1)
+check("money taken out is not loss",
+      round(performance.twr([("a", 100.0), ("b", 50.0), ("c", 55.0)], {"b": -50.0}), 4), 0.1)
+check("a day without a value breaks the chain for that day only",
+      round(performance.twr([("a", 100.0), ("b", None), ("c", 110.0), ("d", 121.0)], {}), 4), 0.1)
+check("nothing to measure is None", performance.twr([("a", 100.0)], {}), None)
+# The textbook divergence: 100 doubles to 200, 100 more is added, the lot halves to 150.
+vals = [("2025-01-01", 100.0), ("2025-07-01", 200.0), ("2025-07-02", 300.0), ("2026-01-01", 150.0)]
+check("TWR of double-then-halve is zero whatever was added between",
+      round(performance.twr(vals, {"2025-07-02": 100.0}), 6), 0.0)
+m = performance.mwr([("2025-01-01", -100.0), ("2025-07-02", -100.0)], "2026-01-01", 150.0)
+check("...while the MWR says the money lost, because more of it was there for the fall", m < -0.2, True)
+check("money that doubles in a year is +100% a year",
+      round(performance.mwr([("2025-01-01", -100.0)], "2026-01-01", 200.0), 2), 1.0)
+check("money that halves in a year is −50% a year",
+      round(performance.mwr([("2025-01-01", -100.0)], "2026-01-01", 50.0), 2), -0.5)
+check("MWR needs money in and money out", (performance.mwr([("2025-01-01", -5.0)], "2026-01-01", 0.0),
+                                           performance.mwr([("2025-01-01", 5.0)], "2026-01-01", 10.0)), (None, None))
+check("21% over two years is 10% a year", round(performance.annualise(0.21, 730), 3), 0.1)
+check("a fortnight is not annualised", performance.annualise(0.02, 14), None)
+
+# A holding with a known path: bought 10 at 100 on day 1, price 110 on
+# day 10, 5 more bought at 110 on day 10, price 121 on day 20.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Perf test', 'broker', 'EUR')")
+    pid = conn.execute("SELECT id FROM accounts WHERE name = 'Perf test'").fetchone()["id"]
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, quantity, price, external_id, source) "
+                 "VALUES (?, '2026-08-01', 'Buy', -1000, 'EUR', 'buy', 'XX0000007777', 'Test Fund', 10, 100, 'p1', 'manual')", (pid,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, quantity, price, external_id, source) "
+                 "VALUES (?, '2026-08-10', 'Buy', -550, 'EUR', 'buy', 'XX0000007777', 'Test Fund', 5, 110, 'p2', 'manual')", (pid,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, external_id, source) "
+                 "VALUES (?, '2026-08-15', 'Dividend', 30, 'EUR', 'dividend', 'XX0000007777', 'Test Fund', 'p3', 'manual')", (pid,))
+    for day, px in (("2026-08-01", 100), ("2026-08-10", 110), ("2026-08-20", 121)):
+        conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency) VALUES ('XX0000007777', ?, ?, 'EUR')", (day, px))
+pf = performance.for_security("XX0000007777", today=date(2026, 8, 20))
+# Day 10: 1 000 held, 550 added at the start of the day, 1 650 at its
+# close — a gain of 100 on 1 550. Day 15: 30 paid out, 1 650 / 1 620.
+# Day 20: 1 815 / 1 650. Chain-linked, as every tool does it.
+check("the holding's TWR chains each day's gain over what was there after that day's flows",
+      round(pf["twr"], 4), round(1650 / 1550 * 1650 / 1620 * 1.1 - 1, 4))
+check("...and its MWR is positive and annualised", pf["mwr"] is not None and pf["mwr"] > 0, True)
+check("...over the right span", (pf["since"], pf["days"]), ("2026-08-01", 19))
+pa = performance.for_accounts("EUR", [pid], today=date(2026, 8, 20))
+check("the account's securities as one investment agree with the single holding", round(pa["twr"], 4), round(pf["twr"], 4))
+pa_ytd = performance.for_accounts("EUR", [pid], start=date(2026, 8, 10), today=date(2026, 8, 20))
+check("a later start measures from what was held that day",
+      pa_ytd["since"] == "2026-08-10" and pa_ytd["twr"] is not None and pa_ytd["twr"] < pf["twr"], True)
+check("an account with no trades has nothing to say", performance.for_accounts("EUR", [account_id])["twr"], None)
+r = c.get("/securities/XX0000007777")
+check("the security page shows both returns", b"Return (TWR)" in r.data and b"Your money (MWR)" in r.data, True)
+r = c.get("/portfolio")
+check("the portfolio page has the return table and the columns",
+      b"Time-weighted (TWR)" in r.data and b"Last twelve months" in r.data and b">TWR<" in r.data, True)
+tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
+r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                         "params": {"name": "performance", "arguments": {}}}, headers=HDR)
+out = r.get_json()["result"]["structuredContent"]
+check("the MCP performance tool answers with the three periods and the holdings",
+      ("all" in out and "ytd" in out and "1y" in out, "XX0000007777" in out["holdings"]), (True, True))
+mcp.revoke()
+c.post(f"/accounts/{pid}/delete", data={"confirm": "Perf test"})
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

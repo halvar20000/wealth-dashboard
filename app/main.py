@@ -32,7 +32,7 @@ import secrets
 import threading
 import time
 import urllib.parse
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from flask import (Flask, flash, g, jsonify, redirect, render_template,
@@ -42,8 +42,8 @@ from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import (cashflow, categories, crypto, forecast, history, importers, loans,
-               manual, mcp, overview, people, screener, screener_etf, screener_jobs,
-               subscriptions)
+               manual, mcp, overview, people, performance, screener, screener_etf,
+               screener_jobs, subscriptions)
 from . import brokers
 from .brokers import kraken, saxo
 from . import db as db_state
@@ -677,6 +677,7 @@ def security_page(isin: str):
         - sum(r["amount"] for r in rows if r["kind"] == "sell")
     income = sum(r["amount"] for r in rows if r["kind"] in ("dividend", "interest"))
     return render_template("security.html", active_page="portfolio", isin=isin, name=name,
+                           perf=performance.for_security(isin, people.scope()),
                            rows=rows, groups=groups, quantity=running, net_invested=net_invested,
                            income=income, price=price,
                            currency=next((r["currency"] for r in rows if r["kind"] in ("buy", "sell")),
@@ -1193,10 +1194,21 @@ def subscriptions_page():
 @app.route("/portfolio")
 @auth.login_required
 def portfolio_page():
-    return render_template(
-        "portfolio.html", active_page="portfolio",
-        s=overview.summary(settings.get("base_currency", "EUR"),
-                           account_ids=people.scope()))
+    base = settings.get("base_currency", "EUR")
+    scope = people.scope()
+    s = overview.summary(base, account_ids=scope)
+    # The returns: the securities as one investment, since the first
+    # trade, this year and the last twelve months — and each holding's
+    # own, in its table row.
+    today = date.today()
+    perf = {
+        "all": performance.for_accounts(base, scope),
+        "ytd": performance.for_accounts(base, scope, start=date(today.year, 1, 1)),
+        "1y": performance.for_accounts(base, scope, start=today - timedelta(days=365)),
+    }
+    for h in s["holdings"]:
+        h["perf"] = performance.for_security(h["isin"], scope)
+    return render_template("portfolio.html", active_page="portfolio", s=s, perf=perf)
 
 
 # ─── Share Ideas ─────────────────────────────────────────────────────
