@@ -1873,4 +1873,15 @@ STRINGS: dict[str, str] = {
     'Every row these filters match, not just the ones shown, in a file a spreadsheet opens right.': 'Chaque ligne que ces filtres retiennent, pas seulement celles affichées, dans un fichier qu’un tableur ouvre correctement.',
     'Export as CSV': 'Exporter en CSV',
     'This table with every figure on it — price, value, gains, TWR and MWR — in a file a spreadsheet opens right.': 'Ce tableau avec chaque chiffre — cours, valeur, plus-values, TWR et MWR — dans un fichier qu’un tableur ouvre correctement.',
+    # Stock splits (0.27.0)
+    "A split adds a row per account — the units that appeared, at no cost — so the quantity above is right from that day on. Earlier rows keep the units and prices of their day; the chart values them in today's units, as Yahoo's history is, and a lot keeps its cost, so a later sale realises the same gain it would have in the old units. Write 1:10 for a reverse split.": 'Une division ajoute une ligne par compte — les titres apparus, sans coût — pour que la quantité ci-dessus soit juste à partir de ce jour. Les lignes antérieures gardent les titres et les cours de leur jour ; le graphique les valorise en titres d’aujourd’hui, comme l’historique de Yahoo, et un lot garde son coût, si bien qu’une vente ultérieure réalise la même plus-value qu’en anciens titres. Écrivez 1:10 pour un regroupement.',
+    'New for old': 'Nouveaux pour anciens',
+    'Nothing was held on that day — or that split is already recorded.': 'Rien n’était détenu ce jour-là — ou cette division est déjà enregistrée.',
+    'Record a split': 'Enregistrer une division',
+    'Record the split': 'Enregistrer la division',
+    'Split recorded on {n} account.': 'Division enregistrée sur {n} compte.',
+    'Split recorded on {n} accounts.': 'Division enregistrée sur {n} comptes.',
+    'split [kind]': 'Division',
+    'when the units changed and the money did not': 'quand les titres ont changé et pas l’argent',
+    'Write the split as new for old, like 44:1 — or 1:10 for a reverse split.': 'Écrivez la division en nouveaux pour anciens, comme 44:1 — ou 1:10 pour un regroupement.',
 }

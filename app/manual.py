@@ -39,7 +39,7 @@ _SIGN = {
     "deposit": +1, "dividend": +1, "interest": +1, "sell": +1,
     "withdrawal": -1, "fee": -1, "tax": -1, "buy": -1,
 }
-DIRECTIONAL = ("transfer", "other")
+DIRECTIONAL = ("transfer", "other", "split")
 TRADES = ("buy", "sell")
 
 # The kinds offered per account type. A trade on a current account is
@@ -47,7 +47,7 @@ TRADES = ("buy", "sell")
 # nine people to serve the tenth, who can set the account's type.
 KINDS_FOR = {
     "broker": ("buy", "sell", "dividend", "interest", "fee", "tax",
-               "deposit", "withdrawal", "transfer", "other"),
+               "deposit", "withdrawal", "transfer", "other", "split"),
     "default": ("deposit", "withdrawal", "interest", "fee", "tax",
                 "transfer", "other"),
 }

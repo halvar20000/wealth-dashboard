@@ -2189,7 +2189,7 @@ from app import changelog, i18n, main                      # noqa: E402
 
 TEMPLATES = pathlib.Path(__file__).resolve().parent.parent / "app" / "templates"
 SOURCES = [pathlib.Path(__file__).resolve().parent.parent / "app" / f
-           for f in ("main.py", "categories.py", "auth.py", "manual.py", "loans.py",
+           for f in ("main.py", "categories.py", "auth.py", "manual.py", "loans.py", "splits.py",
                      "screener.py", "screener_etf.py")]
 
 
@@ -4527,6 +4527,88 @@ check("the pages link to their export",
 check("numbers are written plainly, not in scientific notation",
       (export._num(0.000001, "."), export._num(1234567.0, "."), export._num(None, ".")), ("0.000001", "1234567", ""))
 c.post(f"/accounts/{xid}/delete", data={"confirm": "Export test"})
+
+# ---------------------------------------------------------------------------
+print("\n35. A stock split, recorded once")
+# ---------------------------------------------------------------------------
+from app import splits                                      # noqa: E402
+
+check("a ratio is new for old", (splits.parse_ratio("44:1"), splits.parse_ratio("44"), splits.parse_ratio("1:10"), splits.parse_ratio(" 2 / 1 ")),
+      ((44.0, 1.0), (44.0, 1.0), (1.0, 10.0), (2.0, 1.0)))
+for bad in ("", "0", "1:1", "abc", "-2:1"):
+    try:
+        splits.parse_ratio(bad); check(f"ratio {bad!r} is refused", False, True)
+    except ValueError:
+        check(f"ratio {bad!r} is refused", True, True)
+
+# The case from a DKB Depot: a savings plan into an ETF at ~420, a 44:1
+# split, then the same plan at ~9.5. Three buys of 0.5 before, two of
+# 21.5 after — a running sum of 44.5 units, when 1.5 × 44 + 43 = 109
+# are held.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Split test', 'broker', 'EUR')")
+    sid = conn.execute("SELECT id FROM accounts WHERE name = 'Split test'").fetchone()["id"]
+    for i, (day, q, px) in enumerate((("2022-04-20", 0.5, 400.0), ("2022-06-20", 0.5, 400.0), ("2022-08-22", 0.5, 400.0),
+                                      ("2022-10-20", 21.5, 9.3), ("2022-12-20", 21.5, 9.3))):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, quantity, price, external_id, source) "
+                     "VALUES (?, ?, 'Kauf AIS-AMUNDI MSCI SWITZERLAND', ?, 'EUR', 'buy', 'LU1681044563', 'Amundi MSCI Switzerland', ?, ?, ?, 'dkb_pdf')",
+                     (sid, day, -q * px, q, px, f"s{i}"))
+    for day, px in (("2022-04-20", 9.09), ("2022-09-15", 9.5), ("2022-10-20", 9.3), ("2023-01-10", 10.0)):
+        conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency) VALUES ('LU1681044563', ?, ?, 'EUR')", (day, px))
+check("before the split is recorded the units are simply summed", round(importers.positions(sid)[0]["quantity"], 4), 44.5)
+
+r = c.post("/securities/LU1681044563/split", data={"txn_date": "2022-09-30", "ratio": "44:1"}, follow_redirects=True)
+check("the split is recorded from the security page", b"Split recorded on 1 account" in r.data, True)
+with db.get_conn() as conn:
+    row = conn.execute("SELECT * FROM transactions WHERE account_id = ? AND kind = 'split'", (sid,)).fetchone()
+check("...as one row: the units that appeared, at no cost, on the day",
+      (row["txn_date"], round(row["quantity"], 4), row["amount"], row["price"], row["description"]), ("2022-09-30", 64.5, 0.0, None, "Split 44:1"))
+check("the holding is now right", round(importers.positions(sid)[0]["quantity"], 4), 109.0)
+r = c.post("/securities/LU1681044563/split", data={"txn_date": "2022-09-30", "ratio": "44:1"}, follow_redirects=True)
+check("recording it twice does nothing", b"already recorded" in r.data, True)
+with db.get_conn() as conn:
+    check("...really nothing", conn.execute("SELECT COUNT(*) n FROM transactions WHERE account_id = ? AND kind = 'split'", (sid,)).fetchone()["n"], 1)
+r = c.post("/securities/LU1681044563/split", data={"txn_date": "2022-09-30", "ratio": "banana"}, follow_redirects=True)
+check("a ratio that is not one is refused in a sentence", b"like 44:1" in r.data, True)
+
+ser = prices.series_for("LU1681044563", [sid], today=date(2023, 1, 15))
+pts = {p["date"]: p for p in ser["points"]}
+check("before the split, the chart values the units held then in today's units — Yahoo's history is split-adjusted",
+      round(pts["2022-09-20"]["value"], 2), round(1.5 * 44 * 9.5, 2))
+check("...and after it, the units as they are", round(pts["2023-01-12"]["value"], 2), round(109.0 * 10.0, 2))
+check("...while the quantity shown is the raw running sum", (pts["2022-09-20"]["quantity"], pts["2022-10-01"]["quantity"]), (1.5, 66.0))
+check("net invested does not change: nothing was paid", round(pts["2023-01-12"]["invested"], 2), round(3 * 200 + 2 * 21.5 * 9.3, 2))
+v = history.Valuer("EUR", [sid])
+check("the net-worth history agrees", (round(v.value_on("2022-09-20")[1], 2), round(v.value_on("2023-01-12")[1], 2)),
+      (round(1.5 * 44 * 9.5, 2), round(109.0 * 10.0, 2)))
+check("split factors: every row before the split, scaled; the split and after, not",
+      splits.factors([{"kind": "buy", "quantity": 1}, {"kind": "buy", "quantity": 1}, {"kind": "split", "quantity": 86}, {"kind": "buy", "quantity": 5}]),
+      [44.0, 44.0, 1.0, 1.0])
+check("a reverse split scales down", splits.factors([{"kind": "buy", "quantity": 100}, {"kind": "split", "quantity": -90}]), [0.1, 1.0])
+
+# Sell 50 of the new units at 10: FIFO takes 22 (the first 0.5 old lot,
+# now 22 units, cost 200) + 22 (cost 200) + 6 of the third (cost 6/22
+# × 200 = 54.55): cost 454.55, gain 45.45. Nothing about the split is
+# a gain.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, quantity, price, external_id, source) "
+                 "VALUES (?, '2023-01-12', 'Verkauf', 500, 'EUR', 'sell', 'LU1681044563', -50, 10, 's9', 'manual')", (sid,))
+g = gains.realised("LU1681044563", [sid], "fifo")
+check("a lot keeps its cost through a split, so FIFO realises against the old money", (g["sales"][0]["cost"], g["sales"][0]["gain"]), (454.55, 45.45))
+check("...and the units still held cost the rest", (round(g["open_quantity"], 4), g["open_cost"]), (59.0, round(600 + 2 * 21.5 * 9.3 - 454.55, 2)))
+ga = gains.realised("LU1681044563", [sid], "average")
+check("average cost: 999.9 over 109 units, 50 sold", (ga["sales"][0]["cost"], ga["sales"][0]["gain"]), (round(999.9 / 109 * 50, 2), round(500 - 999.9 / 109 * 50, 2)))
+r = c.get("/securities/LU1681044563")
+check("the security page shows the split row and the form", (b"is-split" in r.data, b"Record a split" in r.data), (True, True))
+r = c.post(f"/transactions/{row['id']}/edit", data={"txn_date": "2022-09-30", "kind": "split", "quantity": "64.5", "amount": "0", "direction": "in", "quantity_direction": "in", "back": "/securities/LU1681044563"}, follow_redirects=True)
+check("the split row can be corrected like any other", r.status_code, 200)
+tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
+r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                         "params": {"name": "record_split", "arguments": {"isin": "LU1681044563", "date": "2023-01-13", "ratio": "2:1"}}}, headers=HDR)
+out = r.get_json()["result"]["structuredContent"]
+check("the MCP tool records a split too", (len(out["written"]), round(out["written"][0]["quantity"], 4)), (1, 59.0))
+mcp.revoke()
+c.post(f"/accounts/{sid}/delete", data={"confirm": "Split test"})
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

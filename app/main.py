@@ -44,7 +44,7 @@ from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import (cashflow, categories, crypto, export, forecast, gains, history, importers, loans,
                manual, mcp, overview, people, performance, screener, screener_etf,
-               screener_jobs, subscriptions)
+               screener_jobs, splits, subscriptions)
 from . import brokers
 from .brokers import kraken, saxo
 from . import db as db_state
@@ -159,7 +159,7 @@ def _type_label(slug: str) -> str:
 KINDS = {"deposit": "deposit", "withdrawal": "withdrawal", "buy": "buy",
          "sell": "sell", "dividend": "dividend", "interest": "interest",
          "fee": "fee", "tax": "tax", "transfer": "transfer",
-         "other": "other"}
+         "other": "other", "split": "split"}
 
 
 # How often a subscription repeats, as subscriptions.py names it.
@@ -819,6 +819,26 @@ def security_page(isin: str):
                            symbol=sec["symbol"] if sec else None,
                            trades=manual.TRADES, directional=manual.DIRECTIONAL,
                            accounts=sorted({r["account_name"] for r in rows}))
+
+
+@app.route("/securities/<isin>/split", methods=["POST"])
+@auth.login_required
+def security_split(isin: str):
+    """Record a stock split: one `split` row per account holding the
+    security that day, so every earlier row is read in today's units.
+    See splits.py."""
+    isin = isin.strip()
+    try:
+        written = splits.record(isin, request.form.get("txn_date"), request.form.get("ratio"),
+                                people.scope())
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("security_page", isin=isin) + "#split")
+    if not written:
+        flash(_t("Nothing was held on that day — or that split is already recorded."), "error")
+    else:
+        flash(_n(len(written), "Split recorded on {n} account.", "Split recorded on {n} accounts."), "ok")
+    return redirect(url_for("security_page", isin=isin))
 
 
 def _cluster(rows: list[dict]) -> list[dict]:

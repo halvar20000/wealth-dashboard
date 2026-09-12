@@ -608,6 +608,7 @@ footer {
 .sec-badge.is-sell { background: var(--warn-soft); color: var(--warn); }
 .sec-badge.is-dividend, .sec-badge.is-interest { background: var(--gain-soft); color: var(--gain); }
 .sec-badge.is-transfer { background: rgba(167,139,250,0.14); color: var(--accent-purple); }
+.sec-badge.is-split { background: rgba(245,215,110,0.16); color: var(--accent-gold); }
 .sec-act { text-align: right; }
 .sec-act .btn { margin: 0; padding: 5px 12px; font-size: 12.5px; }
 .sec-editrow { margin: 0 0 8px 50px; padding: 12px 14px; border-radius: 10px; background: var(--bg-elevated); border: 1px dashed var(--border-strong); }

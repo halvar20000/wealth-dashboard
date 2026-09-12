@@ -187,6 +187,19 @@
   {% endfor %}
   <p class="sub">{{ _("An imported row cannot be removed — it would only come back with the next import — but it can be corrected to a quantity of zero. A row typed in by hand can be removed.") }}</p>
 </div>
+
+<div class="card" id="split">
+  <div class="card-header">
+    <h2>{{ _("Record a split") }}</h2>
+    <span class="card-subtitle">{{ _("when the units changed and the money did not") }}</span>
+  </div>
+  <form method="post" action="{{ url_for('security_split', isin=isin) }}" class="form inline sec-form">
+    <div><label>{{ _("Date") }}</label><input name="txn_date" type="date" required style="width:auto"></div>
+    <div><label>{{ _("New for old") }}</label><input name="ratio" placeholder="44:1" required style="width:110px" inputmode="decimal"></div>
+    <button type="submit">{{ _("Record the split") }}</button>
+  </form>
+  <p class="sub">{{ _("A split adds a row per account — the units that appeared, at no cost — so the quantity above is right from that day on. Earlier rows keep the units and prices of their day; the chart values them in today's units, as Yahoo's history is, and a lot keeps its cost, so a later sale realises the same gain it would have in the old units. Write 1:10 for a reverse split.") }}</p>
+</div>
 {% endblock %}
 
 {% block scripts %}

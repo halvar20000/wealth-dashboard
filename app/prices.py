@@ -377,6 +377,13 @@ def series_for(isin: str, account_ids: list[int] | None = None,
     days, qty, invested, paid = [], [], [], []
     q = inv = 0.0
     last_paid = None
+    # A market price is in today's units; the units held before a
+    # split are scaled up to match — see splits.factors(). The last
+    # price paid is in the units of its day, so it goes with the raw
+    # quantity of that day.
+    from . import splits
+    factor = splits.factors(rows)
+    raw = []
     for r in rows:
         q += r["quantity"] or 0.0
         if r["kind"] == "buy":
@@ -385,7 +392,8 @@ def series_for(isin: str, account_ids: list[int] | None = None,
             inv -= r["amount"]
         if r["price"]:
             last_paid = r["price"]
-        days.append(r["txn_date"]); qty.append(q); invested.append(inv); paid.append(last_paid)
+        days.append(r["txn_date"]); qty.append(q * factor[len(qty)]); raw.append(q)
+        invested.append(inv); paid.append(last_paid)
     idays, iamt = [], []
     acc = 0.0
     for r in income:
@@ -400,11 +408,16 @@ def series_for(isin: str, account_ids: list[int] | None = None,
         i = bisect_right(days, ds)
         held = qty[i - 1] if i else 0.0
         j = bisect_right(pdays, ds)
-        price = pr[j - 1][1] if j else (paid[i - 1] if i else None)
+        if j:
+            value = held * pr[j - 1][1]
+        elif i and paid[i - 1] is not None:
+            value = raw[i - 1] * paid[i - 1]
+        else:
+            value = None
         k = bisect_right(idays, ds)
-        points.append({"date": ds, "quantity": held,
+        points.append({"date": ds, "quantity": raw[i - 1] if i else 0.0,
                        "invested": invested[i - 1] if i else 0.0,
-                       "value": (held * price) if (price is not None and abs(held) > 1e-12) else None,
+                       "value": value if abs(held) > 1e-12 else None,
                        "income": iamt[k - 1] if k else 0.0})
         d += timedelta(days=1)
     return {"points": points, "currency": currency, "first": days[0]}

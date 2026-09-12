@@ -52,6 +52,15 @@ def _run(rows: list[dict], how: str) -> dict:
         qty = r["quantity"] or 0.0
         if abs(qty) < 1e-12:
             continue
+        if r["kind"] == "split":
+            # More (or fewer) units, the same money: every lot scales,
+            # its cost stays, and a later sale realises what it would
+            # have realised in the old units.
+            held = sum(l[0] for l in lots)
+            if held > 1e-12:
+                ratio = (held + qty) / held
+                lots = [[l[0] * ratio, l[1]] for l in lots]
+            continue
         if qty > 0:
             if r["kind"] == "buy":
                 cost = -r["amount"]              # what left the pocket, fees included

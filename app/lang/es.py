@@ -1868,4 +1868,15 @@ STRINGS: dict[str, str] = {
     'Every row these filters match, not just the ones shown, in a file a spreadsheet opens right.': 'Cada fila que cumplen estos filtros, no solo las mostradas, en un archivo que una hoja de cálculo abre bien.',
     'Export as CSV': 'Exportar como CSV',
     'This table with every figure on it — price, value, gains, TWR and MWR — in a file a spreadsheet opens right.': 'Esta tabla con cada cifra — precio, valor, ganancias, TWR y MWR — en un archivo que una hoja de cálculo abre bien.',
+    # Stock splits (0.27.0)
+    "A split adds a row per account — the units that appeared, at no cost — so the quantity above is right from that day on. Earlier rows keep the units and prices of their day; the chart values them in today's units, as Yahoo's history is, and a lot keeps its cost, so a later sale realises the same gain it would have in the old units. Write 1:10 for a reverse split.": 'Un split añade una fila por cuenta — los títulos que aparecieron, sin coste — para que la cantidad de arriba sea correcta desde ese día. Las filas anteriores conservan los títulos y precios de su día; el gráfico los valora en títulos de hoy, como hace el histórico de Yahoo, y un lote conserva su coste, así que una venta posterior realiza la misma ganancia que en títulos antiguos. Escribe 1:10 para un contrasplit.',
+    'New for old': 'Nuevos por antiguos',
+    'Nothing was held on that day — or that split is already recorded.': 'Ese día no se tenía nada — o ese split ya está registrado.',
+    'Record a split': 'Registrar un split',
+    'Record the split': 'Registrar el split',
+    'Split recorded on {n} account.': 'Split registrado en {n} cuenta.',
+    'Split recorded on {n} accounts.': 'Split registrado en {n} cuentas.',
+    'split [kind]': 'Split',
+    'when the units changed and the money did not': 'cuando cambiaron los títulos y no el dinero',
+    'Write the split as new for old, like 44:1 — or 1:10 for a reverse split.': 'Escribe el split como nuevos por antiguos, como 44:1 — o 1:10 para un contrasplit.',
 }

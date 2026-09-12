@@ -63,6 +63,7 @@ it does not do yet.
 - [x] Time-weighted and money-weighted return, per security and for the
       portfolio.
 - [x] Realised gains by lots, FIFO or average cost.
+- [x] Stock splits, recorded once on the security's page.
 - [x] A generic CSV importer with a saved column mapping, recognised by
       the file's header.
 - [x] CSV export of transactions and holdings, filtered as the page is.

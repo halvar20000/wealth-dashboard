@@ -24,7 +24,7 @@ from datetime import datetime
 # inside it, and no finer, because a taxonomy nobody uses is a taxonomy
 # that goes wrong quietly.
 KINDS = {"deposit", "withdrawal", "buy", "sell", "dividend", "interest",
-         "fee", "tax", "transfer", "other"}
+         "fee", "tax", "transfer", "other", "split"}
 
 
 @dataclass

@@ -86,16 +86,27 @@ class Valuer:
             # Per holding: the trades in date order, with the running
             # quantity and the price paid, so "held on day d" is one bisect.
             self.trades: dict[str, tuple[list[str], list[float], list[tuple[float, str]]]] = {}
+            per_isin: dict[str, list] = {}
             for r in conn.execute(
-                    f"SELECT t.isin, t.txn_date, t.quantity, t.price, t.currency "
+                    f"SELECT t.isin, t.txn_date, t.kind, t.quantity, t.price, t.currency "
                     f"FROM transactions t WHERE t.isin IS NOT NULL AND t.quantity IS NOT NULL"
                     f"{only_t} ORDER BY t.txn_date, t.id",
                     params_t):
-                days, qty, paid = self.trades.setdefault(r["isin"], ([], [], []))
-                running = (qty[-1] if qty else 0.0) + (r["quantity"] or 0.0)
-                last_paid = (r["price"], r["currency"]) if r["price"] else (
-                    paid[-1] if paid else (None, None))
-                days.append(r["txn_date"]); qty.append(running); paid.append(last_paid)
+                per_isin.setdefault(r["isin"], []).append(dict(r))
+            # Units in today's terms: a market price is split-adjusted,
+            # so the units held before a split are scaled to match — see
+            # splits.factors(). The last price paid is in the units of
+            # its day and is kept with a factor of its own.
+            from . import splits
+            for isin, rows in per_isin.items():
+                days, qty, paid = self.trades.setdefault(isin, ([], [], []))
+                factor = splits.factors(rows)
+                running = 0.0
+                for r, f in zip(rows, factor):
+                    running += r["quantity"] or 0.0
+                    last_paid = (r["price"] / f, r["currency"]) if r["price"] else (
+                        paid[-1] if paid else (None, None))
+                    days.append(r["txn_date"]); qty.append(running * f); paid.append(last_paid)
 
             self.prices: dict[str, tuple[list[str], list[tuple[float, str]]]] = {}
             if self.trades:

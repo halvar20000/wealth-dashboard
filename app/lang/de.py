@@ -1866,4 +1866,15 @@ STRINGS: dict[str, str] = {
     'Every row these filters match, not just the ones shown, in a file a spreadsheet opens right.': 'Jede Zeile, auf die diese Filter passen, nicht nur die gezeigten, in einer Datei, die eine Tabellenkalkulation richtig öffnet.',
     'Export as CSV': 'Als CSV exportieren',
     'This table with every figure on it — price, value, gains, TWR and MWR — in a file a spreadsheet opens right.': 'Diese Tabelle mit jeder Zahl darauf — Kurs, Wert, Gewinne, TWR und MWR — in einer Datei, die eine Tabellenkalkulation richtig öffnet.',
+    # Stock splits (0.27.0)
+    "A split adds a row per account — the units that appeared, at no cost — so the quantity above is right from that day on. Earlier rows keep the units and prices of their day; the chart values them in today's units, as Yahoo's history is, and a lot keeps its cost, so a later sale realises the same gain it would have in the old units. Write 1:10 for a reverse split.": 'Ein Split fügt je Konto eine Zeile hinzu — die Stücke, die dazukamen, ohne Kosten — damit die Menge oben ab diesem Tag stimmt. Frühere Zeilen behalten die Stücke und Kurse ihres Tages; der Chart bewertet sie in heutigen Stücken, wie Yahoos Historie es tut, und eine Tranche behält ihre Kosten, sodass ein späterer Verkauf denselben Gewinn realisiert wie in alten Stücken. Schreibe 1:10 für einen Reverse-Split.',
+    'New for old': 'Neu für alt',
+    'Nothing was held on that day — or that split is already recorded.': 'An diesem Tag wurde nichts gehalten — oder dieser Split ist schon erfasst.',
+    'Record a split': 'Einen Split erfassen',
+    'Record the split': 'Split erfassen',
+    'Split recorded on {n} account.': 'Split auf {n} Konto erfasst.',
+    'Split recorded on {n} accounts.': 'Split auf {n} Konten erfasst.',
+    'split [kind]': 'Split',
+    'when the units changed and the money did not': 'wenn sich die Stücke änderten und das Geld nicht',
+    'Write the split as new for old, like 44:1 — or 1:10 for a reverse split.': 'Schreibe den Split als neu für alt, etwa 44:1 — oder 1:10 für einen Reverse-Split.',
 }

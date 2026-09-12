@@ -239,6 +239,17 @@ def _realised_gains(person=None, isin=None, method=None):
     return gains.summary(scope, method)
 
 
+@tool("record_split",
+      "Record a stock split on a security: one 'split' row per account holding it on "
+      "that day, with the units that appeared at no cost. ratio is new for old — "
+      "'44:1', or '1:10' for a reverse split. Returns the rows written.",
+      {"isin": {"type": "string"}, "date": {"type": "string", "description": "YYYY-MM-DD"},
+       "ratio": {"type": "string"}, "person": PERSON})
+def _record_split(isin, date, ratio, person=None):
+    from . import splits
+    return {"written": splits.record(isin.strip(), date, ratio, _scope(person))}
+
+
 @tool("net_worth_history",
       "Net worth on a set of days across a period, rebuilt from the records.",
       {"period": {"type": "string", "enum": sorted(history.PERIODS),

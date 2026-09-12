@@ -11,6 +11,25 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.27.0] — 2026-09-12
+
+### Added
+- **Stock splits.** A split — 44 new units for 1 old, the money
+  unchanged — is the one event that makes every earlier row of a
+  holding look wrong: 0.4753 units at 420 before, 21.57 at 9.27 after,
+  and a running sum that adds the two. The brokers' exports do not
+  carry it, so it is recorded once on the security's page (date, and
+  the ratio as new for old; `1:10` for a reverse split). It becomes a
+  `split` row per account holding the security that day — the units
+  that appeared, at no cost — so the quantity is right from then on;
+  it can be corrected or removed like any other row. Earlier rows keep
+  the units and prices of their day; the chart and the net-worth
+  history value them in today's units, as Yahoo's split-adjusted
+  history is; a lot keeps its cost through the split, so a later sale
+  realises the same gain it would have in the old units. MCP:
+  `record_split`. (Reported by Dominique, on an Amundi ETF in a DKB
+  Depot.)
+
 ## [0.26.0] — 2026-09-12
 
 ### Added

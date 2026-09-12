@@ -50,7 +50,8 @@ a PSD2 API it connects directly, with credentials that are yours.
 - **Holdings**, computed from the trades — imported or typed in: what you
   own, how much, and what you put in. Click one and every row behind it
   is listed and can be corrected in place; a correction survives the
-  next import. Each has a chart of its performance since the first
+  next import. A stock split is recorded once and read into every
+  earlier row. Each has a chart of its performance since the first
   purchase — value against what went in, with the income drawn apart —
   and its **time-weighted and money-weighted return**; the Portfolio
   page has both for the securities as one investment. Sales are set
