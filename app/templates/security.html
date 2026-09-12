@@ -15,7 +15,7 @@
   <div class="stat-card stat-blue">
     <div class="stat-label">{{ _("Net invested") }}</div>
     <div class="stat-value">{{ money(net_invested, currency) }}</div>
-    <div class="stat-sub">{{ _("buys minus sales, fees included") }}</div>
+    <div class="stat-sub">{% if realised.open_quantity > 0 and realised.avg_cost %}{{ _f("units held cost {amount}, {avg} each", amount=money(realised.open_cost, currency), avg=qty(realised.avg_cost | round(2))) }}{% else %}{{ _("buys minus sales, fees included") }}{% endif %}</div>
   </div>
   <div class="stat-card stat-green">
     <div class="stat-label">{{ _("Income") }}</div>
@@ -35,7 +35,7 @@
   <div class="stat-card stat-purple">
     <div class="stat-label">{{ _("Value") }}</div>
     <div class="stat-value">{% if price %}{{ money(quantity * price.price, price.currency) }}{% else %}—{% endif %}</div>
-    <div class="stat-sub">{% if price %}{{ _f("at {price} on {date}", price=qty(price.price), date=d(price.as_of)) }}{% else %}{{ _("no market price yet") }}{% endif %}</div>
+    <div class="stat-sub">{% if unrealised is not none %}<span class="{{ 'pos' if unrealised > 0 else ('neg' if unrealised < 0) }}">{{ _f("{amount} unrealised", amount=money(unrealised, price.currency)) }}</span> · {% endif %}{% if price %}{{ _f("at {price} on {date}", price=qty(price.price), date=d(price.as_of)) }}{% else %}{{ _("no market price yet") }}{% endif %}</div>
   </div>
 </section>
 
@@ -52,6 +52,38 @@
   <div class="chart-wrap" style="height:300px"><canvas id="sec-chart"></canvas></div>
   <p class="sub">{{ _("Value is the units held times the price of the day — the market price where the app has one, the last price paid before that. Invested is buys minus sales, fees included. Dividends and interest are drawn as their own line, because they are return that never shows in the value.") }}</p>
 </div>
+
+{% if realised.sales %}
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("Realised gains") }}</h2>
+    <span class="card-subtitle">{{ _n(realised.sales | length, "{n} sale", "{n} sales") }} · {{ _("FIFO") if realised.method == 'fifo' else _("average cost") }} · <a href="{{ url_for('settings_page') }}#general">{{ _("change") }}</a></span>
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Account") }}</th><th class="num">{{ _("Units sold") }}</th>
+                 <th class="num">{{ _("Proceeds") }}</th><th class="num">{{ _("Cost of those units") }}</th><th class="num">{{ _("Gain") }}</th></tr></thead>
+      <tbody>
+      {% for s_ in realised.sales | reverse %}
+        <tr>
+          <td class="nowrap"><a href="#txn-{{ s_.id }}">{{ d(s_.date) }}</a></td>
+          <td class="sub">{{ s_.account }}</td>
+          <td class="num">{{ qty(s_.quantity) }}</td>
+          <td class="num">{{ money(s_.proceeds, s_.currency) }}</td>
+          <td class="num">{{ money(s_.cost, s_.currency) }}</td>
+          <td class="num {{ 'pos' if s_.gain > 0 else ('neg' if s_.gain < 0) }}">{{ money(s_.gain, s_.currency) }}{% if s_.cost %}<span class="sub">{{ '%+.1f' | format(100 * s_.gain / s_.cost) }} %</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      {% for y, v in realised.by_year.items() | reverse %}
+        <tr class="total"><td colspan="5">{{ y }}</td><td class="num {{ 'pos' if v > 0 else ('neg' if v < 0) }}">{{ money(v, currency) }}</td></tr>
+      {% endfor %}
+        <tr class="total"><td colspan="5">{{ _("All time") }}</td><td class="num {{ 'pos' if realised.total > 0 else ('neg' if realised.total < 0) }}">{{ money(realised.total, currency) }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="sub">{{ _("Each sale against the cost of the units it sold, lots kept per account — a unit bought at one broker is never sold at another. Under FIFO the oldest units go first, which is how Germany taxes; under average cost every unit costs the average paid, the French prix moyen pondéré. Units that arrived without a purchase — a transfer in — cost what their row says, or nothing; units that left without a sale realise nothing.") }}</p>
+</div>
+{% endif %}
 
 <div class="card">
   <div class="card-header">
@@ -112,6 +144,7 @@
               <span>{% if r.quantity is not none %}<span class="sec-chip {{ 'is-out' if r.quantity < 0 }}">{{ qty(r.quantity) }}×</span>{% endif %}
                 {% if r.price %}{{ qty(r.price) }}{% endif %}
                 <span class="sub" title="{{ _('the quantity as it ran') }}">→ {{ qty(r.running) }}</span></span>
+              {% if r.sale %}<span class="sub sec-gain"><span class="{{ 'pos' if r.sale.gain > 0 else ('neg' if r.sale.gain < 0) }}">{{ _f("{amount} realised", amount=money(r.sale.gain, r.currency)) }}</span> · {{ _f("cost {amount}", amount=money(r.sale.cost, r.currency)) }}</span>{% endif %}
             </div>
             <div class="sec-act"><button type="button" class="btn btn-ghost sec-edit" data-target="edit-{{ r.id }}">{{ _("Correct") }}</button></div>
           </div>

@@ -223,6 +223,22 @@ def _performance(person=None):
     return out
 
 
+@tool("realised_gains",
+      "What the sales made, by lots: per year and all time, per currency, and per "
+      "security ever sold. Pass an ISIN for every sale of that one security with the "
+      "cost of the units sold and the gain, plus what is still held and what it cost. "
+      "Method is the Settings choice (fifo or average) unless given.",
+      {"person": PERSON,
+       "isin": {"type": "string", "description": "One security; omit for the summary."},
+       "method": {"type": "string", "enum": ["fifo", "average"]}})
+def _realised_gains(person=None, isin=None, method=None):
+    from . import gains
+    scope = _scope(person)
+    if isin:
+        return gains.realised(isin.strip(), scope, method)
+    return gains.summary(scope, method)
+
+
 @tool("net_worth_history",
       "Net worth on a set of days across a period, rebuilt from the records.",
       {"period": {"type": "string", "enum": sorted(history.PERIODS),

@@ -41,7 +41,7 @@ from flask import (Flask, flash, g, jsonify, redirect, render_template,
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import (cashflow, categories, crypto, forecast, history, importers, loans,
+from . import (cashflow, categories, crypto, forecast, gains, history, importers, loans,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, subscriptions)
 from . import brokers
@@ -676,8 +676,19 @@ def security_page(isin: str):
     net_invested = sum(-r["amount"] for r in rows if r["kind"] == "buy") \
         - sum(r["amount"] for r in rows if r["kind"] == "sell")
     income = sum(r["amount"] for r in rows if r["kind"] in ("dividend", "interest"))
+    # What each sale made, by lots — and what the units still held
+    # cost, which is the cost basis the unrealised gain is measured
+    # against. Both under the method chosen in Settings.
+    realised = gains.realised(isin, people.scope())
+    by_sale = {s_["id"]: s_ for s_ in realised["sales"]}
+    for r in rows:
+        r["sale"] = by_sale.get(r["id"])
+    unrealised = None
+    if price and price.get("price") is not None and realised["open_quantity"] > 1e-12:
+        unrealised = price["price"] * realised["open_quantity"] - realised["open_cost"]
     return render_template("security.html", active_page="portfolio", isin=isin, name=name,
                            perf=performance.for_security(isin, people.scope()),
+                           realised=realised, unrealised=unrealised,
                            rows=rows, groups=groups, quantity=running, net_invested=net_invested,
                            income=income, price=price,
                            currency=next((r["currency"] for r in rows if r["kind"] in ("buy", "sell")),
@@ -1208,7 +1219,19 @@ def portfolio_page():
     }
     for h in s["holdings"]:
         h["perf"] = performance.for_security(h["isin"], scope)
-    return render_template("portfolio.html", active_page="portfolio", s=s, perf=perf)
+        # The gain by lots: what the sales of this holding made, and
+        # what the units still held cost — the basis the market price
+        # is measured against — under the method chosen in Settings.
+        r = gains.realised(h["isin"], scope)
+        h["realised"] = r["total"] if r["sales"] else None
+        h["open_cost"] = r["open_cost"]
+        h["unrealised"] = (h["quantity"] * h["price"] - r["open_cost"]) \
+            if h["price"] is not None and r["open_quantity"] > 1e-12 else None
+    # Every security ever sold, held or not: a position closed last
+    # year still made what it made.
+    realised = gains.summary(scope)
+    return render_template("portfolio.html", active_page="portfolio", s=s, perf=perf,
+                           realised=realised)
 
 
 # ─── Share Ideas ─────────────────────────────────────────────────────
@@ -1515,6 +1538,8 @@ def settings_page():
             chosen = (request.form.get("language") or "").strip()
             cfg["language"] = chosen if i18n.known(chosen) else ""
             cfg["auto_sync"] = bool(request.form.get("auto_sync"))
+            how = (request.form.get("gains_method") or "fifo").strip()
+            cfg["gains_method"] = how if how in gains.METHODS else "fifo"
             when = (request.form.get("sync_time") or "12:00").strip()
             cfg["sync_time"] = when if _valid_hhmm(when) else "12:00"
             settings.save(cfg)

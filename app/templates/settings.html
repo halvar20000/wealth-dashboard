@@ -3,7 +3,7 @@
 {% block heading %}{{ _("Settings") }}{% endblock %}
 {% block content %}
 
-<div class="card">
+<div class="card" id="general">
   <h2>{{ _("General") }}</h2>
   <form method="post" class="form">
     <label for="language">{{ _("Language") }}</label>
@@ -20,6 +20,13 @@
 
     <label for="base_currency">{{ _("Base currency") }}</label>
     <input id="base_currency" name="base_currency" value="{{ cfg.base_currency }}" maxlength="3">
+
+    <label for="gains_method">{{ _("Realised gains, by") }}</label>
+    <select id="gains_method" name="gains_method">
+      <option value="fifo" {{ 'selected' if (cfg.gains_method or 'fifo') == 'fifo' }}>{{ _("FIFO — the oldest units are sold first") }}</option>
+      <option value="average" {{ 'selected' if cfg.gains_method == 'average' }}>{{ _("Average cost — every unit costs the average paid") }}</option>
+    </select>
+    <p class="sub">{{ _("Which units a sale sells decides what it made. FIFO is what Germany taxes on and what Portfolio Performance shows; average cost is the French prix moyen pondéré. Switzerland taxes no private capital gain, so a Swiss reader may pick either. Nothing is stored: switching recomputes every figure.") }}</p>
 
     <label class="check" style="margin-top:10px"><input type="checkbox" name="auto_sync" value="1" {{ 'checked' if cfg.auto_sync }}> {{ _("Sync connected accounts automatically every day") }}</label>
     <label for="sync_time">{{ _("At") }}</label>

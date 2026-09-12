@@ -71,6 +71,10 @@ DEFAULTS: dict[str, Any] = {
     # noon is one nobody has to remember.
     "auto_sync": True,
     "sync_time": "12:00",
+    # Which units a sale sells: "fifo" (the oldest first — Germany's
+    # rule) or "average" (every unit at the average paid — France's
+    # prix moyen pondéré). A tax question, so a setting, never a guess.
+    "gains_method": "fifo",
 }
 
 

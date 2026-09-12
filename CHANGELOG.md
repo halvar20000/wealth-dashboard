@@ -11,6 +11,23 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.25.0] — 2026-09-12
+
+### Added
+- **Realised gains, by lots.** Every sale is set against the cost of
+  the units it sold — the oldest first under **FIFO** (Germany's rule,
+  the default), every unit at the average paid under **average cost**
+  (France's *prix moyen pondéré*); the choice is a setting under
+  General, and switching recomputes everything. Lots live per account,
+  so a unit bought at one broker is never sold at another; a transfer
+  carries its lots along without realising. The security page lists
+  each sale with its proceeds, cost and gain, totals per year, and
+  says what the units still held cost; the Portfolio page has a
+  realised-gains card by year and per currency, and per holding an
+  *Unrealised* column (value minus the cost of the open lots) and a
+  *Realised* one. The MCP tool `realised_gains` returns the same,
+  per security or as a summary.
+
 ## [0.24.0] — 2026-09-12
 
 ### Added

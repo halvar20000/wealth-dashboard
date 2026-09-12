@@ -4304,5 +4304,80 @@ mcp.revoke()
 c.post(f"/accounts/{pid}/delete", data={"confirm": "Perf test"})
 
 # ---------------------------------------------------------------------------
+print("\n32. Realised gains, by lots")
+# ---------------------------------------------------------------------------
+from app import gains                                       # noqa: E402
+
+# 10 at 100, 5 at 110, then 8 sold at 120 (960 in, 5 fee → 955 booked).
+# FIFO: the 8 are the oldest — cost 800, gain 155. Average: 1 550 / 15
+# = 103.33 each — cost 826.67, gain 128.33. Then 7 more sold at 130
+# (910): FIFO 2 × 100 + 5 × 110 = 750, gain 160; average 723.33, 186.67.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Lots test', 'broker', 'EUR')")
+    lid = conn.execute("SELECT id FROM accounts WHERE name = 'Lots test'").fetchone()["id"]
+    for i, (day, kind, amt, q, px) in enumerate((
+            ("2025-01-10", "buy", -1000, 10, 100), ("2025-06-10", "buy", -550, 5, 110),
+            ("2025-09-01", "sell", 955, -8, 120), ("2026-02-01", "sell", 910, -7, 130))):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, quantity, price, external_id, source) "
+                     "VALUES (?, ?, ?, ?, 'EUR', ?, 'XX0000008888', 'Lot Fund', ?, ?, ?, 'manual')",
+                     (lid, day, kind.title(), amt, kind, q, px, f"l{i}"))
+fifo = gains.realised("XX0000008888", [lid], "fifo")
+check("FIFO sells the oldest units first",
+      [(s_["cost"], s_["gain"]) for s_ in fifo["sales"]], [(800.0, 155.0), (750.0, 160.0)])
+check("...and sums them by year and all time", (fifo["by_year"], fifo["total"]), ({"2025": 155.0, "2026": 160.0}, 315.0))
+check("...leaving nothing held", (fifo["open_quantity"], fifo["open_cost"], fifo["avg_cost"]), (0, 0.0, None))
+avg = gains.realised("XX0000008888", [lid], "average")
+check("average cost sells every unit at the average paid",
+      [(s_["cost"], s_["gain"]) for s_ in avg["sales"]], [(826.67, 128.33), (723.33, 186.67)])
+check("the two methods realise the same total once everything is sold", avg["total"], fifo["total"])
+check("the default method is FIFO", gains.method(), "fifo")
+
+# A partial: hold 5 after the first sale under FIFO — 5 × 110.
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM transactions WHERE external_id = 'l3' AND account_id = ?", (lid,))
+part = gains.realised("XX0000008888", [lid], "fifo")
+check("what is still held is the youngest lot under FIFO", (part["open_quantity"], part["open_cost"], round(part["avg_cost"], 2)), (7, 750.0, 107.14))
+part_avg = gains.realised("XX0000008888", [lid], "average")
+check("...and 7 at the average under average cost", (part_avg["open_quantity"], part_avg["open_cost"]), (7, 723.33))
+
+# A transfer out carries lots away without realising; a transfer in at
+# the row's price opens a lot; a second account keeps its own lots.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Lots test 2', 'broker', 'EUR')")
+    lid2 = conn.execute("SELECT id FROM accounts WHERE name = 'Lots test 2'").fetchone()["id"]
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, quantity, price, external_id, source) "
+                 "VALUES (?, '2026-03-01', 'Out', 0, 'EUR', 'transfer', 'XX0000008888', -3, 130, 'l4', 'manual')", (lid,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, quantity, price, external_id, source) "
+                 "VALUES (?, '2026-03-01', 'In', 0, 'EUR', 'transfer', 'XX0000008888', 3, 130, 'l5', 'manual')", (lid2,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, quantity, price, external_id, source) "
+                 "VALUES (?, '2026-04-01', 'Sell', 420, 'EUR', 'sell', 'XX0000008888', -3, 140, 'l6', 'manual')", (lid2,))
+both = gains.realised("XX0000008888", [lid, lid2], "fifo")
+check("a transfer realises nothing, and the receiving account's sale is against the transfer price",
+      [(s_["account"], s_["cost"], s_["gain"]) for s_ in both["sales"]], [("Lots test", 800.0, 155.0), ("Lots test 2", 390.0, 30.0)])
+check("...with the lots that stayed behind still held", (both["open_quantity"], both["open_cost"]), (4, 440.0))
+summ = gains.summary([lid, lid2], "fifo")
+check("the summary is per year and per currency",
+      (summ["sales"], [(y["year"], y["amounts"]) for y in summ["by_year"]], summ["total"]),
+      (2, [("2026", {"EUR": 30.0}), ("2025", {"EUR": 155.0})], {"EUR": 185.0}))
+r = c.get("/securities/XX0000008888")
+check("the security page lists the sales with their cost and gain",
+      b"Realised gains" in r.data and b"Cost of those units" in r.data and b"realised" in r.data, True)
+r = c.get("/portfolio")
+check("the portfolio page has the realised-gains card and columns",
+      b"Realised gains" in r.data and b">Unrealised<" in r.data and b">Realised<" in r.data, True)
+r = c.post("/settings", data={"base_currency": "EUR", "gains_method": "average", "sync_time": "12:00"}, follow_redirects=True)
+check("the method is a setting", (r.status_code, gains.method()), (200, "average"))
+r = c.post("/settings", data={"base_currency": "EUR", "gains_method": "nonsense", "sync_time": "12:00"}, follow_redirects=True)
+check("...that falls back to FIFO on nonsense", gains.method(), "fifo")
+tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
+r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                         "params": {"name": "realised_gains", "arguments": {"isin": "XX0000008888", "method": "average"}}}, headers=HDR)
+out = r.get_json()["result"]["structuredContent"]
+check("the MCP tool answers per security under the asked method", (out["method"], len(out["sales"])), ("average", 2))
+mcp.revoke()
+c.post(f"/accounts/{lid}/delete", data={"confirm": "Lots test"})
+c.post(f"/accounts/{lid2}/delete", data={"confirm": "Lots test 2"})
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

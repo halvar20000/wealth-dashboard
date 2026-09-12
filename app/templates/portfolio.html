@@ -58,6 +58,27 @@
   <p class="sub">{% if perf.all.since %}{{ _f("Measured from {date}, day by day, on the prices the app has — backfilled to each security's first trade. A dash means there is nothing to measure yet.", date=d(perf.all.since)) }}{% endif %}</p>
 </section>
 
+{% if realised.sales %}
+<section class="card">
+  <div class="card-header"><h2>{{ _("Realised gains") }}</h2>
+    <span class="card-subtitle">{{ _("what the sales made, by lots") }} · {{ _("FIFO") if realised.method == 'fifo' else _("average cost") }} · <a href="{{ url_for('settings_page') }}#general">{{ _("change") }}</a></span></div>
+  <div class="table-wrap">
+    <table class="grid perf-grid">
+      <thead><tr><th>{{ _("Year") }}</th><th class="num">{{ _("Realised") }}</th></tr></thead>
+      <tbody>
+      {% for y in realised.by_year %}
+        <tr><td>{{ y.year }}</td>
+            <td class="num">{% for ccy, v in y.amounts.items() %}<span class="{{ 'pos' if v > 0 else ('neg' if v < 0) }}">{{ money(v, ccy) }}</span>{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
+      {% endfor %}
+        <tr class="total"><td>{{ _("All time") }}</td>
+            <td class="num">{% for ccy, v in realised.total.items() %}<span class="{{ 'pos' if v > 0 else ('neg' if v < 0) }}">{{ money(v, ccy) }}</span>{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="sub">{{ _("Each sale against the cost of the units it sold — the oldest units first under FIFO, every unit at the average paid under average cost. Proceeds and costs as the broker booked them, fees included; a position closed years ago still counts. Kept per currency: a gain in dollars is not a gain in euros without a rate, and this is the figure a tax form asks for.") }}</p>
+</section>
+{% endif %}
+
 <section class="card">
   <div class="card-header"><h2>{{ _("Holdings") }}</h2>
     <span class="card-subtitle">{{ _("largest first") }}</span></div>
@@ -65,14 +86,16 @@
     <table class="grid">
       <thead><tr><th>{{ _("Security") }}</th><th>{{ _("ISIN") }}</th><th>{{ _("Where") }}</th><th class="num">{{ _("Quantity") }}</th>
                  <th class="num">{{ _("Price") }}</th><th class="num">{{ _("Net invested") }}</th>
-                 <th class="num">{{ _("Value") }}</th><th class="num">{{ _("Difference") }}</th>
+                 <th class="num">{{ _("Value") }}</th>
+                 <th class="num" title="{{ _('Value minus what the units still held cost, by lots; minus net invested when there is no price by lots.') }}">{{ _("Unrealised") }}</th>
+                 <th class="num" title="{{ _('What the sales of this security made, by lots.') }}">{{ _("Realised") }}</th>
                  <th class="num" title="{{ _('Time-weighted, since the first purchase; a year when it is longer than one.') }}">TWR</th>
                  <th class="num" title="{{ _('Money-weighted, a year.') }}">MWR</th></tr></thead>
       <tbody>
       {% for h in s.holdings %}
         {# Not `d`: that is the date helper, and a global shadowed halfway
            down a table is a bug that only shows up in the rows. #}
-        {% set delta = (h.value - h.net_invested) if h.value else None %}
+        {% set delta = h.unrealised if h.unrealised is not none else ((h.value - h.net_invested) if h.value else None) %}
         <tr>
           <td><a href="{{ url_for('security_page', isin=h.isin) }}">{{ h.name or h.isin }}</a><span class="sub">{{ _f("last trade {date}", date=d(h.last_trade)) }}</span></td>
           <td class="sub nowrap">{{ h.isin }}</td>
@@ -87,6 +110,8 @@
           <td class="num">{{ money(h.value, h.currency) if h.value else '—' }}</td>
           <td class="num {{ 'pos' if delta and delta > 0 else ('neg' if delta else '') }}">
             {{ money(delta, h.currency) if delta is not none else '—' }}</td>
+          <td class="num {{ 'pos' if h.realised and h.realised > 0 else ('neg' if h.realised else '') }}">
+            {{ money(h.realised, h.currency) if h.realised is not none else '—' }}</td>
           <td class="num">{{ pct(h.perf.twr_annual if h.perf.twr_annual is not none else h.perf.twr) }}{% if h.perf.twr_annual is not none %}<span class="sub">{{ _("a year") }}</span>{% endif %}</td>
           <td class="num">{{ pct(h.perf.mwr) }}</td>
         </tr>

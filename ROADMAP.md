@@ -62,6 +62,11 @@ it does not do yet.
 - [x] A Crypto page, and loans and mortgages with a computed schedule.
 - [x] Time-weighted and money-weighted return, per security and for the
       portfolio.
+- [x] Realised gains by lots, FIFO or average cost.
+- [ ] A generic CSV importer with a saved column mapping, recognised by
+      the file's header.
+- [ ] CSV export of transactions and holdings, filtered as the page is.
+- [ ] Allocation by asset class, with targets.
 
 ## Next
 

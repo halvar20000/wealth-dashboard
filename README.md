@@ -51,7 +51,9 @@ a PSD2 API it connects directly, with credentials that are yours.
   next import. Each has a chart of its performance since the first
   purchase — value against what went in, with the income drawn apart —
   and its **time-weighted and money-weighted return**; the Portfolio
-  page has both for the securities as one investment.
+  page has both for the securities as one investment. Sales are set
+  against the cost of the units they sold — **FIFO or average cost**,
+  a setting — for the realised gain per sale, per year and per holding.
 - **Crypto** — every coin held, its price and the wallet's value over
   time, from Kraken or typed in by hand.
 - **Loans and mortgages** — the terms in, the amortisation schedule out:
