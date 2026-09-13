@@ -54,20 +54,20 @@ assistant.
 | Multi-currency, ECB rates, history since 1999 | ✔ | ✔ | ✔ (Yahoo rates) | ✔ |
 | A holding shown in the currency paid, quoted, or base | ✔ | ✔ | ◐ | — |
 | Crypto, priced | ✔ | ✔ | ✔ | — |
-| Asset allocation by class, with targets and rebalancing | — *(planned)* | ✔ taxonomies, the reference | ✔ classes and sectors | — |
-| Benchmark comparison | — | ✔ | ◐ | — |
-| Dividend calendar / forecast | — | ✔ | ✔ | — |
+| Asset allocation by class, region and own buckets, with targets | ✔ and a contribution spread | ✔ taxonomies, the reference | ✔ classes and sectors | — |
+| Benchmark comparison | ✔ eleven indices or any symbol | ✔ | ◐ | — |
+| Dividend calendar / forecast | ✔ received and next twelve months | ✔ | ✔ | — |
 | Watchlist | ◐ via Share Ideas stars | ✔ | ✔ | — |
 | Share screener (value, dividend, ETF boards) | ✔ | — | — | — |
 | Tax reports | — | ◐ | — | — |
 | **Household money** | | | | |
 | Net worth, cash and securities together, over time | ✔ | ✔ | ✔ | ✔ cash only |
-| Categories with a rules engine | ✔ text, field, direction, amount range | — | — | ✔ the reference: many triggers and actions |
+| Categories with a rules engine | ✔ text (contains, starts, exact, regex), field, direction, amount, account, kind → category, rename, kind, tag | — | — | ✔ the reference: more triggers and actions still |
 | Budgets against spending | ✔ | — | — | ✔ |
 | Cash flow by month | ✔ | — | — | ✔ |
-| Subscriptions / recurring payments detected | ✔ | — | — | ◐ bills, declared by hand |
+| Subscriptions detected, and bills declared (paid, due, missed) | ✔ both | — | — | ◐ bills, declared by hand |
 | Loans and mortgages with a computed schedule | ✔ | — | — | ◐ liabilities, no schedule |
-| Savings goals | ◐ Forecast target | — | ✔ | ✔ piggy banks |
+| Savings goals | ✔ fed by an account or by hand | — | ✔ | ✔ piggy banks |
 | Several people in one household, each with a view | ✔ | — | — | ◐ user groups |
 | **Planning** | | | | |
 | Forecast from today's balance | ✔ | ◐ investment plan | — | — |
@@ -75,36 +75,38 @@ assistant.
 | The three stages of building wealth | ✔ | — | — | — |
 | **Automation** | | | | |
 | Daily sync without a human | ✔ | — | — | ✔ importer on a schedule |
-| An assistant can read and act (MCP) | ✔ 40+ tools | — | ◐ add-ons | ◐ REST API |
-| REST API / webhooks | — *(MCP instead)* | — | — | ✔ |
+| An assistant can read and act (MCP) | ✔ 35 tools | — | ◐ add-ons | ◐ REST API |
+| REST API / webhooks | ✔ the tools as URLs; hooks on sync and missed bills | — | — | ✔ |
 | **Engineering** | | | | |
 | Dependencies | 4 Python packages | JVM | Rust + Node toolchain | PHP stack + database |
 | Database | one SQLite file | XML / binary file | SQLite | MySQL / PostgreSQL / SQLite |
-| Tests that run offline | ✔ 1 400+ | ✔ | ✔ | ✔ |
+| Tests that run offline | ✔ 1 580+ | ✔ | ✔ | ✔ |
 
 ## What that means, honestly
 
 **If the portfolio is all you care about**, Portfolio Performance still
-analyses it more deeply: taxonomies and rebalancing, benchmark charts,
-a dividend calendar, a PDF parser for nearly every German-speaking
-broker. Wealth Dashboard has the returns, the lots, the splits and the
-currencies, and stops there for now — allocation with targets is the
-next item on the roadmap. It does not have the benchmark chart and it
+goes deeper in places: its taxonomies nest, its PDF parsers cover
+nearly every German-speaking broker, its reports are older and more
+numerous. Wealth Dashboard now has the returns, the lots, the splits,
+the currencies, allocation with targets, a benchmark line and a
+dividend calendar — the analysis most people actually open — and it
 does not plan to have tax reports.
 
-**If the household money is all you care about**, Firefly III is more
-mature there: its rules engine has more triggers and actions, it has
-bills, piggy banks and tags, and a REST API with webhooks. Wealth
-Dashboard's categories, budgets, cash flow and rules cover what most
-people use of that, and it knows what a security is, which Firefly
-does not.
+**If the household money is all you care about**, Firefly III's rules
+engine still has more triggers and actions, and it has tags on
+everything, not only transactions. Wealth Dashboard's categories,
+budgets, cash flow, rules (text, field, direction, amount, account,
+kind → category, rename, kind, tag), bills and goals cover what most
+people use of that, over a REST API and webhooks of its own — and it
+knows what a security is, which Firefly does not.
 
 **What none of the three has** is the combination: a bank *and* a
 broker synced by API into the same net worth; a household of several
 people with one picture and one each; loans with a real amortisation
-schedule next to the portfolio; and an assistant that can categorise
-the queue, correct a row, record a split or read the returns over MCP.
-That is the ground this app was built for.
+schedule next to the portfolio; the three stages of building wealth;
+and an assistant that can categorise the queue, correct a row, record
+a split or read the returns over MCP. That is the ground this app was
+built for.
 
 **A note on bank aggregators, because it decides what is possible.**
 Enable Banking is, in 2026, about the last PSD2 aggregator that lets a
