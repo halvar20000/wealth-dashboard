@@ -5141,7 +5141,7 @@ check("the API wants the token", r.status_code, 401)
 tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
 r = c.get("/api/v1/tools", headers=HDR)
 names = [t["name"] for t in r.get_json()["tools"]]
-check("...and lists every MCP tool with its schema", (r.status_code, "net_worth" in names, "set_category" in names, len(names) > 35), (200, True, True, True))
+check("...and lists every MCP tool with its schema", (r.status_code, "net_worth" in names, "set_category" in names, len(names) == len(mcp.TOOLS)), (200, True, True, True))
 r = c.get("/api/v1/tools/net_worth", headers=HDR)
 check("a GET calls a tool", (r.status_code, r.get_json()["ok"], "net_worth" in r.get_json()["result"]), (200, True, True))
 r = c.get("/api/v1/tools/transactions", query_string={"limit": "2", "q": "gehalt"}, headers=HDR)
