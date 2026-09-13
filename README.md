@@ -29,7 +29,9 @@ a PSD2 API it connects directly, with credentials that are yours.
   match text (anywhere, a field, a start, an exact value, a pattern), a
   direction, an amount range, an account, a kind — and file under a
   category, rename the counterparty, set the kind, add a tag. Budgets
-  against the categories, cash flow by month, subscriptions detected.
+  against the categories, cash flow by month, subscriptions detected,
+  **bills** declared and marked paid, due or missed, **savings goals**
+  fed by an account or by hand.
 - **Retirement outlook** per person — from their birthday and their own
   accounts to a retire age, and what the sum supports a month.
 - **Forecast** — a monthly amount and a return, or a goal and a year, from
@@ -95,7 +97,7 @@ a PSD2 API it connects directly, with credentials that are yours.
 
 ## What is not here yet
 
-A dividend calendar, bills and savings goals, a REST API. See
+A dividend calendar, a REST API. See
 [ROADMAP.md](ROADMAP.md) — and [COMPARISON.md](COMPARISON.md) for where
 this stands beside Portfolio Performance, Wealthfolio and Firefly III,
 feature by feature.

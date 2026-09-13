@@ -2200,7 +2200,7 @@ from app import changelog, i18n, main                      # noqa: E402
 
 TEMPLATES = pathlib.Path(__file__).resolve().parent.parent / "app" / "templates"
 SOURCES = [pathlib.Path(__file__).resolve().parent.parent / "app" / f
-           for f in ("main.py", "categories.py", "auth.py", "manual.py", "loans.py", "splits.py", "allocation.py",
+           for f in ("main.py", "categories.py", "auth.py", "manual.py", "loans.py", "splits.py", "allocation.py", "bills.py", "goals.py",
                      "screener.py", "screener_etf.py")]
 
 
@@ -5019,6 +5019,72 @@ finally:
     prices.history = _hist
 with db.get_conn() as conn:
     conn.execute("DELETE FROM prices WHERE isin LIKE 'BENCH:%'")
+
+# ---------------------------------------------------------------------------
+print("\n44. Bills, and savings goals")
+# ---------------------------------------------------------------------------
+from app import bills, goals                                # noqa: E402
+
+check("the next due date is a period on, snapped to the due day",
+      (bills.next_after(date(2026, 3, 3), "monthly", 1), bills.next_after(date(2026, 1, 31), "monthly", None), bills.next_after(date(2026, 3, 3), "quarterly", 15), bills.next_after(date(2026, 3, 3), "weekly", None)),
+      (date(2026, 4, 1), date(2026, 2, 28), date(2026, 6, 15), date(2026, 3, 10)))
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Bills giro', 'current', 'EUR')")
+    bg = conn.execute("SELECT id FROM accounts WHERE name = 'Bills giro'").fetchone()["id"]
+    for i, (day, desc, amt) in enumerate((("2026-06-01", "Miete Wohnung", -1100), ("2026-07-01", "Miete Wohnung", -1100), ("2026-08-03", "Miete Wohnung", -1100),
+                                          ("2026-07-15", "Stadtwerke Strom", -85), ("2026-08-15", "Stadtwerke Strom", -92),
+                                          ("2026-01-10", "Allianz Hausrat", -240))):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, external_id, source) VALUES (?, ?, ?, ?, 'EUR', 'withdrawal', ?, 'manual')", (bg, day, desc, amt, f"bl{i}"))
+rent = bills.add({"name": "Rent", "pattern": "Miete", "amount": "1100", "rhythm": "monthly", "due_day": "1", "account_id": bg})
+power = bills.add({"name": "Electricity", "pattern": "stadtwerke", "amount": "", "rhythm": "monthly", "due_day": "15"})
+ins = bills.add({"name": "Insurance", "pattern": "allianz", "amount": "240", "rhythm": "yearly", "due_day": ""})
+never = bills.add({"name": "Gym", "pattern": "fitness", "amount": "30", "rhythm": "monthly"})
+try:
+    bills.add({"name": "x", "pattern": "ab"}); check("a bill needs a name and text", False, True)
+except ValueError:
+    check("a bill needs a name and text", True, True)
+data = bills.all_bills([bg], today=date(2026, 9, 1))
+by = {b["name"]: b for b in data["bills"]}
+check("the rent, paid on the 3rd of August, is due again on the 1st of September — today",
+      (by["Rent"]["state"], by["Rent"]["last"], by["Rent"]["next"], by["Rent"]["days"], by["Rent"]["paid_count"]), ("due", "2026-08-03", "2026-09-01", 0, 3))
+check("the electricity, any amount, paid on the 15th, is paid until the 15th", (by["Electricity"]["state"], by["Electricity"]["next"], by["Electricity"]["last_amount"]), ("paid", "2026-09-15", 92.0))
+check("the insurance, yearly, is paid until January", (by["Insurance"]["state"], by["Insurance"]["next"]), ("paid", "2027-01-10"))
+check("a bill nothing ever matched says so", by["Gym"]["state"], "never")
+check("fixed costs a month: rent, the last electricity, a twelfth of the insurance, the gym's declared amount",
+      round(data["monthly"]["EUR"]), round(1100 + 92 + 240 / 12 + 30))
+data = bills.all_bills([bg], today=date(2026, 9, 20))
+check("...and twelve days after the due day with nothing seen it is missed", ({b["name"]: b["state"] for b in data["bills"]}["Rent"], len(data["missed"])), ("missed", 1))
+r = c.get("/bills")
+check("the page renders with the tiles and every bill", (r.status_code, b"Fixed costs a month" in r.data, b"Rent" in r.data, b"Gym" in r.data), (200, True, True, True))
+r = c.post("/bills", data={"form": "bill_edit", "bill_id": never, "name": "Gym", "pattern": "fitness", "amount": "35", "currency": "EUR", "rhythm": "monthly", "due_day": "", "account_id": "", "active": "0"}, follow_redirects=True)
+check("a bill can be edited and switched off from the page", (b"Bill saved" in r.data, [b["active"] for b in bills.all_bills()["bills"] if b["name"] == "Gym"]), (True, [0]))
+r = c.get("/bills", query_string={"name": "Netflix", "pattern": "NETFLIX", "amount": "12.99", "rhythm": "monthly"})
+check("a detected subscription arrives prefilled", b'value="NETFLIX"' in r.data, True)
+r = c.get("/subscriptions")
+check("...from a link on the Subscriptions page", r.status_code, 200)
+
+g1 = goals.add({"name": "Holiday", "target": "3000", "currency": "EUR", "target_date": "2027-06-01", "account_id": ""})
+g2 = goals.add({"name": "Buffer", "target": "5000", "currency": "EUR", "target_date": "", "account_id": bg})
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO balances (account_id, amount, currency, balance_type, as_of) VALUES (?, 2500, 'EUR', 'manual', '2026-09-01')", (bg,))
+goals.add_saved(g1, "600")
+goals.add_saved(g1, "-100")
+gl = {g["name"]: g for g in goals.all_goals(today=date(2026, 9, 1))}
+check("a goal fed by hand keeps what was put towards it", (gl["Holiday"]["progress"], gl["Holiday"]["fed_by"], round(gl["Holiday"]["pct"], 1)), (500.0, "hand", 16.7))
+check("...and says what a month reaches it by the date", (gl["Holiday"]["months_left"], round(gl["Holiday"]["monthly_needed"])), (9, round(2500 / 9)))
+check("a goal fed by an account is as far as the account's balance", (gl["Buffer"]["progress"], gl["Buffer"]["fed_by"], gl["Buffer"]["done"]), (2500.0, "account", False))
+try:
+    goals.add({"name": "x", "target": "-5"}); check("a goal needs a positive amount", False, True)
+except ValueError:
+    check("a goal needs a positive amount", True, True)
+r = c.get("/goals")
+check("the page renders the goals with their bars", (r.status_code, b"Holiday" in r.data, b'class="goal-fill"' in r.data, b"Put towards it" in r.data), (200, True, True, True))
+r = c.post("/goals", data={"form": "goal_save", "goal_id": g1, "amount": "2500"}, follow_redirects=True)
+check("money noted from the page; the goal is reached", (b"Noted" in r.data, [g["done"] for g in goals.all_goals() if g["name"] == "Holiday"]), (True, [True]))
+for bid in (rent, power, ins, never):
+    bills.delete(bid)
+goals.delete(g1); goals.delete(g2)
+c.post(f"/accounts/{bg}/delete", data={"confirm": "Bills giro"})
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

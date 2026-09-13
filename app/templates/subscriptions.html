@@ -40,7 +40,8 @@
           <td class="num">{{ money(sub.amount, sub.currency) }}</td>
           <td class="num">{{ money(sub.yearly, sub.currency) }}</td>
           <td class="num sub">{{ money(sub.total_paid, sub.currency) }}</td>
-          <td class="sub nowrap">{{ d(sub.last_seen) }}<span class="sub">{{ _n(sub.days_since, "{n} day ago", "{n} days ago") }}</span></td>
+          <td class="sub nowrap">{{ d(sub.last_seen) }}<span class="sub">{{ _n(sub.days_since, "{n} day ago", "{n} days ago") }}</span>
+            <a class="sub" href="{{ url_for('bills_page', name=sub.name, pattern=sub.name, amount=sub.amount, rhythm=sub.rhythm) }}">{{ _("make it a bill") }}</a></td>
         </tr>
       {% endfor %}
       </tbody>

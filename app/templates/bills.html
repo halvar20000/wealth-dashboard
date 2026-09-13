@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Bills") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Bills") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("What is expected to leave the account, and whether it did. A subscription is found; a bill is declared — the rent, the insurance, the electricity — and matched against the rows as they arrive, so this page can say paid, due, or missed.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% set state_labels = {'paid': _("paid"), 'due': _("due"), 'missed': _("missed"), 'never': _("never seen")} %}
+{% macro bill_fields(b) %}
+  <div><label>{{ _("Name") }}</label><input name="name" value="{{ b.name if b else prefill.name }}" required style="width:150px"></div>
+  <div><label>{{ _("Text that identifies it") }}</label><input name="pattern" value="{{ b.pattern if b else prefill.pattern }}" required minlength="3" style="width:160px"></div>
+  <div><label>{{ _("Amount") }}</label><input name="amount" inputmode="decimal" value="{{ '%g' | format(b.amount) if b and b.amount else prefill.amount if not b else '' }}" placeholder="{{ _('any') }}" style="width:90px"></div>
+  <div><label>{{ _("Currency") }}</label><input name="currency" value="{{ b.currency if b else base_currency }}" maxlength="3" style="width:70px"></div>
+  <div><label>{{ _("Rhythm") }}</label>
+    <select name="rhythm" style="width:auto">{% for r in rhythms %}<option value="{{ r }}" {{ 'selected' if (b.rhythm if b else prefill.rhythm) == r }}>{{ rhythm_label(r) }}</option>{% endfor %}</select></div>
+  <div><label>{{ _("Due day") }}</label><input name="due_day" inputmode="numeric" value="{{ b.due_day or '' if b else '' }}" placeholder="—" style="width:60px"></div>
+  <div><label>{{ _("Account") }}</label>
+    <select name="account_id" style="width:auto"><option value="">{{ _("any") }}</option>{% for a in accounts_list %}<option value="{{ a.id }}" {{ 'selected' if b and b.account_id == a.id }}>{{ a.name }}</option>{% endfor %}</select></div>
+  {% if b %}<div><label>{{ _("Active") }}</label><select name="active" style="width:auto"><option value="1" {{ 'selected' if b.active }}>{{ _("yes") }}</option><option value="0" {{ 'selected' if not b.active }}>{{ _("no") }}</option></select></div>{% endif %}
+{% endmacro %}
+
+<section class="stat-strip">
+  <div class="stat-card stat-gold">
+    <div class="stat-label">{{ _("Fixed costs a month") }}</div>
+    <div class="stat-value">{% for ccy, v in data.monthly.items() %}{{ money(v, ccy) }}{% if not loop.last %} · {% endif %}{% else %}—{% endfor %}</div>
+    <div class="stat-sub">{{ _n(data.active | length, "{n} active bill", "{n} active bills") }}</div>
+  </div>
+  <div class="stat-card {{ 'stat-green' if not data.missed else 'stat-gold' }}">
+    <div class="stat-label">{{ _("Missed") }}</div>
+    <div class="stat-value {{ 'loss' if data.missed }}">{{ data.missed | length }}</div>
+    <div class="stat-sub">{{ _("past due by more than a week, nothing seen since") }}</div>
+  </div>
+  <div class="stat-card stat-blue">
+    <div class="stat-label">{{ _("Due within a week") }}</div>
+    <div class="stat-value">{{ data.due | length }}</div>
+    <div class="stat-sub">{% if data.upcoming %}{{ _f("next: {name}, {date}", name=data.upcoming[0].name, date=d(data.upcoming[0].next)) }}{% else %}—{% endif %}</div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-header"><h2>{{ _("Add a bill") }}</h2>
+    <span class="card-subtitle"><a href="{{ url_for('subscriptions_page') }}">{{ _("or adopt one the app detected") }}</a></span></div>
+  <form method="post" class="form inline sec-form">
+    <input type="hidden" name="form" value="bill_add">
+    {{ bill_fields(none) }}
+    <button type="submit">{{ _("Add the bill") }}</button>
+  </form>
+  <p class="sub">{{ _("The text is looked for in the counterparty and the description of money going out; an amount, if given, allows a fifth either way — utilities vary. The due day snaps the next date to the day of the month the bill is usually taken.") }}</p>
+</section>
+
+{% if data.bills %}
+<section class="card">
+  <div class="card-header"><h2>{{ _("Every bill") }}</h2></div>
+  <div class="rule-list">
+  {% for b in data.bills %}
+    <div class="bill {{ 'is-' ~ b.state }} {{ 'is-inactive' if not b.active }}">
+      <div class="bill-head">
+        <span class="bill-state is-{{ b.state }}">{{ state_labels[b.state] }}</span>
+        <strong>{{ b.name }}</strong>
+        <span class="sub">
+          {% if b.state == 'never' %}{{ _("no payment matched yet") }}
+          {% else %}{{ _f("last {date}, {amount}", date=d(b.last), amount=money(b.last_amount, b.currency)) }} ·
+            {% if b.days is not none and b.days >= 0 %}{{ _f("next {date}, in {n} days", date=d(b.next), n=b.days) }}{% else %}{{ _f("was due {date}, {n} days ago", date=d(b.next), n=-b.days) }}{% endif %}{% endif %}
+          · {{ _n(b.paid_count, "{n} payment seen", "{n} payments seen") }}
+        </span>
+      </div>
+      <form method="post" class="form inline sec-form rule-form is-existing">
+        <input type="hidden" name="form" value="bill_edit"><input type="hidden" name="bill_id" value="{{ b.id }}">
+        {{ bill_fields(b) }}
+        <div class="rule-actions">
+          <button type="submit" class="btn-ghost">{{ _("Save") }}</button>
+          <button type="submit" class="btn-danger" name="form" value="bill_delete">{{ _("Delete") }}</button>
+        </div>
+      </form>
+    </div>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -384,6 +384,38 @@ CREATE TABLE IF NOT EXISTS allocation_targets (
     PRIMARY KEY (dimension, key)
 );
 
+-- A bill: a payment expected on a rhythm — rent, insurance, the
+-- electricity — declared by hand or adopted from a detected
+-- subscription, matched against the rows as they arrive so the page
+-- can say paid, due, or missed. See bills.py.
+CREATE TABLE IF NOT EXISTS bills (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,
+    pattern     TEXT NOT NULL,                -- text in the counterparty or description
+    amount      REAL,                         -- expected, unsigned; NULL = any
+    currency    TEXT NOT NULL DEFAULT 'EUR',
+    rhythm      TEXT NOT NULL DEFAULT 'monthly',
+    due_day     INTEGER,                      -- day of the month it is usually taken
+    account_id  INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+    active      INTEGER NOT NULL DEFAULT 1,
+    notes       TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- A savings goal: an amount by a date, fed either by an account whose
+-- balance is the progress, or by hand. See goals.py.
+CREATE TABLE IF NOT EXISTS goals (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,
+    target      REAL NOT NULL,
+    currency    TEXT NOT NULL DEFAULT 'EUR',
+    target_date TEXT,
+    account_id  INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+    saved       REAL NOT NULL DEFAULT 0,      -- by hand, when no account feeds it
+    notes       TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- A column mapping the user drew for a CSV no built-in importer knows,
 -- keyed on the file's header so the next export from the same bank is
 -- recognised without asking again. See importers/generic.py.

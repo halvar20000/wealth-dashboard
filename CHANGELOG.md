@@ -11,6 +11,24 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.34.0] — 2026-09-13
+
+### Added
+- **Bills**, under Money. A subscription is found; a bill is declared
+  — the rent, the insurance, the electricity: a name, the text that
+  identifies it, an amount if fixed, a rhythm, the day it is usually
+  taken, an account if only one. Matched against the rows as they
+  arrive, each bill says *paid* until the next date, *due* within a
+  week of it, *missed* more than a week past it with nothing seen, or
+  *never seen*. Fixed costs per month at the top, the missed and the
+  due counted, and a *make it a bill* link on every detected
+  subscription.
+- **Savings goals**, under Planning. An amount by a date, fed either
+  by an account — whose balance is the progress, nothing to type — or
+  by hand, an amount at a time. A bar, the percentage, what a month
+  reaches it by the date, and whether that is more than the Forecast's
+  monthly amount.
+
 ## [0.33.0] — 2026-09-13
 
 ### Added

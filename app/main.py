@@ -42,7 +42,7 @@ from flask import (Flask, flash, g, jsonify, redirect, render_template,
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import (allocation, benchmark, cashflow, categories, crypto, export, forecast, gains, history, importers, loans,
+from . import (allocation, benchmark, bills, cashflow, categories, crypto, export, forecast, gains, goals, history, importers, loans,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, splits, stages, subscriptions)
 from . import brokers
@@ -1492,6 +1492,67 @@ def _retirement_blocks(cfg: dict, base: str, plans: dict) -> dict:
         })
     return {"blocks": blocks, "without_birthday": without_birthday,
             "no_people": not everyone}
+
+
+@app.route("/bills", methods=["GET", "POST"])
+@auth.login_required
+def bills_page():
+    """What is expected to leave the account, and whether it did —
+    paid, due, missed. See bills.py."""
+    if request.method == "POST":
+        f = request.form
+        try:
+            if f.get("form") == "bill_add":
+                bills.add(f)
+                flash(_t("Bill added."), "ok")
+            elif f.get("form") == "bill_edit":
+                bills.update(int(f.get("bill_id") or 0), f)
+                flash(_t("Bill saved."), "ok")
+            elif f.get("form") == "bill_delete":
+                bills.delete(int(f.get("bill_id") or 0))
+                flash(_t("Bill removed."), "ok")
+        except ValueError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("bills_page"))
+    with get_conn() as conn:
+        accounts_list = [dict(r) for r in conn.execute("SELECT id, name FROM accounts WHERE type != 'loan' ORDER BY name")]
+    prefill = {"name": request.args.get("name", ""), "pattern": request.args.get("pattern", ""),
+               "amount": request.args.get("amount", ""), "rhythm": request.args.get("rhythm", "monthly")}
+    return render_template("bills.html", active_page="bills", data=bills.all_bills(people.scope()),
+                           accounts_list=accounts_list, rhythms=list(bills.RHYTHMS), prefill=prefill,
+                           base_currency=settings.get("base_currency", "EUR"))
+
+
+@app.route("/goals", methods=["GET", "POST"])
+@auth.login_required
+def goals_page():
+    """Savings goals: an amount by a date, fed by an account or by
+    hand. See goals.py."""
+    if request.method == "POST":
+        f = request.form
+        try:
+            if f.get("form") == "goal_add":
+                goals.add(f)
+                flash(_t("Goal added."), "ok")
+            elif f.get("form") == "goal_edit":
+                goals.update(int(f.get("goal_id") or 0), f)
+                flash(_t("Goal saved."), "ok")
+            elif f.get("form") == "goal_delete":
+                goals.delete(int(f.get("goal_id") or 0))
+                flash(_t("Goal removed."), "ok")
+            elif f.get("form") == "goal_save":
+                goals.add_saved(int(f.get("goal_id") or 0), f.get("amount"))
+                flash(_t("Noted."), "ok")
+        except ValueError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("goals_page"))
+    with get_conn() as conn:
+        accounts_list = [dict(r) for r in conn.execute("SELECT id, name FROM accounts WHERE type != 'loan' ORDER BY name")]
+    cfg = settings.load()
+    plan = forecast.clean(_forecast_plans(cfg).get(_forecast_key()) or {})
+    return render_template("goals.html", active_page="goals", goals=goals.all_goals(),
+                           accounts_list=accounts_list, plan_monthly=plan["monthly"],
+                           base_currency=cfg.get("base_currency", "EUR"), today=date.today().isoformat())
 
 
 @app.route("/allocation", methods=["GET", "POST"])

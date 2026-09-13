@@ -30,11 +30,13 @@
      ('cashflow', url_for('cashflow_page'), _("Cash Flow"), 'cashflow'),
      ('budget', url_for('budget_page'), _("Budget"), 'budget'),
      ('subscriptions', url_for('subscriptions_page'), _("Subscriptions"), 'subscriptions'),
+     ('bills', url_for('bills_page'), _("Bills"), 'bills'),
      ('transactions', url_for('transactions'), _("Transactions"), 'transactions'),
      ('categorize', url_for('categorize'), _("Categorize"), 'categorize')]},
   {'key': 'plan', 'label': _("Planning"), 'items': [
      ('forecast', url_for('forecast_page'), _("Forecast"), 'forecast'),
      ('stages', url_for('stages_page'), _("Stages"), 'stages'),
+     ('goals', url_for('goals_page'), _("Goals"), 'goals'),
      ('loans', url_for('loans_page'), _("Loans"), 'loans')]},
 ] %}
 <aside class="sidenav" id="sidenav" aria-label="{{ _('Navigation') }}">
@@ -110,7 +112,7 @@
       <h1>{% block heading %}{% endblock %}</h1>
       {% endif %}
     {% endblock %}
-    {% if view_person and active_page in ('overview', 'portfolio', 'crypto', 'allocation', 'loans', 'cashflow', 'budget', 'forecast', 'stages', 'subscriptions', 'transactions', 'categorize', 'accounts') %}
+    {% if view_person and active_page in ('overview', 'portfolio', 'crypto', 'allocation', 'loans', 'bills', 'cashflow', 'budget', 'forecast', 'stages', 'subscriptions', 'transactions', 'categorize', 'accounts') %}
     <p class="view-note">{{ _f("Only {name}'s accounts are counted on this page.", name=view_person.name) }}</p>
     {% endif %}
     {% block lede %}{% endblock %}

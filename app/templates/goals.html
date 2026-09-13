@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Goals") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Savings goals") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("An amount by a date, and how it is going. A goal is fed by an account — the holiday account, whose balance is the progress — or by hand, an amount at a time, for a goal that lives inside a bigger account.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% macro goal_fields(g) %}
+  <div><label>{{ _("Name") }}</label><input name="name" value="{{ g.name if g else '' }}" required style="width:160px"></div>
+  <div><label>{{ _("Target") }}</label><input name="target" inputmode="decimal" value="{{ '%g' | format(g.target) if g else '' }}" required style="width:110px"></div>
+  <div><label>{{ _("Currency") }}</label><input name="currency" value="{{ g.currency if g else base_currency }}" maxlength="3" style="width:70px"></div>
+  <div><label>{{ _("By") }}</label><input name="target_date" type="date" value="{{ g.target_date or '' if g else '' }}" style="width:auto"></div>
+  <div><label>{{ _("Fed by an account") }}</label>
+    <select name="account_id" style="width:auto"><option value="">{{ _("by hand") }}</option>{% for a in accounts_list %}<option value="{{ a.id }}" {{ 'selected' if g and g.account_id == a.id }}>{{ a.name }}</option>{% endfor %}</select></div>
+{% endmacro %}
+
+<section class="card">
+  <div class="card-header"><h2>{{ _("Add a goal") }}</h2></div>
+  <form method="post" class="form inline sec-form">
+    <input type="hidden" name="form" value="goal_add">
+    {{ goal_fields(none) }}
+    <button type="submit">{{ _("Add the goal") }}</button>
+  </form>
+</section>
+
+{% for g in goals %}
+<section class="card goal {{ 'is-done' if g.done }}">
+  <div class="card-header">
+    <div><h2>{{ g.name }}</h2>
+      <span class="card-subtitle">{% if g.fed_by == 'account' %}{{ _f("fed by {account}", account=g.account_name) }}{% else %}{{ _("fed by hand") }}{% endif %}{% if g.target_date %} · {{ _f("by {date}", date=d(g.target_date)) }}{% endif %}</span></div>
+    <span class="card-subtitle">{{ money(g.progress, g.currency) }} / {{ money(g.target, g.currency) }}</span>
+  </div>
+  <div class="goal-bar"><div class="goal-fill" style="width:{{ '%.1f' | format(g.pct) }}%"></div></div>
+  <p class="sub">
+    {{ '%.0f' | format(g.pct) }} % ·
+    {% if g.done %}{{ _("reached") }}
+    {% elif g.monthly_needed is not none %}{{ _f("{amount} a month for {n} months reaches it", amount=money(g.monthly_needed, g.currency), n=g.months_left) }}{% if plan_monthly and g.monthly_needed > plan_monthly %} — <span class="neg">{{ _f("more than the {plan} a month of your plan", plan=money(plan_monthly, base_currency)) }}</span>{% endif %}
+    {% elif g.overdue %}<span class="neg">{{ _("the date has passed") }}</span>
+    {% else %}{{ _f("{amount} to go", amount=money(g.remaining, g.currency)) }}{% endif %}
+  </p>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end">
+    {% if g.fed_by == 'hand' %}
+    <form method="post" class="form inline sec-form">
+      <input type="hidden" name="form" value="goal_save"><input type="hidden" name="goal_id" value="{{ g.id }}">
+      <div><label>{{ _("Put towards it") }}</label><input name="amount" inputmode="decimal" placeholder="100" style="width:100px"></div>
+      <button type="submit" class="btn-ghost">{{ _("Note it") }}</button>
+    </form>
+    {% endif %}
+    <details style="flex-basis:100%">
+      <summary>{{ _("Change the goal") }}</summary>
+      <form method="post" class="form inline sec-form rule-form is-existing">
+        <input type="hidden" name="form" value="goal_edit"><input type="hidden" name="goal_id" value="{{ g.id }}">
+        {{ goal_fields(g) }}
+        <div class="rule-actions">
+          <button type="submit" class="btn-ghost">{{ _("Save") }}</button>
+          <button type="submit" class="btn-danger" name="form" value="goal_delete">{{ _("Delete") }}</button>
+        </div>
+      </form>
+    </details>
+  </div>
+</section>
+{% else %}
+<div class="card empty"><p>{{ _("No goals yet.") }}</p></div>
+{% endfor %}
+{% endblock %}
