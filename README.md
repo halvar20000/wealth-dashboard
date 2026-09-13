@@ -33,7 +33,10 @@ a PSD2 API it connects directly, with credentials that are yours.
   **bills** declared and marked paid, due or missed, **savings goals**
   fed by an account or by hand.
 - **Retirement outlook** per person — from their birthday and their own
-  accounts to a retire age, and what the sum supports a month.
+  accounts to a retire age, and what the sum supports a month — and a
+  **retirement plan** with the retirement in it: spending and income
+  item by item, returns before and after, fees, inflation, tax; will it
+  last, and if not, until when.
 - **Forecast** — a monthly amount and a return, or a goal and a year, from
   today's balance; deposits and returns drawn apart, year by year.
 - **The three stages** — whether what you save or what the market does is

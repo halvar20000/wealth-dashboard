@@ -565,6 +565,9 @@ _ADDED_COLUMNS = {
     "securities": [
         ("quote_type", "TEXT"),
     ],
+    "goals": [
+        ("kind", "TEXT NOT NULL DEFAULT 'saving'"),
+    ],
     "transactions": [
         ("import_id", "INTEGER"),
         # Tags: any number of words on a row, beside the one category.

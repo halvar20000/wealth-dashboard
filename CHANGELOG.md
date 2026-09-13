@@ -11,6 +11,26 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.37.0] — 2026-09-13
+
+### Added
+- **A retirement plan**, under Planning, per person. The Forecast's
+  outlook says what the pile supports at 4 %; this one has the
+  retirement in it: what goes in until you stop, growing a little a
+  year; what you will spend each month from then on, item by item,
+  each with the ages it runs from and to; what will still come in — a
+  state pension, a rent; a return before and after, fees, inflation,
+  tax on withdrawals. Walked a year at a time to a horizon, it says
+  the pile at retirement, the capital required, how far along that is,
+  and the age the money runs out or what is left — with a chart of
+  the projection against the required line (from retirement, what
+  funds the rest; before it, the on-track path), a year-by-year table,
+  and a switch between nominal and today's money.
+- **What a goal is for.** The Goals page opens with a row of cards —
+  a home, a car, education, a wedding, an emergency fund, a trip,
+  something else — that pre-set the form, and a card that leads to
+  the retirement plan; each goal shows what it is for.
+
 ## [0.36.1] — 2026-09-13
 
 ### Added

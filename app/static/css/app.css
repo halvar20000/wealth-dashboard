@@ -819,3 +819,27 @@ a.period-btn:hover { text-decoration: none; }
 .goal-bar { height: 10px; border-radius: 999px; background: var(--bg-elevated); overflow: hidden; margin: 8px 0 6px; }
 .goal-fill { height: 100%; background: linear-gradient(90deg, var(--accent-blue), var(--gain)); border-radius: 999px; }
 .goal.is-done .goal-fill { background: var(--gain); }
+
+/* ─── Retirement plan ─────────────────────────────────────────── */
+
+.retire-hero.is-ok { border-color: rgba(52,211,153,0.3); }
+.retire-hero.is-short { border-color: rgba(248,113,113,0.3); }
+.retire-hero .hero-value { font-size: 26px; }
+.retire-hero .hero-top > div:first-child { flex: 1 1 460px; }
+.retire-hero .hero-side { flex: 0 1 300px; }
+.retire-plan { display: grid; grid-template-columns: minmax(380px, 520px) 1fr; gap: 16px; align-items: start; margin-bottom: 24px; }
+@media (max-width: 900px) { .retire-plan { grid-template-columns: 1fr; } }
+.retire-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; }
+.retire-grid label { margin-top: 6px; }
+.retire-h3 { font-size: 13px; margin: 18px 0 6px; color: var(--text-secondary); }
+.retire-items { display: flex; flex-direction: column; gap: 6px; }
+.retire-item { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 6px; }
+.retire-item input { padding: 7px 10px; font-size: 13px; }
+.grid tr.is-short td { color: var(--loss); }
+@media (max-width: 800px) { .retire-item { grid-template-columns: 1fr 1fr; } }
+
+.goal-kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.goal-kind { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); }
+.goal-kind:hover { text-decoration: none; border-color: var(--border-strong); background: var(--bg-card-hover); }
+.goal-kind.active { border-color: var(--accent-gold); box-shadow: 0 0 0 1px var(--accent-gold) inset; }
+.goal-kind.is-link { border-style: dashed; }

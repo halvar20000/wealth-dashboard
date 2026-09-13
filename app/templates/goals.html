@@ -15,10 +15,22 @@
     <select name="account_id" style="width:auto"><option value="">{{ _("by hand") }}</option>{% for a in accounts_list %}<option value="{{ a.id }}" {{ 'selected' if g and g.account_id == a.id }}>{{ a.name }}</option>{% endfor %}</select></div>
 {% endmacro %}
 
-<section class="card">
-  <div class="card-header"><h2>{{ _("Add a goal") }}</h2></div>
+{% set kind_labels = {'saving': _("Something I am saving for"), 'house': _("A home"), 'car': _("A car"), 'education': _("Education"), 'wedding': _("A wedding"), 'emergency': _("An emergency fund"), 'travel': _("A trip")} %}
+{% set kind_hints = {'saving': _("An amount by a date, for whatever it is."), 'house': _("A deposit for a place of your own."), 'car': _("The next car, paid for rather than financed."), 'education': _("Fees, books and courses."), 'wedding': _("The day itself."), 'emergency': _("Three to six months of spending, untouched."), 'travel': _("The one you keep putting off.")} %}
+<div class="goal-kinds">
+  {% for k in kinds %}
+  <a class="goal-kind {{ 'active' if k == kind }}" href="{{ url_for('goals_page', kind=k) }}#add">
+    <strong>{{ kind_labels[k] }}</strong><span class="sub">{{ kind_hints[k] }}</span></a>
+  {% endfor %}
+  <a class="goal-kind is-link" href="{{ url_for('retirement_page') }}">
+    <strong>{{ _("Retirement") }}</strong><span class="sub">{{ _("Life after work — and whether it lasts. A plan of its own.") }}</span></a>
+</div>
+
+<section class="card" id="add">
+  <div class="card-header"><h2>{{ _("Add a goal") }}</h2><span class="card-subtitle">{{ kind_labels[kind] }}</span></div>
   <form method="post" class="form inline sec-form">
     <input type="hidden" name="form" value="goal_add">
+    <input type="hidden" name="kind" value="{{ kind }}">
     {{ goal_fields(none) }}
     <button type="submit">{{ _("Add the goal") }}</button>
   </form>
@@ -27,7 +39,7 @@
 {% for g in goals %}
 <section class="card goal {{ 'is-done' if g.done }}">
   <div class="card-header">
-    <div><h2>{{ g.name }}</h2>
+    <div><h2>{{ g.name }} <span class="tag tag-muted" style="font-weight:500">{{ kind_labels[g.kind] if g.kind in kind_labels else g.kind }}</span></h2>
       <span class="card-subtitle">{% if g.fed_by == 'account' %}{{ _f("fed by {account}", account=g.account_name) }}{% else %}{{ _("fed by hand") }}{% endif %}{% if g.target_date %} · {{ _f("by {date}", date=d(g.target_date)) }}{% endif %}</span></div>
     <span class="card-subtitle">{{ money(g.progress, g.currency) }} / {{ money(g.target, g.currency) }}</span>
   </div>
@@ -51,6 +63,7 @@
       <summary>{{ _("Change the goal") }}</summary>
       <form method="post" class="form inline sec-form rule-form is-existing">
         <input type="hidden" name="form" value="goal_edit"><input type="hidden" name="goal_id" value="{{ g.id }}">
+        <div><label>{{ _("For") }}</label><select name="kind" style="width:auto">{% for k in kinds %}<option value="{{ k }}" {{ 'selected' if k == g.kind }}>{{ kind_labels[k] }}</option>{% endfor %}</select></div>
         {{ goal_fields(g) }}
         <div class="rule-actions">
           <button type="submit" class="btn-ghost">{{ _("Save") }}</button>

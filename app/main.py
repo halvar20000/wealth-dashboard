@@ -43,7 +43,7 @@ from flask import (Flask, flash, g, jsonify, redirect, render_template,
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, loans, webhooks,
+from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, loans, retirement, webhooks,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, splits, stages, subscriptions)
 from . import brokers
@@ -1643,7 +1643,8 @@ def goals_page():
     plan = forecast.clean(_forecast_plans(cfg).get(_forecast_key()) or {})
     return render_template("goals.html", active_page="goals", goals=goals.all_goals(),
                            accounts_list=accounts_list, plan_monthly=plan["monthly"],
-                           base_currency=cfg.get("base_currency", "EUR"), today=date.today().isoformat())
+                           base_currency=cfg.get("base_currency", "EUR"), today=date.today().isoformat(),
+                           kinds=goals.KINDS, kind=request.args.get("kind") if request.args.get("kind") in goals.KINDS else "saving")
 
 
 @app.route("/dividends")
@@ -1666,6 +1667,47 @@ def dividends_page():
     s = overview.summary(base, account_ids=scope)
     return render_template("dividends.html", active_page="dividends", base_currency=base,
                            data=dividends.calendar(base, scope, s), note=note)
+
+
+@app.route("/retirement", methods=["GET", "POST"])
+@auth.login_required
+def retirement_page():
+    """A retirement plan per person: will the money last — see
+    retirement.py. The plan is stored per person; the page shows the
+    person in view, or everyone under Everyone."""
+    cfg = settings.load()
+    base = cfg.get("base_currency", "EUR")
+    stored = dict(cfg.get("retirement_plan") or {})
+    if request.method == "POST":
+        pid = request.form.get("person", "")
+        if pid.isdigit():
+            stored[f"person:{pid}"] = retirement.clean(request.form)
+            cfg["retirement_plan"] = stored
+            settings.save(cfg)
+            flash(_t("Plan saved."), "ok")
+        return redirect(url_for("retirement_page", real=request.form.get("real") or None))
+    real = bool(request.args.get("real"))
+    viewing = people.current()
+    everyone = people.all_people()
+    subjects = [viewing] if viewing else everyone
+    plans_fc = _forecast_plans(cfg)
+    blocks, without_birthday = [], []
+    for person in subjects:
+        if not person.get("birthday"):
+            without_birthday.append(person["name"])
+            continue
+        own = overview.summary(base, account_ids=people.account_ids(person["id"]))
+        plan = retirement.clean(stored.get(f"person:{person['id']}") or {})
+        fc = forecast.clean(plans_fc.get(f"person:{person['id']}") or {})
+        monthly = plan["monthly"] if plan["monthly"] is not None else fc["monthly"]
+        age_now = people.age_on(person["birthday"])
+        blocks.append({"person": person, "age_now": age_now, "plan": plan, "monthly": monthly,
+                       "from_plan": plan["monthly"] is None, "net_worth": own["net_worth"],
+                       "accounts": own["account_count"],
+                       "out": retirement.project(max(0.0, own["net_worth"]), age_now, plan, monthly)})
+    return render_template("retirement.html", active_page="retirement", blocks=blocks, real=real,
+                           without_birthday=without_birthday, no_people=not everyone,
+                           base_currency=base, max_items=retirement.MAX_ITEMS)
 
 
 @app.route("/allocation", methods=["GET", "POST"])

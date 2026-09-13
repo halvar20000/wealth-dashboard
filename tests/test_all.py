@@ -2200,7 +2200,7 @@ from app import changelog, i18n, main                      # noqa: E402
 
 TEMPLATES = pathlib.Path(__file__).resolve().parent.parent / "app" / "templates"
 SOURCES = [pathlib.Path(__file__).resolve().parent.parent / "app" / f
-           for f in ("main.py", "categories.py", "auth.py", "manual.py", "loans.py", "splits.py", "allocation.py", "bills.py", "goals.py",
+           for f in ("main.py", "categories.py", "auth.py", "manual.py", "loans.py", "splits.py", "allocation.py", "bills.py", "goals.py", "retirement.py",
                      "screener.py", "screener_etf.py")]
 
 
@@ -5220,6 +5220,52 @@ check("the Assistants chapter shows the API examples and the webhook", (b"REST A
 r = c.post("/settings", data={"form": "webhook_delete", "hook_id": hid}, follow_redirects=True)
 check("a webhook is removed from the page", (b"Webhook removed" in r.data, webhooks.all_hooks()), (True, []))
 mcp.revoke()
+
+# ---------------------------------------------------------------------------
+print("\n47. A retirement plan, and what a goal is for")
+# ---------------------------------------------------------------------------
+from app import retirement                                  # noqa: E402
+
+plan = retirement.clean({"retire_age": "65", "horizon_age": "75", "return_before": "0", "return_after": "0", "fee": "0",
+                         "inflation": "0", "tax": "0", "contribution_growth": "0", "exp_name_0": "Living", "exp_monthly_0": "1000"})
+out = retirement.project(120000.0, 65.0, plan, 0.0, today=date(2026, 1, 1))
+check("with nothing earned and nothing inflating, ten years of 12 000 need exactly 120 000 — and it lasts",
+      (out["required"], out["runs_out_age"], out["left_at_horizon"], out["funded"], out["enough"]), (120000.0, None, 0.0, 1.0, True))
+out = retirement.project(100000.0, 65.0, plan, 0.0, today=date(2026, 1, 1))
+check("...with 100 000 it runs out at 73", (out["runs_out_age"], round(out["funded"], 3)), (73, 0.833))
+check("the required line at each year's end is what the rest still needs", [r["required"] for r in out["rows"]][:3], [108000.0, 96000.0, 84000.0])
+plan2 = retirement.clean({"retire_age": "70", "horizon_age": "80", "return_before": "0", "return_after": "0", "fee": "0", "inflation": "0", "contribution_growth": "0",
+                          "exp_name_0": "Living", "exp_monthly_0": "1000", "inc_name_0": "Pension", "inc_monthly_0": "600", "inc_from_0": "70", "inc_to_0": "80"})
+out = retirement.project(0.0, 60.0, plan2, 400.0, today=date(2026, 1, 1))
+check("ten years of 400 a month before, income netted against spending after — 48 000 saved against 48 000 needed",
+      (round(out["at_retirement"]), round(out["required"]), out["enough"], out["years_to_retire"]), (48000, 48000, True, 10))
+check("...and the on-track path starts at nothing, because that is exactly enough", round(out["start_needed"] or 0, 6), 0.0)
+plan3 = retirement.clean({"retire_age": "66", "horizon_age": "70", "return_before": "0", "return_after": "0", "fee": "0", "inflation": "10",
+                          "exp_name_0": "Living", "exp_monthly_0": "1000", "tax": "50"})
+out = retirement.project(0.0, 65.0, plan3, 0.0, today=date(2026, 1, 1))
+check("inflation lifts the spending each year and tax grosses up the withdrawal",
+      [round(r["withdrawal"]) for r in out["rows"] if r["phase"] == "retired"][:2], [round(12000 * 1.1 / 0.5), round(12000 * 1.21 / 0.5)])
+check("bounds: a horizon below the retirement age is lifted above it", retirement.clean({"retire_age": "70", "horizon_age": "60"})["horizon_age"], 71)
+check("an item without a name or an amount is dropped", retirement.clean({"exp_name_0": "", "exp_monthly_0": "5", "exp_name_1": "x", "exp_monthly_1": "0"})["expenses"], [])
+
+alex = next(p_ for p_ in people.all_people() if p_.get("birthday"))
+c.post("/view", data={"person": str(alex["id"]), "next": "/retirement"})
+r = c.post("/retirement", data={"person": alex["id"], "retire_age": "65", "horizon_age": "90", "monthly": "800", "return_before": "5", "return_after": "3",
+                                "fee": "0.3", "inflation": "2", "tax": "10", "contribution_growth": "2",
+                                "exp_name_0": "Living", "exp_monthly_0": "2500", "inc_name_0": "State pension", "inc_monthly_0": "1200", "inc_from_0": "67"}, follow_redirects=True)
+check("the plan is saved per person and the page renders it",
+      (b"Plan saved" in r.data, b"Retirement plan" in r.data, b"State pension" in r.data, b"Year by year" in r.data, b"ret-chart-" in r.data), (True, True, True, True, True))
+check("...stored under the person", settings.load()["retirement_plan"][f"person:{alex['id']}"]["expenses"][0]["monthly"], 2500.0)
+r = c.get("/retirement", query_string={"real": 1})
+check("...and can be shown in today's money", (r.status_code, b"in today" in r.data), (200, True))
+c.post("/view", data={"person": "", "next": "/goals"})
+r = c.get("/goals", query_string={"kind": "house"})
+check("the goals page offers what a goal is for, and a link to the retirement plan",
+      (b'class="goal-kind active"' in r.data, b"A home" in r.data, b"/retirement" in r.data), (True, True, True))
+r = c.post("/goals", data={"form": "goal_add", "kind": "house", "name": "Flat", "target": "60000", "currency": "EUR", "target_date": "", "account_id": ""}, follow_redirects=True)
+gh = [g for g in goals.all_goals() if g["name"] == "Flat"][0]
+check("a goal keeps what it is for", (gh["kind"], b"A home" in r.data), ("house", True))
+goals.delete(gh["id"])
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

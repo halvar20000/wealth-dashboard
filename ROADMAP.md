@@ -78,6 +78,7 @@ it does not do yet.
 - [x] A dividend calendar: paid so far, and what is due next.
 - [x] Tags on transactions.
 - [x] A REST API over the MCP tools, and webhooks on sync.
+- [x] A retirement plan per person; goals with a purpose.
 
 ## Next
 

@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Retirement") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Retirement plan") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("Will the money last — and if not, until when. What goes in until you stop, what you will spend each month from then on, what will still come in, a return before and after, fees, inflation, tax on what is withdrawn: walked a year at a time to a horizon. The Forecast page's outlook is the first answer; this is the one with the retirement in it.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% if no_people %}
+<div class="card empty"><p>{{ _("Add the people in your household under Settings → People, each with a birthday, and this page will say where each of them stands for retirement.") }}</p></div>
+{% elif not blocks and without_birthday %}
+<div class="card empty"><p>{{ _f("No birthday on file for {names}. Add one under Settings → People and the outlook appears here.", names=without_birthday | join(", ")) }}</p></div>
+{% endif %}
+
+{% for b in blocks %}
+{% set o = b.out %}
+{% set p = b.plan %}
+{% set key = 'end_real' if real else 'end' %}
+{% set rkey = 'required_real' if real else 'required' %}
+<section class="hero-block retire-hero {{ 'is-ok' if o.enough else 'is-short' }}" id="person-{{ b.person.id }}">
+  <div class="hero-top">
+    <div>
+      <div class="hero-label">{{ b.person.name }} · {{ _f("age {age}", age=b.age_now | round(0) | int) }}</div>
+      <div class="hero-value">
+        {% if o.retired_already %}{{ _("Retired already") }}
+        {% elif o.enough %}{{ _f("Lasts to {age}", age=p.horizon_age) }}
+        {% else %}{{ _f("Runs out at {age}", age=o.runs_out_age) }}{% endif %}
+      </div>
+      <div class="hero-sub">
+        {% if o.enough %}{{ _f("On these assumptions the pile is {value} when {name} retires at {retire} in {year}, against {required} needed, and {left} is still there at {horizon}.", value=money(o.at_retirement_real if real else o.at_retirement, base_currency), name=b.person.name, retire=p.retire_age, year=o.retire_year, required=money(o.required_real if real else o.required, base_currency), left=money(o.left_at_horizon / ((1 + p.inflation / 100) ** (p.horizon_age - (b.age_now | int))) if real else o.left_at_horizon, base_currency), horizon=p.horizon_age) }}
+        {% else %}{{ _f("On these assumptions the pile is {value} when {name} retires at {retire} in {year}, against {required} needed — the money runs out at {age}, {years} years before the horizon.", value=money(o.at_retirement_real if real else o.at_retirement, base_currency), name=b.person.name, retire=p.retire_age, year=o.retire_year, required=money(o.required_real if real else o.required, base_currency), age=o.runs_out_age, years=p.horizon_age - o.runs_out_age) }}{% endif %}
+      </div>
+    </div>
+    <div class="hero-side">
+      <div class="hero-label">{{ _("Funded") }}</div>
+      <div class="hero-side-value">{% if o.funded is not none %}{{ '%.0f' | format(100 * o.funded) }} %{% else %}—{% endif %}</div>
+      <div class="sub">{{ _f("{monthly} a month needed at retirement, in the money of that day", monthly=money(o.monthly_needs_at_retirement, base_currency)) }}</div>
+    </div>
+  </div>
+  <div class="goal-bar"><div class="goal-fill" style="width:{{ '%.1f' | format(100 * (o.funded if o.funded is not none else 0) if o.funded and o.funded < 1 else (100 if o.funded else 0)) }}%"></div></div>
+  <div class="hero-controls">
+    <div class="period-pills" role="tablist">
+      <a class="period-btn {{ 'active' if not real }}" href="{{ url_for('retirement_page') }}#person-{{ b.person.id }}">{{ _("Nominal") }}</a>
+      <a class="period-btn {{ 'active' if real }}" href="{{ url_for('retirement_page', real=1) }}#person-{{ b.person.id }}">{{ _("Today's money") }}</a>
+    </div>
+    <span class="sub">{{ _f("from {value} today across {n} accounts, {monthly} a month{plan}", value=money(b.net_worth, base_currency), n=b.accounts, monthly=money(b.monthly, base_currency), plan=(" — " ~ _("from the Forecast plan")) if b.from_plan else "") }}</span>
+  </div>
+  <div class="hero-chart-wrap" style="height:260px"><canvas id="ret-chart-{{ b.person.id }}"></canvas></div>
+</section>
+
+<div class="retire-plan">
+  <form method="post" class="card form" style="max-width:none">
+    <input type="hidden" name="person" value="{{ b.person.id }}">
+    <input type="hidden" name="real" value="{{ '1' if real else '' }}">
+    <div class="card-header"><h2>{{ _("The plan") }}</h2><span class="card-subtitle">{{ _("every rate is yours; the page predicts nothing") }}</span></div>
+    <div class="retire-grid">
+      <div><label>{{ _("Retire at") }}</label><input name="retire_age" inputmode="numeric" value="{{ p.retire_age }}"></div>
+      <div><label>{{ _("Plan to age") }}</label><input name="horizon_age" inputmode="numeric" value="{{ p.horizon_age }}"></div>
+      <div><label>{{ _("A month until then") }}</label><input name="monthly" inputmode="decimal" value="{{ '%g' | format(p.monthly) if p.monthly is not none else '' }}" placeholder="{{ '%g' | format(b.monthly) }}"></div>
+      <div><label>{{ _("…growing % a year") }}</label><input name="contribution_growth" inputmode="decimal" value="{{ '%g' | format(p.contribution_growth) }}"></div>
+      <div><label>{{ _("Return before, %") }}</label><input name="return_before" inputmode="decimal" value="{{ '%g' | format(p.return_before) }}"></div>
+      <div><label>{{ _("Return after, %") }}</label><input name="return_after" inputmode="decimal" value="{{ '%g' | format(p.return_after) }}"></div>
+      <div><label>{{ _("Fees, % a year") }}</label><input name="fee" inputmode="decimal" value="{{ '%g' | format(p.fee) }}"></div>
+      <div><label>{{ _("Inflation, %") }}</label><input name="inflation" inputmode="decimal" value="{{ '%g' | format(p.inflation) }}"></div>
+      <div><label>{{ _("Tax on withdrawals, %") }}</label><input name="tax" inputmode="decimal" value="{{ '%g' | format(p.tax) }}"></div>
+    </div>
+
+    <h3 class="retire-h3">{{ _("Spending in retirement, a month, in today's money") }}</h3>
+    <div class="retire-items">
+      {% for it in p.expenses + [none] %}
+      {% set i = loop.index0 %}
+      <div class="retire-item">
+        <input name="exp_name_{{ i }}" value="{{ it.name if it else '' }}" placeholder="{{ _('Living, health, travel…') }}">
+        <input name="exp_monthly_{{ i }}" inputmode="decimal" value="{{ '%g' | format(it.monthly) if it else '' }}" placeholder="{{ _('a month') }}">
+        <input name="exp_from_{{ i }}" inputmode="numeric" value="{{ it.from_age or '' if it else '' }}" placeholder="{{ _('from age') }}">
+        <input name="exp_to_{{ i }}" inputmode="numeric" value="{{ it.to_age or '' if it else '' }}" placeholder="{{ _('to age') }}">
+      </div>
+      {% endfor %}
+    </div>
+    <h3 class="retire-h3">{{ _("Income in retirement, a month, in today's money") }}</h3>
+    <div class="retire-items">
+      {% for it in p.incomes + [none] %}
+      {% set i = loop.index0 %}
+      <div class="retire-item">
+        <input name="inc_name_{{ i }}" value="{{ it.name if it else '' }}" placeholder="{{ _('State pension, rent, a part-time job…') }}">
+        <input name="inc_monthly_{{ i }}" inputmode="decimal" value="{{ '%g' | format(it.monthly) if it else '' }}" placeholder="{{ _('a month') }}">
+        <input name="inc_from_{{ i }}" inputmode="numeric" value="{{ it.from_age or '' if it else '' }}" placeholder="{{ _('from age') }}">
+        <input name="inc_to_{{ i }}" inputmode="numeric" value="{{ it.to_age or '' if it else '' }}" placeholder="{{ _('to age') }}">
+      </div>
+      {% endfor %}
+    </div>
+    <p class="sub">{{ _("An item with no ages runs from retirement to the horizon; clear its name to remove it. Amounts are in today's money and inflate with the rate above; what the pile has to cover is spending minus income, grossed up for the tax on withdrawals.") }}</p>
+    <button type="submit">{{ _("Save the plan") }}</button>
+  </form>
+
+  <div class="card">
+    <div class="card-header"><h2>{{ _("Year by year") }}</h2><span class="card-subtitle">{{ _("in today's money") if real else _("nominal") }}</span></div>
+    <div class="table-wrap">
+      <table class="grid">
+        <thead><tr><th>{{ _("Age") }}</th><th>{{ _("Year") }}</th><th></th><th class="num">{{ _("Put in") }}</th><th class="num">{{ _("Spending") }}</th><th class="num">{{ _("Income") }}</th><th class="num">{{ _("Withdrawn") }}</th><th class="num">{{ _("End of year") }}</th><th class="num">{{ _("Required") }}</th></tr></thead>
+        <tbody>
+        {% for r in o.rows %}
+        {% set deflate = ((1 + p.inflation / 100) ** (r.age - (b.age_now | int))) if real else 1 %}
+        <tr class="{{ 'is-short' if r.required is not none and r[key] < r[rkey] and r.phase == 'retired' }}">
+          <td>{{ r.age }}</td><td class="sub">{{ r.year }}</td>
+          <td><span class="tag tag-muted">{{ _("saving") if r.phase == 'saving' else _("retired") }}</span></td>
+          <td class="num sub">{{ money(r.contribution / deflate, base_currency) if r.contribution else '—' }}</td>
+          <td class="num sub">{{ money(r.expenses / deflate, base_currency) if r.expenses else '—' }}</td>
+          <td class="num sub">{{ money(r.income / deflate, base_currency) if r.income else '—' }}</td>
+          <td class="num">{{ money(r.withdrawal / deflate, base_currency) if r.withdrawal else '—' }}</td>
+          <td class="num {{ 'neg' if r.end <= 0 and r.phase == 'retired' }}">{{ money(r[key], base_currency) }}</td>
+          <td class="num sub">{{ money(r[rkey], base_currency) if r[rkey] is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="sub">{{ _("Required is, from retirement on, the capital that funds the rest of the plan from that year at the return after retirement; before it, the path that would reach the required capital exactly with the same contributions — the projection above it means ahead of plan. Projections rest on your assumptions; outcomes will differ. Not financial advice.") }}</p>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const lang = {{ lang | tojson }}, ccy = {{ base_currency | tojson }};
+  const fmt = (v) => v == null ? '—' : v.toLocaleString(lang, { maximumFractionDigits: 0 }) + ' ' + ccy;
+  {% for b in blocks %}
+  (() => {
+    const rows = {{ b.out.rows | tojson }};
+    const real = {{ real | tojson }};
+    new Chart(document.getElementById('ret-chart-{{ b.person.id }}'), {
+      type: 'line',
+      data: { labels: rows.map((r) => r.age), datasets: [
+        { label: {{ _("Projected") | tojson }}, data: rows.map((r) => real ? r.end_real : r.end), borderColor: css('--accent-gold'), backgroundColor: 'rgba(245,215,110,0.08)', fill: true, borderWidth: 2, pointRadius: 0 },
+        { label: {{ _("Required") | tojson }}, data: rows.map((r) => real ? r.required_real : r.required), borderColor: css('--text-secondary'), borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, spanGaps: false },
+      ] },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { labels: { color: css('--text-secondary') } }, tooltip: { callbacks: { title: (items) => {{ _("Age") | tojson }} + ' ' + items[0].label, label: (c) => `${c.dataset.label}: ${fmt(c.parsed.y)}` } } },
+        scales: { x: { ticks: { color: css('--text-tertiary'), maxTicksLimit: 10 }, grid: { display: false } },
+                  y: { ticks: { color: css('--text-tertiary'), callback: fmt }, grid: { color: css('--border') } } } },
+    });
+  })();
+  {% endfor %}
+})();
+</script>
+{% endblock %}

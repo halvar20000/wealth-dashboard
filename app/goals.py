@@ -16,6 +16,11 @@ from . import i18n
 from .db import get_conn
 
 
+# What a goal is for. Mostly a word on the card — a house, a car — and
+# a hint for the form; retirement is its own plan, see retirement.py.
+KINDS = ("saving", "house", "car", "education", "wedding", "emergency", "travel")
+
+
 def clean(form) -> dict:
     from .importers.base import parse_decimal
     name = " ".join((form.get("name") or "").split())[:80]
@@ -31,22 +36,23 @@ def clean(form) -> dict:
     acc = form.get("account_id")
     return {"name": name, "target": target, "currency": (form.get("currency") or "EUR").upper()[:3],
             "target_date": when, "account_id": int(acc) if acc and str(acc).isdigit() else None,
-            "notes": " ".join((form.get("notes") or "").split())[:300] or None}
+            "notes": " ".join((form.get("notes") or "").split())[:300] or None,
+            "kind": form.get("kind") if form.get("kind") in KINDS else "saving"}
 
 
 def add(form) -> int:
     g = clean(form)
     with get_conn() as conn:
-        cur = conn.execute("INSERT INTO goals (name, target, currency, target_date, account_id, notes) VALUES (?, ?, ?, ?, ?, ?)",
-                           (g["name"], g["target"], g["currency"], g["target_date"], g["account_id"], g["notes"]))
+        cur = conn.execute("INSERT INTO goals (name, target, currency, target_date, account_id, notes, kind) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                           (g["name"], g["target"], g["currency"], g["target_date"], g["account_id"], g["notes"], g["kind"]))
         return int(cur.lastrowid)
 
 
 def update(goal_id: int, form) -> None:
     g = clean(form)
     with get_conn() as conn:
-        cur = conn.execute("UPDATE goals SET name = ?, target = ?, currency = ?, target_date = ?, account_id = ?, notes = ? WHERE id = ?",
-                           (g["name"], g["target"], g["currency"], g["target_date"], g["account_id"], g["notes"], goal_id))
+        cur = conn.execute("UPDATE goals SET name = ?, target = ?, currency = ?, target_date = ?, account_id = ?, notes = ?, kind = ? WHERE id = ?",
+                           (g["name"], g["target"], g["currency"], g["target_date"], g["account_id"], g["notes"], g["kind"], goal_id))
         if not cur.rowcount:
             raise ValueError(i18n.t("That goal does not exist."))
 
