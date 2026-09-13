@@ -25,6 +25,11 @@ a PSD2 API it connects directly, with credentials that are yours.
   and transactions are pulled straight from the bank into your database.
 - **Net worth over time** — rebuilt from the readings, prices and rates as
   of each day, so it goes back as far as the records do.
+- **Categories, rules and tags.** A correction becomes a rule; a rule can
+  match text (anywhere, a field, a start, an exact value, a pattern), a
+  direction, an amount range, an account, a kind — and file under a
+  category, rename the counterparty, set the kind, add a tag. Budgets
+  against the categories, cash flow by month, subscriptions detected.
 - **Retirement outlook** per person — from their birthday and their own
   accounts to a retire age, and what the sum supports a month.
 - **Forecast** — a monthly amount and a return, or a goal and a year, from
@@ -89,7 +94,7 @@ a PSD2 API it connects directly, with credentials that are yours.
 ## What is not here yet
 
 Benchmark comparison, a dividend calendar, bills and savings goals,
-tags, a REST API. See
+a REST API. See
 [ROADMAP.md](ROADMAP.md) — and [COMPARISON.md](COMPARISON.md) for where
 this stands beside Portfolio Performance, Wealthfolio and Firefly III,
 feature by feature.

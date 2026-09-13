@@ -4839,13 +4839,64 @@ r = c.post("/categorize", data={"action": "add_rule", "pattern": "refund", "cate
 check("...and adds one with every term", (b"Rule saved" in r.data, cats()[2]), (True, b_))
 r = c.get("/categorize")
 check("every rule is a form of its own", r.data.count(b'value="edit_rule"') >= 4 and b'name="amount_min"' in r.data, True)
+
+# 0.32.0: more to match on, more to do.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, counterparty, amount, currency, kind, external_id, source) "
+                 "VALUES (?, '2026-04-02', 'Card payment', 'AMZN Mktp DE*2K3X9', -19.9, 'EUR', 'other', 'rl4', 'manual')", (rid,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, counterparty, amount, currency, kind, external_id, source) "
+                 "VALUES (?, '2026-04-03', 'Uebertrag Tagesgeld', NULL, -500, 'EUR', 'withdrawal', 'rl5', 'manual')", (rid,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, counterparty, amount, currency, kind, external_id, source) "
+                 "VALUES (?, '2026-04-04', 'Amazonas Reisebuero', NULL, -800, 'EUR', 'other', 'rl6', 'manual')", (rid,))
+def row(ext):
+    with db.get_conn() as conn:
+        return dict(conn.execute("SELECT * FROM transactions WHERE account_id = ? AND external_id = ?", (rid, ext)).fetchone())
+n = cat.add_rule("amzn mktp", "", field="counterparty", match_mode="starts", set_counterparty="Amazon", add_tag="Online")
+check("a rule may only rename and tag — the category is left alone, and the count says so",
+      (n, row("rl4")["counterparty"], row("rl4")["tags"], row("rl4")["category"]), (0, "Amazon", "online", None))
+n = cat.add_rule("uebertrag", b_, match_mode="starts", set_kind="transfer", account_id=rid)
+check("a rule can set the kind — a transfer between own accounts — and be confined to one account",
+      (row("rl5")["kind"], row("rl5")["category"]), ("transfer", b_))
+n = cat.add_rule("^amazon\\b", a, match_mode="regex", field="description")
+check("a regular expression matches as one — Amazonas is not Amazon", (row("rl6")["category"], row("rl4")["category"]), (None, None))
+n = cat.add_rule("amazonas reisebuero", a, match_mode="exact", field="description")
+check("an exact match", row("rl6")["category"], a)
+cat.add_rule("amazon", "", field="counterparty", match_mode="exact", add_tag="online")
+check("adding a tag a row already has does not double it", row("rl4")["tags"], "online")
+try:
+    cat.add_rule("([", a, match_mode="regex"); check("a broken pattern is refused", False, True)
+except ValueError:
+    check("a broken pattern is refused", True, True)
+try:
+    cat.add_rule("something", ""); check("a rule that does nothing is refused", False, True)
+except ValueError:
+    check("a rule that does nothing is refused", True, True)
+check("tags are cleaned: lower-case words, no duplicates", cat.clean_tags(" Online, ONLINE ,Holiday 2026,,"), "online,holiday 2026")
+cat.set_tags(row("rl6")["id"], "Travel, Family")
+check("a row's tags can be set outright", row("rl6")["tags"], "travel,family")
+check("every tag in use, counted", [(t["tag"], t["count"]) for t in cat.all_tags() if t["tag"] in ("online", "travel", "family")], [("family", 1), ("online", 1), ("travel", 1)])
+r = c.get("/transactions", query_string={"tag": "travel"})
+check("the Transactions page filters by tag and shows the chips", (b"Amazonas Reisebuero" in r.data, b"Card payment" in r.data, b'class="tag tag-muted"' in r.data), (True, False, True))
+r = c.post(f"/transactions/{row('rl4')['id']}/tags", data={"tags": "online, gift", "back": "/transactions"}, follow_redirects=True)
+check("...and edits them", row("rl4")["tags"], "online,gift")
+r = c.get("/transactions.csv", query_string={"tag": "gift"})
+check("the export carries the tags and honours the filter", (b",tags," in r.data, r.data.count(b"\r\n")), (True, 2))
+tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
+r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "transactions", "arguments": {"tag": "gift"}}}, headers=HDR)
+check("the MCP lists by tag", [t["tags"] for t in r.get_json()["result"]["structuredContent"]["transactions"]], ["online,gift"])
+r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "add_rule", "arguments": {"pattern": "reisebuero", "add_tag": "travel", "match_mode": "contains"}}}, headers=HDR)
+check("...and adds a rule that only tags", r.get_json()["result"].get("isError"), None)
+mcp.revoke()
+r = c.post("/categorize", data={"action": "add_rule", "pattern": "card payment", "category": "", "field": "description", "match_mode": "exact",
+                                "direction": "any", "amount_min": "", "amount_max": "", "account_id": rid, "kind": "", "set_counterparty": "", "set_kind": "", "add_tag": "card"}, follow_redirects=True)
+check("the page takes the new terms", (b"Rule saved" in r.data, "card" in (row("rl4")["tags"] or "")), (True, True))
 tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
 r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call",
                          "params": {"name": "update_rule", "arguments": {"rule_id": rule_id, "pattern": "amazon web", "category": b_, "field": "counterparty", "direction": "in"}}}, headers=HDR)
 check("the MCP changes a rule too", (r.get_json()["result"].get("isError"), cats()[3]), (None, b_))
 mcp.revoke()
 for x in cat.rules():
-    if x["pattern"] in ("amazon", "amazon web", "refund"):
+    if x["pattern"] in ("amazon", "amazon web", "refund", "amzn mktp", "uebertrag", "^amazon\\b", "amazonas reisebuero", "reisebuero", "card payment"):
         cat.delete_rule(x["id"])
 c.post(f"/accounts/{rid}/delete", data={"confirm": "Rules test"})
 

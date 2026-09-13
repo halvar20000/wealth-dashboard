@@ -306,11 +306,15 @@ def _history(period="ytd", person=None):
                 "dividend, interest, fee, tax, transfer, other."},
        "date_from": {"type": "string", "description": "ISO date, inclusive."},
        "date_to": {"type": "string", "description": "ISO date, inclusive."},
+       "tag": {"type": "string", "description": "Only rows carrying this tag."},
        "limit": {"type": "integer", "description": "Default 100, at most 500."},
        "person": PERSON})
 def _transactions(q=None, account_id=None, category=None, kind=None,
-                  date_from=None, date_to=None, limit=100, person=None):
+                  date_from=None, date_to=None, limit=100, person=None, tag=None):
     where, params = ["1=1"], []
+    if tag:
+        where.append("(',' || COALESCE(t.tags,'') || ',') LIKE ?")
+        params.append(f"%,{categories.clean_tag(tag)},%")
     if q:
         where.append("(LOWER(t.description) LIKE ? OR LOWER(COALESCE(t.counterparty,'')) LIKE ?)")
         params += [f"%{str(q).lower()}%"] * 2
@@ -336,7 +340,7 @@ def _transactions(q=None, account_id=None, category=None, kind=None,
     with get_conn() as conn:
         rows = [dict(r) for r in conn.execute(
             f"SELECT t.id, t.account_id, a.name AS account, t.txn_date, t.description, "
-            f"t.counterparty, t.amount, t.currency, t.kind, t.category, t.isin, "
+            f"t.counterparty, t.amount, t.currency, t.kind, t.category, t.tags, t.isin, "
             f"t.security_name, t.quantity, t.price, t.source FROM transactions t "
             f"JOIN accounts a ON a.id = t.account_id WHERE {' AND '.join(where)}{only} "
             f"ORDER BY t.txn_date DESC, t.id DESC LIMIT ?",
@@ -424,8 +428,14 @@ def _categorise_many(items, remember=True):
     return {"categorised": len(done), "failed": failed, "results": done}
 
 
-_RULE_TERMS = {"pattern": {"type": "string", "description": "Text to match, three characters at least."},
-               "category": {"type": "string"},
+_RULE_TERMS = {"pattern": {"type": "string", "description": "Text to match, three characters at least — or a regular expression with match_mode regex."},
+               "category": {"type": "string", "description": "The category to file under; empty to leave the category alone."},
+               "match_mode": {"type": "string", "enum": ["contains", "starts", "exact", "regex"]},
+               "account_id": {"type": "integer", "description": "Only rows of this account."},
+               "kind": {"type": "string", "description": "Only rows of this kind."},
+               "set_counterparty": {"type": "string", "description": "Rename the counterparty to this."},
+               "set_kind": {"type": "string", "description": "Set the kind, e.g. transfer."},
+               "add_tag": {"type": "string", "description": "Add this tag."},
                "field": {"type": "string", "enum": ["any", "description", "counterparty"],
                          "description": "Where the text is looked for. Default any."},
                "direction": {"type": "string", "enum": ["any", "in", "out"],
@@ -438,20 +448,36 @@ _RULE_TERMS = {"pattern": {"type": "string", "description": "Text to match, thre
       "imported. Returns how many transactions it matched. The text can be "
       "confined to the description or the counterparty, to money in or out, and "
       "to a range of amount sizes.",
-      _RULE_TERMS, ["pattern", "category"])
-def _add_rule(pattern, category, field="any", direction="any", amount_min=None, amount_max=None):
+      _RULE_TERMS, ["pattern"])
+def _add_rule(pattern, category="", field="any", direction="any", amount_min=None, amount_max=None,
+              match_mode="contains", account_id=None, kind=None, set_counterparty=None, set_kind=None, add_tag=None):
     return {"pattern": pattern, "category": category,
             "applied": categories.add_rule(pattern, category, field=field, direction=direction,
-                                           amount_min=amount_min, amount_max=amount_max)}
+                                           amount_min=amount_min, amount_max=amount_max, match_mode=match_mode,
+                                           account_id=account_id, kind=kind, set_counterparty=set_counterparty,
+                                           set_kind=set_kind, add_tag=add_tag)}
 
 
 @tool("update_rule", "Change a rule's terms — the fields given replace the rule's; then "
       "every rule is re-applied, oldest first.",
-      {"rule_id": {"type": "integer"}, **_RULE_TERMS}, ["rule_id", "pattern", "category"])
-def _update_rule(rule_id, pattern, category, field="any", direction="any", amount_min=None, amount_max=None):
+      {"rule_id": {"type": "integer"}, **_RULE_TERMS}, ["rule_id", "pattern"])
+def _update_rule(rule_id, pattern, category="", field="any", direction="any", amount_min=None, amount_max=None,
+                 match_mode="contains", account_id=None, kind=None, set_counterparty=None, set_kind=None, add_tag=None):
     return {"rule_id": rule_id, "reapplied": categories.update_rule(
         int(rule_id), pattern, category, field=field, direction=direction,
-        amount_min=amount_min, amount_max=amount_max)}
+        amount_min=amount_min, amount_max=amount_max, match_mode=match_mode, account_id=account_id,
+        kind=kind, set_counterparty=set_counterparty, set_kind=set_kind, add_tag=add_tag)}
+
+
+@tool("set_tags", "Set a transaction's tags — a comma-separated list of words; replaces what was there.",
+      {"txn_id": {"type": "integer"}, "tags": {"type": "string"}}, ["txn_id", "tags"])
+def _set_tags(txn_id, tags):
+    return {"txn_id": txn_id, "tags": categories.set_tags(int(txn_id), tags)}
+
+
+@tool("tags", "Every tag in use, with how many transactions carry it.")
+def _tags():
+    return {"tags": categories.all_tags()}
 
 
 @tool("delete_rule", "Remove a rule by id and re-apply the remaining ones. "

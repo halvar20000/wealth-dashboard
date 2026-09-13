@@ -74,17 +74,32 @@
 {% endif %}
 
 {% set field_labels = {'any': _("the text anywhere"), 'description': _("the description"), 'counterparty': _("the counterparty")} %}
+{% set mode_labels = {'contains': _("contains"), 'starts': _("starts with"), 'exact': _("is exactly"), 'regex': _("matches the pattern")} %}
 {% set direction_labels = {'any': _("in or out"), 'in': _("money in"), 'out': _("money out")} %}
 {% macro rule_terms(r) %}
+  <div class="rule-when">
   <div><label>{{ _("When") }}</label>
     <select name="field" style="width:auto">{% for f in rule_fields %}<option value="{{ f }}" {{ 'selected' if (r.field if r else 'any') == f }}>{{ field_labels[f] }}</option>{% endfor %}</select></div>
-  <div><label>{{ _("contains") }}</label><input name="pattern" value="{{ r.pattern if r else '' }}" required minlength="3" style="width:160px"></div>
+  <div><label>&nbsp;</label>
+    <select name="match_mode" style="width:auto">{% for m in rule_modes %}<option value="{{ m }}" {{ 'selected' if (r.match_mode if r else 'contains') == m }}>{{ mode_labels[m] }}</option>{% endfor %}</select></div>
+  <div><label>&nbsp;</label><input name="pattern" value="{{ r.pattern if r else '' }}" required style="width:160px"></div>
   <div><label>{{ _("and the money is") }}</label>
     <select name="direction" style="width:auto">{% for x in rule_directions %}<option value="{{ x }}" {{ 'selected' if (r.direction if r else 'any') == x }}>{{ direction_labels[x] }}</option>{% endfor %}</select></div>
   <div><label>{{ _("from") }}</label><input name="amount_min" inputmode="decimal" value="{{ '%g' | format(r.amount_min) if r and r.amount_min is not none else '' }}" placeholder="—" style="width:80px"></div>
   <div><label>{{ _("to") }}</label><input name="amount_max" inputmode="decimal" value="{{ '%g' | format(r.amount_max) if r and r.amount_max is not none else '' }}" placeholder="—" style="width:80px"></div>
-  <div><label>{{ _("file under") }}</label>
-    <select name="category" style="width:auto">{% for slug, meta in categories.all_categories().items() %}<option value="{{ slug }}" {{ 'selected' if r and r.category == slug }}>{{ meta.label }}</option>{% endfor %}</select></div>
+  <div><label>{{ _("on account") }}</label>
+    <select name="account_id" style="width:auto"><option value="">{{ _("any") }}</option>{% for a in accounts_list %}<option value="{{ a.id }}" {{ 'selected' if r and r.account_id == a.id }}>{{ a.name }}</option>{% endfor %}</select></div>
+  <div><label>{{ _("of kind") }}</label>
+    <select name="kind" style="width:auto"><option value="">{{ _("any") }}</option>{% for k in rule_kinds %}<option value="{{ k }}" {{ 'selected' if r and r.kind == k }}>{{ kind_label(k) }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="rule-then">
+  <div><label>{{ _("then file under") }}</label>
+    <select name="category" style="width:auto"><option value="">{{ _("leave the category") }}</option>{% for slug, meta in categories.all_categories().items() %}<option value="{{ slug }}" {{ 'selected' if r and r.category == slug }}>{{ meta.label }}</option>{% endfor %}</select></div>
+  <div><label>{{ _("rename the counterparty to") }}</label><input name="set_counterparty" value="{{ r.set_counterparty or '' if r else '' }}" placeholder="—" style="width:150px"></div>
+  <div><label>{{ _("set the kind to") }}</label>
+    <select name="set_kind" style="width:auto"><option value="">—</option>{% for k in rule_kinds %}<option value="{{ k }}" {{ 'selected' if r and r.set_kind == k }}>{{ kind_label(k) }}</option>{% endfor %}</select></div>
+  <div><label>{{ _("add the tag") }}</label><input name="add_tag" value="{{ r.add_tag or '' if r else '' }}" placeholder="—" style="width:120px"></div>
+  </div>
 {% endmacro %}
 
 <section class="card" id="rules">
@@ -95,7 +110,7 @@
     {{ rule_terms(none) }}
     <button type="submit">{{ _("Add the rule") }}</button>
   </form>
-  <p class="sub">{{ _("The text is matched anywhere in the description or the counterparty, or in one of them; the amounts are sizes — 20 to 50 catches a payment of 30 whichever way it went, and the direction says which way. Blank means no limit. A rule applies to what is already imported as well as to what arrives next.") }}</p>
+  <p class="sub">{{ _("The text is matched anywhere in the description or the counterparty, or in one of them; the amounts are sizes — 20 to 50 catches a payment of 30 whichever way it went, and the direction says which way. Blank means no limit. A rule applies to what is already imported as well as to what arrives next.") }} {{ _("A rule can also rename the counterparty — AMZN Mktp DE*2K3 becomes Amazon — set the kind, to mark a transfer between your own accounts, say, and add a tag; those three are applied on every sync, so they win over a correction by hand.") }}</p>
   {% if rules %}
   <div class="rule-list">
   {% for r in rules %}

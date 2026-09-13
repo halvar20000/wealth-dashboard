@@ -1154,7 +1154,7 @@ def mcp_endpoint():
 def transactions():
     """Everything, filterable. The page people go to when a number
     elsewhere looks wrong, so the filters are the feature."""
-    q, category, account_id, kind, clause, params = _transactions_filter()
+    q, category, account_id, kind, clause, params, tag = _transactions_filter()
 
     only_a, a_params = people.sql_in(people.scope(), "id")
     with get_conn() as conn:
@@ -1173,8 +1173,8 @@ def transactions():
 
     return render_template("transactions.html", active_page="transactions",
                            rows=rows, matched=total["n"], total=total["s"] or 0,
-                           accounts=accounts_list, kinds=kinds,
-                           q=q, category=category, account_id=account_id, kind=kind)
+                           accounts=accounts_list, kinds=kinds, tags=categories.all_tags(),
+                           q=q, category=category, account_id=account_id, kind=kind, tag=tag)
 
 
 def _transactions_filter():
@@ -1184,10 +1184,14 @@ def _transactions_filter():
     category = request.args.get("category") or ""
     account_id = request.args.get("account") or ""
     kind = request.args.get("kind") or ""
+    tag = categories.clean_tag(request.args.get("tag")) or ""
     where, params = ["1=1"], []
     if q:
         where.append("(LOWER(t.description) LIKE ? OR LOWER(COALESCE(t.counterparty,'')) LIKE ?)")
         params += [f"%{q.lower()}%"] * 2
+    if tag:
+        where.append("(',' || COALESCE(t.tags,'') || ',') LIKE ?")
+        params.append(f"%,{tag},%")
     if category:
         where.append("COALESCE(NULLIF(t.category,''),'other') = ?")
         params.append(category)
@@ -1198,7 +1202,7 @@ def _transactions_filter():
         where.append("t.kind = ?")
         params.append(kind)
     only, only_params = people.sql_in(people.scope(), "t.account_id")
-    return q, category, account_id, kind, " AND ".join(where) + only, params + only_params
+    return q, category, account_id, kind, " AND ".join(where) + only, params + only_params, tag
 
 
 @app.route("/transactions.csv")
@@ -1206,7 +1210,7 @@ def _transactions_filter():
 def transactions_csv():
     """Every row the Transactions page would show under its filters —
     not just the first four hundred — as a CSV. See export.py."""
-    _, _, _, _, clause, params = _transactions_filter()
+    _, _, _, _, clause, params, _ = _transactions_filter()
     with get_conn() as conn:
         rows = [dict(r) for r in conn.execute(
             f"SELECT t.*, a.name AS account_name FROM transactions t "
@@ -1251,6 +1255,18 @@ def portfolio_csv():
     and MWR (in percent)."""
     return export.response(export.holdings(_holdings_with_figures()[0], request.args.get("sep")),
                            f"holdings-{date.today().isoformat()}.csv")
+
+
+@app.route("/transactions/<int:txn_id>/tags", methods=["POST"])
+@auth.login_required
+def transaction_tags(txn_id: int):
+    """Set one row's tags — words, comma-separated. No rule follows:
+    a tag is a label on this row, where a category is a habit."""
+    categories.set_tags(txn_id, request.form.get("tags"))
+    back = request.form.get("back") or ""
+    if back.startswith("/") and not back.startswith("//"):
+        return redirect(back)
+    return redirect(url_for("transactions"))
 
 
 @app.route("/transactions/<int:txn_id>/category", methods=["POST"])
@@ -1308,7 +1324,10 @@ def categorize():
         elif request.form.get("action") in ("add_rule", "edit_rule"):
             f = request.form
             terms = {"field": f.get("field", "any"), "direction": f.get("direction", "any"),
-                     "amount_min": f.get("amount_min"), "amount_max": f.get("amount_max")}
+                     "amount_min": f.get("amount_min"), "amount_max": f.get("amount_max"),
+                     "match_mode": f.get("match_mode", "contains"), "account_id": f.get("account_id"),
+                     "kind": f.get("kind"), "set_counterparty": f.get("set_counterparty"),
+                     "set_kind": f.get("set_kind"), "add_tag": f.get("add_tag")}
             try:
                 if f.get("action") == "add_rule":
                     n = categories.add_rule(f.get("pattern", ""), f.get("category", ""), **terms)
@@ -1325,10 +1344,14 @@ def categorize():
         return redirect(url_for("categorize"))
 
     queue, remaining = categories.uncategorised(account_ids=people.scope())
+    with get_conn() as conn:
+        accounts_list = [dict(r) for r in conn.execute("SELECT id, name FROM accounts ORDER BY name")]
+    from .importers.base import KINDS as _kinds
     return render_template("categorize.html", active_page="categorize",
                            queue=queue, remaining=remaining,
                            rules=categories.rules(), rule_fields=categories.FIELDS,
-                           rule_directions=categories.DIRECTIONS)
+                           rule_directions=categories.DIRECTIONS, rule_modes=categories.MATCH_MODES,
+                           rule_kinds=sorted(_kinds), accounts_list=accounts_list)
 
 
 @app.route("/cashflow")

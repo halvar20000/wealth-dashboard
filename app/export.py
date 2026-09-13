@@ -22,7 +22,7 @@ import io
 from . import i18n
 
 TXN_COLUMNS = ("date", "account", "kind", "description", "counterparty", "amount",
-               "currency", "category", "isin", "security_name", "quantity", "price",
+               "currency", "category", "tags", "isin", "security_name", "quantity", "price",
                "fee", "tax", "source", "id")
 HOLDING_COLUMNS = ("isin", "name", "accounts", "quantity", "price", "price_as_of",
                    "currency", "net_invested", "value", "unrealised", "realised",
@@ -64,7 +64,7 @@ def transactions(rows: list[dict], sep: str | None = None) -> bytes:
     return write(TXN_COLUMNS, [[
         r["txn_date"], r.get("account_name", ""), r["kind"], r["description"] or "",
         r.get("counterparty") or "", _money(r["amount"], dec), r["currency"],
-        r.get("category") or "", r.get("isin") or "", r.get("security_name") or "",
+        r.get("category") or "", r.get("tags") or "", r.get("isin") or "", r.get("security_name") or "",
         _num(r.get("quantity"), dec), _num(r.get("price"), dec), _num(r.get("fee"), dec),
         _num(r.get("tax"), dec), r.get("source") or "", r["id"]] for r in rows], sep)
 

@@ -482,11 +482,25 @@ _ADDED_COLUMNS = {
         ("direction", "TEXT NOT NULL DEFAULT 'any'"),
         ("amount_min", "REAL"),
         ("amount_max", "REAL"),
+        # 0.32.0: more to match on, more to do. A rule may confine itself
+        # to one account or one kind, match the text as a start, an exact
+        # value or a pattern; and beyond the category it may rename the
+        # counterparty, set the kind, and add a tag.
+        ("account_id", "INTEGER"),
+        ("kind", "TEXT"),
+        ("match_mode", "TEXT NOT NULL DEFAULT 'contains'"),
+        ("set_counterparty", "TEXT"),
+        ("set_kind", "TEXT"),
+        ("add_tag", "TEXT"),
     ],
     "securities": [
         ("quote_type", "TEXT"),
     ],
     "transactions": [
+        # Tags: any number of words on a row, beside the one category.
+        # Stored as a comma-separated string, lower-case, searched with
+        # LIKE on ',tag,' — the simplest thing that works in one column.
+        ("tags", "TEXT"),
         ("edited_at", "TEXT"),
         ("kind", "TEXT NOT NULL DEFAULT 'other'"),
         ("isin", "TEXT"),
@@ -514,6 +528,10 @@ def get_conn(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(path or settings.DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
+    # SQLite has the REGEXP operator but no function behind it; a rule
+    # that matches a pattern needs one. Case-insensitive, as every other
+    # match in this app is.
+    conn.create_function("regexp", 2, _regexp)
     try:
         yield conn
         conn.commit()
@@ -522,6 +540,16 @@ def get_conn(path: Path | None = None) -> Iterator[sqlite3.Connection]:
         raise
     finally:
         conn.close()
+
+
+def _regexp(pattern, value) -> bool:
+    import re
+    if pattern is None or value is None:
+        return False
+    try:
+        return re.search(pattern, str(value), re.IGNORECASE) is not None
+    except re.error:
+        return False
 
 
 def get_state(key: str) -> str | None:

@@ -11,6 +11,23 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.32.0] — 2026-09-13
+
+### Added
+- **Rules that do more.** Beyond text, direction and amount, a rule
+  can be confined to one account or one kind, and match its text as a
+  start, an exact value or a regular expression. Beyond the category,
+  it can rename the counterparty (*AMZN Mktp DE\*2K3* becomes
+  *Amazon*), set the kind (a transfer between your own accounts, which
+  the cash flow then leaves out), and add a tag; the category may be
+  left alone, so a rule can be a rename or a tag and nothing else.
+  Renames, kinds and tags are re-applied on every sync.
+- **Tags.** Any number of words on a transaction beside its one
+  category — *holiday 2026*, *tax-deductible*, *family*. Set on the
+  Transactions page in a field under the row, by a rule, or over MCP
+  (`set_tags`, `tags`, and `transactions` filters by tag); the page
+  filters by tag and shows the chips; the CSV export carries them.
+
 ## [0.31.0] — 2026-09-13
 
 ### Added

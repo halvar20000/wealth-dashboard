@@ -71,12 +71,12 @@ it does not do yet.
 - [x] CSV export of transactions and holdings, filtered as the page is.
 - [x] Allocation by asset class, region and bucket, with targets and a
       contribution spread.
-- [ ] Rules engine: more triggers (account, kind, day of month) and actions
-      (rename, tag, mark as transfer).
+- [x] Rules engine: more triggers (account, kind, match mode) and actions
+      (rename, set kind, tag).
 - [ ] Benchmark comparison on the portfolio and security pages.
 - [ ] Bills (expected recurring payments, due, missed) and savings goals.
 - [ ] A dividend calendar: paid so far, and what is due next.
-- [ ] Tags on transactions.
+- [x] Tags on transactions.
 - [ ] A REST API over the MCP tools, and webhooks on sync.
 
 ## Next
