@@ -11,6 +11,26 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.28.3] — 2026-09-13
+
+### Fixed
+- A share paid for in euros but quoted by Yahoo in dollars — Amazon at
+  a German broker — had its security page in two currencies at once:
+  the value in dollars against euros invested, a dollar "unrealised
+  gain" that was a subtraction across currencies, a chart with a
+  dollar line over a euro line, and returns measured across the rate.
+  The price is now turned into the currency the shares were paid in,
+  at each day's ECB rate, for the value, the chart, the gains and the
+  returns; the page says what the quote was. (Found by Dominique.)
+- A DKB Wertpapierabrechnung whose cost line carries a label the
+  parser had never seen lost that cost: the amount was right, the fee
+  column not. The statement's arithmetic is now checked — Kurswert
+  plus every cost is the amount — and whatever is left over is
+  counted as fee and named in the import report, so a cost is never
+  lost whatever the bank calls it. More of the labels DKB uses are
+  known outright. The security page now says what was paid in fees
+  and tax beside the income.
+
 ## [0.28.2] — 2026-09-13
 
 ### Changed

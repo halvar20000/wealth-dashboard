@@ -20,7 +20,7 @@
   <div class="stat-card stat-green">
     <div class="stat-label">{{ _("Income") }}</div>
     <div class="stat-value">{{ money(income, currency) }}</div>
-    <div class="stat-sub">{{ _("dividends and interest") }}</div>
+    <div class="stat-sub">{{ _("dividends and interest") }}{% if costs.fees or costs.taxes %} · {{ _f("fees {fees}, tax {taxes} paid", fees=money(costs.fees, currency), taxes=money(costs.taxes, currency)) }}{% endif %}</div>
   </div>
   <div class="stat-card stat-gold">
     <div class="stat-label" title="{{ _('Time-weighted: the return of the investment itself, with the timing of your own money taken out — what compares one holding to another.') }}">{{ _("Return (TWR)") }}</div>
@@ -35,7 +35,7 @@
   <div class="stat-card stat-purple">
     <div class="stat-label">{{ _("Value") }}</div>
     <div class="stat-value">{% if price %}{{ money(quantity * price.price, price.currency) }}{% else %}—{% endif %}</div>
-    <div class="stat-sub">{% if unrealised is not none %}<span class="{{ 'pos' if unrealised > 0 else ('neg' if unrealised < 0) }}">{{ _f("{amount} unrealised", amount=money(unrealised, price.currency)) }}</span> · {% endif %}{% if price %}{{ _f("at {price} on {date}", price=qty(price.price), date=d(price.as_of)) }}{% else %}{{ _("no market price yet") }}{% endif %}</div>
+    <div class="stat-sub">{% if unrealised is not none %}<span class="{{ 'pos' if unrealised > 0 else ('neg' if unrealised < 0) }}">{{ _f("{amount} unrealised", amount=money(unrealised, price.currency)) }}</span> · {% endif %}{% if price %}{{ _f("at {price} on {date}", price=qty(price.price | round(2)), date=d(price.as_of)) }}{% if price.quoted %} · {{ _f("quoted {price} {currency}", price=qty(price.quoted.price | round(2)), currency=price.quoted.currency) }}{% endif %}{% else %}{{ _("no market price yet") }}{% endif %}</div>
   </div>
 </section>
 
@@ -50,7 +50,7 @@
     <span class="sub" id="sec-change-note"></span>
   </div>
   <div class="chart-wrap" style="height:300px"><canvas id="sec-chart"></canvas></div>
-  <p class="sub">{{ _("Value is the units held times the price of the day — the market price where the app has one, the last price paid before that. Invested is buys minus sales, fees included. Dividends and interest are drawn as their own line, because they are return that never shows in the value.") }}</p>
+  <p class="sub">{{ _("Value is the units held times the price of the day — the market price where the app has one, the last price paid before that. Invested is buys minus sales, fees included. Dividends and interest are drawn as their own line, because they are return that never shows in the value.") }} {{ _("A price quoted in another currency than the shares were paid in is turned into theirs at the day's ECB rate, so the lines are one currency.") }}</p>
 </div>
 
 {% if realised.sales %}

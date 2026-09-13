@@ -399,7 +399,17 @@ def series_for(isin: str, account_ids: list[int] | None = None,
     for r in income:
         acc += r["amount"]; idays.append(r["txn_date"]); iamt.append(acc)
     pdays = [d for d, _, _ in pr]
-    currency = pr[-1][2] if pr else rows[0]["currency"]
+    # The series is in the currency the shares were paid in. A share
+    # bought in euros at a German broker and priced by Yahoo in dollars
+    # is worth euros to its owner: the day's price is turned into the
+    # trade currency at that day's ECB rate, so the value line, what
+    # went in and the returns are all one currency — see in_currency().
+    currency = next((r["currency"] for r in rows if r["kind"] in ("buy", "sell") and r["currency"]),
+                    rows[0]["currency"] or (pr[-1][2] if pr else "EUR"))
+    convert = in_currency(currency)
+    pr = [(d, convert(px, ccy, d), ccy) for d, px, ccy in pr]
+    pr = [(d, px, ccy) for d, px, ccy in pr if px is not None]
+    pdays = [d for d, _, _ in pr]
     start = _date.fromisoformat(days[0])
     points = []
     d = start
@@ -421,6 +431,34 @@ def series_for(isin: str, account_ids: list[int] | None = None,
                        "income": iamt[k - 1] if k else 0.0})
         d += timedelta(days=1)
     return {"points": points, "currency": currency, "first": days[0]}
+
+
+def in_currency(to: str):
+    """A converter (price, currency, day) → price in `to` at that day's
+    ECB rate, or None when no rate says how. The rate table is read
+    once; a chart of a thousand days must not run a thousand queries."""
+    from bisect import bisect_right
+    to = (to or "EUR").upper()
+    table: dict[str, dict[str, float]] = {}
+    with get_conn() as conn:
+        for r in conn.execute("SELECT as_of, currency, per_eur FROM fx_rates ORDER BY as_of"):
+            table.setdefault(r["as_of"], {"EUR": 1.0})[r["currency"]] = r["per_eur"]
+    fx_days = sorted(table)
+
+    def convert(price, ccy, day):
+        if price is None:
+            return None
+        ccy = (ccy or to).upper()
+        if ccy == to:
+            return price
+        i = bisect_right(fx_days, day)
+        if not i:
+            return None
+        rates = table[fx_days[i - 1]]
+        if ccy not in rates or to not in rates:
+            return None
+        return price / rates[ccy] * rates[to]
+    return convert
 
 
 def set_symbol(isin: str, symbol: str | None) -> None:

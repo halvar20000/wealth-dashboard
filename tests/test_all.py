@@ -926,6 +926,17 @@ check("...and the ISIN read", k.isin, "US0000000001")
 check("...and the name across both lines",
       k.security_name, "EXAMPLE HOLDINGS INC. REGISTERED SHARES DL -,01")
 
+# A cost line under a label the parser has never seen: the arithmetic
+# catches it. Kurswert 3 500 plus 12,50 named is 3 512,50; the amount
+# says 3 513,71 — 1,21 of costs without a name, counted as fee.
+odd = dkb_pdf.parse(fixtures.DKB_PDF_KAUF.replace("Ausmachender Betrag 3.512,50- EUR",
+                                                  "Sonstige Entgelte 1,21- EUR\nAusmachender Betrag 3.513,71- EUR"))
+check("a cost line under an unknown label is not lost: the amount minus Kurswert minus what was named is fee",
+      (odd.rows[0].fee, odd.rows[0].amount), (13.71, -3513.71))
+check("...and the statement says so", any("1.21 EUR of costs" in p for p in odd.problems), True)
+odd_sell = dkb_pdf.parse(fixtures.DKB_PDF_VERKAUF)
+check("a sale that adds up carries no such note", [p for p in odd_sell.problems if "no label" in p], [])
+
 verkauf = dkb_pdf.parse(fixtures.DKB_PDF_VERKAUF).rows[0]
 check("a sale is a sell", verkauf.kind, "sell")
 check("...with money in", verkauf.amount, 1106.92)
@@ -4736,6 +4747,30 @@ with db.get_conn() as conn:
     check("...really gone", conn.execute("SELECT COUNT(*) n FROM transactions WHERE account_id = ?", (pid2,)).fetchone()["n"], 2)
 mcp.revoke()
 c.post(f"/accounts/{pid2}/delete", data={"confirm": "Patch test"})
+
+# ---------------------------------------------------------------------------
+print("\n39. A share paid for in euros and quoted in dollars")
+# ---------------------------------------------------------------------------
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('USD test', 'broker', 'EUR')")
+    uid = conn.execute("SELECT id FROM accounts WHERE name = 'USD test'").fetchone()["id"]
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, quantity, price, external_id, source) "
+                 "VALUES (?, '2026-01-10', 'Kauf Amazon', -1000, 'EUR', 'buy', 'US0231351067', 'Amazon', 10, 100, 'u1', 'manual')", (uid,))
+    conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency) VALUES ('US0231351067', '2026-02-01', 120, 'USD')")
+    conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency) VALUES ('US0231351067', '2026-03-01', 132, 'USD')")
+    conn.execute("INSERT OR REPLACE INTO fx_rates (as_of, currency, per_eur) VALUES ('2026-01-31', 'USD', 1.2)")
+    conn.execute("INSERT OR REPLACE INTO fx_rates (as_of, currency, per_eur) VALUES ('2026-02-28', 'USD', 1.1)")
+conv = prices.in_currency("EUR")
+check("a dollar price becomes euros at the day's rate", (round(conv(120, "USD", "2026-02-01"), 6), round(conv(132, "USD", "2026-03-01"), 6), conv(50, "EUR", "2026-02-01")), (100.0, 120.0, 50))
+check("...and nothing without a rate", conv(120, "USD", "2025-01-01"), None)
+ser = prices.series_for("US0231351067", [uid], today=date(2026, 3, 5))
+pts = {p["date"]: p for p in ser["points"]}
+check("the series is in the currency the shares were paid in",
+      (ser["currency"], round(pts["2026-02-10"]["value"]), round(pts["2026-03-02"]["value"]), round(pts["2026-03-02"]["invested"])), ("EUR", 1000, 1200, 1000))
+r = c.get("/securities/US0231351067")
+check("the page values the holding in euros and says what the quote was",
+      ("1\u00a0200.00\u00a0EUR" in r.data.decode(), b"quoted 132 USD" in r.data, b"USD unrealised" not in r.data), (True, True, True))
+c.post(f"/accounts/{uid}/delete", data={"confirm": "USD test"})
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

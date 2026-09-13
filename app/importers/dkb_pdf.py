@@ -92,7 +92,9 @@ _PRICE_RE = re.compile(r"^(?:Ausführungskurs|Abrech\.-Preis) ([\d.,]+) ([A-Z]{3
 _FEE_RE = re.compile(
     r"^(?:Provision|Transaktionsentgelt Börse|Übertragungs-/Liefergebühr|"
     r"Fremde Abwicklungsgebühr|Abwicklungskosten Börse|Maklercourtage|"
-    r"Eigene Spesen|Fremde Auslagen|Ausgabeaufschlag)\b.*?([\d.,]+)\s*-? ([A-Z]{3})$")
+    r"Eigene Spesen|Fremde Spesen|Fremde Auslagen|Fremde Gebühren|Ausgabeaufschlag|"
+    r"Börsengebühr|Handelsplatzgebühr|Clearstream-Gebühr|Variable Börsenspesen|"
+    r"Umschreibeentgelt|Lieferentgelt|Fremdspesen)\b.*?([\d.,]+)\s*-? ([A-Z]{3})$")
 _TAX_RE = re.compile(
     r"^(?:Kapitalertragsteuer|Solidaritätszuschlag|Kirchensteuer) [\d.,]+\s*%.*? "
     r"([\d.,]+)\s*([-+]) ([A-Z]{3})$")
@@ -310,8 +312,9 @@ def _parse_trade(lines, currency, result):
         result.problems.append("No date found on the statement.")
         return
 
-    kurswert = next((_num(m.group(1))
-                     for m in map(_KURSWERT_RE.match, lines) if m), None)
+    kw = next((m for m in map(_KURSWERT_RE.match, lines) if m), None)
+    kurswert = _num(kw.group(1)) if kw else None
+    kurswert_ccy = kw.group(2) if kw else None
     price = None
     if kurswert and quantity:
         price = round(abs(kurswert) / quantity, 6)
@@ -321,6 +324,20 @@ def _parse_trade(lines, currency, result):
             price = _num(m.group(1))
     fees, taxes = _fees_and_taxes(lines)
     order = _first(lines, r"^(?:.* )?Auftragsnummer (\S+)")
+    # The statement adds up: Kurswert plus every cost is the amount.
+    # A cost line under a label this parser has never seen would
+    # otherwise vanish — the amount would still be right, the fee
+    # column not. So the arithmetic is checked, and what is left over
+    # is counted as fee and named as such.
+    if kurswert and kurswert_ccy == (ccy or currency):
+        expected = abs(kurswert) + (fees + taxes) * (1 if not is_sell else -1)
+        residual = round(abs(amount) - expected, 2)
+        unnamed = residual if not is_sell else -residual
+        if unnamed >= 0.01:
+            fees = round(fees + unnamed, 2)
+            result.problems.append(
+                f"{date} {name or isin}: {unnamed:.2f} {ccy or currency} of costs on the "
+                f"statement carry no label this importer knows; counted as fee.")
 
     result.rows.append(ParsedTxn(
         txn_date=date,

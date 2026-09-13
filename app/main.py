@@ -795,10 +795,18 @@ def security_page(isin: str):
     groups = _cluster(rows)
     name = next((r["security_name"] for r in reversed(rows) if r["security_name"]), None) \
         or (sec["name"] if sec else None) or isin
+    currency = next((r["currency"] for r in rows if r["kind"] in ("buy", "sell")), rows[0]["currency"])
     price = prices.latest().get(isin)
+    if price and price.get("currency") and price["currency"].upper() != (currency or "").upper():
+        # Priced by Yahoo in dollars, paid for in euros: the page is in
+        # the owner's currency, and says what the quote was.
+        quoted = dict(price)
+        converted = prices.in_currency(currency)(price["price"], price["currency"], price["as_of"])
+        price = {**price, "price": converted, "currency": currency, "quoted": quoted} if converted is not None else price
     net_invested = sum(-r["amount"] for r in rows if r["kind"] == "buy") \
         - sum(r["amount"] for r in rows if r["kind"] == "sell")
     income = sum(r["amount"] for r in rows if r["kind"] in ("dividend", "interest"))
+    costs = {"fees": sum(r["fee"] or 0.0 for r in rows), "taxes": sum(r["tax"] or 0.0 for r in rows)}
     # What each sale made, by lots — and what the units still held
     # cost, which is the cost basis the unrealised gain is measured
     # against. Both under the method chosen in Settings.
@@ -813,9 +821,7 @@ def security_page(isin: str):
                            perf=performance.for_security(isin, people.scope()),
                            realised=realised, unrealised=unrealised,
                            rows=rows, groups=groups, quantity=running, net_invested=net_invested,
-                           income=income, price=price,
-                           currency=next((r["currency"] for r in rows if r["kind"] in ("buy", "sell")),
-                                         rows[0]["currency"]),
+                           income=income, costs=costs, price=price, currency=currency,
                            symbol=sec["symbol"] if sec else None,
                            trades=manual.TRADES, directional=manual.DIRECTIONAL,
                            accounts=sorted({r["account_name"] for r in rows}))
