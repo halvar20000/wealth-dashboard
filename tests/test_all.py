@@ -4771,6 +4771,7 @@ check("the series is in the currency the shares were paid in",
 r = c.get("/securities/US0231351067")
 check("the page values the holding in euros and says what the quote was",
       ("1\u00a0200.00\u00a0EUR" in r.data.decode(), b"quoted 132 USD" in r.data, b"USD unrealised" not in r.data), (True, True, True))
+check("the Overview's holdings link to the security's page", b'href="/securities/US0231351067"' in c.get("/").data, True)
 r = c.get("/securities/US0231351067", query_string={"ccy": "USD"})
 check("...and can be shown in the currency it is quoted in instead",
       (b"Show in" in r.data, "1\u00a0320.00\u00a0USD" in r.data.decode(), b"quoted 132 USD" in r.data), (True, True, False))

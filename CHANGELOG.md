@@ -11,6 +11,14 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.29.1] — 2026-09-13
+
+### Fixed
+- The holdings table on the Overview, and the securities list under
+  Settings → Market prices, did not link to the security's page as the
+  Portfolio and account pages do. Every place a security is named is
+  a link now. (Dominique.)
+
 ## [0.29.0] — 2026-09-13
 
 ### Added

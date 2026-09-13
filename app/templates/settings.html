@@ -118,7 +118,7 @@
       <tbody>
       {% for x in securities %}
         <tr>
-          <td>{{ x.name }}<span class="sub">{{ x.isin }}</span></td>
+          <td><a href="{{ url_for('security_page', isin=x.isin) }}">{{ x.name or x.isin }}</a><span class="sub">{{ x.isin }}</span></td>
           <td>
             <form method="post" class="form inline" style="gap:6px">
               <input type="hidden" name="form" value="price_symbol">

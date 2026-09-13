@@ -183,7 +183,7 @@
       <tbody>
       {% for h in s.holdings %}
         <tr>
-          <td>{{ h.name or h.isin }}<span class="sub">{{ h.isin }}</span></td>
+          <td><a href="{{ url_for('security_page', isin=h.isin) }}">{{ h.name or h.isin }}</a><span class="sub">{{ h.isin }}</span></td>
           <td class="sub">{{ h.accounts | unique | join(', ') }}</td>
           <td class="num {{ 'neg' if h.incomplete_history }}">
             {{ qty(h.quantity) }}
