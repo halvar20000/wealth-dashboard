@@ -11,6 +11,21 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.36.0] — 2026-09-13
+
+### Added
+- **A REST API.** Every MCP tool is also a URL — `GET /api/v1/tools`
+  lists them with their schemas, `GET` or `POST /api/v1/tools/<name>`
+  calls one with query parameters or a JSON body — behind the same
+  bearer token, from the same registry, so a script or an automation
+  that speaks no MCP gets the same answers. Examples under Settings →
+  Assistants.
+- **Webhooks.** A POST to a URL of yours on `sync.completed`,
+  `sync.failed` and `bill.missed` — JSON body, the event in a header,
+  an HMAC-SHA256 signature with the hook's secret. Home Assistant,
+  n8n, a bot. One attempt, five seconds; the list under Settings says
+  when a receiver last failed, and a test event is one click.
+
 ## [0.35.0] — 2026-09-13
 
 ### Added

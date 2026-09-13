@@ -77,7 +77,7 @@ it does not do yet.
 - [x] Bills (expected recurring payments, due, missed) and savings goals.
 - [x] A dividend calendar: paid so far, and what is due next.
 - [x] Tags on transactions.
-- [ ] A REST API over the MCP tools, and webhooks on sync.
+- [x] A REST API over the MCP tools, and webhooks on sync.
 
 ## Next
 

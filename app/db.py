@@ -427,6 +427,18 @@ CREATE TABLE IF NOT EXISTS dividend_events (
     PRIMARY KEY (isin, ex_date)
 );
 
+-- A URL of the user's own to POST to when something happened — a
+-- sync, a missed bill. See webhooks.py.
+CREATE TABLE IF NOT EXISTS webhooks (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    url        TEXT NOT NULL,
+    events     TEXT NOT NULL,                 -- comma-separated
+    secret     TEXT NOT NULL,                 -- for the HMAC signature
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_at    TEXT,
+    last_error TEXT
+);
+
 -- A column mapping the user drew for a CSV no built-in importer knows,
 -- keyed on the file's header so the next export from the same bank is
 -- recognised without asking again. See importers/generic.py.

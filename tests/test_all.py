@@ -5132,5 +5132,66 @@ with db.get_conn() as conn:
 c.post(f"/accounts/{dvb}/delete", data={"confirm": "Div broker"})
 
 # ---------------------------------------------------------------------------
+print("\n46. The REST API, and webhooks")
+# ---------------------------------------------------------------------------
+from app import webhooks                                    # noqa: E402
+
+r = c.get("/api/v1/tools")
+check("the API wants the token", r.status_code, 401)
+tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
+r = c.get("/api/v1/tools", headers=HDR)
+names = [t["name"] for t in r.get_json()["tools"]]
+check("...and lists every MCP tool with its schema", (r.status_code, "net_worth" in names, "set_category" in names, len(names) > 35), (200, True, True, True))
+r = c.get("/api/v1/tools/net_worth", headers=HDR)
+check("a GET calls a tool", (r.status_code, r.get_json()["ok"], "net_worth" in r.get_json()["result"]), (200, True, True))
+r = c.get("/api/v1/tools/transactions", query_string={"limit": "2", "q": "gehalt"}, headers=HDR)
+check("...with query parameters typed by the schema", (r.status_code, len(r.get_json()["result"]["transactions"]) <= 2), (200, True))
+r = c.get("/api/v1/tools/transactions", query_string={"limit": "two"}, headers=HDR)
+check("...and a parameter of the wrong type refused", r.status_code, 400)
+r = c.get("/api/v1/tools/no_such_tool", headers=HDR)
+check("an unknown tool is 404", r.status_code, 404)
+r = c.post("/api/v1/tools/set_category", json={"txn_id": 999999, "category": "groceries"}, headers=HDR)
+check("a tool's own refusal is a 422 with its sentence", (r.status_code, r.get_json()["ok"]), (422, False))
+r = c.post("/api/v1/tools/set_category", json={"txn_id": 1}, headers=HDR)
+check("a missing argument is a 400", r.status_code, 400)
+
+# Webhooks: a receiver of our own, on a thread.
+import http.server, threading as _th
+got = []
+class _Hook(http.server.BaseHTTPRequestHandler):
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        got.append({"body": self.rfile.read(n), "event": self.headers.get("X-Wealth-Event"), "sig": self.headers.get("X-Wealth-Signature")})
+        self.send_response(204); self.end_headers()
+    def log_message(self, *a): pass
+srv = http.server.HTTPServer(("127.0.0.1", 0), _Hook)
+_th.Thread(target=srv.serve_forever, daemon=True).start()
+hook_url = f"http://127.0.0.1:{srv.server_port}/hook"
+hid = webhooks.add(hook_url, ["sync.completed", "bill.missed"])
+try:
+    webhooks.add("ftp://nope", None); check("a webhook needs an http URL", False, True)
+except ValueError:
+    check("a webhook needs an http URL", True, True)
+n = webhooks.fire("sync.completed", {"account": "Test", "inserted": 3}, wait=True)
+check("an event reaches the receiver, named in a header", (n, len(got), got[-1]["event"]), (1, 1, "sync.completed"))
+body = json.loads(got[-1]["body"])
+check("...with the event, the time and the data in the body", (body["event"], body["data"]["inserted"], "at" in body), ("sync.completed", 3, True))
+secret = [h for h in webhooks.all_hooks() if h["id"] == hid][0]["secret"]
+check("...and an HMAC-SHA256 signature with the hook's secret", got[-1]["sig"], "sha256=" + hmac.new(secret.encode(), got[-1]["body"], hashlib.sha256).hexdigest())
+n = webhooks.fire("sync.failed", {"account": "Test", "error": "x"}, wait=True)
+check("an event the hook did not subscribe to is not sent", (n, len(got)), (0, 1))
+hk = [h for h in webhooks.all_hooks() if h["id"] == hid][0]
+check("the delivery is noted on the hook, without error", (hk["last_at"] is not None, hk["last_error"]), (True, None))
+srv.shutdown()
+webhooks.fire("sync.completed", {"account": "Test"}, wait=True)
+hk = [h for h in webhooks.all_hooks() if h["id"] == hid][0]
+check("...and a receiver that is down is noted as such", bool(hk["last_error"]), True)
+r = c.get("/settings/assistants")
+check("the Assistants chapter shows the API examples and the webhook", (b"REST API" in r.data, hook_url.encode() in r.data, secret.encode() in r.data), (True, True, True))
+r = c.post("/settings", data={"form": "webhook_delete", "hook_id": hid}, follow_redirects=True)
+check("a webhook is removed from the page", (b"Webhook removed" in r.data, webhooks.all_hooks()), (True, []))
+mcp.revoke()
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

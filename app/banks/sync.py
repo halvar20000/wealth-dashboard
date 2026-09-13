@@ -237,7 +237,19 @@ def sync_link(link_id: int) -> dict:
         with get_conn() as conn:
             conn.execute("UPDATE bank_links SET last_error = ? WHERE id = ?",
                          (str(exc)[:500], link_id))
+    _announce(result)
     return result
+
+
+def _announce(result: dict) -> None:
+    """A webhook for whoever listens — see webhooks.py. Never lets a
+    listener's trouble become the sync's."""
+    try:
+        from .. import webhooks
+        webhooks.fire("sync.failed" if result.get("error") else "sync.completed",
+                      {k: result.get(k) for k in ("account", "inserted", "balance", "error")})
+    except Exception:                               # noqa: BLE001
+        pass
 
 
 def sync_all() -> list[dict]:

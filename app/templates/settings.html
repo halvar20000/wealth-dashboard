@@ -279,6 +279,54 @@
 </div>
 
 {% endif %}
+{% if section == 'assistants' %}
+<div class="card" id="api">
+  <div class="card-header"><h2>{{ _("REST API") }}</h2>
+    <span class="card-subtitle">{{ _("the same tools over plain HTTP") }}</span></div>
+  <p class="sub">{{ _("Every tool the assistant has is also a URL, for a script or an automation that speaks no MCP — the same token, the same answers, one registry. GET lists the tools with their schemas; GET or POST calls one, arguments as query parameters or a JSON body.") }}</p>
+  {% if mcp_token %}
+  <pre class="mcp-cmd">curl -H "Authorization: Bearer {{ mcp_token }}" {{ api_url }}
+curl -H "Authorization: Bearer {{ mcp_token }}" "{{ api_url }}/net_worth"
+curl -H "Authorization: Bearer {{ mcp_token }}" "{{ api_url }}/transactions?q=amazon&limit=5"
+curl -H "Authorization: Bearer {{ mcp_token }}" -X POST -H "Content-Type: application/json" \
+     -d '{"txn_id": 123, "category": "groceries"}' "{{ api_url }}/set_category"</pre>
+  {% else %}
+  <p class="sub">{{ _("Create a token above and the examples appear here.") }}</p>
+  {% endif %}
+</div>
+
+<div class="card" id="webhooks">
+  <div class="card-header"><h2>{{ _("Webhooks") }}</h2>
+    <span class="card-subtitle">{{ _n(hooks | length, "{n} receiver", "{n} receivers") }}</span></div>
+  <p class="sub">{{ _("A POST to a URL of yours when something happened: a sync ran or failed, a bill is past due. Home Assistant, n8n, a bot, a script. The body is JSON — event, time, data — and the X-Wealth-Signature header is an HMAC-SHA256 of it with the receiver's secret, so it can tell this app from anyone who found the URL. One attempt, five seconds; a receiver that is down misses that event and the list says so.") }}</p>
+  <form method="post" class="form inline sec-form">
+    <input type="hidden" name="form" value="webhook_add">
+    <div><label for="hook_url">URL</label><input id="hook_url" name="url" placeholder="https://…" style="width:320px"></div>
+    <div><label>{{ _("Events") }}</label>
+      <span>{% for e in hook_events %}<label class="check"><input type="checkbox" name="events" value="{{ e }}" checked> {{ e }}</label>{% endfor %}</span></div>
+    <button type="submit">{{ _("Add the webhook") }}</button>
+  </form>
+  {% if hooks %}
+  <div class="table-wrap" style="margin-top:12px">
+    <table class="grid">
+      <thead><tr><th>URL</th><th>{{ _("Events") }}</th><th>{{ _("Secret") }}</th><th>{{ _("Last") }}</th><th></th></tr></thead>
+      <tbody>
+      {% for h in hooks %}
+        <tr>
+          <td class="nowrap">{{ h.url[:60] }}</td>
+          <td class="sub">{{ h.events.replace(',', ', ') }}</td>
+          <td><code>{{ h.secret }}</code></td>
+          <td class="sub nowrap">{% if h.last_at %}{{ h.last_at[:16].replace('T', ' ') }}{% if h.last_error %}<span class="neg"> · {{ h.last_error }}</span>{% endif %}{% else %}—{% endif %}</td>
+          <td class="num"><form method="post" style="display:inline"><input type="hidden" name="form" value="webhook_delete"><input type="hidden" name="hook_id" value="{{ h.id }}"><button type="submit" class="btn-ghost">{{ _("Remove") }}</button></form></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <form method="post" style="margin-top:10px"><input type="hidden" name="form" value="webhook_test"><button type="submit" class="btn-ghost">{{ _("Send a test event") }}</button></form>
+  {% endif %}
+</div>
+{% endif %}
 {% if section == 'people' %}
 <div class="card" id="people">
   <div class="card-header">

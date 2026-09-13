@@ -99,7 +99,7 @@ a PSD2 API it connects directly, with credentials that are yours.
 
 ## What is not here yet
 
-A REST API and webhooks. See
+More PDF parsers, as statements arrive. See
 [ROADMAP.md](ROADMAP.md) — and [COMPARISON.md](COMPARISON.md) for where
 this stands beside Portfolio Performance, Wealthfolio and Firefly III,
 feature by feature.
@@ -250,6 +250,26 @@ HTTPS proxy, which this README does not recommend.
 The token stands in for your password. Keep it as private, and revoke or
 replace it on the same page the moment you are unsure; anything connected
 with the old one is cut off at once.
+
+## REST API and webhooks
+
+Every MCP tool is also a URL, behind the same token:
+
+```bash
+curl -H "Authorization: Bearer <token>" http://<your-host>:8000/api/v1/tools
+curl -H "Authorization: Bearer <token>" "http://<your-host>:8000/api/v1/tools/net_worth"
+curl -H "Authorization: Bearer <token>" -X POST -H "Content-Type: application/json" \
+     -d '{"txn_id": 123, "category": "groceries"}' http://<your-host>:8000/api/v1/tools/set_category
+```
+
+`GET` takes arguments as query parameters, typed by the tool's schema;
+`POST` takes a JSON object. A tool's own refusal is a 422 with its
+sentence; a wrong argument a 400.
+
+Webhooks, under Settings → Assistants: a URL of yours receives a JSON
+POST on `sync.completed`, `sync.failed` and `bill.missed`, with the
+event in `X-Wealth-Event` and an HMAC-SHA256 of the body in
+`X-Wealth-Signature`, keyed with the secret the list shows.
 
 ## Exchange rates
 

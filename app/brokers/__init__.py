@@ -86,12 +86,18 @@ def sync_link(link: dict) -> dict:
     try:
         inserted = module.sync_link(link)
         record(link["id"], None)
-        return {"account": link["account"], "provider": link["provider"],
-                "inserted": inserted, "error": None}
+        result = {"account": link["account"], "provider": link["provider"],
+                  "inserted": inserted, "error": None}
     except Exception as exc:                          # noqa: BLE001
         record(link["id"], str(exc))
-        return {"account": link["account"], "provider": link["provider"],
-                "inserted": 0, "error": str(exc)}
+        result = {"account": link["account"], "provider": link["provider"],
+                  "inserted": 0, "error": str(exc)}
+    try:
+        from .. import webhooks
+        webhooks.fire("sync.failed" if result["error"] else "sync.completed", dict(result))
+    except Exception:                                 # noqa: BLE001
+        pass
+    return result
 
 
 def sync_all() -> list[dict]:

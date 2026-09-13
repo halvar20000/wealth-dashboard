@@ -27,6 +27,7 @@ Every page except /setup and /login requires a signed-in user.
 from __future__ import annotations
 
 import io
+import json
 import os
 import re
 import secrets
@@ -42,7 +43,7 @@ from flask import (Flask, flash, g, jsonify, redirect, render_template,
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, loans,
+from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, loans, webhooks,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, splits, stages, subscriptions)
 from . import brokers
@@ -98,7 +99,7 @@ app.secret_key = _secret_key()
 def _first_run_gate():
     """Before anybody exists, every path leads to /setup. A login form in
     front of an app with no users is a door with no key."""
-    if request.endpoint in ("static", "setup", "healthz", "mcp_endpoint"):
+    if request.endpoint in ("static", "setup", "healthz", "mcp_endpoint", "api_tools"):
         return None
     if not has_users():
         return redirect(url_for("setup"))
@@ -1145,6 +1146,64 @@ def mcp_endpoint():
     return jsonify(answer), status
 
 
+# ─── REST ────────────────────────────────────────────────────────────
+
+@app.route("/api/v1/tools", methods=["GET"])
+@app.route("/api/v1/tools/<name>", methods=["GET", "POST"])
+def api_tools(name: str | None = None):
+    """The MCP tools over plain HTTP, for a script or an automation
+    that speaks no JSON-RPC: GET /api/v1/tools lists them with their
+    schemas; GET or POST /api/v1/tools/<name> calls one, arguments as
+    query parameters or a JSON body. Same bearer token as the MCP,
+    same tools, same answers — one registry, so the two cannot drift.
+    """
+    if not has_users():
+        return jsonify({"ok": False, "error": "This dashboard has no user yet."}), 503
+    if not mcp.authorised(request.headers.get("Authorization")):
+        return (jsonify({"ok": False, "error": "A bearer token from Settings is required."}),
+                401, {"WWW-Authenticate": 'Bearer realm="wealth-dashboard"'})
+    if name is None:
+        return jsonify({"ok": True, "tools": mcp.TOOLS})
+    if name not in mcp._HANDLERS:
+        return jsonify({"ok": False, "error": f"No tool called {name!r}."}), 404
+    if request.method == "POST":
+        arguments = request.get_json(silent=True) or {}
+        if not isinstance(arguments, dict):
+            return jsonify({"ok": False, "error": "The body must be a JSON object of arguments."}), 400
+    else:
+        arguments = {}
+        schema = next((t for t in mcp.TOOLS if t["name"] == name), {}).get("inputSchema", {}).get("properties", {})
+        for key, value in request.args.items():
+            typ = (schema.get(key) or {}).get("type")
+            typ = typ[0] if isinstance(typ, list) else typ
+            try:
+                if typ == "integer":
+                    arguments[key] = int(value)
+                elif typ == "number":
+                    arguments[key] = float(value)
+                elif typ == "boolean":
+                    arguments[key] = value.lower() in ("1", "true", "yes")
+                elif typ == "array":
+                    arguments[key] = [x for x in value.split(",") if x]
+                else:
+                    arguments[key] = value
+            except ValueError:
+                return jsonify({"ok": False, "error": f"{key} is not a {typ}."}), 400
+    try:
+        result = mcp._call(name, arguments)
+    except (KeyError, TypeError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    if result.get("isError"):
+        return jsonify({"ok": False, "error": result["content"][0]["text"]}), 422
+    payload = result.get("structuredContent")
+    if payload is None:
+        try:
+            payload = json.loads(result["content"][0]["text"])
+        except (ValueError, KeyError, IndexError):
+            payload = result["content"][0]["text"]
+    return jsonify({"ok": True, "result": payload})
+
+
 # ─── Settings ────────────────────────────────────────────────────────
 
 # ─── Spending ────────────────────────────────────────────────────────
@@ -1887,7 +1946,7 @@ _SETTINGS_ANCHORS = {
     "general": "general",
     "sync": "banks", "saxo": "banks", "kraken": "banks", "mappings": "banks", "enablebanking": "banks",
     "rates": "market", "prices": "market", "ideas": "market",
-    "categories": "categories", "people": "people", "mcp": "assistants",
+    "categories": "categories", "people": "people", "mcp": "assistants", "webhooks": "assistants", "api": "assistants",
 }
 
 
@@ -2012,6 +2071,21 @@ def settings_page(section: str = "general"):
                          "{n} new transactions across {accounts} accounts.",
                          accounts=len(results)), "ok")
             return redirect(_settings_url("sync"))
+        elif request.form.get("form") == "webhook_add":
+            try:
+                webhooks.add(request.form.get("url", ""), request.form.getlist("events"))
+                flash(_t("Webhook added. Its secret is shown in the list; give it to the receiver to check the signature."), "ok")
+            except ValueError as exc:
+                flash(str(exc), "error")
+            return redirect(_settings_url("webhooks"))
+        elif request.form.get("form") == "webhook_delete":
+            webhooks.delete(int(request.form.get("hook_id") or 0))
+            flash(_t("Webhook removed."), "ok")
+            return redirect(_settings_url("webhooks"))
+        elif request.form.get("form") == "webhook_test":
+            n = webhooks.fire("sync.completed", {"test": True, "account": "Test", "inserted": 0}, wait=True)
+            flash(_n(n, "Test event sent to {n} webhook.", "Test event sent to {n} webhooks."), "ok")
+            return redirect(_settings_url("webhooks"))
         elif request.form.get("form") == "csv_mapping_delete":
             from .importers import generic
             try:
@@ -2086,6 +2160,8 @@ def settings_page(section: str = "general"):
                            kraken_state=kraken.describe(),
                            broker_links=brokers.links(),
                            mcp_url=request.host_url.rstrip("/") + "/mcp",
+                           api_url=request.host_url.rstrip("/") + "/api/v1/tools",
+                           hooks=webhooks.all_hooks(), hook_events=webhooks.EVENTS,
                            csv_mappings=importers.generic.all_mappings(),
                            check=check)
 
@@ -2334,6 +2410,13 @@ def _start_rate_refresher() -> None:
                                        datetime.now().isoformat(timespec="seconds"))
                     loans.write_all_balances()
                     results = banksync.sync_all() + brokers.sync_all()
+                    # Once a day, after the sync: a bill past due with
+                    # nothing seen is worth a message.
+                    try:
+                        for b in bills.all_bills()["missed"]:
+                            webhooks.fire("bill.missed", {k: b.get(k) for k in ("id", "name", "amount", "currency", "next", "days", "last")})
+                    except Exception as exc:              # noqa: BLE001
+                        print(f"  bills: {exc}", flush=True)
                     for r in results:
                         if r["error"]:
                             print(f"  sync: {r['account']}: {r['error']}", flush=True)
