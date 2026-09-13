@@ -125,10 +125,29 @@ def for_security(isin: str, account_ids: list[int] | None = None,
     and the span they cover — in the currency the shares were paid in,
     or the one asked for, flows turned at their own day's rate."""
     today = today or date.today()
-    series = prices.series_for(isin, account_ids, today, currency)
+    values, flows, cashflows, series = security_series(isin, account_ids, today, currency)
     pts = series.get("points") or []
     if not pts:
         return {"twr": None, "twr_annual": None, "mwr": None, "days": 0}
+    # The chain starts at the first day's closing value, which already
+    # holds the first buy: the return of the first day itself is not
+    # measured, which is how every tool does it.
+    total = twr(values, flows)
+    days = (today - date.fromisoformat(pts[0]["date"])).days
+    last = pts[-1]
+    return {"twr": total, "twr_annual": annualise(total, days),
+            "mwr": mwr(cashflows, last["date"], last["value"]),
+            "days": days, "since": pts[0]["date"]}
+
+
+def security_series(isin: str, account_ids: list[int] | None, today: date,
+                    currency: str | None = None):
+    """The daily values and the flows of one holding, in one currency —
+    what the return and the benchmark line are both computed from."""
+    series = prices.series_for(isin, account_ids, today, currency)
+    pts = series.get("points") or []
+    if not pts:
+        return [], {}, [], series
     from . import people
     only, params = people.sql_in(account_ids, "account_id")
     with get_conn() as conn:
@@ -145,36 +164,18 @@ def for_security(isin: str, account_ids: list[int] | None = None,
             continue
         flows[r["txn_date"]] += -amount
         cashflows.append((r["txn_date"], amount))
-    values = [(p["date"], p["value"]) for p in pts]
-    # The chain starts at the first day's closing value, which already
-    # holds the first buy: the return of the first day itself is not
-    # measured, which is how every tool does it.
-    total = twr(values, flows)
-    days = (today - date.fromisoformat(pts[0]["date"])).days
-    last = pts[-1]
-    return {"twr": total, "twr_annual": annualise(total, days),
-            "mwr": mwr(cashflows, last["date"], last["value"]),
-            "days": days, "since": pts[0]["date"]}
+    return [(p["date"], p["value"]) for p in pts], flows, cashflows, series
 
 
 # ─── The securities of a set of accounts ─────────────────────────────
 
-def for_accounts(base_currency: str = "EUR", account_ids: list[int] | None = None,
-                 start: date | None = None, today: date | None = None) -> dict:
-    """The securities held in these accounts, as one investment: TWR and
-    MWR from `start` (or the first trade) to today, in the base currency.
-
-    Cash is left out on purpose. Idle cash earns nothing and a deposit
-    that sits unspent for a year would drag the figure to say nothing
-    about the investments; and a broker account whose cash is not
-    recorded would make every deposit look like a loss. So the boundary
-    is the securities: a buy is money crossing in, a sale or a dividend
-    money crossing out.
-    """
-    today = today or date.today()
+def accounts_series(base_currency: str, account_ids: list[int] | None,
+                    start: date | None, today: date):
+    """The daily securities value and the flows of a set of accounts
+    from `start` (or the first trade), in the base currency."""
     v = history.Valuer(base_currency, account_ids)
     if not v.trades:
-        return {"twr": None, "twr_annual": None, "mwr": None, "days": 0, "since": None}
+        return [], {}, [], None
     first = min(d[0] for d, _, _ in v.trades.values() if d)
     begin = max(start, date.fromisoformat(first)) if start else date.fromisoformat(first)
     from . import people
@@ -199,6 +200,25 @@ def for_accounts(base_currency: str = "EUR", account_ids: list[int] | None = Non
         _, sec = v.value_on(ds)
         values.append((ds, sec))
         d += timedelta(days=1)
+    return values, flows, cashflows, begin
+
+
+def for_accounts(base_currency: str = "EUR", account_ids: list[int] | None = None,
+                 start: date | None = None, today: date | None = None) -> dict:
+    """The securities held in these accounts, as one investment: TWR and
+    MWR from `start` (or the first trade) to today, in the base currency.
+
+    Cash is left out on purpose. Idle cash earns nothing and a deposit
+    that sits unspent for a year would drag the figure to say nothing
+    about the investments; and a broker account whose cash is not
+    recorded would make every deposit look like a loss. So the boundary
+    is the securities: a buy is money crossing in, a sale or a dividend
+    money crossing out.
+    """
+    today = today or date.today()
+    values, flows, cashflows, begin = accounts_series(base_currency, account_ids, start, today)
+    if begin is None:
+        return {"twr": None, "twr_annual": None, "mwr": None, "days": 0, "since": None}
     # Starting from a day the securities were already held: what was
     # held before that day's flows is the money put in, for the MWR.
     if start and values and values[0][1] is not None:

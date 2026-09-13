@@ -42,7 +42,7 @@ from flask import (Flask, flash, g, jsonify, redirect, render_template,
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import (allocation, cashflow, categories, crypto, export, forecast, gains, history, importers, loans,
+from . import (allocation, benchmark, cashflow, categories, crypto, export, forecast, gains, history, importers, loans,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, splits, stages, subscriptions)
 from . import brokers
@@ -848,7 +848,7 @@ def security_page(isin: str):
             unrealised = price["price"] * realised["open_quantity"] - open_cost
     return render_template("security.html", active_page="portfolio", isin=isin, name=name,
                            perf=performance.for_security(isin, people.scope(), currency=shown),
-                           shown=shown, options=options, roles=roles,
+                           shown=shown, options=options, roles=roles, benchmarks=benchmark.BENCHMARKS,
                            realised=realised, unrealised=unrealised,
                            rows=rows, groups=groups, quantity=running, net_invested=net_invested,
                            income=income, costs=costs, price=price, currency=currency,
@@ -1247,6 +1247,42 @@ def security_csv(isin: str):
                            f"{isin.strip()}-{date.today().isoformat()}.csv")
 
 
+@app.route("/api/benchmark")
+@auth.login_required
+def api_benchmark():
+    """The portfolio (or one security) against an index, both at 100
+    on the first day: {points: [{date, portfolio, benchmark}], …}.
+    `bench` is a known key or a Yahoo symbol; `period` all|ytd|1y|3y|5y;
+    `isin` for one holding, in `ccy` if given. See benchmark.py."""
+    base = settings.get("base_currency", "EUR")
+    label, symbol = benchmark.resolve(request.args.get("bench") or "world")
+    period = request.args.get("period") or "all"
+    today = date.today()
+    start = {"ytd": date(today.year, 1, 1), "1y": today - timedelta(days=365),
+             "3y": today - timedelta(days=3 * 365), "5y": today - timedelta(days=5 * 365)}.get(period)
+    isin = (request.args.get("isin") or "").strip()
+    if isin:
+        ccy = (request.args.get("ccy") or "").upper() or None
+        values, flows, _, series = performance.security_series(isin, people.scope(), today, ccy)
+        currency = series.get("currency") or base
+        if start:
+            values = [(d, v) for d, v in values if d >= start.isoformat()]
+    else:
+        values, flows, _, _ = performance.accounts_series(base, people.scope(), start, today)
+        currency = base
+    line = benchmark.indexed(values, flows)
+    if not line:
+        return jsonify({"points": [], "label": label, "symbol": symbol, "error": _t("Nothing to compare yet.")})
+    try:
+        bench = benchmark.closes(symbol, line[0][0], today=today)
+    except Exception as exc:                        # noqa: BLE001
+        return jsonify({"points": [], "label": label, "symbol": symbol, "error": str(exc)})
+    out = benchmark.compare(line, bench, currency)
+    if not out["points"]:
+        out["error"] = _f("Yahoo has no history for {symbol} over this span.", symbol=symbol)
+    return jsonify({**out, "label": label, "symbol": symbol, "currency": currency})
+
+
 @app.route("/portfolio.csv")
 @auth.login_required
 def portfolio_csv():
@@ -1555,7 +1591,7 @@ def subscriptions_page():
 def portfolio_page():
     holdings, s, perf, realised = _holdings_with_figures()
     return render_template("portfolio.html", active_page="portfolio", s=s, perf=perf,
-                           realised=realised)
+                           realised=realised, benchmarks=benchmark.BENCHMARKS)
 
 
 def _holdings_with_figures():

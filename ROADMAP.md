@@ -73,7 +73,7 @@ it does not do yet.
       contribution spread.
 - [x] Rules engine: more triggers (account, kind, match mode) and actions
       (rename, set kind, tag).
-- [ ] Benchmark comparison on the portfolio and security pages.
+- [x] Benchmark comparison on the portfolio and security pages.
 - [ ] Bills (expected recurring payments, due, missed) and savings goals.
 - [ ] A dividend calendar: paid so far, and what is due next.
 - [x] Tags on transactions.

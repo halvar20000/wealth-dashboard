@@ -58,6 +58,9 @@
   <p class="sub">{% if perf.all.since %}{{ _f("Measured from {date}, day by day, on the prices the app has — backfilled to each security's first trade. A dash means there is nothing to measure yet.", date=d(perf.all.since)) }}{% endif %}</p>
 </section>
 
+{% from "_benchmark.html" import benchmark_card with context %}
+{{ benchmark_card(benchmarks) }}
+
 {% if realised.sales %}
 <section class="card">
   <div class="card-header"><h2>{{ _("Realised gains") }}</h2>

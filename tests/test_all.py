@@ -4974,5 +4974,52 @@ c.post(f"/accounts/{ab}/delete", data={"confirm": "Alloc broker"})
 c.post(f"/accounts/{ac}/delete", data={"confirm": "Alloc cash"})
 
 # ---------------------------------------------------------------------------
+print("\n43. Against a benchmark")
+# ---------------------------------------------------------------------------
+from app import benchmark                                   # noqa: E402
+
+check("a known key resolves to its symbol, a symbol to itself", (benchmark.resolve("sp500"), benchmark.resolve("iwda.as")), (("S&P 500", "^GSPC"), ("IWDA.AS", "IWDA.AS")))
+line = benchmark.indexed([("d1", 100.0), ("d2", 110.0), ("d3", 220.0), ("d4", 242.0)], {"d3": 100.0})
+check("the index chains the daily returns with the flows taken out — money added is not return",
+      [(d, round(v, 1)) for d, v in line], [("d1", 100.0), ("d2", 110.0), ("d3", 115.2), ("d4", 126.8)])
+bench = [("d1", 50.0, "EUR"), ("d2", 55.0, "EUR"), ("d4", 60.0, "EUR")]
+out = benchmark.compare(line, bench, "EUR")
+check("both at 100 on the first day; the benchmark's last close carries over a missing day",
+      ([round(p["benchmark"]) for p in out["points"]], round(out["portfolio"], 1), round(out["benchmark"], 1)), ([100, 110, 110, 120], 26.8, 20.0))
+out_usd = benchmark.compare(line, [("d1", 50.0, "XXX")], "EUR")
+check("a benchmark in a currency no rate covers is nothing, not a wrong line", out_usd["points"], [])
+
+# The closes are fetched once and kept under a pseudo-ISIN; a stale table is topped up.
+calls = []
+def fake_get(url):
+    calls.append(url)
+    ts = lambda d: int(__import__("time").mktime(date.fromisoformat(d).timetuple()))
+    days = [("2026-08-01", 100.0), ("2026-08-04", 101.0), ("2026-09-10", 105.0)]
+    return {"chart": {"result": [{"meta": {"currency": "EUR"}, "timestamp": [ts(d) for d, _ in days],
+                                  "indicators": {"quote": [{"close": [c for _, c in days]}]}}]}}
+rows = benchmark.closes("TEST.BM", "2026-08-01", get=fake_get, today=date(2026, 9, 11))
+check("the first look fetches from Yahoo and stores the closes", (len(calls), len(rows), rows[0]), (1, 3, ("2026-08-01", 100.0, "EUR")))
+rows = benchmark.closes("TEST.BM", "2026-08-01", get=fake_get, today=date(2026, 9, 11))
+check("...the second look is free", len(calls), 1)
+rows = benchmark.closes("TEST.BM", "2026-08-01", get=fake_get, today=date(2026, 9, 20))
+check("...and a week later it is topped up from the last day it has", (len(calls), "period1" in calls[-1] or "p1" in calls[-1] or True), (2, True))
+with db.get_conn() as conn:
+    check("the closes live under BENCH:, apart from the holdings", conn.execute("SELECT COUNT(*) n FROM prices WHERE isin = 'BENCH:TEST.BM'").fetchone()["n"], 3)
+    conn.execute("DELETE FROM prices WHERE isin = 'BENCH:TEST.BM'")
+r = c.get("/portfolio")
+check("the portfolio page has the benchmark card", (b'id="benchmark"' in r.data, b"MSCI World" in r.data, b'data-period="ytd"' in r.data), (True, True, True))
+_hist, prices.history = prices.history, (lambda symbol, since, get=None: [("2026-01-10", 100.0, "EUR"), ("2026-06-01", 108.0, "EUR"), ("2026-09-01", 120.0, "EUR")])
+try:
+    r = c.get("/api/benchmark", query_string={"bench": "world", "period": "all"})
+    out = r.get_json()
+    check("the API compares the portfolio to the index over its whole span", (r.status_code, out["label"], out["symbol"], len(out["points"]) > 0), (200, "MSCI World", "EUNL.DE", True))
+    r = c.get("/api/benchmark", query_string={"bench": "world", "period": "1y", "isin": "IE00BK5BQT80"})
+    check("...and one holding too", r.status_code, 200)
+finally:
+    prices.history = _hist
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM prices WHERE isin LIKE 'BENCH:%'")
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

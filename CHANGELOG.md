@@ -11,6 +11,21 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.33.0] — 2026-09-13
+
+### Added
+- **Against a benchmark.** On the Portfolio page and on every
+  security's page, the time-weighted return drawn day by day against
+  an index over the same span, both at 100 on the first day, with the
+  two figures and the gap in points at the top. Eleven benchmarks by
+  name — MSCI World, FTSE All-World, S&P 500, Nasdaq 100, Euro Stoxx
+  50, DAX, SMI, MSCI Emerging Markets, euro government bonds, gold,
+  bitcoin — and any Yahoo symbol typed in; YTD, one, three, five
+  years or everything. The index is turned into the portfolio's
+  currency at each day's ECB rate. Its closes are fetched once from
+  Yahoo, kept under a pseudo-ISIN, and topped up when a day is
+  missing; the choice is remembered per browser.
+
 ## [0.32.0] — 2026-09-13
 
 ### Added

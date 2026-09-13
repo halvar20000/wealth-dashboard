@@ -62,7 +62,9 @@ a PSD2 API it connects directly, with credentials that are yours.
   earlier row. Each has a chart of its performance since the first
   purchase — value against what went in, with the income drawn apart —
   and its **time-weighted and money-weighted return**; the Portfolio
-  page has both for the securities as one investment. Sales are set
+  page has both for the securities as one investment, and both pages
+  draw the return **against a benchmark** — the world index, the S&P,
+  the DAX, the SMI, or any symbol. Sales are set
   against the cost of the units they sold — **FIFO or average cost**,
   a setting — for the realised gain per sale, per year and per holding.
 - **Allocation** — by asset class, region and buckets of your own,
@@ -93,8 +95,7 @@ a PSD2 API it connects directly, with credentials that are yours.
 
 ## What is not here yet
 
-Benchmark comparison, a dividend calendar, bills and savings goals,
-a REST API. See
+A dividend calendar, bills and savings goals, a REST API. See
 [ROADMAP.md](ROADMAP.md) — and [COMPARISON.md](COMPARISON.md) for where
 this stands beside Portfolio Performance, Wealthfolio and Firefly III,
 feature by feature.

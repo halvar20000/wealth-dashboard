@@ -1,0 +1,82 @@
+{# A card: the portfolio or one security against an index, both at
+   100 on the first day. Needs `benchmarks` and, for one holding,
+   `isin` and `shown` in the context. #}
+{% macro benchmark_card(benchmarks, isin=None, shown=None) %}
+<section class="card" id="benchmark">
+  <div class="card-header" style="flex-wrap:wrap; gap:12px">
+    <div><h2>{{ _("Against a benchmark") }}</h2>
+      <span class="card-subtitle" id="bm-sub">{{ _("time-weighted, both at 100 on the first day") }}</span></div>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-left:auto; align-items:center">
+      <select id="bm-pick" style="width:auto; padding:6px 10px; font-size:13px">
+        {% for key, (label, symbol, ccy) in benchmarks.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        <option value="__custom">{{ _("another symbol…") }}</option>
+      </select>
+      <input id="bm-custom" placeholder="IWDA.AS" style="width:110px; padding:6px 10px; font-size:13px" hidden>
+      <div class="period-pills" id="bm-period" role="tablist">
+        {% for p, label in (("ytd", "YTD"), ("1y", "1Y"), ("3y", "3Y"), ("5y", "5Y"), ("all", _("All"))) %}
+        <button type="button" class="period-btn {{ 'active' if p == 'all' }}" data-period="{{ p }}">{{ label }}</button>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="sec-change" id="bm-change" hidden>
+    <span class="sec-change-value" id="bm-you"></span>
+    <span class="sec-change-pct" id="bm-them"></span>
+    <span class="sub" id="bm-note"></span>
+  </div>
+  <div class="chart-wrap" style="height:280px"><canvas id="bm-chart"></canvas></div>
+  <p class="sub">{{ _("The portfolio line is the time-weighted return — your own deposits and withdrawals taken out — so it can be set against an index at all. The index is turned into the portfolio's currency at each day's rate; where Yahoo has no clean index in euros an accumulating ETF stands in. Nothing is stored but the index's daily closes.") }}</p>
+</section>
+<script>
+(() => {
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const lang = {{ lang | tojson }};
+  const base = {{ url_for('api_benchmark') | tojson }};
+  const extra = {{ ({'isin': isin, 'ccy': shown} if isin else {}) | tojson }};
+  let period = 'all', chart = null;
+  const pick = document.getElementById('bm-pick'), custom = document.getElementById('bm-custom');
+  const remember = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  try { const b = localStorage.getItem('bench'); if (b) { if ([...pick.options].some((o) => o.value === b)) pick.value = b; else { pick.value = '__custom'; custom.value = b; custom.hidden = false; } } } catch (e) {}
+  const chosen = () => pick.value === '__custom' ? custom.value.trim() : pick.value;
+  async function load() {
+    const bench = chosen();
+    if (!bench) return;
+    remember('bench', bench);
+    const params = new URLSearchParams({ bench, period, ...extra });
+    document.getElementById('bm-sub').textContent = {{ _("Loading…") | tojson }};
+    let data;
+    try { data = await (await fetch(`${base}?${params}`)).json(); } catch (e) { document.getElementById('bm-sub').textContent = {{ _("Failed to load") | tojson }}; return; }
+    const sub = document.getElementById('bm-sub'), change = document.getElementById('bm-change');
+    if (data.error || !data.points.length) { sub.textContent = data.error || {{ _("Nothing to compare yet.") | tojson }}; change.hidden = true; if (chart) { chart.destroy(); chart = null; } return; }
+    sub.textContent = `${data.label} (${data.symbol}) · ${data.since} → ${data.points[data.points.length - 1].date}`;
+    change.hidden = false;
+    const pct = (v) => (v >= 0 ? '+' : '') + v.toLocaleString(lang, { maximumFractionDigits: 1 }) + ' %';
+    const you = document.getElementById('bm-you'), them = document.getElementById('bm-them');
+    you.textContent = {{ _("you") | tojson }} + ' ' + pct(data.portfolio); you.className = 'sec-change-value ' + (data.portfolio >= 0 ? 'pos' : 'neg');
+    them.textContent = data.label + ' ' + pct(data.benchmark); them.className = 'sec-change-pct ' + (data.benchmark >= 0 ? 'pos' : 'neg');
+    const diff = data.portfolio - data.benchmark;
+    document.getElementById('bm-note').textContent = (diff >= 0 ? {{ _("ahead by {pct} points") | tojson }} : {{ _("behind by {pct} points") | tojson }}).replace('{pct}', Math.abs(diff).toLocaleString(lang, { maximumFractionDigits: 1 }));
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById('bm-chart'), {
+      type: 'line',
+      data: { labels: data.points.map((p) => p.date), datasets: [
+        { label: {{ _("You") | tojson }}, data: data.points.map((p) => p.portfolio), borderColor: css('--accent-gold'), borderWidth: 2, pointRadius: 0 },
+        { label: data.label, data: data.points.map((p) => p.benchmark), borderColor: css('--accent-blue'), borderWidth: 2, pointRadius: 0, borderDash: [5, 4] },
+      ] },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { labels: { color: css('--text-secondary') } },
+                   tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.parsed.y.toLocaleString(lang, { maximumFractionDigits: 1 })}` } } },
+        scales: { x: { ticks: { color: css('--text-tertiary'), maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } },
+                  y: { ticks: { color: css('--text-tertiary') }, grid: { color: css('--border') } } } },
+    });
+  }
+  pick.addEventListener('change', () => { custom.hidden = pick.value !== '__custom'; if (pick.value !== '__custom') load(); else custom.focus(); });
+  custom.addEventListener('change', load);
+  document.querySelectorAll('#bm-period .period-btn').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('#bm-period .period-btn').forEach((x) => x.classList.toggle('active', x === b));
+    period = b.dataset.period; load();
+  }));
+  load();
+})();
+</script>
+{% endmacro %}

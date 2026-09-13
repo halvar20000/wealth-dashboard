@@ -65,6 +65,9 @@
   <p class="sub">{{ _("Value is the units held times the price of the day — the market price where the app has one, the last price paid before that. Invested is buys minus sales, fees included. Dividends and interest are drawn as their own line, because they are return that never shows in the value.") }} {{ _("A price quoted in another currency than the shares were paid in is turned into theirs at the day's ECB rate, so the lines are one currency.") }}</p>
 </div>
 
+{% from "_benchmark.html" import benchmark_card with context %}
+{{ benchmark_card(benchmarks, isin, shown) }}
+
 {% if realised.sales %}
 <div class="card">
   <div class="card-header">

@@ -2034,4 +2034,15 @@ STRINGS: dict[str, str] = {
     'starts with': 'empieza por',
     'tags, comma-separated': 'etiquetas, separadas por comas',
     'then file under': 'luego archivar en',
+    # Benchmark (0.33.0)
+    'Against a benchmark': 'Frente a un índice de referencia',
+    'Nothing to compare yet.': 'Nada que comparar todavía.',
+    "The portfolio line is the time-weighted return — your own deposits and withdrawals taken out — so it can be set against an index at all. The index is turned into the portfolio's currency at each day's rate; where Yahoo has no clean index in euros an accumulating ETF stands in. Nothing is stored but the index's daily closes.": 'La línea de la cartera es el rendimiento ponderado por tiempo — sin tus propias aportaciones y retiradas — para que pueda compararse con un índice. El índice se convierte a la divisa de la cartera al tipo de cada día; donde Yahoo no tiene un índice limpio en euros, lo sustituye un ETF de acumulación. No se guarda nada salvo los cierres diarios del índice.',
+    'Yahoo has no history for {symbol} over this span.': 'Yahoo no tiene histórico de {symbol} en este periodo.',
+    'You': 'Tú',
+    'ahead by {pct} points': '{pct} puntos por delante',
+    'another symbol…': 'otro símbolo…',
+    'behind by {pct} points': '{pct} puntos por detrás',
+    'time-weighted, both at 100 on the first day': 'ponderado por tiempo, ambos en 100 el primer día',
+    'you': 'tú',
 }
