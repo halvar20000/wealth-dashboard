@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Dividends") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Dividend calendar") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("What the holdings paid out, month by month, and what is due in the next twelve: each holding's payments of the last year, times the units held today, a year on. A calendar, not a forecast — it assumes every payer keeps paying what it paid.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% if note %}<div class="flash flash-warn">{{ note }}</div>{% endif %}
+
+<section class="stat-strip">
+  <div class="stat-card stat-green">
+    <div class="stat-label">{{ _("Received, last twelve months") }}</div>
+    <div class="stat-value">{{ money(data.received_12m, base_currency) }}</div>
+    <div class="stat-sub">{{ _f("{total} since the records begin", total=money(data.received_all, base_currency)) }}</div>
+  </div>
+  <div class="stat-card stat-gold">
+    <div class="stat-label">{{ _("Expected, next twelve months") }}</div>
+    <div class="stat-value">{{ money(data.expected_12m, base_currency) }}</div>
+    <div class="stat-sub">{{ _n(data.payers, "from {n} payer", "from {n} payers") }}</div>
+  </div>
+  <div class="stat-card stat-blue">
+    <div class="stat-label">{{ _("Yield on today's value") }}</div>
+    <div class="stat-value">{% if data.yield_on_value is not none %}{{ '%.2f' | format(100 * data.yield_on_value) }} %{% else %}—{% endif %}</div>
+    <div class="stat-sub">{{ _f("on {value}", value=money(data.value, base_currency)) }}</div>
+  </div>
+  <div class="stat-card stat-purple">
+    <div class="stat-label">{{ _("Per month, expected") }}</div>
+    <div class="stat-value">{{ money(data.expected_12m / 12, base_currency) }}</div>
+    <div class="stat-sub">{{ _("averaged over the year") }}</div>
+  </div>
+</section>
+
+<div class="card">
+  <div class="card-header"><h2>{{ _("Month by month") }}</h2>
+    <span class="card-subtitle">{{ _("twelve months back, twelve ahead") }} · <a href="{{ url_for('dividends_page', refresh=1) }}">{{ _("refresh from Yahoo") }}</a></span></div>
+  <div class="chart-wrap" style="height:260px"><canvas id="div-chart"></canvas></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>{{ _("By security") }}</h2></div>
+  {% if data.securities %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Security") }}</th><th class="num">{{ _("Received, 12 months") }}</th><th class="num">{{ _("Received, all") }}</th>
+                 <th class="num">{{ _("Expected, 12 months") }}</th><th class="num">{{ _("Per share, a year") }}</th><th>{{ _("Next ex-date") }}</th></tr></thead>
+      <tbody>
+      {% for s_ in data.securities %}
+        <tr {% if not s_.held %}style="opacity:.6"{% endif %}>
+          <td><a href="{{ url_for('security_page', isin=s_.isin) }}">{{ s_.name }}</a><span class="sub">{{ s_.isin }}{% if not s_.held %} · {{ _("no longer held") }}{% endif %}</span></td>
+          <td class="num">{{ money(s_.received_12m, base_currency) if s_.received_12m else '—' }}</td>
+          <td class="num sub">{{ money(s_.received_all, base_currency) if s_.received_all else '—' }}</td>
+          <td class="num">{{ money(s_.expected_12m, base_currency) if s_.expected_12m else '—' }}</td>
+          <td class="num sub">{% if s_.per_share %}{{ qty(s_.per_share | round(4)) }} {{ s_.currency or '' }} · {{ _n(s_.payments, "{n} payment", "{n} payments") }}{% else %}—{% endif %}</td>
+          <td class="sub nowrap">{{ d(s_.next) if s_.next else '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="sub">{{ _("No dividends received yet, and nothing expected — either no holding pays out, or Yahoo has not been asked yet.") }}</p>
+  {% endif %}
+</div>
+
+{% if data.upcoming %}
+<div class="card">
+  <div class="card-header"><h2>{{ _("Coming up") }}</h2><span class="card-subtitle">{{ _("by ex-date, from last year's dates") }}</span></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Ex-date") }}</th><th>{{ _("Security") }}</th><th class="num">{{ _("Per share") }}</th><th class="num">{{ _("Expected") }}</th></tr></thead>
+      <tbody>
+      {% for u in data.upcoming %}
+        <tr><td class="nowrap">{{ d(u.date) }}</td><td>{{ u.name }}</td><td class="num sub">{{ qty(u.per_share | round(4)) }} {{ u.currency or '' }}</td><td class="num">{{ money(u.amount, base_currency) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if data.by_year %}
+<div class="card">
+  <div class="card-header"><h2>{{ _("By year") }}</h2></div>
+  <div class="table-wrap"><table class="grid"><tbody>
+  {% for y in data.by_year %}<tr><td>{{ y.year }}</td><td class="num">{{ money(y.amount, base_currency) }}</td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const lang = {{ lang | tojson }}, ccy = {{ base_currency | tojson }};
+  const months = {{ data.months | tojson }};
+  const fmt = (v) => v.toLocaleString(lang, { maximumFractionDigits: 0 }) + ' ' + ccy;
+  new Chart(document.getElementById('div-chart'), {
+    type: 'bar',
+    data: { labels: months.map((m) => m.month), datasets: [
+      { label: {{ _("Received") | tojson }}, data: months.map((m) => m.received), backgroundColor: css('--gain'), borderRadius: 3 },
+      { label: {{ _("Expected") | tojson }}, data: months.map((m) => m.expected), backgroundColor: 'rgba(245,215,110,0.55)', borderRadius: 3 },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: css('--text-secondary') } }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmt(c.parsed.y)}` } } },
+      scales: { x: { stacked: true, ticks: { color: css('--text-tertiary'), maxTicksLimit: 12 }, grid: { display: false } },
+                y: { stacked: true, ticks: { color: css('--text-tertiary'), callback: fmt }, grid: { color: css('--border') } } } },
+  });
+})();
+</script>
+{% endblock %}

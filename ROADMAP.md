@@ -75,7 +75,7 @@ it does not do yet.
       (rename, set kind, tag).
 - [x] Benchmark comparison on the portfolio and security pages.
 - [x] Bills (expected recurring payments, due, missed) and savings goals.
-- [ ] A dividend calendar: paid so far, and what is due next.
+- [x] A dividend calendar: paid so far, and what is due next.
 - [x] Tags on transactions.
 - [ ] A REST API over the MCP tools, and webhooks on sync.
 

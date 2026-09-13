@@ -42,7 +42,7 @@ from flask import (Flask, flash, g, jsonify, redirect, render_template,
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import (allocation, benchmark, bills, cashflow, categories, crypto, export, forecast, gains, goals, history, importers, loans,
+from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, loans,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, splits, stages, subscriptions)
 from . import brokers
@@ -1555,6 +1555,28 @@ def goals_page():
                            base_currency=cfg.get("base_currency", "EUR"), today=date.today().isoformat())
 
 
+@app.route("/dividends")
+@auth.login_required
+def dividends_page():
+    """What was paid out, month by month, and what is due in the next
+    twelve — see dividends.py. Per-share history is fetched in the
+    background once a day; a first visit fetches it now."""
+    base = settings.get("base_currency", "EUR")
+    scope = people.scope()
+    note = None
+    if request.args.get("refresh") or dividends.is_stale():
+        try:
+            info = dividends.refresh(force=bool(request.args.get("refresh")))
+            if info["failed"]:
+                note = _n(len(info["failed"]), "{n} holding has no distribution data at Yahoo.",
+                          "{n} holdings have no distribution data at Yahoo.")
+        except Exception as exc:                        # noqa: BLE001
+            note = str(exc)
+    s = overview.summary(base, account_ids=scope)
+    return render_template("dividends.html", active_page="dividends", base_currency=base,
+                           data=dividends.calendar(base, scope, s), note=note)
+
+
 @app.route("/allocation", methods=["GET", "POST"])
 @auth.login_required
 def allocation_page():
@@ -2286,6 +2308,13 @@ def _start_rate_refresher() -> None:
                         print(f"  prices: {f['isin']}: {f['error']}", flush=True)
             except Exception as exc:                      # noqa: BLE001
                 print(f"  prices: unexpected: {exc}", flush=True)
+            try:
+                if dividends.is_stale():
+                    info = dividends.refresh()
+                    if info["fetched"]:
+                        print(f"  dividends: {info['fetched']} holdings' distributions fetched", flush=True)
+            except Exception as exc:                      # noqa: BLE001
+                print(f"  dividends: unexpected: {exc}", flush=True)
             time.sleep(prices.FRESH_HOURS * 3600)
 
     threading.Thread(target=price_loop, name="prices-refresh", daemon=True).start()

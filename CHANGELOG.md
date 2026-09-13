@@ -11,6 +11,18 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.35.0] — 2026-09-13
+
+### Added
+- **A dividend calendar**, under Investing. What the holdings paid
+  out, month by month and by security, in the base currency; and
+  what is due in the next twelve months — each holding's per-share
+  payments of the last year, as Yahoo lists them by ex-date, times
+  the units held today, each on its own date a year on. Received
+  and expected on one chart, twelve months back and twelve ahead; the
+  yield on today's value; the coming ex-dates. Per-share history is
+  fetched once a day in the background, and on a first visit.
+
 ## [0.34.0] — 2026-09-13
 
 ### Added

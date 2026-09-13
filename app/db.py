@@ -416,6 +416,17 @@ CREATE TABLE IF NOT EXISTS goals (
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- What a security paid per share, by ex-date, as Yahoo lists it —
+-- the past year of which, times the units held, is next year's
+-- expected income. Fetched once a day at most. See dividends.py.
+CREATE TABLE IF NOT EXISTS dividend_events (
+    isin       TEXT NOT NULL,
+    ex_date    TEXT NOT NULL,
+    amount     REAL NOT NULL,                 -- per share, in `currency`
+    currency   TEXT,
+    PRIMARY KEY (isin, ex_date)
+);
+
 -- A column mapping the user drew for a CSV no built-in importer knows,
 -- keyed on the file's header so the next export from the same bank is
 -- recognised without asking again. See importers/generic.py.

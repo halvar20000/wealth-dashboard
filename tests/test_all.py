@@ -5087,5 +5087,50 @@ goals.delete(g1); goals.delete(g2)
 c.post(f"/accounts/{bg}/delete", data={"confirm": "Bills giro"})
 
 # ---------------------------------------------------------------------------
+print("\n45. The dividend calendar")
+# ---------------------------------------------------------------------------
+from app import dividends                                   # noqa: E402
+
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Div broker', 'broker', 'EUR')")
+    dvb = conn.execute("SELECT id FROM accounts WHERE name = 'Div broker'").fetchone()["id"]
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, quantity, price, external_id, source) "
+                 "VALUES (?, '2025-01-10', 'Kauf', -10000, 'EUR', 'buy', 'IE00B8GKDB10', 'Vanguard FTSE All-World High Dividend', 200, 50, 'dv0', 'manual')", (dvb,))
+    for i, (day, amt) in enumerate((("2025-03-25", 60), ("2025-06-25", 65), ("2025-09-25", 70), ("2025-12-26", 66), ("2026-03-25", 72), ("2026-06-25", 75))):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, external_id, source) "
+                     "VALUES (?, ?, 'Dividende', ?, 'EUR', 'dividend', 'IE00B8GKDB10', 'Vanguard FTSE All-World High Dividend', ?, 'manual')", (dvb, day, amt, f"dv{i + 1}"))
+    conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency) VALUES ('IE00B8GKDB10', '2026-09-01', 60, 'EUR')")
+    conn.execute("INSERT INTO securities (isin, symbol, symbol_source, quote_type) VALUES ('IE00B8GKDB10', 'VHYL.AS', 'yahoo', 'ETF') "
+                 "ON CONFLICT(isin) DO UPDATE SET symbol = 'VHYL.AS'")
+def fake_hist(url):
+    ts = lambda d: int(__import__("time").mktime(date.fromisoformat(d).timetuple()))
+    events = {str(ts(d)): {"amount": a, "date": ts(d)} for d, a in (("2025-09-25", 0.35), ("2025-12-26", 0.33), ("2026-03-25", 0.36), ("2026-06-25", 0.375), ("2024-12-27", 0.30))}
+    return {"chart": {"result": [{"meta": {"currency": "USD", "instrumentType": "ETF"}, "timestamp": [ts("2026-09-01")],
+                                  "indicators": {"quote": [{"close": [60.0]}], "adjclose": [{"adjclose": [60.0]}]}, "events": {"dividends": events}}]}}
+with db.get_conn() as conn:
+    conn.execute("INSERT OR REPLACE INTO fx_rates (as_of, currency, per_eur) VALUES ('2026-09-01', 'USD', 1.25)")
+check("the per-share history is stale before it is fetched", dividends.is_stale(), True)
+info = dividends.refresh(get=fake_hist, isins=["IE00B8GKDB10"])
+with db.get_conn() as conn:
+    n_ev = conn.execute("SELECT COUNT(*) n FROM dividend_events WHERE isin = 'IE00B8GKDB10'").fetchone()["n"]
+check("...and fetched once, stored by ex-date", (info["fetched"], n_ev), (1, 5))
+check("...not again within the day", dividends.refresh(get=fake_hist, isins=["IE00B8GKDB10"])["fetched"], 0)
+cal = dividends.calendar("EUR", [dvb], ov.summary("EUR", account_ids=[dvb]), today=date(2026, 9, 13))
+check("received: the last twelve months, and everything", (round(cal["received_12m"]), round(cal["received_all"])), (70 + 66 + 72 + 75, 408))
+# Four payments in the last year: 0.35 + 0.33 + 0.36 + 0.375 = 1.415 USD a share, in euros at today's rate, × 200 units.
+usd_eur = prices.in_currency("EUR")(1.0, "USD", "2026-09-13")
+check("expected: last year's per-share payments times the units held, in the base currency", round(cal["expected_12m"], 2), round(1.415 * usd_eur * 200, 2))
+check("...each on its own date a year on", [u["date"] for u in cal["upcoming"]], ["2026-09-25", "2026-12-26", "2027-03-25", "2027-06-25"])
+check("...and a yield on today's value", round(100 * cal["yield_on_value"], 2), round(100 * (1.415 * usd_eur * 200) / 12000, 2))
+check("the calendar runs twelve months back and twelve ahead", (len(cal["months"]), cal["months"][0]["month"], cal["months"][-1]["month"]), (24, "2025-10", "2027-09"))
+sec = cal["securities"][0]
+check("by security: received and expected side by side", (sec["isin"], round(sec["received_12m"]), round(sec["expected_12m"], 2), sec["payments"], sec["next"]), ("IE00B8GKDB10", 283, round(1.415 * usd_eur * 200, 2), 4, "2026-09-25"))
+r = c.get("/dividends")
+check("the page renders", (r.status_code, b"Dividend calendar" in r.data, b"Coming up" in r.data), (200, True, True))
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM dividend_events WHERE isin = 'IE00B8GKDB10'")
+c.post(f"/accounts/{dvb}/delete", data={"confirm": "Div broker"})
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

@@ -69,6 +69,8 @@ a PSD2 API it connects directly, with credentials that are yours.
   the DAX, the SMI, or any symbol. Sales are set
   against the cost of the units they sold — **FIFO or average cost**,
   a setting — for the realised gain per sale, per year and per holding.
+- **A dividend calendar** — received month by month, and what is due in
+  the next twelve from each holding's payments of the last year.
 - **Allocation** — by asset class, region and buckets of your own,
   each holding classified once (guessed, then yours), with targets, the
   drift, and how to spread the next contribution so the drift shrinks.
@@ -97,7 +99,7 @@ a PSD2 API it connects directly, with credentials that are yours.
 
 ## What is not here yet
 
-A dividend calendar, a REST API. See
+A REST API and webhooks. See
 [ROADMAP.md](ROADMAP.md) — and [COMPARISON.md](COMPARISON.md) for where
 this stands beside Portfolio Performance, Wealthfolio and Firefly III,
 feature by feature.
