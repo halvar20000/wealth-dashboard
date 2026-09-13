@@ -85,7 +85,10 @@ a PSD2 API it connects directly, with credentials that are yours.
 
 ## What is not here yet
 
-Balance history, forecasting. See [ROADMAP.md](ROADMAP.md).
+Asset allocation with targets, benchmark comparison. See
+[ROADMAP.md](ROADMAP.md) — and [COMPARISON.md](COMPARISON.md) for where
+this stands beside Portfolio Performance, Wealthfolio and Firefly III,
+feature by feature.
 
 ## Brokers by API — Saxo Bank and Kraken
 
