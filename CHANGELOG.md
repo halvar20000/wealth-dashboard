@@ -11,6 +11,34 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.28.0] — 2026-09-13
+
+### Added
+- **The three stages**, under Planning. Early on, what you put in is
+  what grows the pile; later saving and returns pull together; later
+  still compounding carries it. One ratio tells them apart — what the
+  market does in a year against what you put in in a year — with the
+  borders at a half and at two. The page says which stage you are in
+  on the Forecast page's monthly amount and expected return (or on
+  figures tried in place), the crossover wealth at which a year of
+  returns pays a year of savings, the year each border falls, a chart
+  of put-in against market-did year by year, and — *as it went* — the
+  same ratio for every calendar year the app has records of, computed
+  from what actually went into securities and what they were actually
+  worth.
+
+### Changed
+- **The navigation moved to the left.** A sidebar in place of the top
+  bar: Overview, then *Investing* (Portfolio, Crypto, Share Ideas),
+  *Money* (Cash Flow, Budget, Subscriptions, Transactions,
+  Categorize), *Planning* (Forecast, Stages, Loans), Accounts,
+  Settings, with the user, sign-out and the version at the foot.
+  Every entry has an icon; the sidebar collapses to icons alone for
+  more room, with a group opening as a flyout on hover; groups fold,
+  and the one holding the current page starts open. Both are
+  remembered per browser. On a phone the sidebar is a drawer behind a
+  menu button. The whose-accounts switch sits above the page.
+
 ## [0.27.0] — 2026-09-12
 
 ### Added

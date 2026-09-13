@@ -29,6 +29,9 @@ a PSD2 API it connects directly, with credentials that are yours.
   accounts to a retire age, and what the sum supports a month.
 - **Forecast** — a monthly amount and a return, or a goal and a year, from
   today's balance; deposits and returns drawn apart, year by year.
+- **The three stages** — whether what you save or what the market does is
+  growing the pile: the ratio of the two, the crossover wealth, the year
+  compounding takes over, and the same ratio for every year so far.
 - **Daily bank sync** at a time you choose, plus a sync-everything button.
 - **People** — the household's members, each account ticked for one, several
   or none of them, and a switch in the header between everyone's picture and

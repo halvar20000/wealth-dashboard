@@ -51,35 +51,128 @@ html, body {
 a { color: var(--accent-blue); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* ─── Top bar ─────────────────────────────────────────────────── */
+/* ─── The shell: a sidebar down the left, the page beside it ──── */
 
-.topbar {
+:root {
+  --nav-wide: 232px;
+  --nav-narrow: 64px;
+  --nav-width: var(--nav-wide);
+}
+html.nav-collapsed { --nav-width: var(--nav-narrow); }
+
+.sidenav {
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 30;
+  width: var(--nav-width);
+  display: flex; flex-direction: column;
+  background: linear-gradient(180deg, #11172a 0%, #0c1120 100%);
+  border-right: 1px solid var(--border);
+  transition: width .18s ease, transform .2s ease;
+  overflow: visible;
+}
+.page { min-height: 100vh; display: flex; flex-direction: column; }
+body.has-nav .page { margin-left: var(--nav-width); transition: margin-left .18s ease; }
+
+.sidenav-top {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px 24px; flex-wrap: wrap;
-  padding: 16px 32px;
-  background: linear-gradient(180deg, #11172a 0%, #0a0e1a 100%);
-  border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 10;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+  height: 64px; padding: 0 14px 0 15px; flex: none;
 }
 .brand {
-  display: flex; align-items: center; gap: 12px;
-  color: inherit; font-weight: 700; font-size: 15px;
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  color: inherit; font-weight: 700; font-size: 15px; white-space: nowrap;
 }
 .brand:hover { text-decoration: none; }
 .brand-mark {
-  display: inline-flex; align-items: center; justify-content: center;
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
   width: 34px; height: 34px; border-radius: 10px;
   background: linear-gradient(135deg, var(--accent-gold) 0%, #c9a637 100%);
   color: #1a1308; font-weight: 800; font-size: 17px;
 }
-.topbar nav { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.nav-close { display: none; }
+
+.sidenav-nav { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding: 4px 10px 12px; }
+.sidenav-bottom { flex: none; padding: 8px 10px 12px; border-top: 1px solid var(--border); }
 .navlink {
-  padding: 7px 13px; border-radius: 8px;
+  display: flex; align-items: center; gap: 11px;
+  padding: 8px 10px; margin: 1px 0; border-radius: 9px;
   color: var(--text-secondary); font-size: 13.5px; font-weight: 500;
+  white-space: nowrap; overflow: hidden;
 }
+.navlink .ico, .nav-group-head .ico { width: 19px; height: 19px; flex: none; }
 .navlink:hover { background: var(--bg-elevated); color: var(--text-primary); text-decoration: none; }
 .navlink.active { background: var(--bg-elevated); color: var(--text-primary); }
+.navlink.active .ico { color: var(--accent-gold); }
+.navlink.who { color: var(--text-tertiary); cursor: default; }
+.navlink.who:hover { background: none; }
+.nav-text { overflow: hidden; text-overflow: ellipsis; }
+
+/* A group: a heading that folds its pages. */
+.nav-group { margin: 2px 0; }
+.nav-group-head {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  padding: 8px 10px; margin: 0; border: none; border-radius: 9px;
+  background: none; color: var(--text-secondary); font: inherit; font-size: 13.5px; font-weight: 500;
+  cursor: pointer; text-align: left; white-space: nowrap; overflow: hidden;
+}
+.nav-group-head:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.nav-group-head .ico:last-child { margin-left: auto; width: 15px; height: 15px; color: var(--text-tertiary); transition: transform .15s ease; }
+.nav-group.is-open > .nav-group-head .ico:last-child { transform: rotate(90deg); }
+.nav-group.holds-active > .nav-group-head { color: var(--text-primary); }
+.nav-group-items { display: none; padding-left: 12px; }
+.nav-group.is-open > .nav-group-items { display: block; }
+.nav-group-items .navlink { font-size: 13px; padding: 6px 10px; }
+.nav-group-items .navlink .ico { width: 16px; height: 16px; }
+.nav-group-flyout-title { display: none; }
+
+.sidenav-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 4px 0; }
+.nav-collapse {
+  margin: 0; padding: 6px; border: 1px solid var(--border); border-radius: 8px; box-shadow: none;
+  background: var(--bg-card); color: var(--text-tertiary); cursor: pointer; line-height: 0;
+}
+.nav-collapse .ico { width: 17px; height: 17px; }
+.nav-collapse:hover { color: var(--text-primary); border-color: var(--border-strong); }
+
+/* Collapsed: icons only; a group opens as a flyout on hover. */
+html.nav-collapsed .nav-text,
+html.nav-collapsed .sidenav .version-badge,
+html.nav-collapsed .nav-group-head .ico:last-child { display: none; }
+html.nav-collapsed .sidenav-top { justify-content: center; padding: 0; }
+html.nav-collapsed .navlink, html.nav-collapsed .nav-group-head { justify-content: center; padding: 9px 0; }
+html.nav-collapsed .sidenav-nav, html.nav-collapsed .sidenav-bottom { padding-left: 8px; padding-right: 8px; }
+html.nav-collapsed .sidenav-nav { overflow: visible; }      /* the flyout must leave the column */
+html.nav-collapsed .sidenav-foot { justify-content: center; }
+html.nav-collapsed .nav-collapse .ico { transform: scaleX(-1); }
+html.nav-collapsed .nav-group { position: relative; }
+html.nav-collapsed .nav-group-items {
+  display: none; position: absolute; left: calc(100% + 6px); top: 0; z-index: 40;
+  min-width: 190px; padding: 8px;
+  background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+html.nav-collapsed .nav-group:hover > .nav-group-items,
+html.nav-collapsed .nav-group:focus-within > .nav-group-items { display: block; }
+html.nav-collapsed .nav-group-items::before { content: ""; position: absolute; left: -8px; top: 0; bottom: 0; width: 8px; }
+html.nav-collapsed .nav-group-items .navlink { justify-content: flex-start; padding: 7px 10px; }
+html.nav-collapsed .nav-group-items .nav-text { display: inline; }
+html.nav-collapsed .nav-group-flyout-title {
+  display: block; padding: 4px 10px 8px; font-size: 11px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary);
+}
+
+/* The strip above the page: the menu button on a phone, whose
+   picture on every screen. Empty when there is nobody to switch to. */
+.topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 32px 0;
+}
+.topbar:empty { display: none; }
+.topbar-spacer { flex: 1; }
+.nav-open, .brand-mobile { display: none; }
+.nav-open {
+  margin: 0; padding: 7px; border: 1px solid var(--border); border-radius: 9px; box-shadow: none;
+  background: var(--bg-card); color: var(--text-secondary); cursor: pointer; line-height: 0;
+}
+.nav-open .ico { width: 20px; height: 20px; }
+.nav-scrim { display: none; position: fixed; inset: 0; z-index: 25; background: rgba(4,6,12,0.6); }
 /* Whose picture: a segmented switch of plain submit buttons, so it
    works without a line of script and survives a page reload. */
 .viewswitch {
@@ -106,12 +199,8 @@ a:hover { text-decoration: underline; }
 .owners .check, .form .check { display: inline-flex; align-items: center; gap: 8px; margin: 4px 18px 4px 0; font-weight: 400; }
 .owners .check input, .form .check input { width: auto; margin: 0; }
 .owners .sub { margin: 6px 0 0; }
-.topbar .who {
-  color: var(--text-tertiary); font-size: 12.5px;
-  padding-left: 10px; margin-left: 4px; border-left: 1px solid var(--border);
-}
 
-main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 72px; }
+main { width: 100%; max-width: 1240px; margin: 0 auto; padding: 22px 32px 72px; flex: 1 0 auto; }
 h1 { font-size: 21px; margin: 0 0 4px; letter-spacing: -0.01em; }
 h2 { font-size: 15px; margin: 0; letter-spacing: -0.005em; }
 .lede { color: var(--text-secondary); font-size: 13.5px; margin: 0 0 24px; max-width: 66ch; }
@@ -256,6 +345,8 @@ input:focus, select:focus, textarea:focus {
 }
 textarea { font-family: var(--font-mono); font-size: 12px; }
 .form.inline input, .form.inline select { width: auto; }
+.form.inline > div { display: flex; flex-direction: column; gap: 4px; }
+.form.inline > div > label { margin-top: 0; }
 
 button, .btn {
   margin-top: 16px; padding: 10px 18px; font: inherit; font-size: 13.5px;
@@ -331,7 +422,7 @@ button:hover, .btn:hover { filter: brightness(1.08); text-decoration: none; }
 /* The version in the header: readable, but never competing with the
    navigation beside it. */
 .version-badge {
-  margin-left: 10px; padding: 2px 8px; border-radius: 999px;
+  padding: 2px 8px; border-radius: 999px;
   font-size: 11px; font-weight: 600; font-family: var(--font-mono);
   color: var(--text-tertiary); background: var(--bg-elevated);
   border: 1px solid var(--border); text-decoration: none;
@@ -364,16 +455,29 @@ code { font-family: var(--font-mono); font-size: 12.5px; color: var(--accent-gol
 details summary { cursor: pointer; margin: 10px 0 6px; color: var(--text-secondary); }
 
 footer {
-  max-width: 1180px; margin: 0 auto; padding: 0 32px 40px;
+  width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 32px 40px;
   color: var(--text-tertiary); font-size: 12px;
 }
 
 /* Sign-in and setup have no nav, so they centre themselves. */
 .narrow-wrap { max-width: 470px; margin: 0 auto; padding: 52px 24px; }
 
-@media (max-width: 700px) {
-  .topbar { padding: 14px 18px; }
-  main { padding: 22px 18px 56px; }
+/* A phone: the sidebar is a drawer, opened from the strip above. */
+@media (max-width: 800px) {
+  body.has-nav .page { margin-left: 0; }
+  .sidenav { transform: translateX(-100%); width: var(--nav-wide); box-shadow: none; }
+  html.nav-drawer .sidenav { transform: none; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
+  html.nav-drawer .nav-scrim { display: block; }
+  html.nav-collapsed .nav-text, html.nav-collapsed .nav-group-head .ico:last-child, html.nav-collapsed .sidenav .version-badge { display: inline; }
+  html.nav-collapsed .navlink, html.nav-collapsed .nav-group-head { justify-content: flex-start; padding: 8px 10px; }
+  html.nav-collapsed .nav-group-items { display: none; position: static; min-width: 0; padding: 0 0 0 12px; background: none; border: none; box-shadow: none; }
+  html.nav-collapsed .nav-group.is-open > .nav-group-items { display: block; }
+  html.nav-collapsed .nav-group-flyout-title { display: none; }
+  .nav-collapse { display: none; }
+  .nav-close { display: block; margin: 0; padding: 2px 8px; border: none; background: none; box-shadow: none; color: var(--text-secondary); font-size: 22px; cursor: pointer; }
+  .nav-open, .brand-mobile { display: inline-flex; }
+  .topbar { padding: 12px 18px 0; }
+  main { padding: 18px 18px 56px; }
   .hero-value { font-size: 34px; }
 }
 
@@ -636,3 +740,35 @@ a.period-btn:hover { text-decoration: none; }
 .loan-figs .sub { display: block; }
 .check-row { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 6px; }
 @media (max-width: 800px) { .loan-grid { grid-template-columns: 1fr; } }
+
+/* ─── The three stages ────────────────────────────────────────── */
+
+.hero-side-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stage-hero.is-1 { border-color: rgba(91,157,255,0.3); }
+.stage-hero.is-2 { border-color: rgba(245,215,110,0.3); }
+.stage-hero.is-3 { border-color: rgba(52,211,153,0.3); }
+.stage-hero .hero-value { font-size: 26px; }
+.stage-hero .hero-top > div:first-child { flex: 1 1 460px; }
+.stage-hero .hero-side { flex: 0 1 300px; }
+.stage-blurb { color: var(--text-secondary); font-size: 13.5px; max-width: 72ch; margin: 14px 0 0; }
+.stage-track { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }
+.stage-step {
+  display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg-card); opacity: .55;
+}
+.stage-step.is-past { opacity: .8; }
+.stage-step.is-here { opacity: 1; border-color: var(--accent-gold); box-shadow: 0 0 0 1px var(--accent-gold) inset; }
+.stage-num {
+  display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 999px;
+  background: var(--bg-elevated); color: var(--text-secondary); font-size: 12px; font-weight: 700; margin-bottom: 4px;
+}
+.stage-step.is-here .stage-num { background: var(--accent-gold); color: #1a1308; }
+.stage-name { font-weight: 600; font-size: 13.5px; }
+.stage-chip { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; font-family: var(--font-mono); }
+.stage-chip.is-1 { background: rgba(91,157,255,0.16); color: var(--accent-blue); }
+.stage-chip.is-2 { background: rgba(245,215,110,0.16); color: var(--accent-gold); }
+.stage-chip.is-3 { background: var(--gain-soft); color: var(--gain); }
+.stage-milestones { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 14px 0 18px; }
+.stage-milestone { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); font-size: 13px; }
+.stage-milestone strong { display: block; margin-bottom: 3px; }
+@media (max-width: 700px) { .stage-track { grid-template-columns: 1fr; } }

@@ -8,24 +8,84 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ asset_version }}">
+  {# The collapsed state, before the first paint: a sidebar that opens
+     wide and then snaps shut on every page is a sidebar that flickers. #}
+  <script>try{if(localStorage.getItem('nav')==='collapsed')document.documentElement.classList.add('nav-collapsed')}catch(e){}</script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
   {% block head %}{% endblock %}
 </head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="{{ url_for('index') }}">
+<body class="{{ 'has-nav' if user }}">
+{% from "_icons.html" import icon %}
+{% if user %}
+{# The navigation, down the left: the pages in groups, one icon each,
+   so that with the text folded away the icons still say where you are.
+   Groups fold too; the one holding the current page starts open. #}
+{% set nav_groups = [
+  {'key': 'invest', 'label': _("Investing"), 'items': [
+     ('portfolio', url_for('portfolio_page'), _("Portfolio"), 'portfolio'),
+     ('crypto', url_for('crypto_page'), _("Crypto"), 'crypto'),
+     ('ideas', url_for('screener_page'), _("Share Ideas"), 'screener')]},
+  {'key': 'money', 'label': _("Money"), 'items': [
+     ('cashflow', url_for('cashflow_page'), _("Cash Flow"), 'cashflow'),
+     ('budget', url_for('budget_page'), _("Budget"), 'budget'),
+     ('subscriptions', url_for('subscriptions_page'), _("Subscriptions"), 'subscriptions'),
+     ('transactions', url_for('transactions'), _("Transactions"), 'transactions'),
+     ('categorize', url_for('categorize'), _("Categorize"), 'categorize')]},
+  {'key': 'plan', 'label': _("Planning"), 'items': [
+     ('forecast', url_for('forecast_page'), _("Forecast"), 'forecast'),
+     ('stages', url_for('stages_page'), _("Stages"), 'stages'),
+     ('loans', url_for('loans_page'), _("Loans"), 'loans')]},
+] %}
+<aside class="sidenav" id="sidenav" aria-label="{{ _('Navigation') }}">
+  <div class="sidenav-top">
+    <a class="brand" href="{{ url_for('index') }}" title="Wealth Dashboard">
       <span class="brand-mark">€</span>
-      Wealth&nbsp;Dashboard
+      <span class="nav-text">Wealth&nbsp;Dashboard</span>
     </a>
-    {% if user %}
-    {# Which version is in front of you, without going to GitHub to find
-       out whether this container has the fix you read about. #}
-    <a class="version-badge" href="{{ url_for('changelog_page') }}"
-       title="{{ _('What changed') }}">{{ version }}</a>
-    {% endif %}
-    {% if user and people %}
+    <button type="button" class="nav-close" id="nav-close" aria-label="{{ _('Close the menu') }}">×</button>
+  </div>
+  <nav class="sidenav-nav">
+    <a class="navlink {{ 'active' if active_page == 'overview' }}" href="{{ url_for('index') }}" title="{{ _('Overview') }}">{{ icon('overview') }}<span class="nav-text">{{ _("Overview") }}</span></a>
+    {% for g in nav_groups %}
+    {% set holds = active_page in (g['items'] | map(attribute=3) | list) %}
+    <div class="nav-group {{ 'is-open' if holds }} {{ 'holds-active' if holds }}" data-group="{{ g['key'] }}">
+      <button type="button" class="nav-group-head" aria-expanded="{{ 'true' if holds else 'false' }}" title="{{ g['label'] }}">
+        {{ icon(g['key']) }}<span class="nav-text">{{ g['label'] }}</span>{{ icon('chevron') }}
+      </button>
+      <div class="nav-group-items">
+        <div class="nav-group-flyout-title">{{ g['label'] }}</div>
+        {% for ico, href, label, slug in g['items'] %}
+        <a class="navlink {{ 'active' if active_page == slug }}" href="{{ href }}" title="{{ label }}">{{ icon(ico) }}<span class="nav-text">{{ label }}</span></a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    <a class="navlink {{ 'active' if active_page == 'accounts' }}" href="{{ url_for('accounts') }}" title="{{ _('Accounts') }}">{{ icon('accounts') }}<span class="nav-text">{{ _("Accounts") }}</span></a>
+    <a class="navlink {{ 'active' if active_page == 'settings' }}" href="{{ url_for('settings_page') }}" title="{{ _('Settings') }}">{{ icon('settings') }}<span class="nav-text">{{ _("Settings") }}</span></a>
+  </nav>
+  <div class="sidenav-bottom">
+    <div class="navlink who" title="{{ user.username }}">{{ icon('user') }}<span class="nav-text">{{ user.username }}</span></div>
+    <a class="navlink" href="{{ url_for('logout') }}" title="{{ _('Sign out') }}">{{ icon('signout') }}<span class="nav-text">{{ _("Sign out") }}</span></a>
+    <div class="sidenav-foot">
+      {# Which version is in front of you, without going to GitHub to find
+         out whether this container has the fix you read about. #}
+      <a class="version-badge" href="{{ url_for('changelog_page') }}" title="{{ _('What changed') }}">{{ version }}</a>
+      <button type="button" class="nav-collapse" id="nav-collapse" title="{{ _('Collapse the menu') }}" aria-label="{{ _('Collapse the menu') }}">{{ icon('collapse') }}</button>
+    </div>
+  </div>
+</aside>
+<div class="nav-scrim" id="nav-scrim"></div>
+{% endif %}
+
+<div class="page">
+  {% if user %}
+  <header class="topbar">
+    <button type="button" class="nav-open" id="nav-open" aria-label="{{ _('Open the menu') }}">{{ icon('menu') }}</button>
+    <a class="brand brand-mobile" href="{{ url_for('index') }}"><span class="brand-mark">€</span></a>
+    <div class="topbar-spacer"></div>
+    {% if people %}
     {# Whose picture: everyone's, or one person's. A lens on the same
-       data, so it sits in the header where it applies to every page. #}
+       data, so it sits above every page it applies to. #}
     <form method="post" action="{{ url_for('view_switch') }}" class="viewswitch" aria-label="{{ _('Whose accounts') }}">
       <input type="hidden" name="next" value="{{ request.path }}">
       <button type="submit" name="person" value="" class="{{ 'active' if not view_person }}">{{ _("Everyone") }}</button>
@@ -34,26 +94,8 @@
       {% endfor %}
     </form>
     {% endif %}
-    {% if user %}
-    <nav>
-      <a class="navlink {{ 'active' if active_page == 'overview' }}" href="{{ url_for('index') }}">{{ _("Overview") }}</a>
-      <a class="navlink {{ 'active' if active_page == 'portfolio' }}" href="{{ url_for('portfolio_page') }}">{{ _("Portfolio") }}</a>
-      <a class="navlink {{ 'active' if active_page == 'crypto' }}" href="{{ url_for('crypto_page') }}">{{ _("Crypto") }}</a>
-      <a class="navlink {{ 'active' if active_page == 'loans' }}" href="{{ url_for('loans_page') }}">{{ _("Loans") }}</a>
-      <a class="navlink {{ 'active' if active_page == 'screener' }}" href="{{ url_for('screener_page') }}">{{ _("Share Ideas") }}</a>
-      <a class="navlink {{ 'active' if active_page == 'cashflow' }}" href="{{ url_for('cashflow_page') }}">{{ _("Cash Flow") }}</a>
-      <a class="navlink {{ 'active' if active_page == 'budget' }}" href="{{ url_for('budget_page') }}">{{ _("Budget") }}</a>
-      <a class="navlink {{ 'active' if active_page == 'forecast' }}" href="{{ url_for('forecast_page') }}">{{ _("Forecast") }}</a>
-      <a class="navlink {{ 'active' if active_page == 'subscriptions' }}" href="{{ url_for('subscriptions_page') }}">{{ _("Subscriptions") }}</a>
-      <a class="navlink {{ 'active' if active_page == 'transactions' }}" href="{{ url_for('transactions') }}">{{ _("Transactions") }}</a>
-      <a class="navlink {{ 'active' if active_page == 'categorize' }}" href="{{ url_for('categorize') }}">{{ _("Categorize") }}</a>
-      <a class="navlink {{ 'active' if active_page == 'accounts' }}" href="{{ url_for('accounts') }}">{{ _("Accounts") }}</a>
-      <a class="navlink {{ 'active' if active_page == 'settings' }}" href="{{ url_for('settings_page') }}">{{ _("Settings") }}</a>
-      <span class="who">{{ user.username }}</span>
-      <a class="navlink" href="{{ url_for('logout') }}">{{ _("Sign out") }}</a>
-    </nav>
-    {% endif %}
   </header>
+  {% endif %}
 
   <main>
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -67,7 +109,7 @@
       <h1>{% block heading %}{% endblock %}</h1>
       {% endif %}
     {% endblock %}
-    {% if view_person and active_page in ('overview', 'portfolio', 'crypto', 'loans', 'cashflow', 'budget', 'forecast', 'subscriptions', 'transactions', 'categorize', 'accounts') %}
+    {% if view_person and active_page in ('overview', 'portfolio', 'crypto', 'loans', 'cashflow', 'budget', 'forecast', 'stages', 'subscriptions', 'transactions', 'categorize', 'accounts') %}
     <p class="view-note">{{ _f("Only {name}'s accounts are counted on this page.", name=view_person.name) }}</p>
     {% endif %}
     {% block lede %}{% endblock %}
@@ -75,11 +117,50 @@
   </main>
 
   <footer>{{ _("Runs on your machine. Your data never leaves it, except to your own bank.") }}</footer>
+</div>
 
-  {# Page scripts go last, after Chart.js and after the markup they draw
-     into. A child template that defines a scripts block and finds no
-     matching block here is not an error in Jinja — the block is simply
-     dropped, the page renders perfectly, and nothing happens. #}
-  {% block scripts %}{% endblock %}
+{% if user %}
+<script>
+(() => {
+  const root = document.documentElement;
+  const nav = document.getElementById('sidenav');
+  const remember = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const recall = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  // Collapse to icons, and back. Remembered per browser.
+  document.getElementById('nav-collapse').addEventListener('click', () => {
+    const collapsed = root.classList.toggle('nav-collapsed');
+    remember('nav', collapsed ? 'collapsed' : 'wide');
+  });
+  // Groups fold; the fold is remembered too, except that the group
+  // holding the current page always starts open — a menu that hides
+  // where you are is not a menu.
+  nav.querySelectorAll('.nav-group').forEach((g) => {
+    const key = 'nav-group-' + g.dataset.group;
+    if (!g.classList.contains('holds-active') && recall(key) === 'closed') g.classList.remove('is-open');
+    const head = g.querySelector('.nav-group-head');
+    head.setAttribute('aria-expanded', g.classList.contains('is-open'));
+    head.addEventListener('click', () => {
+      const phone = window.matchMedia('(max-width: 800px)').matches;
+      if (root.classList.contains('nav-collapsed') && !phone) return;   // a flyout, on hover, when collapsed
+      const open = g.classList.toggle('is-open');
+      head.setAttribute('aria-expanded', open);
+      remember(key, open ? 'open' : 'closed');
+    });
+  });
+  // On a phone the menu is a drawer.
+  const drawer = (open) => { root.classList.toggle('nav-drawer', open); };
+  document.getElementById('nav-open').addEventListener('click', () => drawer(true));
+  document.getElementById('nav-close').addEventListener('click', () => drawer(false));
+  document.getElementById('nav-scrim').addEventListener('click', () => drawer(false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') drawer(false); });
+})();
+</script>
+{% endif %}
+
+{# Page scripts go last, after Chart.js and after the markup they draw
+   into. A child template that defines a scripts block and finds no
+   matching block here is not an error in Jinja — the block is simply
+   dropped, the page renders perfectly, and nothing happens. #}
+{% block scripts %}{% endblock %}
 </body>
 </html>

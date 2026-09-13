@@ -44,7 +44,7 @@ from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import (cashflow, categories, crypto, export, forecast, gains, history, importers, loans,
                manual, mcp, overview, people, performance, screener, screener_etf,
-               screener_jobs, splits, subscriptions)
+               screener_jobs, splits, stages, subscriptions)
 from . import brokers
 from .brokers import kraken, saxo
 from . import db as db_state
@@ -1376,6 +1376,32 @@ def _retirement_blocks(cfg: dict, base: str, plans: dict) -> dict:
         })
     return {"blocks": blocks, "without_birthday": without_birthday,
             "no_people": not everyone}
+
+
+@app.route("/stages")
+@auth.login_required
+def stages_page():
+    """Which of the three stages the securities are in: saving builds
+    it, saving and returns pull together, compounding carries it. On
+    the plan from the Forecast page, and as it actually went, year by
+    year. See stages.py."""
+    cfg = settings.load()
+    base = cfg.get("base_currency", "EUR")
+    plan = forecast.clean(_forecast_plans(cfg).get(_forecast_key()) or {})
+    scope = people.scope()
+    s = overview.summary(base, account_ids=scope)
+    went = stages.as_it_went(base, scope)
+    actual = stages.actual_monthly(went)
+    # The plan's figures, unless the page is being played with: a
+    # monthly amount or a rate in the address is tried, not kept.
+    monthly = max(0.0, forecast._num(request.args.get("monthly"), plan["monthly"]))
+    rate = min(forecast.MAX_RATE, max(-forecast.MAX_RATE, forecast._num(request.args.get("rate"), plan["rate"])))
+    start = s["securities"] or 0.0
+    return render_template("stages.html", active_page="stages", s=s, base_currency=base,
+                           monthly=monthly, rate=rate, start=start,
+                           projected=stages.path(start, monthly, rate), went=went, actual=actual,
+                           lower=stages.LOWER, upper=stages.UPPER,
+                           playing=("monthly" in request.args or "rate" in request.args))
 
 
 def _forecast_key() -> str:

@@ -4611,5 +4611,80 @@ mcp.revoke()
 c.post(f"/accounts/{sid}/delete", data={"confirm": "Split test"})
 
 # ---------------------------------------------------------------------------
+print("\n36. The shell: a sidebar in groups")
+# ---------------------------------------------------------------------------
+r = c.get("/portfolio")
+body = r.data.decode()
+check("the navigation is a sidebar with the pages in groups",
+      ('class="sidenav"' in body, 'data-group="invest"' in body, 'data-group="money"' in body, 'data-group="plan"' in body), (True, True, True, True))
+check("the group holding the current page starts open, and the page is marked",
+      ('nav-group is-open holds-active" data-group="invest"' in body, 'navlink active" href="/portfolio"' in body), (True, True))
+check("...and the other groups start closed", 'is-open holds-active" data-group="money"' in body, False)
+check("every page is reachable from it", all(f'href="{p}"' in body for p in ("/", "/portfolio", "/crypto", "/screener", "/cashflow", "/budget", "/subscriptions", "/transactions", "/categorize", "/forecast", "/stages", "/loans", "/accounts", "/settings", "/logout")), True)
+check("each entry has an icon and a label that can fold away",
+      (body.count('<svg class="ico"') >= 18, body.count('class="nav-text"') >= 15), (True, True))
+check("the collapse and the phone drawer have their controls",
+      ('id="nav-collapse"' in body, 'id="nav-open"' in body, 'id="nav-scrim"' in body), (True, True, True))
+check("the version sits in the sidebar's foot", 'class="version-badge"' in body and __version__ in body, True)
+r = c.get("/login")
+check("signed out, there is no sidebar", b'class="sidenav"' in c.get("/logout", follow_redirects=True).data, False)
+c.post("/login", data={"username": "alex", "password": "a-good-password"})
+
+# ---------------------------------------------------------------------------
+print("\n37. The three stages")
+# ---------------------------------------------------------------------------
+from app import stages                                      # noqa: E402
+
+check("the borders: under a half is stage 1, up to two is stage 2, beyond is stage 3",
+      [stages.stage_of(x) for x in (0.0, 0.49, 0.5, 1.0, 2.0, 2.01, 10.0)], [1, 1, 2, 2, 2, 3, 3])
+check("no ratio, no stage", stages.stage_of(None), None)
+check("the crossover: twelve months' saving over the rate — 500 a month at 6 % is 100 000",
+      stages.crossover_wealth(500, 6.0), 100000.0)
+check("...and none without a rate or without saving", (stages.crossover_wealth(500, 0), stages.crossover_wealth(0, 6)), (None, None))
+p = stages.path(0.0, 500.0, 6.0, first_year=2026)
+check("from nothing, the first year is stage 1", (p["years"][0]["stage"], p["stage"]), (1, 1))
+check("...the path runs until compounding has led for five years", p["years"][-1]["stage"] == 3 and len(p["years"]) >= 10, True)
+check("...the milestones come in order", (p["milestones"]["half"]["n"] < p["milestones"]["equal"]["n"] < p["milestones"]["double"]["n"]), True)
+eq = p["milestones"]["equal"]
+check("...and the crossover year opens with about the crossover wealth — the first whole year whose returns match the savings",
+      0.9 * 100000 < eq["value"] < 1.1 * 100000, True)
+check("a year's returns plus what went in is the closing value",
+      all(abs(y["opening"] + y["put_in"] + y["returns"] - y["closing"]) < 0.01 for y in p["years"]), True)
+big = stages.path(1000000.0, 500.0, 6.0)
+check("a million at 6 % against 6 000 a year is stage 3 now", (big["stage"], round(big["ratio"], 1)), (3, 10.0))
+none = stages.path(50000.0, 0.0, 6.0)
+check("nothing going in is stage 3 by definition", (none["stage"], none["ratio"], none["crossover"]), (3, None, None))
+check("no securities and nothing going in is no stage", stages.path(0.0, 0.0, 6.0)["stage"], None)
+
+# As it went: 10 bought at 100 in January, price 110 in December, 5 EUR dividend.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Stage test', 'broker', 'EUR')")
+    tid = conn.execute("SELECT id FROM accounts WHERE name = 'Stage test'").fetchone()["id"]
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, quantity, price, external_id, source) "
+                 "VALUES (?, '2025-01-15', 'Buy', -1000, 'EUR', 'buy', 'XX0000006666', 10, 100, 'st1', 'manual')", (tid,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, external_id, source) "
+                 "VALUES (?, '2025-06-15', 'Dividend', 5, 'EUR', 'dividend', 'XX0000006666', 'st2', 'manual')", (tid,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, quantity, price, external_id, source) "
+                 "VALUES (?, '2026-02-01', 'Buy', -1200, 'EUR', 'buy', 'XX0000006666', 10, 120, 'st3', 'manual')", (tid,))
+    for day, px in (("2025-01-15", 100), ("2025-12-31", 110), ("2026-02-01", 120), ("2026-06-01", 125)):
+        conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency) VALUES ('XX0000006666', ?, ?, 'EUR')", (day, px))
+went = stages.as_it_went("EUR", [tid], today=date(2026, 7, 1))
+check("2025 as it went: 1 000 in, worth 1 100 at the end, 5 paid out — the market did 105",
+      [(y["year"], round(y["opening"]), round(y["put_in"]), round(y["income"]), round(y["returns"]), round(y["closing"])) for y in went][0],
+      (2025, 0, 1000, 5, 105, 1100))
+check("2026 so far: opened at 1 100, 1 200 in, worth 2 500 — the market did 200",
+      [(y["year"], round(y["opening"]), round(y["put_in"]), round(y["returns"]), round(y["closing"]), y["partial"]) for y in went][1],
+      (2026, 1100, 1200, 200, 2500, True))
+check("...with a ratio and a stage per year", [(round(y["ratio"], 3), y["stage"]) for y in went], [(0.105, 1), (0.167, 1)])
+check("what actually went in a month, over the last twelve months", round(stages.actual_monthly(went)), round((1200 + 1000 * (365 - went[-1]["days"]) / went[-2]["days"]) / 12))
+check("nothing recorded, nothing to say", stages.as_it_went("EUR", [account_id]), [])
+r = c.get("/stages")
+check("the page renders with the stage, the crossover and both tables",
+      (r.status_code, b"Where you stand" in r.data, b"Crossover" in r.data, b"As it went" in r.data, b"On the plan" in r.data), (200, True, True, True, True))
+r = c.get("/stages", query_string={"monthly": "1000", "rate": "7"})
+check("a monthly amount and a rate can be tried without being kept", (b"Tried, not kept" in r.data, b'value="1000"' in r.data), (True, True))
+c.post(f"/accounts/{tid}/delete", data={"confirm": "Stage test"})
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

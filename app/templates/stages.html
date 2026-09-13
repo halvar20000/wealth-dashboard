@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Stages") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("The three stages") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("Early on, what you put in is what grows the pile. Later the two pull together. Later still the return on what is there outweighs anything you could add, and the pile carries itself. One ratio tells them apart: what the market does in a year against what you put in in a year.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% set names = {1: _("Saving builds it"), 2: _("Saving and returns pull together"), 3: _("Compounding carries it")} %}
+{% set blurbs = {
+  1: _("A year of returns is less than half of what you put in. The monthly amount is the lever; the return barely moves the needle yet. Keep it boring and keep it up."),
+  2: _("A year of returns and a year of savings are of the same order — anywhere from half to twice each other. The crossover, where they are equal, is here. Both levers matter now, and a bad year can undo a year of saving."),
+  3: _("A year of returns is more than twice what you put in. The pile carries itself; what you add is a rounding error against what the market does. From here on, the risk you carry matters more than the amount you save.") } %}
+{% macro ratio_chip(r) %}{% if r is none %}—{% else %}<span class="stage-chip is-{{ 1 if r < lower else (2 if r <= upper else 3) }}">{{ '%.2f' | format(r) }}×</span>{% endif %}{% endmacro %}
+{% set st = projected.stage %}
+
+<section class="hero-block stage-hero is-{{ st or 0 }}">
+  <div class="hero-top">
+    <div>
+      <div class="hero-label">{{ _("Where you stand") }}</div>
+      <div class="hero-value">{% if st %}{{ _f("Stage {n}", n=st) }} · {{ names[st] }}{% else %}—{% endif %}</div>
+      <div class="hero-sub">
+        {% if projected.ratio is not none %}
+        {{ _f("{value} in securities at {rate} % expected is {returns} a year; {monthly} a month is {saved} a year — a ratio of {ratio}.",
+              value=money(start, base_currency), rate=rate | round(1), returns=money(start * rate / 100, base_currency),
+              monthly=money(monthly, base_currency), saved=money(12 * monthly, base_currency), ratio='%.2f' | format(projected.ratio)) }}
+        {% elif start > 0 %}{{ _("Nothing goes in a month, so everything the pile does from here is the market's — stage 3 by definition, but of a pile that only grows if the market does.") }}
+        {% else %}{{ _("No securities yet. The stages begin with the first purchase.") }}{% endif %}
+      </div>
+    </div>
+    <div class="hero-side">
+      {% if projected.crossover %}
+      <div class="hero-label">{{ _("Crossover") }}</div>
+      <div class="hero-side-value">{{ money(projected.crossover, base_currency) }}</div>
+      <div class="sub">{{ _("the wealth at which a year of returns pays a year of savings — twelve months' saving divided by the rate") }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% if st %}<p class="stage-blurb">{{ blurbs[st] }}</p>{% endif %}
+  <div class="stage-track">
+    {% for n in (1, 2, 3) %}
+    <div class="stage-step {{ 'is-here' if n == st }} {{ 'is-past' if st and n < st }}">
+      <span class="stage-num">{{ n }}</span>
+      <span class="stage-name">{{ names[n] }}</span>
+      <span class="sub">{% if n == 1 %}{{ _f("returns under {x}× savings", x=lower) }}{% elif n == 2 %}{{ _f("{a}× to {b}×", a=lower, b=upper) }}{% else %}{{ _f("over {x}×", x=upper) }}{% endif %}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<form method="get" class="card form inline" id="assume">
+  <div><label for="monthly">{{ _f("A month, in {currency}", currency=base_currency) }}</label><input id="monthly" name="monthly" inputmode="decimal" value="{{ '%g' | format(monthly) }}" style="width:120px"></div>
+  <div><label for="rate">{{ _("Expected return, % a year") }}</label><input id="rate" name="rate" inputmode="decimal" value="{{ '%g' | format(rate) }}" style="width:90px"></div>
+  <button type="submit" class="btn-ghost">{{ _("Try it") }}</button>
+  <span class="sub" style="flex-basis:100%">
+    {% if playing %}{{ _("Tried, not kept.") }} <a href="{{ url_for('stages_page') }}">{{ _("Back to the plan") }}</a> · {% endif %}
+    {{ _("The plan's figures come from the Forecast page, so they are set once.") }}
+    {% if actual %}{{ _f("The last twelve months, {amount} a month actually went into securities.", amount=money(actual, base_currency)) }}{% endif %}
+  </span>
+</form>
+
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("On the plan, year by year") }}</h2>
+    <span class="card-subtitle">{{ _("what goes in against what the market does, until compounding has been in charge for five years") }}</span>
+  </div>
+  <div class="chart-wrap" style="height:300px"><canvas id="stage-chart"></canvas></div>
+  <div class="stage-milestones">
+    {% for key, label in (('half', _("Returns reach half your savings")), ('equal', _("Returns equal your savings — the crossover")), ('double', _("Returns reach twice your savings — compounding takes over"))) %}
+    {% set m = projected.milestones.get(key) %}
+    <div class="stage-milestone {{ 'is-done' if m and m.n == 1 and projected.stage and projected.stage > loop.index0 }}">
+      <strong>{{ label }}</strong>
+      {% if m %}<span>{{ _f("in {year}, at about {value}", year=m.year, value=money(m.value, base_currency)) }}</span>
+      {% else %}<span class="sub">{{ _("not within fifty years on these figures") }}</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Year") }}</th><th class="num">{{ _("Start of year") }}</th><th class="num">{{ _("Put in") }}</th><th class="num">{{ _("Market did") }}</th><th class="num">{{ _("Ratio") }}</th><th>{{ _("Stage") }}</th><th class="num">{{ _("End of year") }}</th></tr></thead>
+      <tbody>
+      {% for y in projected.years %}
+        <tr>
+          <td>{{ y.year }}</td>
+          <td class="num sub">{{ money(y.opening, base_currency) }}</td>
+          <td class="num">{{ money(y.put_in, base_currency) }}</td>
+          <td class="num {{ 'pos' if y.returns > 0 else ('neg' if y.returns < 0) }}">{{ money(y.returns, base_currency) }}</td>
+          <td class="num">{{ ratio_chip(y.ratio) }}</td>
+          <td>{% if y.stage %}{{ _f("Stage {n}", n=y.stage) }}{% else %}—{% endif %}</td>
+          <td class="num">{{ money(y.closing, base_currency) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="sub">{{ _("Monthly compounding at the rate given, contributions at the end of each month — the same arithmetic as the Forecast. A rate is an assumption, not a promise: the world's stock market has averaged about 7 % a year over a century, with decades on either side of it.") }}</p>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("As it went") }}</h2>
+    <span class="card-subtitle">{{ _("every year the app has records of — what you put in against what the market did") }}</span>
+  </div>
+  {% if went %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Year") }}</th><th class="num">{{ _("Start of year") }}</th><th class="num">{{ _("Put in") }}</th><th class="num">{{ _("Paid out") }}</th><th class="num">{{ _("Market did") }}</th><th class="num">{{ _("Ratio") }}</th><th>{{ _("Stage") }}</th><th class="num">{{ _("End of year") }}</th></tr></thead>
+      <tbody>
+      {% for y in went %}
+        <tr>
+          <td>{{ y.year }}{% if y.partial %}<span class="sub">{{ _("so far") }}</span>{% endif %}</td>
+          <td class="num sub">{{ money(y.opening, base_currency) }}</td>
+          <td class="num">{{ money(y.put_in, base_currency) }}</td>
+          <td class="num sub">{{ money(y.income, base_currency) if y.income else '—' }}</td>
+          <td class="num {{ 'pos' if y.returns > 0 else ('neg' if y.returns < 0) }}">{{ money(y.returns, base_currency) }}</td>
+          <td class="num">{{ ratio_chip(y.ratio) }}</td>
+          <td>{% if y.stage %}{{ _f("Stage {n}", n=y.stage) }}{% else %}—{% endif %}</td>
+          <td class="num">{{ money(y.closing, base_currency) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="sub">{{ _("Market did is the value at the end of the year minus the value at the start minus what went in, plus the dividends and interest paid out — everything the money did that you did not do. A single year says little: a bad year in stage 3 looks like stage 1, and that is the point of stage 3.") }}</p>
+  {% else %}
+  <p class="sub">{{ _("No securities records yet.") }}</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  const years = {{ projected.years | map(attribute='year') | list | tojson }};
+  const putIn = {{ projected.years | map(attribute='put_in') | list | tojson }};
+  const returns = {{ projected.years | map(attribute='returns') | list | tojson }};
+  const stagesOf = {{ projected.years | map(attribute='stage') | list | tojson }};
+  if (!years.length) return;
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const lang = {{ lang | tojson }}, ccy = {{ base_currency | tojson }};
+  const fmt = (v) => v.toLocaleString(lang, { maximumFractionDigits: 0 }) + ' ' + ccy;
+  const stageColour = { 1: 'rgba(91,157,255,0.10)', 2: 'rgba(245,215,110,0.10)', 3: 'rgba(52,211,153,0.12)' };
+  const bands = {
+    id: 'bands',
+    beforeDatasetsDraw(chart) {
+      const { ctx, chartArea: a, scales: { x } } = chart;
+      years.forEach((y, i) => {
+        const left = x.getPixelForValue(i) - x.width / years.length / 2, w = x.width / years.length;
+        ctx.fillStyle = stageColour[stagesOf[i]] || 'transparent';
+        ctx.fillRect(left, a.top, w, a.bottom - a.top);
+      });
+    },
+  };
+  new Chart(document.getElementById('stage-chart'), {
+    type: 'bar',
+    data: { labels: years, datasets: [
+      { label: {{ _("Put in") | tojson }}, data: putIn, backgroundColor: css('--accent-blue'), borderRadius: 3 },
+      { label: {{ _("Market did") | tojson }}, data: returns, backgroundColor: css('--gain'), borderRadius: 3 },
+    ] },
+    plugins: [bands],
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: css('--text-secondary') } },
+                 tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmt(c.parsed.y)}`,
+                                         footer: (items) => {{ _("Stage") | tojson }} + ' ' + (stagesOf[items[0].dataIndex] || '—') } } },
+      scales: { x: { ticks: { color: css('--text-tertiary'), maxTicksLimit: 12 }, grid: { display: false } },
+                y: { ticks: { color: css('--text-tertiary'), callback: (v) => fmt(v) }, grid: { color: css('--border') } } } },
+  });
+})();
+</script>
+{% endblock %}
