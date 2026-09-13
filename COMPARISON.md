@@ -30,7 +30,7 @@ assistant.
 | Your data stays on your machine | ✔ | ✔ | ✔ | ✔ |
 | Languages | en, de, fr, es | many | several | many |
 | **Getting data in** | | | | |
-| Bank sync by API (PSD2 / open banking) | ✔ Enable Banking, 2 500+ EU banks | — | — | ◐ via Data Importer (GoCardless — closed to new sign-ups since 2025 — or Salt Edge) |
+| Bank sync by API (PSD2 / open banking) | ✔ Enable Banking, 2 500+ EU banks | — | — | ◐ via Data Importer (GoCardless — closed to new sign-ups since 2025 — or Salt Edge, which does not take private persons) |
 | Broker sync by API | ✔ Saxo, Kraken | — | — | — |
 | Broker CSV importers | ✔ Degiro, Trade Republic, DKB, Crédit Agricole (Suisse) | ✔ many | ◐ generic | — |
 | PDF statement parsers | ✔ DKB Depot, Swissquote, Yuh | ✔ dozens of brokers, the reference | — | — |
@@ -111,9 +111,9 @@ Enable Banking is, in 2026, about the last PSD2 aggregator that lets a
 private person register an application and use it for their own
 accounts. GoCardless Bank Account Data (the former Nordigen, which
 Firefly III's importer was built around) closed its free tier to new
-sign-ups in 2025 and moved existing users to business pricing; Tink,
-TrueLayer, Yapily and finAPI never took individuals. Salt Edge grants
-live access case by case. Any tool's "bank sync" column is only as
+sign-ups in 2025 and moved existing users to business pricing; Salt
+Edge, Tink, TrueLayer, Yapily and finAPI do not take private persons
+at all. Any tool's "bank sync" column is only as
 good as the aggregator behind it still being open — which is why this
 app also imports every CSV and PDF it can, and why Enable Banking is
 worth the twenty minutes of setup.
