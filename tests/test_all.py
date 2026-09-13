@@ -4686,5 +4686,57 @@ check("a monthly amount and a rate can be tried without being kept", (b"Tried, n
 c.post(f"/accounts/{tid}/delete", data={"confirm": "Stage test"})
 
 # ---------------------------------------------------------------------------
+print("\n38. A kind column supplies the sign; corrections over the MCP")
+# ---------------------------------------------------------------------------
+# The case that came back from a real import: a bank that writes the
+# amount of a purchase as a positive figure. "Kauf" says which way the
+# money went, so the sign follows the kind — as it does when typed in.
+POSITIVE_BUYS = ("Datum,Art,Betrag,ISIN,Anzahl,Kurs\n"
+                 "2026-01-05,Kauf,48.97,LU1681044563,5.2,9.41\n"
+                 "2026-02-05,Kauf,50.36,LU1681044563,5.3,9.50\n"
+                 "2026-02-20,Dividende,-3.10,LU1681044563,,\n"
+                 "2026-03-05,Verkauf,-70.00,LU1681044563,7,10.0\n"
+                 "2026-03-06,,-20.00,,,\n")
+mapping = {"txn_date": "Datum", "kind": "Art", "amount": "Betrag", "isin": "ISIN", "quantity": "Anzahl", "price": "Kurs"}
+got = [(t.kind, t.amount, t.quantity) for t in generic.parse_with(mapping, POSITIVE_BUYS).rows]
+check("a named kind supplies the sign whatever the file wrote; a kind worked out keeps the file's sign",
+      got, [("buy", -48.97, 5.2), ("buy", -50.36, 5.3), ("dividend", 3.1, None), ("sell", 70.0, -7.0), ("withdrawal", -20.0, None)])
+
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Patch test', 'broker', 'EUR')")
+    pid2 = conn.execute("SELECT id FROM accounts WHERE name = 'Patch test'").fetchone()["id"]
+    ids = []
+    for i in range(3):
+        cur = conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, quantity, price, external_id, source) "
+                           "VALUES (?, ?, 'Kauf Amundi', 48.97, 'EUR', 'buy', 'LU1681044563', 5.2, 9.41, ?, 'csv:1')", (pid2, f"2026-0{i + 1}-05", f"pt{i}"))
+        ids.append(int(cur.lastrowid))
+tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
+def call(name, **args):
+    r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": args}}, headers=HDR)
+    return r.get_json()["result"]
+out = call("update_transactions", txn_ids=ids, negate_amount=True)
+check("many rows corrected at once — the sign flipped on each",
+      (out["structuredContent"]["changed"], [t["amount"] for t in out["structuredContent"]["transactions"]]), (3, [-48.97, -48.97, -48.97]))
+out = call("update_transaction", txn_id=ids[0], price=9.5, description="Kauf Amundi, corrected")
+check("one row, only the fields given", (out["structuredContent"]["price"], out["structuredContent"]["description"], out["structuredContent"]["amount"]), (9.5, "Kauf Amundi, corrected", -48.97))
+with db.get_conn() as conn:
+    row = conn.execute("SELECT edited_at, quantity FROM transactions WHERE id = ?", (ids[0],)).fetchone()
+check("...marked as corrected, the rest untouched", (row["edited_at"] is not None, row["quantity"]), (True, 5.2))
+out = call("update_transaction", txn_id=ids[1], kind="sell")
+check("a kind change goes through the known kinds", out["structuredContent"]["kind"], "sell")
+out = call("update_transaction", txn_id=ids[1], kind="banana")
+check("...and an unknown kind is refused in a sentence", out.get("isError"), True)
+out = call("update_transaction", txn_id=999999, amount=1)
+check("a row that does not exist is refused", out.get("isError"), True)
+out = call("update_transaction", txn_id=ids[2], txn_date="2099-01-01")
+check("a date in the future is refused", out.get("isError"), True)
+out = call("delete_transactions", txn_ids=[ids[2]])
+check("rows can be deleted by id, imported or not", out["structuredContent"]["deleted"], 1)
+with db.get_conn() as conn:
+    check("...really gone", conn.execute("SELECT COUNT(*) n FROM transactions WHERE account_id = ?", (pid2,)).fetchone()["n"], 2)
+mcp.revoke()
+c.post(f"/accounts/{pid2}/delete", data={"confirm": "Patch test"})
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

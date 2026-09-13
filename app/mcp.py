@@ -465,6 +465,62 @@ def _add_transaction(account_id, kind, txn_date, amount=None, description=None,
                                     "quantity", "price")}
 
 
+_UNSET = object()          # an argument not given, as opposed to given as null
+
+
+def _given(fields: dict) -> dict:
+    return {k: v for k, v in fields.items() if v is not _UNSET}
+
+
+_TXN_KEYS = ("id", "account_id", "txn_date", "description", "counterparty", "amount",
+             "currency", "kind", "category", "isin", "security_name", "quantity", "price",
+             "fee", "tax", "source", "edited_at")
+
+
+@tool("update_transaction",
+      "Correct one transaction: change only the fields given. Signed figures as "
+      "the app stores them — amount is the cash effect from the account's side "
+      "(a buy negative, a sale or dividend positive), quantity positive for units "
+      "in, negative for units out. Works on imported rows too, and the correction "
+      "survives the next import. `negate_amount` flips the sign of the amount.",
+      {"txn_id": {"type": "integer"}, "txn_date": {"type": "string"}, "kind": {"type": "string"},
+       "description": {"type": "string"}, "counterparty": {"type": "string"},
+       "amount": {"type": "number"}, "quantity": {"type": "number"}, "price": {"type": "number"},
+       "fee": {"type": "number"}, "tax": {"type": "number"}, "isin": {"type": "string"},
+       "security_name": {"type": "string"}, "category": {"type": "string"},
+       "negate_amount": {"type": "boolean"}},
+      ["txn_id"])
+def _update_transaction(txn_id, negate_amount=False, txn_date=_UNSET, kind=_UNSET, description=_UNSET, counterparty=_UNSET, amount=_UNSET, quantity=_UNSET, price=_UNSET, fee=_UNSET, tax=_UNSET, isin=_UNSET, security_name=_UNSET, category=_UNSET):
+    rows = manual.patch_transactions([txn_id], _given({"txn_date": txn_date, "kind": kind, "description": description, "counterparty": counterparty, "amount": amount, "quantity": quantity, "price": price, "fee": fee, "tax": tax, "isin": isin, "security_name": security_name, "category": category}), negate_amount=bool(negate_amount))
+    return {k: rows[0].get(k) for k in _TXN_KEYS}
+
+
+@tool("update_transactions",
+      "The same correction on many transactions at once — the fields given are "
+      "set on every id; `negate_amount` flips each one's sign. For the case of a "
+      "whole import whose buys came in positive: the ids and negate_amount.",
+      {"txn_ids": {"type": "array", "items": {"type": "integer"}},
+       "txn_date": {"type": "string"}, "kind": {"type": "string"},
+       "description": {"type": "string"}, "counterparty": {"type": "string"},
+       "amount": {"type": "number"}, "quantity": {"type": "number"}, "price": {"type": "number"},
+       "fee": {"type": "number"}, "tax": {"type": "number"}, "isin": {"type": "string"},
+       "security_name": {"type": "string"}, "category": {"type": "string"},
+       "negate_amount": {"type": "boolean"}},
+      ["txn_ids"])
+def _update_transactions(txn_ids, negate_amount=False, txn_date=_UNSET, kind=_UNSET, description=_UNSET, counterparty=_UNSET, amount=_UNSET, quantity=_UNSET, price=_UNSET, fee=_UNSET, tax=_UNSET, isin=_UNSET, security_name=_UNSET, category=_UNSET):
+    rows = manual.patch_transactions(list(txn_ids), _given({"txn_date": txn_date, "kind": kind, "description": description, "counterparty": counterparty, "amount": amount, "quantity": quantity, "price": price, "fee": fee, "tax": tax, "isin": isin, "security_name": security_name, "category": category}), negate_amount=bool(negate_amount))
+    return {"changed": len(rows), "transactions": [{k: r.get(k) for k in _TXN_KEYS} for r in rows]}
+
+
+@tool("delete_transactions",
+      "Remove transactions by id, whatever their source. An imported row comes "
+      "back if the same file is imported again — prefer a correction where one "
+      "will do, it survives re-imports.",
+      {"txn_ids": {"type": "array", "items": {"type": "integer"}}}, ["txn_ids"])
+def _delete_transactions(txn_ids):
+    return {"deleted": manual.delete_transactions(list(txn_ids))}
+
+
 @tool("set_balance", "Record an account's balance as of a day, for an account "
       "nothing reports on.",
       {"account_id": {"type": "integer"}, "amount": {"type": "number"},

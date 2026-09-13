@@ -11,6 +11,26 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.28.1] — 2026-09-13
+
+### Added
+- **Corrections over the MCP.** `update_transaction` changes only the
+  fields given on one row — imported or typed, and the correction
+  survives the next import; `update_transactions` does the same on
+  many ids at once, with `negate_amount` to flip the sign of each;
+  `delete_transactions` removes rows by id (an imported one comes back
+  with the next import of the same file, so a correction is the
+  better tool where one will do).
+
+### Fixed
+- A CSV mapped by hand whose kind column says *Kauf* but whose amount
+  is written positive imported the purchase as money in. A kind the
+  file names now supplies the sign, as it does for a row typed in — a
+  buy, a fee, a tax or a withdrawal is money out whichever way the
+  bank wrote the figure; a sale, a dividend, interest or a deposit
+  money in. Only a kind worked out from the row keeps the row's sign.
+  (Found by Dominique, on 47 Amundi purchases.)
+
 ## [0.28.0] — 2026-09-13
 
 ### Added

@@ -1933,4 +1933,9 @@ STRINGS: dict[str, str] = {
     'what goes in against what the market does, until compounding has been in charge for five years': 'lo que entra frente a lo que hace el mercado, hasta que el interés compuesto haya mandado cinco años',
     '{a}× to {b}×': 'de {a}× a {b}×',
     '{value} in securities at {rate} % expected is {returns} a year; {monthly} a month is {saved} a year — a ratio of {ratio}.': '{value} en títulos al {rate} % esperado son {returns} al año; {monthly} al mes son {saved} al año — una proporción de {ratio}.',
+    # Corrections over the MCP (0.28.1)
+    'Nothing to change.': 'Nada que cambiar.',
+    'Transaction {id} does not exist.': 'La transacción {id} no existe.',
+    '{what} cannot be changed here.': '{what} no se puede cambiar aquí.',
+    '{what} is not a number.': '{what} no es un número.',
 }

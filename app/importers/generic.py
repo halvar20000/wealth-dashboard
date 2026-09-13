@@ -172,7 +172,15 @@ def parse_with(mapping: dict, content: bytes | str, account_currency: str = "EUR
         price = parse_decimal(cell(row, "price"))
         fee = parse_decimal(cell(row, "fee"))
         tax = parse_decimal(cell(row, "tax"))
-        kind = _kind(cell(row, "kind"), isin, quantity, amount)
+        explicit = _kind_word(cell(row, "kind"))
+        kind = explicit or _kind("", isin, quantity, amount)
+        # A kind the file names supplies the sign, as it does for a row
+        # typed in: a "Kauf" is money out whichever way the bank wrote
+        # the figure, a "Dividende" money in. Only a kind worked out
+        # from the row keeps the sign the row came with — there is
+        # nothing else to go on.
+        if explicit in _SIGN:
+            amount = _SIGN[explicit] * abs(amount)
         # The kind supplies the sign of the units, as it does for a row
         # typed in by hand; and a dividend's "units held" column is not
         # units that arrived — a holding sums every quantity it sees.
@@ -197,13 +205,27 @@ def parse_with(mapping: dict, content: bytes | str, account_currency: str = "EUR
     return result
 
 
-def _kind(word: str, isin: str | None, quantity: float | None, amount: float) -> str:
+_SIGN = {"buy": -1.0, "fee": -1.0, "tax": -1.0, "withdrawal": -1.0,
+         "sell": 1.0, "dividend": 1.0, "interest": 1.0, "deposit": 1.0}
+
+
+def _kind_word(word: str) -> str | None:
+    """The kind a kind column names, or None when it names nothing known."""
     w = " ".join(word.split()).lower()
+    if not w:
+        return None
     if w in KINDS:
         return w
     for kind, words in KIND_WORDS.items():
         if w in words or any(w.startswith(x) for x in words if len(x) > 3):
             return kind
+    return None
+
+
+def _kind(word: str, isin: str | None, quantity: float | None, amount: float) -> str:
+    known = _kind_word(word)
+    if known:
+        return known
     if isin and quantity:
         return "sell" if (quantity < 0 or (quantity > 0 and amount > 0)) else "buy"
     if isin and amount > 0:

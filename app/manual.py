@@ -275,3 +275,81 @@ def update_transaction(txn_id: int, form) -> dict:
     return {"id": txn_id, "txn_date": txn_date, "kind": kind, "amount": amount,
             "quantity": quantity, "price": price}
 
+
+# What a patch may touch — the same fields as a correction, plus the
+# security itself, because a row filed under the wrong ISIN is a row
+# on the wrong holding.
+PATCHABLE = ("txn_date", "kind", "description", "counterparty", "amount", "quantity",
+             "price", "fee", "tax", "isin", "security_name", "category")
+
+
+def patch_transactions(txn_ids: list[int], fields: dict, negate_amount: bool = False) -> list[dict]:
+    """Change the given fields on the given rows, and nothing else — for
+    the MCP, where the caller says exactly what is wrong. Signed
+    figures are taken as given: the amount is the cash effect from
+    the account's side, the quantity positive for units in. Any row,
+    imported or typed: the id that recognises it on the next import
+    stays, so the correction survives. Returns the rows as they are now.
+    """
+    from .importers.base import KINDS
+    patch: dict = {}
+    for key, value in (fields or {}).items():
+        if key not in PATCHABLE:
+            raise ValueError(i18n.f("{what} cannot be changed here.", what=key))
+        if key == "txn_date":
+            patch[key] = _date(value)
+        elif key == "kind":
+            if value not in KINDS:
+                raise ValueError(i18n.t("Pick what kind of entry this is."))
+            patch[key] = value
+        elif key in ("amount", "quantity", "price", "fee", "tax"):
+            if value is None or value == "":
+                patch[key] = None
+            else:
+                num = parse_decimal(str(value))
+                if num is None:
+                    raise ValueError(i18n.f("{what} is not a number.", what=key))
+                patch[key] = num
+            if key == "amount" and patch[key] is None:
+                raise ValueError(i18n.t("The amount is missing."))
+        elif key == "isin":
+            isin = find_isin((value or "").upper()) or (value if value and str(value).upper().startswith("CRYPTO:") else None)
+            patch[key] = isin
+        elif key == "category":
+            if value and value not in categories.all_categories():
+                raise ValueError(f"Unknown category {value!r}")
+            patch[key] = value or None
+        else:
+            patch[key] = " ".join(str(value or "").split())[:500] or None
+    if not patch and not negate_amount:
+        raise ValueError(i18n.t("Nothing to change."))
+    ids = [int(i) for i in txn_ids]
+    out = []
+    with get_conn() as conn:
+        for txn_id in ids:
+            row = conn.execute("SELECT * FROM transactions WHERE id = ?", (txn_id,)).fetchone()
+            if row is None:
+                raise ValueError(i18n.f("Transaction {id} does not exist.", id=txn_id))
+            sets = dict(patch)
+            if negate_amount:
+                sets["amount"] = -(sets.get("amount", row["amount"]))
+            if "description" in sets and sets["description"] is None:
+                sets["description"] = row["description"]
+            cols = ", ".join(f"{k} = ?" for k in sets)
+            conn.execute(f"UPDATE transactions SET {cols}, edited_at = datetime('now') WHERE id = ?",
+                         [*sets.values(), txn_id])
+            out.append(dict(conn.execute("SELECT * FROM transactions WHERE id = ?", (txn_id,)).fetchone()))
+    return out
+
+
+def delete_transactions(txn_ids: list[int]) -> int:
+    """Remove rows, whatever their source — for the MCP, where the
+    caller has looked at them. An imported row comes back if the same
+    file is imported again, because its id is in the file; a
+    correction survives that, a deletion does not."""
+    ids = [int(i) for i in txn_ids]
+    if not ids:
+        return 0
+    with get_conn() as conn:
+        cur = conn.execute(f"DELETE FROM transactions WHERE id IN ({','.join('?' * len(ids))})", ids)
+        return cur.rowcount
