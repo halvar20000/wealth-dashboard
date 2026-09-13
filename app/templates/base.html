@@ -24,6 +24,7 @@
   {'key': 'invest', 'label': _("Investing"), 'items': [
      ('portfolio', url_for('portfolio_page'), _("Portfolio"), 'portfolio'),
      ('crypto', url_for('crypto_page'), _("Crypto"), 'crypto'),
+     ('allocation', url_for('allocation_page'), _("Allocation"), 'allocation'),
      ('ideas', url_for('screener_page'), _("Share Ideas"), 'screener')]},
   {'key': 'money', 'label': _("Money"), 'items': [
      ('cashflow', url_for('cashflow_page'), _("Cash Flow"), 'cashflow'),
@@ -109,7 +110,7 @@
       <h1>{% block heading %}{% endblock %}</h1>
       {% endif %}
     {% endblock %}
-    {% if view_person and active_page in ('overview', 'portfolio', 'crypto', 'loans', 'cashflow', 'budget', 'forecast', 'stages', 'subscriptions', 'transactions', 'categorize', 'accounts') %}
+    {% if view_person and active_page in ('overview', 'portfolio', 'crypto', 'allocation', 'loans', 'cashflow', 'budget', 'forecast', 'stages', 'subscriptions', 'transactions', 'categorize', 'accounts') %}
     <p class="view-note">{{ _f("Only {name}'s accounts are counted on this page.", name=view_person.name) }}</p>
     {% endif %}
     {% block lede %}{% endblock %}

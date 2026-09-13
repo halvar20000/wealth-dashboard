@@ -2200,7 +2200,7 @@ from app import changelog, i18n, main                      # noqa: E402
 
 TEMPLATES = pathlib.Path(__file__).resolve().parent.parent / "app" / "templates"
 SOURCES = [pathlib.Path(__file__).resolve().parent.parent / "app" / f
-           for f in ("main.py", "categories.py", "auth.py", "manual.py", "loans.py", "splits.py",
+           for f in ("main.py", "categories.py", "auth.py", "manual.py", "loans.py", "splits.py", "allocation.py",
                      "screener.py", "screener_etf.py")]
 
 
@@ -2229,6 +2229,8 @@ def wanted_keys() -> set:
     # The label tables, which are data rather than calls.
     keys |= set(main.ACCOUNT_TYPES.values())
     keys |= {f"{k} [kind]" for k in main.KINDS}
+    keys |= {f"{v} [class]" for v in main.ASSET_CLASS_LABELS.values()}
+    keys |= {f"{v} [region]" for v in main.REGION_LABELS.values()}
     keys |= {f"{r} [rhythm]" for r in main.RHYTHMS}
     keys |= {f"{s} [changelog]" for s in changelog.SECTIONS}
     keys |= {name for name, _colour, _group in cat.BUILTIN.values()}
@@ -4846,6 +4848,79 @@ for x in cat.rules():
     if x["pattern"] in ("amazon", "amazon web", "refund"):
         cat.delete_rule(x["id"])
 c.post(f"/accounts/{rid}/delete", data={"confirm": "Rules test"})
+
+# ---------------------------------------------------------------------------
+print("\n42. Allocation, with targets")
+# ---------------------------------------------------------------------------
+from app import allocation                                  # noqa: E402
+
+check("a world ETF is world equity", allocation.guess("iShares Core MSCI World UCITS ETF", "ETF", "IE00BFY0GT14"), {"asset_class": "equity", "region": "world"})
+check("a bond fund is bonds", allocation.guess("Xtrackers II Eurozone Government Bond UCITS ETF", "ETF")["asset_class"], "bond")
+check("...so is a money-market fund", allocation.guess("Amundi Euro Overnight Return", "ETF")["asset_class"], "bond")
+check("an emerging-markets fund", allocation.guess("Amundi MSCI Emerging Markets", "ETF")["region"], "emerging")
+check("a Swiss fund", allocation.guess("AMUNDI MSCI SWITZERLAND", "ETF")["region"], "switzerland")
+check("gold is a commodity", allocation.guess("Xetra-Gold", "ETF")["asset_class"], "commodity")
+check("a coin is crypto whatever it is called", allocation.guess("Bitcoin", None, "CRYPTO:BTC")["asset_class"], "crypto")
+check("a single share: equity, its region from the ISIN", (allocation.guess("Amazon.com Inc.", "EQUITY", "US0231351067"), allocation.guess("Nestlé", "EQUITY", "CH0038863350")["region"]),
+      ({"asset_class": "equity", "region": "north_america"}, "switzerland"))
+check("a name that says nothing is equity of no region", allocation.guess("Example Holdings", "EQUITY", "XX0000000001"), {"asset_class": "equity", "region": None})
+
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Alloc broker', 'broker', 'EUR')")
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Alloc cash', 'current', 'EUR')")
+    ab = conn.execute("SELECT id FROM accounts WHERE name = 'Alloc broker'").fetchone()["id"]
+    ac = conn.execute("SELECT id FROM accounts WHERE name = 'Alloc cash'").fetchone()["id"]
+    for i, (isin, name, q, px) in enumerate((("IE00BFY0GT14", "iShares Core MSCI World", 60, 100.0),
+                                            ("LU1737652583", "Amundi MSCI Emerging Markets", 20, 100.0),
+                                            ("IE00B3F81409", "iShares Euro Government Bond", 20, 100.0))):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, quantity, price, external_id, source) "
+                     "VALUES (?, '2026-01-10', 'Kauf', ?, 'EUR', 'buy', ?, ?, ?, ?, ?, 'manual')", (ab, -q * px, isin, name, q, px, f"al{i}"))
+        conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency) VALUES (?, '2026-09-01', ?, 'EUR')", (isin, px))
+    conn.execute("INSERT INTO balances (account_id, amount, currency, balance_type, as_of) VALUES (?, 2000, 'EUR', 'manual', '2026-09-01')", (ac,))
+summ = ov.summary("EUR", account_ids=[ab, ac])
+data = allocation.breakdown(summ)
+by_class = {r["key"]: round(r["share"], 1) for r in data["dimensions"]["asset_class"]["rows"]}
+check("the asset classes: 8 000 equity, 2 000 bonds, 2 000 cash of 12 000", by_class, {"equity": 66.7, "bond": 16.7, "cash": 16.7})
+by_region = {r["key"]: round(r["value"]) for r in data["dimensions"]["region"]["rows"]}
+check("the regions, guessed", by_region, {"world": 6000, "emerging": 2000, "europe": 2000})
+check("nothing is in a bucket yet", [r["key"] for r in data["dimensions"]["bucket"]["rows"]], ["unassigned"])
+check("...and every holding is marked as guessed", all(h["guessed"] for h in data["holdings"]), True)
+
+allocation.set_targets("asset_class", {"equity": "60", "bond": "30", "cash": "10"})
+data = allocation.breakdown(summ, contribution=1200)
+rows = {r["key"]: r for r in data["dimensions"]["asset_class"]["rows"]}
+check("drift against the targets", (round(rows["equity"]["drift"], 1), round(rows["bond"]["drift"], 1), round(rows["cash"]["drift"], 1)), (6.7, -13.3, 6.7))
+check("...and the gap in money", (round(rows["bond"]["gap"]), round(rows["equity"]["gap"])), (1600, -800))
+# After 1 200 more the pile is 13 200: bond's target is 3 960, it has 2 000 → short 1 960; cash's 1 320 vs 2 000 → 0; equity 7 920 vs 8 000 → 0. All of it to bonds.
+check("a contribution goes where the shortfall is — all of it to bonds here", (round(rows["bond"]["buy"]), round(rows["equity"]["buy"]), round(rows["cash"]["buy"])), (1200, 0, 0))
+allocation.set_targets("asset_class", {"equity": "50", "bond": "50"})
+data = allocation.breakdown(summ, contribution=10000)
+rows = {r["key"]: r for r in data["dimensions"]["asset_class"]["rows"]}
+check("...and is split in proportion to the shortfalls when several are short", (round(rows["bond"]["buy"]), round(rows["equity"]["buy"])), (7500, 2500))
+try:
+    allocation.set_targets("asset_class", {"equity": "70", "bond": "40"}); check("targets over a hundred are refused", False, True)
+except ValueError:
+    check("targets over a hundred are refused", True, True)
+allocation.set_class("IE00B3F81409", "bond", "europe", "Core")
+allocation.set_class("IE00BFY0GT14", "equity", "world", "Core")
+data = allocation.breakdown(summ)
+check("a bucket of the user's own, and the guess mark gone", ({r["key"]: round(r["value"]) for r in data["dimensions"]["bucket"]["rows"]},
+      [h["guessed"] for h in data["holdings"] if h["isin"] == "IE00BFY0GT14"]), ({"Core": 8000, "unassigned": 2000}, [False]))
+r = c.get("/allocation", query_string={"contribution": "500"})
+check("the page renders the three dimensions, the classification table and the spread",
+      (r.status_code, b'id="asset_class"' in r.data, b'id="region"' in r.data, b'id="bucket"' in r.data, b"What each holding is" in r.data, b">Buy<" in r.data), (200, True, True, True, True, True))
+r = c.post("/allocation", data={"form": "targets", "dimension": "region", "target_world": "70", "target_emerging": "10", "new_key": "europe", "new_pct": "20"}, follow_redirects=True)
+check("targets are set from the page, a new key included", (b"Targets saved" in r.data, allocation.targets("region")), (True, {"world": 70.0, "emerging": 10.0, "europe": 20.0}))
+r = c.post("/allocation", data={"form": "classify", "isin": "LU1737652583", "asset_class": "equity", "region": "emerging", "bucket": "Satellite"}, follow_redirects=True)
+check("a holding is classified from the page", (b"Classification saved" in r.data, allocation.breakdown(summ)["dimensions"]["bucket"]["rows"][1]["key"]), (True, "Satellite"))
+tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
+r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "allocation", "arguments": {"contribution": 1000}}}, headers=HDR)
+check("the MCP tool returns the breakdown", "asset_class" in r.get_json()["result"]["structuredContent"]["dimensions"], True)
+mcp.revoke()
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM allocation_targets"); conn.execute("DELETE FROM security_classes")
+c.post(f"/accounts/{ab}/delete", data={"confirm": "Alloc broker"})
+c.post(f"/accounts/{ac}/delete", data={"confirm": "Alloc cash"})
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

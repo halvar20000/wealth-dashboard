@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Allocation") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Allocation") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("Where the money is by what it is — asset class, region, and buckets of your own — against where you meant it to be. Set a target per key and the page shows the drift; give it the amount you are about to invest and it says how to spread it so the drift shrinks, without selling anything.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% set dim_titles = {'asset_class': _("By asset class"), 'region': _("By region"), 'bucket': _("By bucket")} %}
+{% set dim_notes = {'asset_class': _("Cash is every account balance; the rest is each holding's class."),
+                    'region': _("Where a fund invests, or where a share is listed — guessed from the name and the ISIN, yours to correct."),
+                    'bucket': _("Your own taxonomy — Core and Satellite, Safe and Play, whatever you think in. Nothing is guessed here.")} %}
+
+{% if not data.holdings and not data.cash %}
+<div class="card empty"><p>{{ _("Nothing to allocate yet — no holdings and no cash balance.") }}</p></div>
+{% else %}
+
+<form method="get" class="card form inline" id="contribution">
+  <div><label for="contribution">{{ _f("About to invest, in {currency}", currency=base_currency) }}</label><input id="contribution" name="contribution" inputmode="decimal" value="{{ '%g' | format(contribution) if contribution else '' }}" placeholder="1000" style="width:130px"></div>
+  <button type="submit" class="btn-ghost">{{ _("Spread it") }}</button>
+  <span class="sub" style="flex-basis:100%">{{ _f("{total} in total — {cash} of it cash.", total=money(data.total, base_currency), cash=money(data.cash, base_currency)) }} {{ _("Buying only: the keys below their target get the amount in proportion to how far below they are.") }}</span>
+</form>
+
+<div class="alloc-grid">
+{% for dim in dimensions %}
+{% set d = data.dimensions[dim] %}
+<section class="card" id="{{ dim }}">
+  <div class="card-header"><h2>{{ dim_titles[dim] }}</h2>
+    <span class="card-subtitle">{% if d.has_targets %}{{ _f("targets set for {pct} %", pct='%g' | format(d.target_sum)) }}{% else %}{{ _("no targets yet") }}{% endif %}</span></div>
+  <div class="alloc-body">
+    <div class="chart-wrap alloc-chart"><canvas id="chart-{{ dim }}"></canvas></div>
+    <form method="post" class="alloc-table">
+      <input type="hidden" name="form" value="targets">
+      <input type="hidden" name="dimension" value="{{ dim }}">
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>{{ _("Key") }}</th><th class="num">{{ _("Value") }}</th><th class="num">{{ _("Share") }}</th><th class="num">{{ _("Target") }}</th><th class="num">{{ _("Drift") }}</th>{% if contribution %}<th class="num">{{ _("Buy") }}</th>{% endif %}</tr></thead>
+          <tbody>
+          {% for r in d.rows %}
+            <tr>
+              <td>{{ r.label }}</td>
+              <td class="num">{{ money(r.value, base_currency) }}</td>
+              <td class="num">{{ '%.1f' | format(r.share) }} %</td>
+              <td class="num"><input name="target_{{ r.key }}" inputmode="decimal" value="{{ '%g' | format(r.target) if r.target is not none else '' }}" placeholder="—" class="alloc-target"> %</td>
+              <td class="num">{% if r.drift is not none %}<span class="{{ 'pos' if r.drift > 0.5 else ('neg' if r.drift < -0.5) }}">{{ '%+.1f' | format(r.drift) }} %</span><span class="sub">{{ _f("{amount} to target", amount=money(r.gap, base_currency)) }}</span>{% else %}—{% endif %}</td>
+              {% if contribution %}<td class="num">{% if r.buy %}<strong>{{ money(r.buy, base_currency) }}</strong>{% else %}—{% endif %}</td>{% endif %}
+            </tr>
+          {% endfor %}
+            <tr>
+              <td colspan="{{ 6 if contribution else 5 }}" class="sub">
+                {% if dim == 'asset_class' %}
+                <select name="new_key" style="width:auto"><option value="">{{ _("add a target for…") }}</option>{% for k in asset_classes if k not in (d.rows | map(attribute='key') | list) %}<option value="{{ k }}">{{ class_label(k) }}</option>{% endfor %}</select>
+                {% elif dim == 'region' %}
+                <select name="new_key" style="width:auto"><option value="">{{ _("add a target for…") }}</option>{% for k in regions if k not in (d.rows | map(attribute='key') | list) %}<option value="{{ k }}">{{ region_label(k) }}</option>{% endfor %}</select>
+                {% else %}
+                <input name="new_key" placeholder="{{ _('a bucket, like Core') }}" style="width:150px">
+                {% endif %}
+                <input name="new_pct" inputmode="decimal" placeholder="%" class="alloc-target"> %
+                <button type="submit" class="btn-ghost">{{ _("Save targets") }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </form>
+  </div>
+  <p class="sub">{{ dim_notes[dim] }}</p>
+</section>
+{% endfor %}
+</div>
+
+<section class="card" id="classify">
+  <div class="card-header"><h2>{{ _("What each holding is") }}</h2>
+    <span class="card-subtitle">{{ _("guessed from the name and Yahoo's type; a guess is marked until you confirm it") }}</span></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Security") }}</th><th class="num">{{ _("Value") }}</th><th>{{ _("Asset class") }}</th><th>{{ _("Region") }}</th><th>{{ _("Bucket") }}</th><th></th></tr></thead>
+      <tbody>
+      {% for h in data.holdings %}
+        <tr>
+          <td><a href="{{ url_for('security_page', isin=h.isin) }}">{{ h.name or h.isin }}</a><span class="sub">{{ h.isin }}{% if h.guessed %} · {{ _("guessed") }}{% endif %}</span></td>
+          <td class="num">{{ money(h.value_base, base_currency) if h.value_base else '—' }}</td>
+          <form method="post" id="cls-{{ loop.index }}"><input type="hidden" name="form" value="classify"><input type="hidden" name="isin" value="{{ h.isin }}"></form>
+          <td><select name="asset_class" form="cls-{{ loop.index }}" style="width:auto">{% for k in asset_classes %}<option value="{{ k }}" {{ 'selected' if k == h.asset_class }}>{{ class_label(k) }}</option>{% endfor %}</select></td>
+          <td><select name="region" form="cls-{{ loop.index }}" style="width:auto"><option value="">—</option>{% for k in regions %}<option value="{{ k }}" {{ 'selected' if k == h.region }}>{{ region_label(k) }}</option>{% endfor %}{% if h.region and h.region not in regions %}<option value="{{ h.region }}" selected>{{ h.region }}</option>{% endif %}</select></td>
+          <td><input name="bucket" form="cls-{{ loop.index }}" value="{{ h.bucket or '' }}" placeholder="—" style="width:130px"></td>
+          <td class="num"><button type="submit" form="cls-{{ loop.index }}" class="btn-ghost">{{ _("Save") }}</button></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if data.holdings or data.cash %}
+<script>
+(() => {
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const lang = {{ lang | tojson }}, ccy = {{ base_currency | tojson }};
+  const palette = [css('--accent-blue'), css('--accent-purple'), css('--gain'), css('--accent-gold'), css('--accent-orange'), css('--loss'), '#7dd3fc', '#c4b5fd', '#86efac'];
+  const data = {};
+  {% for dim in dimensions %}
+  data[{{ dim | tojson }}] = { labels: {{ data.dimensions[dim].rows | map(attribute='key') | list | tojson }}, values: {{ data.dimensions[dim].rows | map(attribute='value') | list | tojson }},
+    names: {{ data.dimensions[dim].rows | map(attribute='label') | list | tojson }} };
+  {% endfor %}
+  for (const dim of Object.keys(data)) {
+    const d = data[dim];
+    if (!d.values.some((v) => v > 0)) continue;
+    new Chart(document.getElementById('chart-' + dim), {
+      type: 'doughnut',
+      data: { labels: d.names, datasets: [{ data: d.values, backgroundColor: palette, borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '62%',
+        plugins: { legend: { position: 'bottom', labels: { color: css('--text-secondary'), boxWidth: 10 } },
+                   tooltip: { callbacks: { label: (c) => `${c.label}: ${c.parsed.toLocaleString(lang, { maximumFractionDigits: 0 })} ${ccy}` } } } },
+    });
+  }
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -789,3 +789,11 @@ a.period-btn:hover { text-decoration: none; }
 .subnav-link { padding: 7px 14px; border-radius: 9px; color: var(--text-secondary); font-size: 13px; font-weight: 500; white-space: nowrap; }
 .subnav-link:hover { color: var(--text-primary); text-decoration: none; background: var(--bg-elevated); }
 .subnav-link.active { color: var(--text-primary); background: var(--bg-elevated); box-shadow: 0 0 0 1px var(--border-strong) inset; }
+
+/* ─── Allocation ─────────────────────────────────────────────── */
+
+.alloc-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.alloc-body { display: grid; grid-template-columns: 240px 1fr; gap: 18px; align-items: start; }
+.alloc-chart { height: 240px; }
+.alloc-target { width: 64px; padding: 5px 8px; font-size: 12.5px; text-align: right; }
+@media (max-width: 800px) { .alloc-body { grid-template-columns: 1fr; } }

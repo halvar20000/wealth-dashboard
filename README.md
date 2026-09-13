@@ -60,6 +60,9 @@ a PSD2 API it connects directly, with credentials that are yours.
   page has both for the securities as one investment. Sales are set
   against the cost of the units they sold — **FIFO or average cost**,
   a setting — for the realised gain per sale, per year and per holding.
+- **Allocation** — by asset class, region and buckets of your own,
+  each holding classified once (guessed, then yours), with targets, the
+  drift, and how to spread the next contribution so the drift shrinks.
 - **Crypto** — every coin held, its price and the wallet's value over
   time, from Kraken or typed in by hand.
 - **Loans and mortgages** — the terms in, the amortisation schedule out:
@@ -85,7 +88,8 @@ a PSD2 API it connects directly, with credentials that are yours.
 
 ## What is not here yet
 
-Asset allocation with targets, benchmark comparison. See
+Benchmark comparison, a dividend calendar, bills and savings goals,
+tags, a REST API. See
 [ROADMAP.md](ROADMAP.md) — and [COMPARISON.md](COMPARISON.md) for where
 this stands beside Portfolio Performance, Wealthfolio and Firefly III,
 feature by feature.

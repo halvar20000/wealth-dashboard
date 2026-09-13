@@ -69,7 +69,15 @@ it does not do yet.
 - [x] A generic CSV importer with a saved column mapping, recognised by
       the file's header.
 - [x] CSV export of transactions and holdings, filtered as the page is.
-- [ ] Allocation by asset class, with targets.
+- [x] Allocation by asset class, region and bucket, with targets and a
+      contribution spread.
+- [ ] Rules engine: more triggers (account, kind, day of month) and actions
+      (rename, tag, mark as transfer).
+- [ ] Benchmark comparison on the portfolio and security pages.
+- [ ] Bills (expected recurring payments, due, missed) and savings goals.
+- [ ] A dividend calendar: paid so far, and what is due next.
+- [ ] Tags on transactions.
+- [ ] A REST API over the MCP tools, and webhooks on sync.
 
 ## Next
 

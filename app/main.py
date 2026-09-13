@@ -42,7 +42,7 @@ from flask import (Flask, flash, g, jsonify, redirect, render_template,
 from . import __version__, auth, changelog, fx, i18n, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import (cashflow, categories, crypto, export, forecast, gains, history, importers, loans,
+from . import (allocation, cashflow, categories, crypto, export, forecast, gains, history, importers, loans,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, splits, stages, subscriptions)
 from . import brokers
@@ -162,6 +162,12 @@ KINDS = {"deposit": "deposit", "withdrawal": "withdrawal", "buy": "buy",
          "other": "other", "split": "split"}
 
 
+# What a security is, as allocation.py names it — shown through the
+# catalogue with a context suffix, like the kinds.
+ASSET_CLASS_LABELS = allocation.CLASS_NAMES
+REGION_LABELS = allocation.REGION_NAMES
+
+
 # How often a subscription repeats, as subscriptions.py names it.
 RHYTHMS = ("weekly", "monthly", "quarterly", "half-yearly", "yearly")
 
@@ -184,6 +190,7 @@ def _globals():
             "categories": categories,
             "account_types": ACCOUNT_TYPES, "type_label": _type_label,
             "kind_label": _kind_label, "rhythm_label": _rhythm_label,
+            "class_label": allocation.class_label, "region_label": allocation.region_label,
             "asset_version": _ASSET_VERSION,
             "version": __version__,
             # The household, and whose picture the header is set to.
@@ -1426,6 +1433,49 @@ def _retirement_blocks(cfg: dict, base: str, plans: dict) -> dict:
         })
     return {"blocks": blocks, "without_birthday": without_birthday,
             "no_people": not everyone}
+
+
+@app.route("/allocation", methods=["GET", "POST"])
+@auth.login_required
+def allocation_page():
+    """Where the money is by what it is — asset class, region, the
+    user's own buckets — against the targets, with a contribution
+    spread so the drift shrinks. See allocation.py."""
+    if request.method == "POST":
+        f = request.form
+        try:
+            if f.get("form") == "classify":
+                allocation.set_class(f.get("isin", "").strip(), f.get("asset_class"), f.get("region"), f.get("bucket"))
+                flash(_t("Classification saved."), "ok")
+            elif f.get("form") == "targets":
+                dim = f.get("dimension", "")
+                values = {k[len("target_"):]: v for k, v in f.items() if k.startswith("target_")}
+                new_key = " ".join((f.get("new_key") or "").split())[:40]
+                if new_key:
+                    values[new_key] = f.get("new_pct")
+                allocation.set_targets(dim, values)
+                flash(_t("Targets saved."), "ok")
+        except ValueError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("allocation_page") + "#" + (f.get("dimension") or f.get("form") or ""))
+    base = settings.get("base_currency", "EUR")
+    s = overview.summary(base, account_ids=people.scope())
+    contribution = max(0.0, forecast._num(request.args.get("contribution"), 0.0))
+    data = allocation.breakdown(s, contribution)
+    for dim, d in data["dimensions"].items():
+        for r in d["rows"]:
+            if r["key"] == "unassigned":
+                r["label"] = _t("unassigned")
+            elif dim == "asset_class":
+                r["label"] = allocation.class_label(r["key"])
+            elif dim == "region":
+                r["label"] = allocation.region_label(r["key"]) if r["key"] in allocation.REGIONS else r["key"]
+            else:
+                r["label"] = r["key"]
+    return render_template("allocation.html", active_page="allocation", s=s, data=data,
+                           contribution=contribution, base_currency=base,
+                           asset_classes=allocation.ASSET_CLASSES, regions=allocation.REGIONS,
+                           dimensions=allocation.DIMENSIONS)
 
 
 @app.route("/stages")

@@ -11,6 +11,24 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.31.0] — 2026-09-13
+
+### Added
+- **Allocation, with targets.** A page under Investing that cuts the
+  portfolio three ways — by asset class (equity, bonds, real estate,
+  commodities, cash, crypto), by region (world, Europe, North America,
+  emerging markets, Asia Pacific, Switzerland, Germany) and by buckets
+  of your own (Core and Satellite, whatever you think in) — each with
+  a donut and a table of value and share. Every holding is classified
+  once, guessed from its name, its ISIN and what Yahoo says it is, and
+  marked as a guess until you confirm or change it in the table at the
+  bottom. Set a target per key and the page shows the drift and the
+  money to target; type the amount you are about to invest and it says
+  how to spread it so the drift shrinks — buying only, the keys below
+  target in proportion to their shortfall, because selling has tax
+  consequences the app does not know. MCP: `allocation`,
+  `set_security_class`, `set_allocation_targets`.
+
 ## [0.30.0] — 2026-09-13
 
 ### Added

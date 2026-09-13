@@ -363,6 +363,27 @@ CREATE TABLE IF NOT EXISTS screener_watchlist (
     added_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- What a security is, for the allocation: an asset class, a region,
+-- and a bucket of the user's own — "Core", "Satellite", "Play money".
+-- Guessed once from the name and Yahoo's type, kept once typed. See
+-- allocation.py.
+CREATE TABLE IF NOT EXISTS security_classes (
+    isin        TEXT PRIMARY KEY,
+    asset_class TEXT,
+    region      TEXT,
+    bucket      TEXT,
+    guessed     INTEGER NOT NULL DEFAULT 1,   -- 1 until a person set it
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- The target share of each class, region or bucket, in percent.
+CREATE TABLE IF NOT EXISTS allocation_targets (
+    dimension  TEXT NOT NULL,                 -- asset_class | region | bucket
+    key        TEXT NOT NULL,
+    target_pct REAL NOT NULL,
+    PRIMARY KEY (dimension, key)
+);
+
 -- A column mapping the user drew for a CSV no built-in importer knows,
 -- keyed on the file's header so the next export from the same bank is
 -- recognised without asking again. See importers/generic.py.

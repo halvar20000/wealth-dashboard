@@ -250,6 +250,41 @@ def _record_split(isin, date, ratio, person=None):
     return {"written": splits.record(isin.strip(), date, ratio, _scope(person))}
 
 
+@tool("allocation",
+      "Where the money is by asset class, region and the user's own buckets: per key "
+      "the value, share, target, drift and — given a contribution — how much of it to "
+      "put there. Also each holding's classification.",
+      {"contribution": {"type": "number"}, "person": PERSON})
+def _allocation(contribution=0, person=None):
+    from . import allocation
+    return allocation.breakdown(overview.summary(_base(), account_ids=_scope(person)),
+                                float(contribution or 0))
+
+
+@tool("set_security_class",
+      "Classify a holding: asset class (equity, bond, real_estate, commodity, cash, "
+      "crypto, other), region (world, europe, north_america, emerging, asia_pacific, "
+      "switzerland, germany, other or free text) and bucket (free text).",
+      {"isin": {"type": "string"}, "asset_class": {"type": "string"},
+       "region": {"type": "string"}, "bucket": {"type": "string"}}, ["isin"])
+def _set_security_class(isin, asset_class=None, region=None, bucket=None):
+    from . import allocation
+    allocation.set_class(isin.strip(), asset_class, region, bucket)
+    return {"isin": isin, "asset_class": asset_class, "region": region, "bucket": bucket}
+
+
+@tool("set_allocation_targets",
+      "Replace the targets of one dimension (asset_class, region or bucket): a map of "
+      "key to percent. Keys left out lose their target; the sum may not exceed 100.",
+      {"dimension": {"type": "string", "enum": ["asset_class", "region", "bucket"]},
+       "targets": {"type": "object", "additionalProperties": {"type": "number"}}},
+      ["dimension", "targets"])
+def _set_allocation_targets(dimension, targets):
+    from . import allocation
+    allocation.set_targets(dimension, dict(targets))
+    return {"dimension": dimension, "targets": allocation.targets(dimension)}
+
+
 @tool("net_worth_history",
       "Net worth on a set of days across a period, rebuilt from the records.",
       {"period": {"type": "string", "enum": sorted(history.PERIODS),
