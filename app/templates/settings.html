@@ -242,7 +242,13 @@
   {% if mcp_token %}
   <p class="sub">{{ _("For Claude Code on your network, this is the whole setup:") }}</p>
   <pre class="mcp-cmd">claude mcp add --transport http wealth {{ mcp_url }} --header "Authorization: Bearer {{ mcp_token }}"</pre>
-  <p class="sub">{{ _("For Claude Desktop, point the mcp-remote bridge at the same URL with the same header. The endpoint is only reachable where the dashboard is — it is not published to the internet.") }}</p>
+  <p class="sub">{{ _("For Claude Desktop, which only speaks to local processes, the mcp-remote bridge carries the same URL and header. This goes into claude_desktop_config.json under mcpServers:") }}</p>
+  <pre class="mcp-cmd">"wealth": {
+  "command": "npx",
+  "args": ["-y", "mcp-remote", "{{ mcp_url }}", "--transport", "http-only",
+           "--header", "Authorization: Bearer {{ mcp_token }}"]
+}</pre>
+  <p class="sub">{{ _("Two things that cost people an afternoon. The URL is the one the browser reaches the dashboard at: behind a reverse proxy that is the https:// address, not the container's http:// one — the address above is what this page was opened at, so it is right if this page was. And --transport http-only matters: without it mcp-remote first tries the older SSE transport, which this endpoint does not speak, and reports a connection failure that is not one.") }}</p>
   {% endif %}
   <form method="post" class="form inline">
     <input type="hidden" name="form" value="mcp_token">

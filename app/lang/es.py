@@ -1574,8 +1574,6 @@ STRINGS: dict[str, str] = {
     'Claude and other assistants (MCP)': 'Claude y otros asistentes (MCP)',
     'Create a token': 'Crear un token',
     'For Claude Code on your network, this is the whole setup:': 'Para Claude Code en tu red, esta es toda la configuración:',
-    'For Claude Desktop, point the mcp-remote bridge at the same URL with the same header. The endpoint is only reachable where the dashboard is — it is not published to the internet.':
-        'Para Claude Desktop, apunta el puente mcp-remote a la misma URL con la misma cabecera. El punto de acceso solo es alcanzable donde lo es el panel: no se publica en internet.',
     'Replace the token': 'Sustituir el token',
     'Revoke': 'Revocar',
     'Token created. Any earlier token stopped working.': 'Token creado. Cualquier token anterior ha dejado de funcionar.',
@@ -1938,4 +1936,7 @@ STRINGS: dict[str, str] = {
     'Transaction {id} does not exist.': 'La transacción {id} no existe.',
     '{what} cannot be changed here.': '{what} no se puede cambiar aquí.',
     '{what} is not a number.': '{what} no es un número.',
+    # MCP setup notes (0.28.2)
+    'For Claude Desktop, which only speaks to local processes, the mcp-remote bridge carries the same URL and header. This goes into claude_desktop_config.json under mcpServers:': 'Para Claude Desktop, que solo habla con procesos locales, el puente mcp-remote lleva la misma URL y la misma cabecera. Esto va en claude_desktop_config.json bajo mcpServers:',
+    "Two things that cost people an afternoon. The URL is the one the browser reaches the dashboard at: behind a reverse proxy that is the https:// address, not the container's http:// one — the address above is what this page was opened at, so it is right if this page was. And --transport http-only matters: without it mcp-remote first tries the older SSE transport, which this endpoint does not speak, and reports a connection failure that is not one.": 'Dos cosas que cuestan una tarde. La URL es aquella en la que el navegador llega al panel: detrás de un proxy inverso es la dirección https://, no la http:// del contenedor — la dirección de arriba es en la que se abrió esta página, así que es correcta si esta página lo es. Y --transport http-only importa: sin él, mcp-remote prueba primero el antiguo transporte SSE, que este punto de acceso no habla, e informa de un fallo de conexión que no lo es.',
 }

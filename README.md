@@ -205,11 +205,30 @@ claude mcp add --transport http wealth http://<your-host>:8000/mcp \
   --header "Authorization: Bearer <token>"
 ```
 
-For Claude Desktop, point the `mcp-remote` bridge at the same URL with the
-same header. The endpoint is reachable wherever the dashboard is and
-nowhere else — nothing is published to the internet — which means the
-claude.ai website and phone apps cannot reach it unless you put the app
-behind a public HTTPS proxy, which this README does not recommend.
+Claude Desktop only speaks to local processes, so the `mcp-remote` bridge
+carries the same URL and header. In `claude_desktop_config.json`, under
+`mcpServers`:
+
+```json
+"wealth": {
+  "command": "npx",
+  "args": ["-y", "mcp-remote", "https://<your-host>/mcp", "--transport", "http-only",
+           "--header", "Authorization: Bearer <token>"]
+}
+```
+
+Two things that cost people an afternoon. The URL is the one the browser
+reaches the dashboard at: behind a reverse proxy that is the `https://`
+address, not the container's `http://` one — the Settings page prints the
+address it was opened at, which is the right one. And `--transport
+http-only` matters: without it `mcp-remote` first tries the older SSE
+transport, which this endpoint does not speak, and reports a connection
+failure that is not one.
+
+The endpoint is reachable wherever the dashboard is and nowhere else —
+nothing is published to the internet — which means the claude.ai website
+and phone apps cannot reach it unless you put the app behind a public
+HTTPS proxy, which this README does not recommend.
 
 The token stands in for your password. Keep it as private, and revoke or
 replace it on the same page the moment you are unsure; anything connected

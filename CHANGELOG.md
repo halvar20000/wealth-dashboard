@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.28.2] — 2026-09-13
+
+### Changed
+- The MCP card under Settings, and the README, now print the Claude
+  Desktop configuration block — `mcp-remote` with `--transport
+  http-only` — and say the two things that cost an afternoon: behind
+  a reverse proxy the URL is the `https://` one the browser uses, and
+  without `http-only` mcp-remote tries SSE first and reports a
+  connection failure that is not one.
+
 ## [0.28.1] — 2026-09-13
 
 ### Added

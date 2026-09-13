@@ -1579,8 +1579,6 @@ STRINGS: dict[str, str] = {
     'Claude and other assistants (MCP)': 'Claude et autres assistants (MCP)',
     'Create a token': 'Créer un jeton',
     'For Claude Code on your network, this is the whole setup:': 'Pour Claude Code sur votre réseau, voici toute la configuration :',
-    'For Claude Desktop, point the mcp-remote bridge at the same URL with the same header. The endpoint is only reachable where the dashboard is — it is not published to the internet.':
-        "Pour Claude Desktop, pointez la passerelle mcp-remote vers la même URL avec le même en-tête. Le point d'accès n'est joignable que là où le tableau de bord l'est — il n'est pas publié sur Internet.",
     'Replace the token': 'Remplacer le jeton',
     'Revoke': 'Révoquer',
     'Token created. Any earlier token stopped working.': 'Jeton créé. Tout jeton précédent ne fonctionne plus.',
@@ -1943,4 +1941,7 @@ STRINGS: dict[str, str] = {
     'Transaction {id} does not exist.': 'La transaction {id} n’existe pas.',
     '{what} cannot be changed here.': '{what} ne peut pas être modifié ici.',
     '{what} is not a number.': '{what} n’est pas un nombre.',
+    # MCP setup notes (0.28.2)
+    'For Claude Desktop, which only speaks to local processes, the mcp-remote bridge carries the same URL and header. This goes into claude_desktop_config.json under mcpServers:': 'Pour Claude Desktop, qui ne parle qu’à des processus locaux, la passerelle mcp-remote porte la même URL et le même en-tête. Ceci va dans claude_desktop_config.json sous mcpServers :',
+    "Two things that cost people an afternoon. The URL is the one the browser reaches the dashboard at: behind a reverse proxy that is the https:// address, not the container's http:// one — the address above is what this page was opened at, so it is right if this page was. And --transport http-only matters: without it mcp-remote first tries the older SSE transport, which this endpoint does not speak, and reports a connection failure that is not one.": 'Deux choses qui coûtent un après-midi. L’URL est celle à laquelle le navigateur atteint le tableau de bord : derrière un proxy inverse, c’est l’adresse https://, pas l’adresse http:// du conteneur — l’adresse ci-dessus est celle à laquelle cette page a été ouverte, elle est donc bonne si cette page l’est. Et --transport http-only compte : sans lui, mcp-remote essaie d’abord l’ancien transport SSE, que ce point d’accès ne parle pas, et signale un échec de connexion qui n’en est pas un.',
 }
