@@ -526,8 +526,6 @@ STRINGS: dict[str, str] = {
         "une catégorie depuis la page {page}.",
     "newest wins where two match":
         "en cas d'égalité, la plus récente l'emporte",
-    "When the text contains": "Quand le texte contient",
-    "Added": "Ajoutée",
     "Rule saved — {n} transaction matched “{pattern}”.":
         "Règle enregistrée — {n} transaction correspondait à « {pattern} ».",
     "Rule saved — {n} transactions matched “{pattern}”.":
@@ -1954,4 +1952,25 @@ STRINGS: dict[str, str] = {
     "every amount at its own day's ECB rate; today's price at today's. The rows below stay as booked, in {currency}.": 'chaque montant au taux BCE de son jour ; le cours d’aujourd’hui à celui d’aujourd’hui. Les lignes ci-dessous restent telles que comptabilisées, en {currency}.',
     'paid in': 'payé en',
     'quoted in': 'coté en',
+    # Settings in chapters, rules with terms (0.30.0)
+    'Add the rule': 'Ajouter la règle',
+    'Assistants': 'Assistants',
+    'Banks & brokers': 'Banques & courtiers',
+    'Prices & rates': 'Cours & taux',
+    'Rule changed and every rule re-applied, oldest first.': 'Règle modifiée et chaque règle réappliquée, la plus ancienne d’abord.',
+    'Settings chapters': 'Chapitres des réglages',
+    'That rule does not exist.': 'Cette règle n’existe pas.',
+    'The text is matched anywhere in the description or the counterparty, or in one of them; the amounts are sizes — 20 to 50 catches a payment of 30 whichever way it went, and the direction says which way. Blank means no limit. A rule applies to what is already imported as well as to what arrives next.': 'Le texte est cherché n’importe où dans le libellé ou la contrepartie, ou dans l’un des deux ; les montants sont des tailles — 20 à 50 attrape un paiement de 30 dans un sens comme dans l’autre, et le sens dit lequel. Vide signifie sans limite. Une règle s’applique à ce qui est déjà importé comme à ce qui arrive ensuite.',
+    'When': 'Quand',
+    'and the money is': 'et l’argent est',
+    'contains': 'contient',
+    'file under': 'classer sous',
+    'from': 'de',
+    'in or out': 'entrant ou sortant',
+    'money in': 'argent entrant',
+    'money out': 'argent sortant',
+    'the counterparty': 'la contrepartie',
+    'the description': 'le libellé',
+    'the text anywhere': 'le texte n’importe où',
+    'to': 'à',
 }

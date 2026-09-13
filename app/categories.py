@@ -410,13 +410,17 @@ def rules(conn=None) -> list[dict]:
         return _read(c)
 
 
-def add_rule(pattern: str, category: str) -> int:
-    """Store a rule and apply it to everything already imported.
+# Where a rule looks for its text, and which way the money went.
+FIELDS = ("any", "description", "counterparty")
+DIRECTIONS = ("any", "in", "out")
 
-    Applying retroactively is the point. A rule that only affects future
-    imports means correcting the same merchant every month until the
-    year is out, and people stop correcting long before that.
-    """
+
+def clean_rule(pattern: str, category: str, field: str = "any", direction: str = "any",
+               amount_min=None, amount_max=None) -> dict:
+    """A rule's terms, checked: the text (three characters at least),
+    where to look, the direction, and a range on the size of the
+    amount — money out and money in alike, the direction says which."""
+    from .importers.base import parse_decimal
     pattern = (pattern or "").strip()
     if len(pattern) < MIN_PATTERN:
         raise ValueError(i18n.t("A rule needs at least three characters to "
@@ -424,12 +428,50 @@ def add_rule(pattern: str, category: str) -> int:
                                 "transactions you did not mean."))
     if category not in all_categories():
         raise ValueError(f"Unknown category {category!r}")
+    field = field if field in FIELDS else "any"
+    direction = direction if direction in DIRECTIONS else "any"
+    lo = parse_decimal(str(amount_min)) if amount_min not in (None, "") else None
+    hi = parse_decimal(str(amount_max)) if amount_max not in (None, "") else None
+    lo = abs(lo) if lo is not None else None
+    hi = abs(hi) if hi is not None else None
+    if lo is not None and hi is not None and lo > hi:
+        lo, hi = hi, lo
+    return {"pattern": pattern, "category": category, "field": field,
+            "direction": direction, "amount_min": lo, "amount_max": hi}
+
+
+def add_rule(pattern: str, category: str, **terms) -> int:
+    """Store a rule and apply it to everything already imported.
+
+    Applying retroactively is the point. A rule that only affects future
+    imports means correcting the same merchant every month until the
+    year is out, and people stop correcting long before that.
+    """
+    rule = clean_rule(pattern, category, **terms)
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO category_rules (pattern, category, field, direction, amount_min, amount_max) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (rule["pattern"], rule["category"], rule["field"], rule["direction"],
+             rule["amount_min"], rule["amount_max"]))
+        applied = _apply_rule(conn, rule)
+    return applied
+
+
+def update_rule(rule_id: int, pattern: str, category: str, **terms) -> int:
+    """Change a rule's terms, then re-run every rule oldest first — the
+    rows the old terms had filed are not un-filed, but the newest rule
+    still wins where two match, as always."""
+    rule = clean_rule(pattern, category, **terms)
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO category_rules (pattern, category) VALUES (?, ?)",
-            (pattern, category))
-        applied = _apply_one(conn, pattern, category)
-    return applied
+            "UPDATE category_rules SET pattern = ?, category = ?, field = ?, direction = ?, "
+            "amount_min = ?, amount_max = ? WHERE id = ?",
+            (rule["pattern"], rule["category"], rule["field"], rule["direction"],
+             rule["amount_min"], rule["amount_max"], rule_id))
+        if not cur.rowcount:
+            raise ValueError(i18n.t("That rule does not exist."))
+    return apply_all()
 
 
 def delete_rule(rule_id: int) -> None:
@@ -437,13 +479,29 @@ def delete_rule(rule_id: int) -> None:
         conn.execute("DELETE FROM category_rules WHERE id = ?", (rule_id,))
 
 
-def _apply_one(conn, pattern: str, category: str, *,
-               only_uncategorised: bool = False,
-               account_id: int | None = None) -> int:
-    sql = ("UPDATE transactions SET category = ? "
-           " WHERE (LOWER(description) LIKE ? OR LOWER(COALESCE(counterparty,'')) LIKE ?)"
-           "   AND kind NOT IN ('buy', 'sell')")
-    params: list = [category, f"%{pattern.lower()}%", f"%{pattern.lower()}%"]
+def _apply_rule(conn, rule: dict, *, only_uncategorised: bool = False,
+                account_id: int | None = None) -> int:
+    like = f"%{rule['pattern'].lower()}%"
+    field = rule.get("field") or "any"
+    if field == "description":
+        where, params = "LOWER(description) LIKE ?", [like]
+    elif field == "counterparty":
+        where, params = "LOWER(COALESCE(counterparty,'')) LIKE ?", [like]
+    else:
+        where, params = "(LOWER(description) LIKE ? OR LOWER(COALESCE(counterparty,'')) LIKE ?)", [like, like]
+    sql = f"UPDATE transactions SET category = ? WHERE {where} AND kind NOT IN ('buy', 'sell')"
+    params = [rule["category"], *params]
+    direction = rule.get("direction") or "any"
+    if direction == "in":
+        sql += " AND amount > 0"
+    elif direction == "out":
+        sql += " AND amount < 0"
+    if rule.get("amount_min") is not None:
+        sql += " AND ABS(amount) >= ?"
+        params.append(rule["amount_min"])
+    if rule.get("amount_max") is not None:
+        sql += " AND ABS(amount) <= ?"
+        params.append(rule["amount_max"])
     if only_uncategorised:
         sql += " AND (category IS NULL OR category = '')"
     if account_id is not None:
@@ -452,14 +510,22 @@ def _apply_one(conn, pattern: str, category: str, *,
     return conn.execute(sql, params).rowcount
 
 
+def _apply_one(conn, pattern: str, category: str, *,
+               only_uncategorised: bool = False,
+               account_id: int | None = None) -> int:
+    """A plain text-anywhere rule — the shape every rule had before
+    0.30.0, kept for the callers that still speak it."""
+    return _apply_rule(conn, {"pattern": pattern, "category": category},
+                       only_uncategorised=only_uncategorised, account_id=account_id)
+
+
 def apply_all() -> int:
     """Re-run every rule, oldest first, so the newest rule wins on a
     transaction that two rules both match."""
     with get_conn() as conn:
         total = 0
-        for rule in conn.execute(
-                "SELECT pattern, category FROM category_rules ORDER BY id ASC"):
-            total += _apply_one(conn, rule["pattern"], rule["category"])
+        for rule in conn.execute("SELECT * FROM category_rules ORDER BY id ASC"):
+            total += _apply_rule(conn, dict(rule))
     return total
 
 
@@ -559,10 +625,8 @@ def categorise_new(account_id: int | None = None) -> int:
     """
     with get_conn() as conn:
         changed = _categorise_by_kind(conn, account_id)
-        for rule in conn.execute(
-                "SELECT pattern, category FROM category_rules ORDER BY id ASC"):
-            changed += _apply_one(conn, rule["pattern"], rule["category"],
-                                  only_uncategorised=True, account_id=account_id)
+        for rule in conn.execute("SELECT * FROM category_rules ORDER BY id ASC"):
+            changed += _apply_rule(conn, dict(rule), only_uncategorised=True, account_id=account_id)
     return changed
 
 

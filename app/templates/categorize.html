@@ -73,31 +73,42 @@
 </section>
 {% endif %}
 
-{% if rules %}
-<section class="card">
+{% set field_labels = {'any': _("the text anywhere"), 'description': _("the description"), 'counterparty': _("the counterparty")} %}
+{% set direction_labels = {'any': _("in or out"), 'in': _("money in"), 'out': _("money out")} %}
+{% macro rule_terms(r) %}
+  <div><label>{{ _("When") }}</label>
+    <select name="field" style="width:auto">{% for f in rule_fields %}<option value="{{ f }}" {{ 'selected' if (r.field if r else 'any') == f }}>{{ field_labels[f] }}</option>{% endfor %}</select></div>
+  <div><label>{{ _("contains") }}</label><input name="pattern" value="{{ r.pattern if r else '' }}" required minlength="3" style="width:160px"></div>
+  <div><label>{{ _("and the money is") }}</label>
+    <select name="direction" style="width:auto">{% for x in rule_directions %}<option value="{{ x }}" {{ 'selected' if (r.direction if r else 'any') == x }}>{{ direction_labels[x] }}</option>{% endfor %}</select></div>
+  <div><label>{{ _("from") }}</label><input name="amount_min" inputmode="decimal" value="{{ '%g' | format(r.amount_min) if r and r.amount_min is not none else '' }}" placeholder="—" style="width:80px"></div>
+  <div><label>{{ _("to") }}</label><input name="amount_max" inputmode="decimal" value="{{ '%g' | format(r.amount_max) if r and r.amount_max is not none else '' }}" placeholder="—" style="width:80px"></div>
+  <div><label>{{ _("file under") }}</label>
+    <select name="category" style="width:auto">{% for slug, meta in categories.all_categories().items() %}<option value="{{ slug }}" {{ 'selected' if r and r.category == slug }}>{{ meta.label }}</option>{% endfor %}</select></div>
+{% endmacro %}
+
+<section class="card" id="rules">
   <div class="card-header"><h2>{{ _("Rules") }}</h2>
     <span class="card-subtitle">{{ _("newest wins where two match") }}</span></div>
-  <div class="table-wrap">
-    <table class="grid">
-      <thead><tr><th>{{ _("When the text contains") }}</th><th>{{ _("Category") }}</th><th>{{ _("Added") }}</th><th></th></tr></thead>
-      <tbody>
-      {% for r in rules %}
-        <tr>
-          <td><code>{{ r.pattern }}</code></td>
-          <td><span class="tag tag-muted">{{ categories.label(r.category) }}</span></td>
-          <td class="sub nowrap">{{ d(r.created_at) }}</td>
-          <td class="num">
-            <form method="post">
-              <input type="hidden" name="action" value="delete_rule">
-              <input type="hidden" name="rule_id" value="{{ r.id }}">
-              <button class="btn-danger" type="submit">{{ _("Delete") }}</button>
-            </form>
-          </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <form method="post" class="form inline sec-form rule-form">
+    <input type="hidden" name="action" value="add_rule">
+    {{ rule_terms(none) }}
+    <button type="submit">{{ _("Add the rule") }}</button>
+  </form>
+  <p class="sub">{{ _("The text is matched anywhere in the description or the counterparty, or in one of them; the amounts are sizes — 20 to 50 catches a payment of 30 whichever way it went, and the direction says which way. Blank means no limit. A rule applies to what is already imported as well as to what arrives next.") }}</p>
+  {% if rules %}
+  <div class="rule-list">
+  {% for r in rules %}
+    <form method="post" class="form inline sec-form rule-form is-existing">
+      <input type="hidden" name="action" value="edit_rule">
+      <input type="hidden" name="rule_id" value="{{ r.id }}">
+      {{ rule_terms(r) }}
+      <div class="rule-actions"><span class="sub nowrap">{{ d(r.created_at) }}</span>
+        <button type="submit" class="btn-ghost">{{ _("Save") }}</button>
+        <button type="submit" class="btn-danger" formaction="{{ url_for('categorize') }}" name="action" value="delete_rule">{{ _("Delete") }}</button></div>
+    </form>
+  {% endfor %}
   </div>
+  {% endif %}
 </section>
-{% endif %}
 {% endblock %}

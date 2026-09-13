@@ -518,8 +518,6 @@ STRINGS: dict[str, str] = {
         "Jede Transaktion hat eine Kategorie. Importiere mehr, oder ändere "
         "eine auf der Seite {page}.",
     "newest wins where two match": "bei zwei Treffern gewinnt die neuere",
-    "When the text contains": "Wenn der Text enthält",
-    "Added": "Hinzugefügt",
     "Rule saved — {n} transaction matched “{pattern}”.":
         "Regel gespeichert — {n} Transaktion passte auf „{pattern}“.",
     "Rule saved — {n} transactions matched “{pattern}”.":
@@ -1947,4 +1945,25 @@ STRINGS: dict[str, str] = {
     "every amount at its own day's ECB rate; today's price at today's. The rows below stay as booked, in {currency}.": 'jeder Betrag zum EZB-Kurs seines Tages; der heutige Kurs zum heutigen. Die Zeilen unten bleiben wie gebucht, in {currency}.',
     'paid in': 'bezahlt in',
     'quoted in': 'notiert in',
+    # Settings in chapters, rules with terms (0.30.0)
+    'Add the rule': 'Regel hinzufügen',
+    'Assistants': 'Assistenten',
+    'Banks & brokers': 'Banken & Broker',
+    'Prices & rates': 'Kurse & Wechselkurse',
+    'Rule changed and every rule re-applied, oldest first.': 'Regel geändert und jede Regel neu angewandt, älteste zuerst.',
+    'Settings chapters': 'Kapitel der Einstellungen',
+    'That rule does not exist.': 'Diese Regel gibt es nicht.',
+    'The text is matched anywhere in the description or the counterparty, or in one of them; the amounts are sizes — 20 to 50 catches a payment of 30 whichever way it went, and the direction says which way. Blank means no limit. A rule applies to what is already imported as well as to what arrives next.': 'Der Text wird irgendwo in der Beschreibung oder der Gegenpartei gesucht, oder in einer von beiden; die Beträge sind Größen — 20 bis 50 trifft eine Zahlung von 30, egal in welche Richtung, und die Richtung sagt, in welche. Leer heißt keine Grenze. Eine Regel gilt für das schon Importierte wie für das, was als Nächstes kommt.',
+    'When': 'Wenn',
+    'and the money is': 'und das Geld ist',
+    'contains': 'enthält',
+    'file under': 'ablegen unter',
+    'from': 'von',
+    'in or out': 'ein- oder ausgehend',
+    'money in': 'Geldeingang',
+    'money out': 'Geldausgang',
+    'the counterparty': 'die Gegenpartei',
+    'the description': 'die Beschreibung',
+    'the text anywhere': 'der Text irgendwo',
+    'to': 'bis',
 }

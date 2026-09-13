@@ -389,13 +389,34 @@ def _categorise_many(items, remember=True):
     return {"categorised": len(done), "failed": failed, "results": done}
 
 
+_RULE_TERMS = {"pattern": {"type": "string", "description": "Text to match, three characters at least."},
+               "category": {"type": "string"},
+               "field": {"type": "string", "enum": ["any", "description", "counterparty"],
+                         "description": "Where the text is looked for. Default any."},
+               "direction": {"type": "string", "enum": ["any", "in", "out"],
+                             "description": "Which way the money went. Default any."},
+               "amount_min": {"type": "number", "description": "Smallest size of the amount, unsigned."},
+               "amount_max": {"type": "number", "description": "Largest size of the amount, unsigned."}}
+
+
 @tool("add_rule", "Store a categorisation rule and apply it to everything already "
-      "imported. Returns how many transactions it matched.",
-      {"pattern": {"type": "string"}, "category": {"type": "string"}},
-      ["pattern", "category"])
-def _add_rule(pattern, category):
+      "imported. Returns how many transactions it matched. The text can be "
+      "confined to the description or the counterparty, to money in or out, and "
+      "to a range of amount sizes.",
+      _RULE_TERMS, ["pattern", "category"])
+def _add_rule(pattern, category, field="any", direction="any", amount_min=None, amount_max=None):
     return {"pattern": pattern, "category": category,
-            "applied": categories.add_rule(pattern, category)}
+            "applied": categories.add_rule(pattern, category, field=field, direction=direction,
+                                           amount_min=amount_min, amount_max=amount_max)}
+
+
+@tool("update_rule", "Change a rule's terms — the fields given replace the rule's; then "
+      "every rule is re-applied, oldest first.",
+      {"rule_id": {"type": "integer"}, **_RULE_TERMS}, ["rule_id", "pattern", "category"])
+def _update_rule(rule_id, pattern, category, field="any", direction="any", amount_min=None, amount_max=None):
+    return {"rule_id": rule_id, "reapplied": categories.update_rule(
+        int(rule_id), pattern, category, field=field, direction=direction,
+        amount_min=amount_min, amount_max=amount_max)}
 
 
 @tool("delete_rule", "Remove a rule by id and re-apply the remaining ones. "

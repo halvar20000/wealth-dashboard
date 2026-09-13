@@ -1298,12 +1298,30 @@ def categorize():
             categories.delete_rule(int(request.form["rule_id"]))
             categories.apply_all()
             flash(_t("Rule deleted and the remaining rules re-applied."), "ok")
+        elif request.form.get("action") in ("add_rule", "edit_rule"):
+            f = request.form
+            terms = {"field": f.get("field", "any"), "direction": f.get("direction", "any"),
+                     "amount_min": f.get("amount_min"), "amount_max": f.get("amount_max")}
+            try:
+                if f.get("action") == "add_rule":
+                    n = categories.add_rule(f.get("pattern", ""), f.get("category", ""), **terms)
+                    flash(_n(n, "Rule saved — {n} transaction matched “{pattern}”.",
+                             "Rule saved — {n} transactions matched “{pattern}”.",
+                             pattern=f.get("pattern", "").strip()), "ok")
+                else:
+                    categories.update_rule(int(f.get("rule_id") or 0), f.get("pattern", ""),
+                                           f.get("category", ""), **terms)
+                    flash(_t("Rule changed and every rule re-applied, oldest first."), "ok")
+            except ValueError as exc:
+                flash(str(exc), "error")
+            return redirect(url_for("categorize") + "#rules")
         return redirect(url_for("categorize"))
 
     queue, remaining = categories.uncategorised(account_ids=people.scope())
     return render_template("categorize.html", active_page="categorize",
                            queue=queue, remaining=remaining,
-                           rules=categories.rules())
+                           rules=categories.rules(), rule_fields=categories.FIELDS,
+                           rule_directions=categories.DIRECTIONS)
 
 
 @app.route("/cashflow")
@@ -1668,9 +1686,31 @@ def _people_with_counts() -> list[dict]:
     return [{**p, "accounts": counts.get(p["id"], 0)} for p in people.all_people()]
 
 
+# The settings, in chapters: one page each, so that a setting is found
+# by the chapter it belongs to and not by scrolling. Every card lives
+# in exactly one; a POST that ends with an anchor is sent back to the
+# chapter holding it — see _settings_url().
+SETTINGS_SECTIONS = ("general", "banks", "market", "categories", "people", "assistants")
+_SETTINGS_ANCHORS = {
+    "general": "general",
+    "sync": "banks", "saxo": "banks", "kraken": "banks", "mappings": "banks", "enablebanking": "banks",
+    "rates": "market", "prices": "market", "ideas": "market",
+    "categories": "categories", "people": "people", "mcp": "assistants",
+}
+
+
+def _settings_url(anchor: str | None = None, **args) -> str:
+    section = _SETTINGS_ANCHORS.get(anchor or "", "general")
+    url = url_for("settings_page", section=None if section == "general" else section, **args)
+    return f"{url}#{anchor}" if anchor and anchor != section else url
+
+
 @app.route("/settings", methods=["GET", "POST"])
+@app.route("/settings/<section>", methods=["GET", "POST"])
 @auth.login_required
-def settings_page():
+def settings_page(section: str = "general"):
+    if section not in SETTINGS_SECTIONS:
+        return redirect(url_for("settings_page"))
     cfg = settings.load()
     error = None
     if request.method == "POST":
@@ -1683,15 +1723,15 @@ def settings_page():
                 # nobody asked; "your key works and these redirect URLs
                 # are registered" answers the real one, at the only
                 # moment the user is looking.
-                return redirect(url_for("settings_page", check=1))
+                return redirect(_settings_url("enablebanking", check=1))
             except ValueError as exc:
                 error = str(exc)
         elif request.form.get("form", "").startswith("category"):
             _category_form(request.form)
-            return redirect(url_for("settings_page") + "#categories")
+            return redirect(_settings_url("categories"))
         elif request.form.get("form", "").startswith("person"):
             _person_form(request.form)
-            return redirect(url_for("settings_page") + "#people")
+            return redirect(_settings_url("people"))
         elif request.form.get("form") == "prices_refresh":
             info = prices.refresh(cfg.get("base_currency", "EUR"))
             if info["failed"]:
@@ -1702,7 +1742,7 @@ def settings_page():
             else:
                 flash(_n(info["priced"], "{n} holding priced.",
                          "{n} holdings priced."), "ok")
-            return redirect(url_for("settings_page") + "#prices")
+            return redirect(_settings_url("prices"))
         elif request.form.get("form") == "price_symbol":
             try:
                 prices.set_symbol(request.form.get("isin", ""),
@@ -1715,7 +1755,7 @@ def settings_page():
                     flash(_t("Priced."), "ok")
             except ValueError as exc:
                 flash(str(exc), "error")
-            return redirect(url_for("settings_page") + "#prices")
+            return redirect(_settings_url("prices"))
         elif request.form.get("form") == "ideas_refresh":
             # On a thread: it is minutes of Yahoo requests, and a form
             # post that hangs for minutes teaches people to press it
@@ -1725,7 +1765,7 @@ def settings_page():
                          "a few minutes; the boards fill in as it goes."), "ok")
             else:
                 flash(_t("A refresh is already running."), "error")
-            return redirect(url_for("settings_page") + "#ideas")
+            return redirect(_settings_url("ideas"))
         elif request.form.get("form") == "saxo_credentials":
             try:
                 saxo.save_credentials(request.form.get("app_key", ""),
@@ -1734,12 +1774,12 @@ def settings_page():
                 flash(_t("Saxo credentials saved. Now connect an account from its page."), "ok")
             except ValueError as exc:
                 flash(str(exc), "error")
-            return redirect(url_for("settings_page") + "#saxo")
+            return redirect(_settings_url("saxo"))
         elif request.form.get("form") == "saxo_forget":
             saxo.forget()
             brokers.remove_links("saxo")
             flash(_t("Saxo forgotten. The accounts and their history stay."), "ok")
-            return redirect(url_for("settings_page") + "#saxo")
+            return redirect(_settings_url("saxo"))
         elif request.form.get("form") == "kraken_credentials":
             try:
                 kraken.save_credentials(request.form.get("api_key", ""),
@@ -1751,12 +1791,12 @@ def settings_page():
                       "ok")
             except (ValueError, kraken.KrakenError) as exc:
                 flash(str(exc), "error")
-            return redirect(url_for("settings_page") + "#kraken")
+            return redirect(_settings_url("kraken"))
         elif request.form.get("form") == "kraken_forget":
             kraken.forget_credentials()
             brokers.remove_links("kraken")
             flash(_t("Kraken key forgotten. The account and its history stay."), "ok")
-            return redirect(url_for("settings_page") + "#kraken")
+            return redirect(_settings_url("kraken"))
         elif request.form.get("form") == "mcp_token":
             if request.form.get("action") == "revoke":
                 mcp.revoke()
@@ -1764,7 +1804,7 @@ def settings_page():
             else:
                 mcp.new_token()
                 flash(_t("Token created. Any earlier token stopped working."), "ok")
-            return redirect(url_for("settings_page") + "#mcp")
+            return redirect(_settings_url("mcp"))
         elif request.form.get("form") == "sync_all":
             results = banksync.sync_all() + brokers.sync_all()
             failed = [r for r in results if r["error"]]
@@ -1779,7 +1819,7 @@ def settings_page():
                 flash(_n(new_rows, "{n} new transaction across {accounts} accounts.",
                          "{n} new transactions across {accounts} accounts.",
                          accounts=len(results)), "ok")
-            return redirect(url_for("settings_page") + "#sync")
+            return redirect(_settings_url("sync"))
         elif request.form.get("form") == "csv_mapping_delete":
             from .importers import generic
             try:
@@ -1787,7 +1827,7 @@ def settings_page():
             except ValueError:
                 pass
             flash(_t("Mapping forgotten. The next file with that header asks again."), "ok")
-            return redirect(url_for("settings_page") + "#mappings")
+            return redirect(_settings_url("mappings"))
         elif request.form.get("form") == "fx_refresh":
             # In the request, because the user asked for it and is
             # waiting for the answer. The automatic one is on a thread.
@@ -1799,7 +1839,7 @@ def settings_page():
                          date=_date(info["latest"])), "ok")
             except fx.FxError as exc:
                 flash(str(exc), "error")
-            return redirect(url_for("settings_page") + "#rates")
+            return redirect(_settings_url("rates"))
         else:
             cfg["base_currency"] = (request.form.get("base_currency")
                                     or "EUR").upper()[:3]
@@ -1832,7 +1872,10 @@ def settings_page():
         except Exception as exc:                    # noqa: BLE001
             check = {"ok": False, "error": str(exc)}
 
-    return render_template("settings.html", cfg=cfg, error=error,
+    section_labels = {"general": _t("General"), "banks": _t("Banks & brokers"), "market": _t("Prices & rates"),
+                      "categories": _t("Categories"), "people": _t("People"), "assistants": _t("Assistants")}
+    return render_template("settings.html", cfg=cfg, error=error, section=section,
+                           sections=[(k, section_labels[k]) for k in SETTINGS_SECTIONS],
                            people_list=_people_with_counts(),
                            today=date.today().isoformat(),
                            configured=banksync.credentials_present(),

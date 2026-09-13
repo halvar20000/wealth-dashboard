@@ -11,6 +11,25 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.30.0] — 2026-09-13
+
+### Added
+- **Rules with terms, editable.** A categorisation rule can say where
+  its text is looked for — anywhere, the description, or the
+  counterparty — which way the money went, and a range of amount
+  sizes: *"Amazon", money out, 0 to 50 → Household; over 50 →
+  Electronics*. Every rule on the Categorize page is a form of its
+  own: change it, save, and every rule is re-applied oldest first.
+  Rules made from a correction keep the old shape (text anywhere, any
+  direction, any amount) until edited. MCP: `add_rule` takes the
+  terms, `update_rule` is new.
+
+### Changed
+- **Settings in chapters.** The page had grown to a dozen cards; it
+  is six pages now, with tabs at the top — General, Banks & brokers,
+  Prices & rates, Categories, People, Assistants — and every form
+  returns to the chapter it belongs to. (Both from Dominique.)
+
 ## [0.29.1] — 2026-09-13
 
 ### Fixed

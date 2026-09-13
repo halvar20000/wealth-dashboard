@@ -775,3 +775,17 @@ a.period-btn:hover { text-decoration: none; }
 
 .sec-ccy { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 14px; }
 .sec-ccy .period-btn .sub { font-size: 11px; font-weight: 400; }
+
+/* Rules, each one a row of its own form. */
+.rule-form { align-items: flex-end; }
+.rule-list { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.rule-form.is-existing { padding: 10px 12px; border-radius: 10px; background: var(--bg-elevated); border: 1px solid var(--border); }
+.rule-form.is-existing label { font-size: 11px; }
+.rule-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-direction: row; }
+.rule-actions button { margin: 0; padding: 8px 12px; font-size: 12.5px; }
+
+/* Chapters of a long page — the settings — as a row of tabs. */
+.subnav { display: flex; gap: 4px; flex-wrap: wrap; margin: 0 0 18px; padding: 4px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border); width: fit-content; max-width: 100%; }
+.subnav-link { padding: 7px 14px; border-radius: 9px; color: var(--text-secondary); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.subnav-link:hover { color: var(--text-primary); text-decoration: none; background: var(--bg-elevated); }
+.subnav-link.active { color: var(--text-primary); background: var(--bg-elevated); box-shadow: 0 0 0 1px var(--border-strong) inset; }

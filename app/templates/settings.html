@@ -3,6 +3,14 @@
 {% block heading %}{{ _("Settings") }}{% endblock %}
 {% block content %}
 
+<nav class="subnav" aria-label="{{ _('Settings chapters') }}">
+  {% for key, label in sections %}
+  <a class="subnav-link {{ 'active' if key == section }}" href="{{ url_for('settings_page', section=(key if key != 'general' else None)) }}">{{ label }}</a>
+  {% endfor %}
+</nav>
+
+
+{% if section == 'general' %}
 <div class="card" id="general">
   <h2>{{ _("General") }}</h2>
   <form method="post" class="form">
@@ -41,6 +49,8 @@
   </form>
 </div>
 
+{% endif %}
+{% if section == 'banks' %}
 <div class="card" id="sync">
   <div class="card-header">
     <h2>{{ _("Bank sync") }}</h2>
@@ -57,6 +67,8 @@
   </form>
 </div>
 
+{% endif %}
+{% if section == 'market' %}
 <div class="card" id="rates">
   <div class="card-header">
     <h2>{{ _("Exchange rates") }}</h2>
@@ -78,8 +90,9 @@
   </form>
   <p class="sub">{{ _("Also updated on start-up, at most once a day, in the background. Nothing waits on it: a page renders whether or not the rates arrived.") }}</p>
 </div>
+{% endif %}
 
-{% if csv_mappings %}
+{% if section == 'banks' and csv_mappings %}
 <div class="card" id="mappings">
   <div class="card-header">
     <h2>{{ _("CSV mappings") }}</h2>
@@ -103,7 +116,7 @@
   <p class="sub">{{ _("A file with one of these headers is imported through its mapping without asking. Forget one and the next such file asks again — the rows already imported stay.") }}</p>
 </div>
 {% endif %}
-
+{% if section == 'market' %}
 <div class="card" id="prices">
   <div class="card-header">
     <h2>{{ _("Market prices") }}</h2>
@@ -149,6 +162,8 @@
   <p class="sub">{{ _("Also updated on start-up and every few hours in the background. A holding no price could be found for is valued at your last trade, and the pages say so.") }}</p>
 </div>
 
+{% endif %}
+{% if section == 'banks' %}
 <div class="card" id="saxo">
   <div class="card-header">
     <h2>Saxo Bank</h2>
@@ -189,6 +204,8 @@
   {% endif %}
 </div>
 
+{% endif %}
+{% if section == 'banks' %}
 <div class="card" id="kraken">
   <div class="card-header">
     <h2>Kraken</h2>
@@ -211,6 +228,8 @@
   {% endif %}
 </div>
 
+{% endif %}
+{% if section == 'market' %}
 <div class="card" id="ideas">
   <div class="card-header">
     <h2>{{ _("Share Ideas") }}</h2>
@@ -233,6 +252,8 @@
   </form>
 </div>
 
+{% endif %}
+{% if section == 'assistants' %}
 <div class="card" id="mcp">
   <div class="card-header">
     <h2>{{ _("Claude and other assistants (MCP)") }}</h2>
@@ -257,6 +278,8 @@
   </form>
 </div>
 
+{% endif %}
+{% if section == 'people' %}
 <div class="card" id="people">
   <div class="card-header">
     <h2>{{ _("People") }}</h2>
@@ -297,6 +320,8 @@
   </form>
 </div>
 
+{% endif %}
+{% if section == 'categories' %}
 <div class="card" id="categories">
   <div class="card-header">
     <h2>{{ _("Categories") }}</h2>
@@ -363,7 +388,9 @@
   </form>
 </div>
 
-<div class="card">
+{% endif %}
+{% if section == 'banks' %}
+<div class="card" id="enablebanking">
   <h2>Enable Banking</h2>
   {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
   <p class="sub">{{ _("Your own application, your own key. Nothing here is shared with anyone — the key never leaves this machine and is only used to sign your own requests.") }}</p>
@@ -422,7 +449,7 @@ openssl rsa -in enablebanking_private.key -pubout -out enablebanking_public.pem<
   </form>
 
   {% if configured %}
-    {% set test_link %}<a href="{{ url_for('settings_page', check=1) }}">{{ _("Test them") }}</a>{% endset %}
+    {% set test_link %}<a href="{{ url_for('settings_page', section='banks', check=1) }}">{{ _("Test them") }}</a>{% endset %}
     <p class="sub">{{ _f("Credentials are stored. {test} — this makes one live call to Enable Banking.", test=test_link) | safe }}</p>
     {% if check and check.ok %}
       <div class="flash flash-ok">{{ _("Working. Registered redirect URLs:") }}
@@ -432,4 +459,5 @@ openssl rsa -in enablebanking_private.key -pubout -out enablebanking_public.pem<
     {% endif %}
   {% endif %}
 </div>
+{% endif %}
 {% endblock %}

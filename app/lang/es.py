@@ -525,8 +525,6 @@ STRINGS: dict[str, str] = {
         "la página {page}.",
     "newest wins where two match":
         "si coinciden dos, gana la más reciente",
-    "When the text contains": "Cuando el texto contiene",
-    "Added": "Añadida",
     "Rule saved — {n} transaction matched “{pattern}”.":
         "Regla guardada — {n} transacción coincidió con «{pattern}».",
     "Rule saved — {n} transactions matched “{pattern}”.":
@@ -1949,4 +1947,25 @@ STRINGS: dict[str, str] = {
     "every amount at its own day's ECB rate; today's price at today's. The rows below stay as booked, in {currency}.": 'cada importe al tipo del BCE de su día; el precio de hoy al de hoy. Las filas de abajo se quedan como se contabilizaron, en {currency}.',
     'paid in': 'pagado en',
     'quoted in': 'cotizado en',
+    # Settings in chapters, rules with terms (0.30.0)
+    'Add the rule': 'Añadir la regla',
+    'Assistants': 'Asistentes',
+    'Banks & brokers': 'Bancos y brókeres',
+    'Prices & rates': 'Precios y tipos',
+    'Rule changed and every rule re-applied, oldest first.': 'Regla cambiada y cada regla reaplicada, la más antigua primero.',
+    'Settings chapters': 'Capítulos de los ajustes',
+    'That rule does not exist.': 'Esa regla no existe.',
+    'The text is matched anywhere in the description or the counterparty, or in one of them; the amounts are sizes — 20 to 50 catches a payment of 30 whichever way it went, and the direction says which way. Blank means no limit. A rule applies to what is already imported as well as to what arrives next.': 'El texto se busca en cualquier parte de la descripción o de la contraparte, o en una de las dos; los importes son tamaños — de 20 a 50 atrapa un pago de 30 en cualquier sentido, y el sentido dice cuál. Vacío significa sin límite. Una regla se aplica a lo ya importado igual que a lo que llegue después.',
+    'When': 'Cuando',
+    'and the money is': 'y el dinero es',
+    'contains': 'contiene',
+    'file under': 'archivar en',
+    'from': 'de',
+    'in or out': 'entrante o saliente',
+    'money in': 'dinero entrante',
+    'money out': 'dinero saliente',
+    'the counterparty': 'la contraparte',
+    'the description': 'la descripción',
+    'the text anywhere': 'el texto en cualquier parte',
+    'to': 'a',
 }

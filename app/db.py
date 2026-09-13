@@ -454,6 +454,14 @@ _ADDED_COLUMNS = {
     "people": [
         ("birthday", "TEXT"),
     ],
+    # A rule that says where to look, which way the money went, and
+    # how much — see categories.py. Older rows: anywhere, any, any.
+    "category_rules": [
+        ("field", "TEXT NOT NULL DEFAULT 'any'"),
+        ("direction", "TEXT NOT NULL DEFAULT 'any'"),
+        ("amount_min", "REAL"),
+        ("amount_max", "REAL"),
+    ],
     "securities": [
         ("quote_type", "TEXT"),
     ],

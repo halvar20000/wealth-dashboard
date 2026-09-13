@@ -1620,7 +1620,7 @@ for tpl in sorted(pathlib.Path("app/templates").glob("*.html")):
 # ---------------------------------------------------------------------------
 print("\n18. Managing categories from the Settings page")
 # ---------------------------------------------------------------------------
-r = c.get("/settings")
+r = c.get("/settings/categories")
 check("the settings page offers the category editor", b'id="categories"' in r.data, True)
 import html as _html                                      # noqa: E402
 check("...with every category in it",
@@ -2330,7 +2330,7 @@ check("the navigation is translated", "Übersicht".encode() in r.data, True)
 check("...and the page says which language it is in",
       b'<html lang="de">' in r.data, True)
 check("...and built-in category names come with it",
-      "Lebensmittel".encode() in c.get("/settings").data, True)
+      "Lebensmittel".encode() in c.get("/settings/categories").data, True)
 
 r = c.get("/accounts")
 check("amounts are punctuated the German way",
@@ -2343,9 +2343,9 @@ r = c.post("/settings", data={"form": "general", "language": "fr",
                               "redirect_url": "http://localhost:8000/connect/callback"},
            follow_redirects=True)
 check("switching again switches the catalogue with it",
-      "Courses".encode() in c.get("/settings").data, True)
+      "Courses".encode() in c.get("/settings/categories").data, True)
 check("...and the German labels are gone",
-      "Lebensmittel".encode() in c.get("/settings").data, False)
+      "Lebensmittel".encode() in c.get("/settings/categories").data, False)
 
 # A category the user renamed is theirs, in whatever language they typed
 # it. Translating over the top of it would undo their edit on every page.
@@ -2358,7 +2358,7 @@ c.post("/settings", data={"form": "general", "language": "de",
 check("a renamed built-in keeps the name the user gave it",
       cat.label("food"), "Bouffe")
 check("...on every page, in every language",
-      "Bouffe".encode() in c.get("/settings").data, True)
+      "Bouffe".encode() in c.get("/settings/categories").data, True)
 
 # Eleven sentences interpolate a link and are marked safe so the anchor
 # survives. None of them takes user data — this is the check that keeps
@@ -2591,7 +2591,7 @@ check("...and both currencies sit beside the total",
       sorted(x["currency"] for x in bare["unconverted"]), ["JPY", "USD"])
 check("...and the total is the base currency alone",
       round(bare["net_worth"], 2), round(bare["cash"] + bare["securities"], 2))
-r = c.get("/settings")
+r = c.get("/settings/market")
 check("the settings page offers to fetch them", b"fx_refresh" in r.data, True)
 check("...and says why it matters", b"No rates yet" in r.data, True)
 fx.store(days)                       # put them back for anything after
@@ -2732,7 +2732,7 @@ check("...naming the day", sm["prices_as_of"], "2026-09-11")
 r = c.get("/portfolio")
 check("the portfolio page says which day the prices are from",
       b"at market prices of" in r.data, True)
-r = c.get("/settings")
+r = c.get("/settings/market")
 check("the settings page lists each holding's ticker",
       b'name="symbol"' in r.data and b"IWDA.AS" in r.data, True)
 
@@ -3497,7 +3497,7 @@ check("a bogus status is refused", r.status_code, 400)
 with db.get_conn() as conn:
     shared = {r["symbol"]: r["watch_status"] for r in screener_etf.results(conn, top=500)["ranked"]}
 check("the watchlist is shared across the boards", shared["CHEAP.DE"], "watch")
-r = c.get("/settings")
+r = c.get("/settings/market")
 check("the settings page has the Share Ideas section", b'id="ideas"' in r.data, True)
 check("...counting the cached rows", b"cached" in r.data, True)
 st = screener_jobs.status()
@@ -3715,7 +3715,7 @@ finally:
     screener_jobs.start_background = _real_start
 
 # --- the settings page and revocation ---
-r = c.get("/settings")
+r = c.get("/settings/assistants")
 check("the settings page shows the token and the one-line setup",
       b'id="mcp"' in r.data and tok.encode() in r.data and b"claude mcp add" in r.data, True)
 r = c.post("/settings", data={"form": "mcp_token", "action": "new"}, follow_redirects=True)
@@ -3723,7 +3723,7 @@ check("replacing the token cuts the old one off", rpc("ping")[0], 401)
 r = c.post("/settings", data={"form": "mcp_token", "action": "revoke"}, follow_redirects=True)
 check("revoking removes it", mcp.token(), None)
 check("...and nothing gets in", rpc("ping", headers={"Authorization": f"Bearer {mcp.token()}"})[0], 401)
-r = c.get("/settings")
+r = c.get("/settings/assistants")
 check("...and the page says so", b"Create a token" in r.data, True)
 
 # ---------------------------------------------------------------------------
@@ -4020,7 +4020,7 @@ check("finishing by hand from the dead page's address works",
       b"Connected: Saxo" in r.data and saxo.describe()["alive"], True)
 check("...reusing the same links, not doubling them",
       len([l for l in brokers.links() if l["provider"] == "saxo"]), 2)
-r = c.get("/settings")
+r = c.get("/settings/banks")
 check("the settings page shows Saxo and Kraken", b'id="saxo"' in r.data and b'id="kraken"' in r.data, True)
 check("...with the redirect URL to register", b"/saxo/callback" in r.data, True)
 r = c.post("/settings", data={"form": "saxo_forget"}, follow_redirects=True)
@@ -4481,7 +4481,7 @@ check("no currency column: the account's, or the one the mapping fixes",
       (["CHF"], ["USD"]))
 check("an ISIN in the description is found when no column carries one",
       generic.parse_with({"txn_date": "d", "amount": "a", "description": "t"}, "d,a,t\n2026-01-01,-5,Kauf IE00BK5BQT80 Vanguard\n").rows[0].isin, "IE00BK5BQT80")
-r = c.get("/settings")
+r = c.get("/settings/banks")
 check("Settings lists the mapping", (b"CSV mappings" in r.data, b"Hausbank" in r.data), (True, True))
 r = c.post("/settings", data={"form": "csv_mapping_delete", "mapping_id": generic.find(hdr)["id"]}, follow_redirects=True)
 check("...and forgets it on request", (b"Mapping forgotten" in r.data, generic.find(hdr)), (True, None))
@@ -4789,6 +4789,63 @@ finally:
 check("...and having fetched it, does not ask again", fx.needs_backfill(), False)
 check("an unknown currency falls back to the one paid in", b'class="period-btn active" href="/securities/US0231351067"' in c.get("/securities/US0231351067", query_string={"ccy": "XXX"}).data, True)
 c.post(f"/accounts/{uid}/delete", data={"confirm": "USD test"})
+
+# ---------------------------------------------------------------------------
+print("\n40. Settings in chapters; rules with terms")
+# ---------------------------------------------------------------------------
+r = c.get("/settings")
+check("the settings open on General, with the chapters as tabs",
+      (b'class="subnav"' in r.data, b'id="general"' in r.data, b'id="mcp"' in r.data, b'id="saxo"' in r.data), (True, True, False, False))
+for sec, card in (("banks", b'id="saxo"'), ("market", b'id="prices"'), ("categories", b'id="categories"'), ("people", b'id="people"'), ("assistants", b'id="mcp"')):
+    r = c.get(f"/settings/{sec}")
+    check(f"the {sec} chapter holds its cards", (r.status_code, card in r.data, b'id="general"' in r.data), (200, True, False))
+check("a chapter that does not exist goes to General", c.get("/settings/nonsense").status_code, 302)
+r = c.post("/settings", data={"form": "fx_refresh"})
+check("a form returns to its own chapter", r.headers["Location"].endswith("/settings/market#rates"), True)
+
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Rules test', 'current', 'EUR')")
+    rid = conn.execute("SELECT id FROM accounts WHERE name = 'Rules test'").fetchone()["id"]
+    for i, (desc, cp, amt) in enumerate((("Amazon order 1", "AMAZON EU", -30), ("Amazon order 2", "AMAZON EU", -120),
+                                         ("Refund", "AMAZON EU", 30), ("Salary", "Amazon Web Services", 3000))):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, counterparty, amount, currency, kind, external_id, source) "
+                     "VALUES (?, '2026-04-01', ?, ?, ?, 'EUR', 'other', ?, 'manual')", (rid, desc, cp, amt, f"rl{i}"))
+def cats():
+    with db.get_conn() as conn:
+        return [r_["category"] for r_ in conn.execute("SELECT category FROM transactions WHERE account_id = ? ORDER BY id", (rid,))]
+slugs = list(cat.all_categories())
+a, b_ = slugs[0], slugs[1]
+n = cat.add_rule("amazon", a, direction="out", amount_max=50)
+check("a rule on money out up to 50 files the small order only", (n, cats()), (1, [a, None, None, None]))
+n = cat.add_rule("amazon", b_, direction="out", amount_min=50)
+check("...and one from 50 up the big one", (n, cats()), (1, [a, b_, None, None]))
+n = cat.add_rule("amazon web", a, field="counterparty", direction="in")
+check("a rule on the counterparty and money in files the salary, not the refund", (n, cats()), (1, [a, b_, None, a]))
+rule_id = [x for x in cat.rules() if x["direction"] == "in"][0]["id"]
+cat.update_rule(rule_id, "amazon", b_, field="counterparty", direction="in")
+check("a rule can be changed; every rule is re-applied and the newest still wins", cats(), [a, b_, b_, b_])
+try:
+    cat.add_rule("am", a); check("a two-letter pattern is refused", False, True)
+except ValueError:
+    check("a two-letter pattern is refused", True, True)
+check("a range typed the wrong way round is put right", (lambda r_: (r_["amount_min"], r_["amount_max"]))(cat.clean_rule("xyz", a, amount_min="50", amount_max="20")), (20.0, 50.0))
+r = c.post("/categorize", data={"action": "edit_rule", "rule_id": rule_id, "pattern": "amazon web", "category": a,
+                                "field": "counterparty", "direction": "in", "amount_min": "", "amount_max": ""}, follow_redirects=True)
+check("the Categorize page edits a rule in place", (b"Rule changed" in r.data, cats()[3]), (True, a))
+r = c.post("/categorize", data={"action": "add_rule", "pattern": "refund", "category": b_, "field": "description",
+                                "direction": "in", "amount_min": "10", "amount_max": "40"}, follow_redirects=True)
+check("...and adds one with every term", (b"Rule saved" in r.data, cats()[2]), (True, b_))
+r = c.get("/categorize")
+check("every rule is a form of its own", r.data.count(b'value="edit_rule"') >= 4 and b'name="amount_min"' in r.data, True)
+tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
+r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                         "params": {"name": "update_rule", "arguments": {"rule_id": rule_id, "pattern": "amazon web", "category": b_, "field": "counterparty", "direction": "in"}}}, headers=HDR)
+check("the MCP changes a rule too", (r.get_json()["result"].get("isError"), cats()[3]), (None, b_))
+mcp.revoke()
+for x in cat.rules():
+    if x["pattern"] in ("amazon", "amazon web", "refund"):
+        cat.delete_rule(x["id"])
+c.post(f"/accounts/{rid}/delete", data={"confirm": "Rules test"})
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
