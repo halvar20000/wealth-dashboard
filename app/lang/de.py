@@ -1941,4 +1941,10 @@ STRINGS: dict[str, str] = {
     'quoted {price} {currency}': 'notiert {price} {currency}',
     "A price quoted in another currency than the shares were paid in is turned into theirs at the day's ECB rate, so the lines are one currency.": 'Ein Kurs in einer anderen Währung als der, in der die Stücke bezahlt wurden, wird zum EZB-Kurs des Tages in diese umgerechnet, damit die Linien eine Währung haben.',
     'fees {fees}, tax {taxes} paid': '{fees} Gebühren, {taxes} Steuern gezahlt',
+    # Currency switch on the security page (0.29.0)
+    'Show in': 'Anzeigen in',
+    'base': 'Basis',
+    "every amount at its own day's ECB rate; today's price at today's. The rows below stay as booked, in {currency}.": 'jeder Betrag zum EZB-Kurs seines Tages; der heutige Kurs zum heutigen. Die Zeilen unten bleiben wie gebucht, in {currency}.',
+    'paid in': 'bezahlt in',
+    'quoted in': 'notiert in',
 }

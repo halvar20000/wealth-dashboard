@@ -347,7 +347,7 @@ def backfill(get=None, isins: list[str] | None = None) -> dict:
 
 
 def series_for(isin: str, account_ids: list[int] | None = None,
-               today: date | None = None) -> dict:
+               today: date | None = None, currency: str | None = None) -> dict:
     """One holding, day by day since its first row: the units held, what
     was put in, and what it was worth at that day's price.
 
@@ -368,7 +368,7 @@ def series_for(isin: str, account_ids: list[int] | None = None,
             f"WHERE isin = ? AND quantity IS NOT NULL{only} ORDER BY txn_date, id",
             [isin, *params]).fetchall()]
         income = [dict(r) for r in conn.execute(
-            f"SELECT txn_date, amount FROM transactions WHERE isin = ? "
+            f"SELECT txn_date, amount, currency FROM transactions WHERE isin = ? "
             f"AND kind IN ('dividend', 'interest'){only} ORDER BY txn_date", [isin, *params]).fetchall()]
         pr = [(r["as_of"], r["price"], r["currency"]) for r in conn.execute(
             "SELECT as_of, price, currency FROM prices WHERE isin = ? ORDER BY as_of", (isin,))]
@@ -404,12 +404,34 @@ def series_for(isin: str, account_ids: list[int] | None = None,
     # is worth euros to its owner: the day's price is turned into the
     # trade currency at that day's ECB rate, so the value line, what
     # went in and the returns are all one currency — see in_currency().
-    currency = next((r["currency"] for r in rows if r["kind"] in ("buy", "sell") and r["currency"]),
-                    rows[0]["currency"] or (pr[-1][2] if pr else "EUR"))
+    # Or in any currency asked for — the one the shares are quoted in,
+    # the dashboard's base — with every amount turned at its own day's
+    # rate, so what went in is what it was worth the day it went in.
+    trade_ccy = next((r["currency"] for r in rows if r["kind"] in ("buy", "sell") and r["currency"]),
+                     rows[0]["currency"] or (pr[-1][2] if pr else "EUR"))
+    currency = (currency or trade_ccy).upper()
     convert = in_currency(currency)
     pr = [(d, convert(px, ccy, d), ccy) for d, px, ccy in pr]
     pr = [(d, px, ccy) for d, px, ccy in pr if px is not None]
     pdays = [d for d, _, _ in pr]
+    if currency != trade_ccy:
+        # The flows again, in the asked-for currency, day by day.
+        invested, paid, iamt = [], [], []
+        inv = 0.0
+        last_paid = None
+        for r, f in zip(rows, factor):
+            amt = convert(r["amount"], r["currency"], r["txn_date"])
+            if r["kind"] == "buy" and amt is not None:
+                inv += -amt
+            elif r["kind"] == "sell" and amt is not None:
+                inv -= amt
+            if r["price"]:
+                last_paid = convert(r["price"], r["currency"], r["txn_date"]) or last_paid
+            invested.append(inv); paid.append(last_paid)
+        acc = 0.0
+        for r in income:
+            acc += convert(r["amount"], r["currency"], r["txn_date"]) or 0.0
+            iamt.append(acc)
     start = _date.fromisoformat(days[0])
     points = []
     d = start
@@ -430,7 +452,7 @@ def series_for(isin: str, account_ids: list[int] | None = None,
                        "value": value if abs(held) > 1e-12 else None,
                        "income": iamt[k - 1] if k else 0.0})
         d += timedelta(days=1)
-    return {"points": points, "currency": currency, "first": days[0]}
+    return {"points": points, "currency": currency, "trade_currency": trade_ccy, "first": days[0]}
 
 
 def in_currency(to: str):
@@ -453,7 +475,9 @@ def in_currency(to: str):
             return price
         i = bisect_right(fx_days, day)
         if not i:
-            return None
+            if not fx_days:
+                return None
+            i = 1                    # before every rate on record: the oldest, until the history arrives
         rates = table[fx_days[i - 1]]
         if ccy not in rates or to not in rates:
             return None

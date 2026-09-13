@@ -4762,7 +4762,8 @@ with db.get_conn() as conn:
     conn.execute("INSERT OR REPLACE INTO fx_rates (as_of, currency, per_eur) VALUES ('2026-02-28', 'USD', 1.1)")
 conv = prices.in_currency("EUR")
 check("a dollar price becomes euros at the day's rate", (round(conv(120, "USD", "2026-02-01"), 6), round(conv(132, "USD", "2026-03-01"), 6), conv(50, "EUR", "2026-02-01")), (100.0, 120.0, 50))
-check("...and nothing without a rate", conv(120, "USD", "2025-01-01"), None)
+check("...a day before every rate on record takes the oldest one, and an unknown currency nothing",
+      (conv(120, "USD", "2025-01-01"), conv(120, "XXX", "2026-02-01")), (100.0, None))
 ser = prices.series_for("US0231351067", [uid], today=date(2026, 3, 5))
 pts = {p["date"]: p for p in ser["points"]}
 check("the series is in the currency the shares were paid in",
@@ -4770,6 +4771,22 @@ check("the series is in the currency the shares were paid in",
 r = c.get("/securities/US0231351067")
 check("the page values the holding in euros and says what the quote was",
       ("1\u00a0200.00\u00a0EUR" in r.data.decode(), b"quoted 132 USD" in r.data, b"USD unrealised" not in r.data), (True, True, True))
+r = c.get("/securities/US0231351067", query_string={"ccy": "USD"})
+check("...and can be shown in the currency it is quoted in instead",
+      (b"Show in" in r.data, "1\u00a0320.00\u00a0USD" in r.data.decode(), b"quoted 132 USD" in r.data), (True, True, False))
+ser_usd = prices.series_for("US0231351067", [uid], today=date(2026, 3, 5), currency="USD")
+pts = {p["date"]: p for p in ser_usd["points"]}
+check("the series in dollars: the buy turned at its day's rate — the oldest on record, until the history arrives — the price as quoted",
+      (ser_usd["currency"], ser_usd["trade_currency"], round(pts["2026-03-02"]["value"]), round(pts["2026-03-02"]["invested"])), ("USD", "EUR", 1320, 1200))
+check("a row older than the oldest rate asks for the ECB's whole history, once",
+      (fx.needs_backfill(), db.get_state(fx.BACKFILLED)), (True, None))
+_fetch, fx.fetch = fx.fetch, lambda url=None: ECB_XML         # no network in a test
+try:
+    fx.backfill()
+finally:
+    fx.fetch = _fetch
+check("...and having fetched it, does not ask again", fx.needs_backfill(), False)
+check("an unknown currency falls back to the one paid in", b'class="period-btn active" href="/securities/US0231351067"' in c.get("/securities/US0231351067", query_string={"ccy": "XXX"}).data, True)
 c.post(f"/accounts/{uid}/delete", data={"confirm": "USD test"})
 
 # ---------------------------------------------------------------------------

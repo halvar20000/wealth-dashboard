@@ -120,11 +120,12 @@ def mwr(cashflows: list[tuple[str, float]], end_day: str, end_value: float | Non
 # ─── One security ────────────────────────────────────────────────────
 
 def for_security(isin: str, account_ids: list[int] | None = None,
-                 today: date | None = None) -> dict:
+                 today: date | None = None, currency: str | None = None) -> dict:
     """Since the first row: TWR (total and annualised), MWR (annual),
-    and the span they cover."""
+    and the span they cover — in the currency the shares were paid in,
+    or the one asked for, flows turned at their own day's rate."""
     today = today or date.today()
-    series = prices.series_for(isin, account_ids, today)
+    series = prices.series_for(isin, account_ids, today, currency)
     pts = series.get("points") or []
     if not pts:
         return {"twr": None, "twr_annual": None, "mwr": None, "days": 0}
@@ -132,14 +133,18 @@ def for_security(isin: str, account_ids: list[int] | None = None,
     only, params = people.sql_in(account_ids, "account_id")
     with get_conn() as conn:
         rows = conn.execute(
-            f"SELECT txn_date, kind, amount FROM transactions WHERE isin = ? "
+            f"SELECT txn_date, kind, amount, currency FROM transactions WHERE isin = ? "
             f"AND kind IN ('buy', 'sell', 'dividend', 'interest'){only} ORDER BY txn_date",
             [isin, *params]).fetchall()
+    convert = prices.in_currency(series["currency"])
     flows: dict[str, float] = defaultdict(float)
     cashflows = []
     for r in rows:
-        flows[r["txn_date"]] += -r["amount"]
-        cashflows.append((r["txn_date"], r["amount"]))
+        amount = convert(r["amount"], r["currency"], r["txn_date"])
+        if amount is None:
+            continue
+        flows[r["txn_date"]] += -amount
+        cashflows.append((r["txn_date"], amount))
     values = [(p["date"], p["value"]) for p in pts]
     # The chain starts at the first day's closing value, which already
     # holds the first buy: the return of the first day itself is not

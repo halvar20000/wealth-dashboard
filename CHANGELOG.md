@@ -11,6 +11,20 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.29.0] — 2026-09-13
+
+### Added
+- **A currency switch on the security page.** A share paid for in
+  euros and quoted in dollars can be looked at in either — or in the
+  dashboard's base currency — with pills above the tiles: *EUR paid
+  in · USD quoted in*. Every amount is turned at its own day's ECB
+  rate and today's price at today's, so net invested, income, value,
+  the chart and the returns are all in the chosen currency; the rows
+  below stay as booked. The default is the currency the shares were
+  paid in. For that the ECB's whole rate history since 1999 is fetched
+  once, when a row in the books is older than the ninety days the
+  daily feed carries.
+
 ## [0.28.3] — 2026-09-13
 
 ### Fixed

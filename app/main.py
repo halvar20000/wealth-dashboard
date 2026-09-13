@@ -797,16 +797,33 @@ def security_page(isin: str):
         or (sec["name"] if sec else None) or isin
     currency = next((r["currency"] for r in rows if r["kind"] in ("buy", "sell")), rows[0]["currency"])
     price = prices.latest().get(isin)
-    if price and price.get("currency") and price["currency"].upper() != (currency or "").upper():
-        # Priced by Yahoo in dollars, paid for in euros: the page is in
-        # the owner's currency, and says what the quote was.
+    # Which currency the page is in: the one the shares were paid in
+    # unless asked otherwise — the one they are quoted in, or the
+    # dashboard's base. Amounts are turned at their own day's rate;
+    # today's price at today's. The rows below stay as booked.
+    base = settings.get("base_currency", "EUR")
+    options = []
+    for c_ in (currency, price["currency"] if price else None, base):
+        if c_ and c_.upper() not in options:
+            options.append(c_.upper())
+    roles = {currency.upper(): "paid"}
+    if price and price.get("currency"):
+        roles.setdefault(price["currency"].upper(), "quoted")
+    roles.setdefault(base.upper(), "base")
+    asked = (request.args.get("ccy") or "").upper()
+    shown = asked if asked in options else currency.upper()
+    convert = prices.in_currency(shown)
+    if price and price.get("currency") and price["currency"].upper() != shown:
         quoted = dict(price)
-        converted = prices.in_currency(currency)(price["price"], price["currency"], price["as_of"])
-        price = {**price, "price": converted, "currency": currency, "quoted": quoted} if converted is not None else price
-    net_invested = sum(-r["amount"] for r in rows if r["kind"] == "buy") \
-        - sum(r["amount"] for r in rows if r["kind"] == "sell")
-    income = sum(r["amount"] for r in rows if r["kind"] in ("dividend", "interest"))
-    costs = {"fees": sum(r["fee"] or 0.0 for r in rows), "taxes": sum(r["tax"] or 0.0 for r in rows)}
+        converted = convert(price["price"], price["currency"], price["as_of"])
+        price = {**price, "price": converted, "currency": shown, "quoted": quoted} if converted is not None else price
+    def in_shown(r):
+        return convert(r["amount"], r["currency"], r["txn_date"]) or 0.0
+    net_invested = sum(-in_shown(r) for r in rows if r["kind"] == "buy") \
+        - sum(in_shown(r) for r in rows if r["kind"] == "sell")
+    income = sum(in_shown(r) for r in rows if r["kind"] in ("dividend", "interest"))
+    costs = {"fees": sum(convert(r["fee"], r["currency"], r["txn_date"]) or 0.0 for r in rows if r["fee"]),
+             "taxes": sum(convert(r["tax"], r["currency"], r["txn_date"]) or 0.0 for r in rows if r["tax"])}
     # What each sale made, by lots — and what the units still held
     # cost, which is the cost basis the unrealised gain is measured
     # against. Both under the method chosen in Settings.
@@ -816,9 +833,15 @@ def security_page(isin: str):
         r["sale"] = by_sale.get(r["id"])
     unrealised = None
     if price and price.get("price") is not None and realised["open_quantity"] > 1e-12:
-        unrealised = price["price"] * realised["open_quantity"] - realised["open_cost"]
+        # The lots' cost is in the trade currency; in another it is
+        # turned at today's rate — what the same money would be now.
+        open_cost = realised["open_cost"] if shown == currency.upper() \
+            else convert(realised["open_cost"], currency, price["as_of"])
+        if open_cost is not None:
+            unrealised = price["price"] * realised["open_quantity"] - open_cost
     return render_template("security.html", active_page="portfolio", isin=isin, name=name,
-                           perf=performance.for_security(isin, people.scope()),
+                           perf=performance.for_security(isin, people.scope(), currency=shown),
+                           shown=shown, options=options, roles=roles,
                            realised=realised, unrealised=unrealised,
                            rows=rows, groups=groups, quantity=running, net_invested=net_invested,
                            income=income, costs=costs, price=price, currency=currency,
@@ -943,8 +966,11 @@ def loans_page():
 @app.route("/api/securities/<path:isin>/history")
 @auth.login_required
 def api_security_history(isin: str):
-    """Day by day since the first row: units, invested, value, income."""
-    return prices.series_for(isin.strip(), people.scope())
+    """Day by day since the first row: units, invested, value, income —
+    in the currency asked for with `ccy`, else the one the shares were
+    paid in."""
+    ccy = (request.args.get("ccy") or "").upper() or None
+    return prices.series_for(isin.strip(), people.scope(), currency=ccy)
 
 
 @app.route("/transactions/<int:txn_id>/edit", methods=["POST"])
@@ -2019,6 +2045,10 @@ def _start_rate_refresher() -> None:
                     info = fx.refresh()
                     print(f"  rates: {info['currencies']} currencies, "
                           f"published {info['latest']}", flush=True)
+                if fx.needs_backfill():
+                    info = fx.backfill()
+                    print(f"  rates: history back to {info['oldest']}, "
+                          f"{info['days']} days", flush=True)
             except fx.FxError as exc:
                 print(f"  rates: {exc}", flush=True)
             except Exception as exc:                      # noqa: BLE001

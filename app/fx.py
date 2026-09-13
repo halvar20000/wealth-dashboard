@@ -141,6 +141,35 @@ def refresh(url: str = ECB_URL) -> dict:
             "latest": newest}
 
 
+# The whole history since 1999, one file of a few megabytes, fetched
+# once — and only when a row in the books predates the ninety days:
+# a share bought in 2022 and quoted in dollars needs 2022's rate to
+# say what it cost in dollars.
+ECB_HIST_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.xml"
+BACKFILLED = "fx_backfilled"
+
+
+def needs_backfill() -> bool:
+    """A transaction or a price older than the oldest rate on record,
+    and the whole history not fetched yet."""
+    if get_state(BACKFILLED):
+        return False
+    with get_conn() as conn:
+        oldest_rate = conn.execute("SELECT MIN(as_of) AS d FROM fx_rates").fetchone()["d"]
+        oldest_row = conn.execute(
+            "SELECT MIN(d) AS d FROM (SELECT MIN(txn_date) AS d FROM transactions "
+            "UNION ALL SELECT MIN(as_of) FROM prices)").fetchone()["d"]
+    return bool(oldest_rate and oldest_row and oldest_row < oldest_rate)
+
+
+def backfill(url: str = ECB_HIST_URL) -> dict:
+    """Fetch and store every rate the ECB has ever published."""
+    days = parse(fetch(url))
+    store(days)
+    set_state(BACKFILLED, datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    return {"days": len(days), "oldest": min(days)}
+
+
 # ─── Reading ─────────────────────────────────────────────────────────
 
 def latest_date() -> str | None:

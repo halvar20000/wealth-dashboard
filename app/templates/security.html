@@ -6,6 +6,18 @@
 {% endblock %}
 {% block content %}
 
+{% if options | length > 1 %}
+<div class="sec-ccy">
+  <span class="sub">{{ _("Show in") }}</span>
+  <div class="period-pills" role="tablist">
+    {% for c_ in options %}
+    <a class="period-btn {{ 'active' if c_ == shown }}" href="{{ url_for('security_page', isin=isin, ccy=(c_ if c_ != currency else None)) }}">{{ c_ }}<span class="sub"> {% if roles[c_] == 'paid' %}{{ _("paid in") }}{% elif roles[c_] == 'quoted' %}{{ _("quoted in") }}{% else %}{{ _("base") }}{% endif %}</span></a>
+    {% endfor %}
+  </div>
+  {% if shown != currency %}<span class="sub">{{ _f("every amount at its own day's ECB rate; today's price at today's. The rows below stay as booked, in {currency}.", currency=currency) }}</span>{% endif %}
+</div>
+{% endif %}
+
 <section class="stat-strip">
   <div class="stat-card stat-gold">
     <div class="stat-label">{{ _("Held") }}</div>
@@ -14,13 +26,13 @@
   </div>
   <div class="stat-card stat-blue">
     <div class="stat-label">{{ _("Net invested") }}</div>
-    <div class="stat-value">{{ money(net_invested, currency) }}</div>
-    <div class="stat-sub">{% if realised.open_quantity > 0 and realised.avg_cost %}{{ _f("units held cost {amount}, {avg} each", amount=money(realised.open_cost, currency), avg=qty(realised.avg_cost | round(2))) }}{% else %}{{ _("buys minus sales, fees included") }}{% endif %}</div>
+    <div class="stat-value">{{ money(net_invested, shown) }}</div>
+    <div class="stat-sub">{% if realised.open_quantity > 0 and realised.avg_cost and shown == currency %}{{ _f("units held cost {amount}, {avg} each", amount=money(realised.open_cost, currency), avg=qty(realised.avg_cost | round(2))) }}{% else %}{{ _("buys minus sales, fees included") }}{% endif %}</div>
   </div>
   <div class="stat-card stat-green">
     <div class="stat-label">{{ _("Income") }}</div>
-    <div class="stat-value">{{ money(income, currency) }}</div>
-    <div class="stat-sub">{{ _("dividends and interest") }}{% if costs.fees or costs.taxes %} · {{ _f("fees {fees}, tax {taxes} paid", fees=money(costs.fees, currency), taxes=money(costs.taxes, currency)) }}{% endif %}</div>
+    <div class="stat-value">{{ money(income, shown) }}</div>
+    <div class="stat-sub">{{ _("dividends and interest") }}{% if costs.fees or costs.taxes %} · {{ _f("fees {fees}, tax {taxes} paid", fees=money(costs.fees, shown), taxes=money(costs.taxes, shown)) }}{% endif %}</div>
   </div>
   <div class="stat-card stat-gold">
     <div class="stat-label" title="{{ _('Time-weighted: the return of the investment itself, with the timing of your own money taken out — what compares one holding to another.') }}">{{ _("Return (TWR)") }}</div>
@@ -205,12 +217,12 @@
 {% block scripts %}
 <script>
 (async () => {
-  const res = await fetch({{ url_for('api_security_history', isin=isin) | tojson }});
+  const res = await fetch({{ url_for('api_security_history', isin=isin, ccy=shown) | tojson }});
   const data = await res.json();
   const pts = (data.points || []).filter((p) => p.value !== null || p.invested);
   if (!pts.length) { document.getElementById('sec-chart-sub').textContent = {{ _("no price history yet — it arrives with the next price refresh") | tojson }}; return; }
   const lang = {{ lang | tojson }};
-  const ccy = data.currency || {{ currency | tojson }};
+  const ccy = data.currency || {{ shown | tojson }};
   const fmt = (v) => v == null ? '—' : v.toLocaleString(lang, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + '\u00a0' + ccy;
   const last = pts[pts.length - 1];
   const gain = last.value != null ? last.value + last.income - last.invested : null;

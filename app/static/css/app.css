@@ -772,3 +772,6 @@ a.period-btn:hover { text-decoration: none; }
 .stage-milestone { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); font-size: 13px; }
 .stage-milestone strong { display: block; margin-bottom: 3px; }
 @media (max-width: 700px) { .stage-track { grid-template-columns: 1fr; } }
+
+.sec-ccy { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 14px; }
+.sec-ccy .period-btn .sub { font-size: 11px; font-weight: 400; }

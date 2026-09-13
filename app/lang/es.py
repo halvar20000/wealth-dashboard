@@ -1943,4 +1943,10 @@ STRINGS: dict[str, str] = {
     'quoted {price} {currency}': 'cotizado {price} {currency}',
     "A price quoted in another currency than the shares were paid in is turned into theirs at the day's ECB rate, so the lines are one currency.": 'Un precio cotizado en otra divisa que aquella en la que se pagaron los títulos se convierte a esta al tipo del BCE del día, para que las líneas sean de una sola divisa.',
     'fees {fees}, tax {taxes} paid': '{fees} de comisiones, {taxes} de impuestos pagados',
+    # Currency switch on the security page (0.29.0)
+    'Show in': 'Mostrar en',
+    'base': 'base',
+    "every amount at its own day's ECB rate; today's price at today's. The rows below stay as booked, in {currency}.": 'cada importe al tipo del BCE de su día; el precio de hoy al de hoy. Las filas de abajo se quedan como se contabilizaron, en {currency}.',
+    'paid in': 'pagado en',
+    'quoted in': 'cotizado en',
 }
