@@ -11,8 +11,18 @@
 {% set by_hand %}<a href="{{ url_for('connect_paste') }}">{{ _("finish the connection by hand") }}</a>{% endset %}
 <p class="sub">{{ _f("If your bank leaves you on a page that will not load, that is expected with an https-only redirect URL — {by_hand}.", by_hand=by_hand) | safe }}</p>
 
+{% if providers | length > 1 %}
+<div class="period-pills" role="tablist" style="margin-bottom:14px">
+  {% for key, label in providers %}
+  <a class="period-btn {{ 'active' if key == provider }}" href="{{ url_for('connect_pick', account_id=account_id, provider=key, country=country, q=q or None) }}">{{ label }}</a>
+  {% endfor %}
+</div>
+<p class="sub">{{ _("Two aggregators, the same banks mostly: if a bank misbehaves through one, try it through the other. GoCardless also lists the United Kingdom.") }}</p>
+{% endif %}
+
 <form class="card form inline" method="get"
       action="{{ url_for('connect_pick', account_id=account_id) }}">
+  <input type="hidden" name="provider" value="{{ provider }}">
   <label for="country">{{ _("Country") }}</label>
   <input id="country" name="country" value="{{ country }}" maxlength="2" size="4">
   <label for="q">{{ _("Search") }}</label>
@@ -27,15 +37,17 @@
   {{ _("It walks the identical flow — redirect, consent, session, balances, transactions — with the provider's own test credentials, and creates no consent at a real bank. If your redirect URL is registered wrongly, you find out here instead of by spending an authorisation you rely on.") }}</div>
 {% endif %}
 <table class="grid">
-  <thead><tr><th>{{ _("Bank") }}</th><th>{{ _("Type") }}</th><th></th></tr></thead>
+  <thead><tr><th>{{ _("Bank") }}</th><th></th><th></th></tr></thead>
   <tbody>
   {% for b in banks %}
     <tr>
       <td>{{ b.name }}
         {% if b.sandbox %}<span class="tag">{{ _("sandbox") }}</span>{% endif %}</td>
-      <td class="sub">{{ (b.psu_types or [])|join(', ') }}</td>
+      <td class="sub">{% if b.days %}{{ _n(b.days, "{n} day of history", "{n} days of history") }}{% endif %}</td>
       <td class="num">
         <form method="post" action="{{ url_for('connect_start', account_id=account_id) }}">
+          <input type="hidden" name="provider" value="{{ b.provider }}">
+          <input type="hidden" name="institution_id" value="{{ b.id }}">
           <input type="hidden" name="aspsp_name" value="{{ b.name }}">
           <input type="hidden" name="aspsp_country" value="{{ b.country or country }}">
           <button type="submit">{{ _("Connect") }}</button>

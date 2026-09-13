@@ -132,19 +132,10 @@ STRINGS: dict[str, str] = {
         "Consentement expiré. Reconnecte-toi pour reprendre la synchro.",
     "Sync now": "Synchroniser",
     "Reconnect or change bank": "Reconnecter ou changer de banque",
-    "This account is not connected to a bank. Connecting it pulls the balance "
-    "and the transaction history straight from the bank, with your own Enable "
-    "Banking credentials.":
-        "Ce compte n'est relié à aucune banque. Une fois connecté, il récupère "
-        "le solde et l'historique directement auprès de la banque, avec tes "
-        "propres identifiants Enable Banking.",
     "Connect a bank": "Connecter une banque",
     "Started one already and landed on a dead page? {paste}.":
         "Déjà commencé et atterri sur une page morte ? {paste}.",
     "Paste the code here": "Colle le code ici",
-    "Add your Enable Banking Application ID and private key in {settings} first.":
-        "Renseigne d'abord ton Application ID et ta clé privée Enable Banking "
-        "dans {settings}.",
     "Import a broker CSV": "Importer un CSV de courtier",
     "Edit or delete": "Modifier ou supprimer",
     "Recent transactions": "Transactions récentes",
@@ -1973,4 +1964,21 @@ STRINGS: dict[str, str] = {
     'the description': 'le libellé',
     'the text anywhere': 'le texte n’importe où',
     'to': 'à',
+    # GoCardless (0.31.0)
+    'A second way into a bank, beside Enable Banking — the aggregator that used to be Nordigen. Two and a half thousand banks in Europe and, unlike Enable Banking, the United Kingdom. A bank that misbehaves through one connector often just works through the other. No private key and no redirect URL to register: a user secret from the portal is all.': 'Une seconde voie vers une banque, à côté d’Enable Banking — l’agrégateur qui s’appelait Nordigen. Deux mille cinq cents banques en Europe et, contrairement à Enable Banking, le Royaume-Uni. Une banque qui se comporte mal par un connecteur passe souvent sans encombre par l’autre. Pas de clé privée ni d’URL de redirection à enregistrer : un secret utilisateur du portail suffit.',
+    'Add your Enable Banking or GoCardless credentials in {settings} first.': 'Ajoutez d’abord vos identifiants Enable Banking ou GoCardless dans les {settings}.',
+    'Create an account at {portal} and, under Developers → User secrets, a new user secret. The Secret Key is shown once.': 'Créez un compte sur {portal} et, sous Developers → User secrets, un nouveau secret utilisateur. La Secret Key n’est affichée qu’une fois.',
+    'Forget GoCardless': 'Oublier GoCardless',
+    'GoCardless credentials forgotten. Accounts already connected keep their history but will not sync.': 'Identifiants GoCardless oubliés. Les comptes déjà connectés gardent leur historique mais ne se synchroniseront plus.',
+    "GoCardless credentials saved. Pick a bank on an account's page to connect it.": 'Identifiants GoCardless enregistrés. Choisissez une banque sur la page d’un compte pour le connecter.',
+    'No bank aggregator is configured yet. Add Enable Banking or GoCardless credentials under Settings → Banks & brokers first.': 'Aucun agrégateur bancaire n’est encore configuré. Ajoutez d’abord des identifiants Enable Banking ou GoCardless sous Réglages → Banques & courtiers.',
+    'Open a bank account here, press Connect a bank, and choose GoCardless at the top of the list.': 'Ouvrez un compte bancaire ici, appuyez sur Connecter une banque et choisissez GoCardless en haut de la liste.',
+    'Paste both halves below.': 'Collez les deux moitiés ci-dessous.',
+    'Save GoCardless credentials': 'Enregistrer les identifiants GoCardless',
+    'The consent lasts ninety days at most banks, as with Enable Banking; the account page says when it lapses. GoCardless counts calls per account per day rather than rows, and the daily sync makes two.': 'Le consentement dure quatre-vingt-dix jours dans la plupart des banques, comme avec Enable Banking ; la page du compte dit quand il expire. GoCardless compte les appels par compte et par jour plutôt que les lignes, et la synchronisation quotidienne en fait deux.',
+    'This account is not connected to a bank. Connecting it pulls the balance and the transaction history straight from the bank, with your own Enable Banking or GoCardless credentials.': 'Ce compte n’est pas connecté à une banque. Le connecter récupère le solde et l’historique des opérations directement auprès de la banque, avec vos propres identifiants Enable Banking ou GoCardless.',
+    'Two aggregators, the same banks mostly: if a bank misbehaves through one, try it through the other. GoCardless also lists the United Kingdom.': 'Deux agrégateurs, les mêmes banques pour l’essentiel : si une banque se comporte mal par l’un, essayez-la par l’autre. GoCardless liste aussi le Royaume-Uni.',
+    'set up': 'configuré',
+    '{n} day of history': '{n} jour d’historique',
+    '{n} days of history': '{n} jours d’historique',
 }

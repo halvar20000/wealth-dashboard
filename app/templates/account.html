@@ -102,14 +102,14 @@
     </form>
     <p class="sub"><a href="{{ url_for('connect_pick', account_id=account.id) }}">{{ _("Reconnect or change bank") }}</a></p>
   {% else %}
-    <p class="sub">{{ _("This account is not connected to a bank. Connecting it pulls the balance and the transaction history straight from the bank, with your own Enable Banking credentials.") }}</p>
-    {% if configured %}
+    <p class="sub">{{ _("This account is not connected to a bank. Connecting it pulls the balance and the transaction history straight from the bank, with your own Enable Banking or GoCardless credentials.") }}</p>
+    {% if configured or gocardless %}
       <p><a class="btn" href="{{ url_for('connect_pick', account_id=account.id) }}">{{ _("Connect a bank") }}</a></p>
       {% set paste_link %}<a href="{{ url_for('connect_paste') }}">{{ _("Paste the code here") }}</a>{% endset %}
       <p class="sub">{{ _f("Started one already and landed on a dead page? {paste}.", paste=paste_link) | safe }}</p>
     {% else %}
       {% set settings_link %}<a href="{{ url_for('settings_page') }}">{{ _("Settings") }}</a>{% endset %}
-      <p class="sub">{{ _f("Add your Enable Banking Application ID and private key in {settings} first.", settings=settings_link) | safe }}</p>
+      <p class="sub">{{ _f("Add your Enable Banking or GoCardless credentials in {settings} first.", settings=settings_link) | safe }}</p>
     {% endif %}
   {% endif %}
 </div>

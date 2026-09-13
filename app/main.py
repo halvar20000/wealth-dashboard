@@ -365,6 +365,7 @@ def account_detail(account_id: int):
                            transactions=[dict(t) for t in txns],
                            total_transactions=total,
                            configured=banksync.credentials_present(),
+                           gocardless=banksync.gocardless_present(),
                            owners=people.for_account(account_id),
                            today=date.today().isoformat())
 
@@ -1694,6 +1695,7 @@ SETTINGS_SECTIONS = ("general", "banks", "market", "categories", "people", "assi
 _SETTINGS_ANCHORS = {
     "general": "general",
     "sync": "banks", "saxo": "banks", "kraken": "banks", "mappings": "banks", "enablebanking": "banks",
+    "gocardless": "banks",
     "rates": "market", "prices": "market", "ideas": "market",
     "categories": "categories", "people": "people", "mcp": "assistants",
 }
@@ -1820,6 +1822,17 @@ def settings_page(section: str = "general"):
                          "{n} new transactions across {accounts} accounts.",
                          accounts=len(results)), "ok")
             return redirect(_settings_url("sync"))
+        elif request.form.get("form") == "gocardless_credentials":
+            try:
+                banksync.save_gocardless(request.form.get("secret_id", ""), request.form.get("secret_key", ""))
+                flash(_t("GoCardless credentials saved. Pick a bank on an account's page to connect it."), "ok")
+            except ValueError as exc:
+                flash(str(exc), "error")
+            return redirect(_settings_url("gocardless"))
+        elif request.form.get("form") == "gocardless_forget":
+            banksync.forget_gocardless()
+            flash(_t("GoCardless credentials forgotten. Accounts already connected keep their history but will not sync."), "ok")
+            return redirect(_settings_url("gocardless"))
         elif request.form.get("form") == "csv_mapping_delete":
             from .importers import generic
             try:
@@ -1879,6 +1892,7 @@ def settings_page(section: str = "general"):
                            people_list=_people_with_counts(),
                            today=date.today().isoformat(),
                            configured=banksync.credentials_present(),
+                           gocardless=banksync.gocardless_present(),
                            secrets_dir=str(settings.SECRETS_DIR),
                            secrets_inside_data=settings.SECRETS_INSIDE_DATA,
                            catalogue=categories.catalogue(),
@@ -1908,13 +1922,19 @@ def connect_pick(account_id: int):
     with no starting point is not a choice."""
     country = (request.args.get("country") or "DE").upper()[:2]
     query = (request.args.get("q") or "").strip().lower()
+    # Which aggregator lists the banks: the one asked for, else the
+    # first with credentials. Two of them because a bank that one
+    # connector mishandles often just works through the other.
+    available = banksync.providers()
+    provider = request.args.get("provider") or (available[0] if available else "enablebanking")
+    if provider not in available and available:
+        provider = available[0]
     banks, error = [], None
-    if not banksync.credentials_present():
-        error = ("Enable Banking is not configured yet. Add your Application "
-                 "ID and private key in Settings first.")
+    if not available:
+        error = _t("No bank aggregator is configured yet. Add Enable Banking or GoCardless credentials under Settings → Banks & brokers first.")
     else:
         try:
-            banks = banksync.client().aspsps(country)
+            banks = banksync.institutions(provider, country)
         except Exception as exc:                    # noqa: BLE001
             error = str(exc)
     if query:
@@ -1929,6 +1949,7 @@ def connect_pick(account_id: int):
     return render_template("connect_pick.html", account_id=account_id,
                            banks=banks, country=country, q=request.args.get("q", ""),
                            sandboxes=sum(1 for b in banks if b.get("sandbox")),
+                           provider=provider, providers=[(k, banksync.PROVIDERS[k]) for k in available],
                            error=error)
 
 
@@ -1937,21 +1958,24 @@ def connect_pick(account_id: int):
 def connect_start(account_id: int):
     name = request.form.get("aspsp_name") or ""
     country = request.form.get("aspsp_country") or "DE"
+    provider = request.form.get("provider") or "enablebanking"
     try:
-        url = banksync.begin_connect(account_id, name, country)
+        url = banksync.begin_connect(account_id, name, country, provider=provider,
+                                     institution_id=request.form.get("institution_id") or None)
     except Exception as exc:                        # noqa: BLE001
         flash(str(exc), "error")
         return redirect(url_for("connect_pick", account_id=account_id,
-                                country=country))
+                                country=country, provider=provider))
     # Off to the bank. Everything needed to finish is in the database.
     return redirect(url)
 
 
-def _finish_connection(code: str, state: str):
+def _finish_connection(code: str | None, state: str | None, ref: str | None = None):
     """Shared by the automatic callback and the manual paste. One function,
-    so the two paths cannot drift into behaving differently."""
+    so the two paths cannot drift into behaving differently. A `ref` is
+    GoCardless coming back; code and state are Enable Banking."""
     try:
-        result = banksync.complete_connect(code, state)
+        result = banksync.complete_gocardless(ref) if ref else banksync.complete_connect(code, state)
     except Exception as exc:                        # noqa: BLE001
         flash(str(exc), "error")
         return None
@@ -1977,14 +2001,15 @@ def connect_callback():
     error = request.args.get("error")
     code = request.args.get("code")
     state = request.args.get("state")
+    ref = request.args.get("ref")
     if error:
-        flash(_f("The bank refused the authorisation: {reason}", reason=error),
-              "error")
+        flash(_f("The bank refused the authorisation: {reason}",
+                 reason=" ".join(x for x in (error, request.args.get("details")) if x)), "error")
         return redirect(url_for("index"))
-    if not code or not state:
+    if not ref and (not code or not state):
         flash(_t("The bank sent us back without an authorisation code."), "error")
         return redirect(url_for("connect_paste"))
-    result = _finish_connection(code, state)
+    result = _finish_connection(code, state, ref)
     if result is None:
         return redirect(url_for("connect_paste"))
     return redirect(url_for("account_detail", account_id=result["account_id"]))
@@ -2014,6 +2039,13 @@ def connect_paste():
 
     if request.method == "POST":
         raw = (request.form.get("pasted") or "").strip()
+        # GoCardless comes back with ?ref= alone; that is the whole key.
+        ref = dict(urllib.parse.parse_qsl(raw.split("?", 1)[1].split("#", 1)[0])).get("ref") if "?" in raw else None
+        if ref:
+            result = _finish_connection(None, None, ref)
+            if result is not None:
+                return redirect(url_for("account_detail", account_id=result["account_id"]))
+            return redirect(url_for("connect_paste"))
         code, state = _parse_pasted_redirect(raw)
         if not state and len(pending) == 1:
             # Only one connection is in flight, so a bare code is

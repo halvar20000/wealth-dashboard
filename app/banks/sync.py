@@ -14,9 +14,14 @@ from datetime import datetime, timezone
 from .. import categories, settings
 from ..db import get_conn
 from . import enablebanking as eb
+from . import gocardless as gc
 
 APP_ID_FILE = "enablebanking_app_id"
 KEY_FILE = "enablebanking_private.key"
+GC_ID_FILE = "gocardless_secret_id"
+GC_KEY_FILE = "gocardless_secret_key"
+
+PROVIDERS = {"enablebanking": "Enable Banking", "gocardless": "GoCardless"}
 
 
 # ─── Credentials ─────────────────────────────────────────────────────
@@ -70,9 +75,77 @@ def client() -> eb.Client:
                      eb.load_private_key(settings.SECRETS_DIR / KEY_FILE))
 
 
+# ─── GoCardless credentials ──────────────────────────────────────────
+
+def gocardless_present() -> bool:
+    return ((settings.SECRETS_DIR / GC_ID_FILE).exists()
+            and (settings.SECRETS_DIR / GC_KEY_FILE).exists())
+
+
+def save_gocardless(secret_id: str, secret_key: str) -> None:
+    settings.ensure_dirs()
+    secret_id = (secret_id or "").strip()
+    secret_key = (secret_key or "").strip()
+    if not secret_id or not secret_key:
+        raise ValueError("GoCardless needs both the Secret ID and the Secret Key "
+                         "— the two halves of a user secret from the portal.")
+    if len(secret_key) < 40:
+        raise ValueError("That Secret Key is too short to be one. The portal shows "
+                         "it once, when the user secret is created; if it is gone, "
+                         "create a new user secret.")
+    for name, value in ((GC_ID_FILE, secret_id), (GC_KEY_FILE, secret_key)):
+        path = settings.SECRETS_DIR / name
+        path.write_text(value + "\n")
+        try:
+            path.chmod(0o600)
+        except OSError:
+            pass
+
+
+def forget_gocardless() -> None:
+    for name in (GC_ID_FILE, GC_KEY_FILE):
+        try:
+            (settings.SECRETS_DIR / name).unlink()
+        except FileNotFoundError:
+            pass
+
+
+def gc_client() -> gc.Client:
+    if not gocardless_present():
+        raise gc.GoCardlessError("config", "", 0, "GoCardless is not configured yet — add "
+                                 "the Secret ID and Secret Key in Settings.")
+    return gc.Client((settings.SECRETS_DIR / GC_ID_FILE).read_text().strip(),
+                     (settings.SECRETS_DIR / GC_KEY_FILE).read_text().strip())
+
+
+def providers() -> list[str]:
+    """The aggregators with credentials, in the order the picker offers them."""
+    out = []
+    if credentials_present():
+        out.append("enablebanking")
+    if gocardless_present():
+        out.append("gocardless")
+    return out
+
+
+def institutions(provider: str, country: str) -> list[dict]:
+    """The banks of a country as one shape whichever aggregator lists
+    them: {provider, name, country, id, sandbox, days}."""
+    if provider == "gocardless":
+        return [{"provider": "gocardless", "name": b.get("name") or b.get("id"),
+                 "country": country.upper(), "id": b.get("id"), "sandbox": "SANDBOX" in str(b.get("id", "")).upper(),
+                 "days": int(b["transaction_total_days"]) if str(b.get("transaction_total_days") or "").isdigit() else None,
+                 "logo": b.get("logo")}
+                for b in gc_client().institutions(country)]
+    return [{"provider": "enablebanking", "name": b.get("name"), "country": b.get("country") or country.upper(),
+             "id": b.get("name"), "sandbox": bool(b.get("sandbox")), "days": None, "logo": b.get("logo")}
+            for b in client().aspsps(country)]
+
+
 # ─── Connect ─────────────────────────────────────────────────────────
 
-def begin_connect(account_id: int, aspsp_name: str, aspsp_country: str) -> str:
+def begin_connect(account_id: int, aspsp_name: str, aspsp_country: str,
+                  provider: str = "enablebanking", institution_id: str | None = None) -> str:
     """Ask the bank for an authorisation URL and remember why.
 
     The state row is written BEFORE the user leaves. They come back to a
@@ -80,6 +153,8 @@ def begin_connect(account_id: int, aspsp_name: str, aspsp_country: str) -> str:
     not written down first is gone.
     """
     cfg = settings.load()
+    if provider == "gocardless":
+        return _begin_gocardless(account_id, aspsp_name, aspsp_country, institution_id or aspsp_name, cfg)
     state = eb.new_state()
     with get_conn() as conn:
         conn.execute(
@@ -94,6 +169,96 @@ def begin_connect(account_id: int, aspsp_name: str, aspsp_country: str) -> str:
         raise eb.EnableBankingError("POST", "/auth", 0,
                                     f"no authorisation URL in the response: {resp}")
     return url
+
+
+def _begin_gocardless(account_id: int, name: str, country: str, institution_id: str, cfg: dict) -> str:
+    """A requisition — GoCardless's word for "connect this bank and send
+    them back here" — with an agreement for ninety days of access. The
+    state travels as the requisition's reference and comes back as
+    ?ref= on the redirect."""
+    api = gc_client()
+    state = gc.new_state()
+    agreement_id = None
+    try:
+        agreement_id = api.create_agreement(institution_id).get("id")
+    except gc.GoCardlessError:
+        pass                          # the requisition then carries the bank's default
+    resp = api.create_requisition(institution_id, cfg["redirect_url"], state, agreement_id,
+                                  language=(cfg.get("language") or "EN")[:2] or "EN")
+    link = resp.get("link")
+    if not link:
+        raise gc.GoCardlessError("POST", "/requisitions/", 0, f"no link in the response: {resp}")
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO auth_states (state, account_id, aspsp_name, aspsp_country, provider, "
+            "institution_id, requisition_id) VALUES (?, ?, ?, ?, 'gocardless', ?, ?)",
+            (state, account_id, name, country, institution_id, resp.get("id")))
+    return link
+
+
+def complete_gocardless(ref: str) -> dict:
+    """The user is back from the bank with the reference: read the
+    requisition, and link every account it now covers, as
+    complete_connect() does for Enable Banking."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM auth_states WHERE state = ? AND provider = 'gocardless'",
+                           (ref,)).fetchone()
+        if row is None:
+            raise ValueError(
+                "This authorisation is not one this app started, or it has "
+                "already been used. Start the connection again.")
+        pending = dict(row)
+    api = gc_client()
+    req = api.requisition(pending["requisition_id"])
+    status = (req.get("status") or "").upper()
+    if status != "LN":
+        # Not linked yet: the bank's screen was abandoned, or refused.
+        # The state stays, so a second try at the bank can still land.
+        raise ValueError(
+            f"The bank has not confirmed the connection yet (GoCardless status {status or '?'}). "
+            f"Finish the bank's own screen and you will be sent back here again.")
+    accounts = req.get("accounts") or []
+    if not accounts:
+        raise ValueError("The bank returned no accounts for that consent. This usually "
+                         "means no account was ticked on the bank's own consent screen.")
+    agreement = None
+    if req.get("agreement"):
+        try:
+            agreement = api.agreement(req["agreement"])
+        except gc.GoCardlessError:
+            agreement = None
+    until = gc.valid_until(agreement, req)
+    linked = []
+    with get_conn() as conn:
+        conn.execute("DELETE FROM auth_states WHERE state = ?", (ref,))
+        for i, uid in enumerate(accounts):
+            try:
+                details = api.account_details(uid)
+            except gc.GoCardlessError:
+                details = {}
+            label = gc.account_label(details, pending["aspsp_name"])
+            iban = details.get("iban")
+            currency = details.get("currency") or settings.get("base_currency", "EUR")
+            if i == 0:
+                target_id = pending["account_id"]
+            else:
+                cur = conn.execute("INSERT INTO accounts (name, type, currency) VALUES (?, ?, ?)",
+                                   (f"{pending['aspsp_name']} {label}", "bank", currency))
+                target_id = int(cur.lastrowid)
+            try:
+                conn.execute(
+                    "INSERT INTO bank_links (account_id, provider, aspsp_name, aspsp_country, "
+                    "session_id, account_uid, identification_hash, iban, valid_until) "
+                    "VALUES (?, 'gocardless', ?, ?, ?, ?, ?, ?, ?)",
+                    (target_id, pending["aspsp_name"], pending["aspsp_country"],
+                     pending["requisition_id"], uid, iban or uid, iban, until))
+            except sqlite3.IntegrityError:
+                conn.execute(
+                    "UPDATE bank_links SET session_id = ?, valid_until = ?, last_error = NULL "
+                    "WHERE account_uid = ?", (pending["requisition_id"], until, uid))
+            linked.append(label)
+    return {"account_id": pending["account_id"], "linked": linked,
+            "session_id": pending["requisition_id"]}
 
 
 def complete_connect(code: str, state: str) -> dict:
@@ -182,9 +347,11 @@ def sync_link(link_id: int) -> dict:
     if row is None:
         raise ValueError(f"No such connection: {link_id}")
     link = dict(row)
-    api = client()
     result = {"account": link["account_name"], "inserted": 0,
               "balance": None, "error": None}
+    if link.get("provider") == "gocardless":
+        return _sync_gocardless(link, link_id, result)
+    api = client()
 
     try:
         balance = eb.pick_balance(api.balances(link["account_uid"]))
@@ -237,6 +404,54 @@ def sync_link(link_id: int) -> dict:
         with get_conn() as conn:
             conn.execute("UPDATE bank_links SET last_error = ? WHERE id = ?",
                          (str(exc)[:500], link_id))
+    return result
+
+
+def _store_rows(conn, account_id: int, rows: list[dict]) -> int:
+    inserted = 0
+    for r in rows:
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO transactions (account_id, txn_date, "
+            "description, counterparty, amount, currency, external_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (account_id, r["txn_date"], r["description"], r["counterparty"],
+             r["amount"], r["currency"], r["external_id"]))
+        inserted += cur.rowcount
+    return inserted
+
+
+def _sync_gocardless(link: dict, link_id: int, result: dict) -> dict:
+    """The GoCardless half of sync_link(): one balance call, one
+    transactions call — the whole window the agreement allows, every
+    time, because the ids make a re-read free and GoCardless counts
+    calls per day, not rows."""
+    try:
+        api = gc_client()
+        balance = gc.pick_balance(api.balances(link["account_uid"]))
+        if balance:
+            with get_conn() as conn:
+                conn.execute(
+                    "INSERT INTO balances (account_id, amount, currency, balance_type, as_of) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (link["account_id"], balance["amount"],
+                     balance["currency"] or link["account_currency"],
+                     balance["balance_type"], balance["as_of"]))
+            result["balance"] = balance
+        rows = []
+        for txn in api.all_transactions(link["account_uid"]):
+            norm = gc.normalise_transaction(txn, default_currency=link["account_currency"])
+            if norm:
+                rows.append(norm)
+        with get_conn() as conn:
+            result["inserted"] = _store_rows(conn, link["account_id"], rows)
+            conn.execute("UPDATE bank_links SET last_sync_at = ?, last_error = NULL WHERE id = ?",
+                         (datetime.now(timezone.utc).isoformat(timespec="seconds"), link_id))
+        if result["inserted"]:
+            categories.categorise_new(link["account_id"])
+    except Exception as exc:                        # noqa: BLE001
+        result["error"] = str(exc)
+        with get_conn() as conn:
+            conn.execute("UPDATE bank_links SET last_error = ? WHERE id = ?", (str(exc)[:500], link_id))
     return result
 
 

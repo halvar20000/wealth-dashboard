@@ -454,6 +454,14 @@ _ADDED_COLUMNS = {
     "people": [
         ("birthday", "TEXT"),
     ],
+    # A second aggregator (GoCardless) beside Enable Banking: the pending
+    # redirect remembers which one it belongs to and, for GoCardless,
+    # the institution and the requisition it created. See banks/sync.py.
+    "auth_states": [
+        ("provider", "TEXT NOT NULL DEFAULT 'enablebanking'"),
+        ("institution_id", "TEXT"),
+        ("requisition_id", "TEXT"),
+    ],
     # A rule that says where to look, which way the money went, and
     # how much — see categories.py. Older rows: anywhere, any, any.
     "category_rules": [

@@ -338,7 +338,7 @@ check("its page renders", r.status_code, 200)
 check("...and says it is not connected yet",
       b"not connected to a bank" in r.data, True)
 check("...and points at Settings, because there are no credentials yet",
-      b"Application ID and private key" in r.data, True)
+      b"Enable Banking or GoCardless credentials" in r.data, True)
 
 banksync.save_credentials(fake_bank.APP_ID, PRIVATE_KEY.decode())
 check("credentials are stored", banksync.credentials_present(), True)
@@ -4846,6 +4846,95 @@ for x in cat.rules():
     if x["pattern"] in ("amazon", "amazon web", "refund"):
         cat.delete_rule(x["id"])
 c.post(f"/accounts/{rid}/delete", data={"confirm": "Rules test"})
+
+# ---------------------------------------------------------------------------
+print("\n41. GoCardless, a second way into a bank")
+# ---------------------------------------------------------------------------
+from app.banks import gocardless as gcl                    # noqa: E402
+import fake_gocardless                                      # noqa: E402
+
+gcf = fake_gocardless.FakeGoCardless()
+gclient = gcl.Client("sid", "skey", transport=gcf.transport)
+banks_gb = gclient.institutions("GB")
+check("a token is minted once and reused", (gcf.tokens, gcf.calls[0]["path"], gcf.calls[0]["body"]["secret_id"]), (1, "/api/v2/token/new/", "sid"))
+check("the institutions of a country", [b["name"] for b in banks_gb], ["Monzo", "Sandbox Finance"])
+gclient.institutions("DE")
+check("...with the token reused, not minted again", gcf.tokens, 1)
+gcf.fail_next = (429, "Rate limit exceeded")
+try:
+    gclient.institutions("GB"); check("an error is an exception naming the call", False, True)
+except gcl.GoCardlessError as exc:
+    check("an error is an exception naming the call", ("429" in str(exc), "institutions" in str(exc)), (True, True))
+
+picked = gcl.pick_balance(fake_gocardless.BALANCES)
+check("the available balance is preferred, with its day", (picked["amount"], picked["currency"], picked["as_of"]), (1250.4, "GBP", "2026-09-13"))
+rows = [gcl.normalise_transaction(t) for t in fake_gocardless.TRANSACTIONS["transactions"]["booked"]]
+check("a debit keeps the bank's sign and takes the creditor as counterparty",
+      (rows[0]["amount"], rows[0]["counterparty"], rows[0]["description"], rows[0]["external_id"]), (-42.5, "Tesco Stores", "TESCO STORES 3141 LONDON", "gc:tx-1"))
+check("a credit takes the debtor, and the remittance array is joined", (rows[1]["counterparty"], rows[1]["description"]), ("ACME LTD", "SALARY SEPTEMBER"))
+check("a row with only an internal id is keyed on it", rows[2]["external_id"], "gc:int-3")
+check("a row with no id at all is keyed on what it says, and the same row twice is the same key",
+      gcl.normalise_transaction({"bookingDate": "2026-01-01", "transactionAmount": {"amount": "-1", "currency": "EUR"}})["external_id"]
+      == gcl.normalise_transaction({"bookingDate": "2026-01-01", "transactionAmount": {"amount": "-1", "currency": "EUR"}})["external_id"], True)
+check("pending rows are not booked rows", len(list(gclient.all_transactions("acc-11"))), 3)
+check("the access ends ninety days after the agreement was accepted", gcl.valid_until(fake_gocardless.AGREEMENT)[:10], "2026-12-12")
+check("account labels: the name, else the product, else the IBAN's tail",
+      (gcl.account_label(fake_gocardless.DETAILS["acc-11"]["account"]), gcl.account_label(fake_gocardless.DETAILS["acc-22"]["account"]), gcl.account_label({"iban": "GB00XX1234"})),
+      ("Current Account", "Savings Pot", "…1234"))
+
+# The whole flow through the app, with the fake behind the sync layer.
+check("nothing is configured yet", banksync.gocardless_present(), False)
+r = c.post("/settings", data={"form": "gocardless_credentials", "secret_id": "sid", "secret_key": "short"}, follow_redirects=True)
+check("a secret key too short to be one is refused", b"too short" in r.data, True)
+r = c.post("/settings", data={"form": "gocardless_credentials", "secret_id": "sid", "secret_key": "k" * 64}, follow_redirects=True)
+check("credentials are stored, in the secrets directory", (b"GoCardless credentials saved" in r.data, banksync.gocardless_present()), (True, True))
+check("...and both aggregators are offered", banksync.providers(), ["enablebanking", "gocardless"])
+_gc_client, banksync.gc_client = banksync.gc_client, (lambda: gcl.Client("sid", "k" * 64, transport=gcf.transport))
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Monzo current', 'bank', 'GBP')")
+    gid = conn.execute("SELECT id FROM accounts WHERE name = 'Monzo current'").fetchone()["id"]
+r = c.get(f"/connect/{gid}/pick", query_string={"provider": "gocardless", "country": "GB"})
+check("the picker lists GoCardless's banks, the provider pills above",
+      (b"Monzo" in r.data, b'name="provider" value="gocardless"' in r.data, b"period-btn" in r.data), (True, True, True))
+r = c.post(f"/connect/{gid}/start", data={"provider": "gocardless", "institution_id": "MONZO_MONZGB2L", "aspsp_name": "Monzo", "aspsp_country": "GB"})
+check("connecting creates an agreement and a requisition and sends the user to the bank",
+      (r.status_code, r.headers["Location"].startswith("https://ob.gocardless.com/"),
+       [x["path"] for x in gcf.calls[-2:]]), (302, True, ["/api/v2/agreements/enduser/", "/api/v2/requisitions/"]))
+req_body = gcf.calls[-1]["body"]
+with db.get_conn() as conn:
+    st = conn.execute("SELECT * FROM auth_states WHERE provider = 'gocardless'").fetchone()
+check("...remembering the state as the requisition's reference", (st["requisition_id"], req_body["reference"] == st["state"], st["institution_id"]), ("req-1", True, "MONZO_MONZGB2L"))
+def _count_states():
+    with db.get_conn() as conn:
+        return conn.execute("SELECT COUNT(*) n FROM auth_states WHERE provider = 'gocardless'").fetchone()["n"]
+r = c.get("/connect/callback", query_string={"ref": st["state"]}, follow_redirects=True)
+check("coming back before the bank confirmed is refused gently, and the state kept",
+      (b"not confirmed the connection yet" in r.data, _count_states()), (True, 1))
+gcf.linked = True
+r = c.get("/connect/callback", query_string={"ref": st["state"]}, follow_redirects=True)
+check("once linked, the callback connects every account of the consent, and syncs",
+      (b"Connected: Current Account, Savings Pot" in r.data, b"Imported 3 transactions" in r.data), (True, True))
+with db.get_conn() as conn:
+    links = [dict(x) for x in conn.execute("SELECT * FROM bank_links WHERE provider = 'gocardless' ORDER BY id")]
+    extra = conn.execute("SELECT name, currency FROM accounts WHERE name = 'Monzo Savings Pot'").fetchone()
+    txns = conn.execute("SELECT COUNT(*) n FROM transactions WHERE account_id = ?", (gid,)).fetchone()["n"]
+    bal = conn.execute("SELECT amount, currency FROM balances WHERE account_id = ? ORDER BY id DESC LIMIT 1", (gid,)).fetchone()
+check("one link per account, the first on the account being connected, the second a new account",
+      (len(links), links[0]["account_id"] == gid, links[0]["account_uid"], links[0]["valid_until"][:10], extra["currency"]), (2, True, "acc-11", "2026-12-12", "GBP"))
+check("the balance and the booked rows landed", (bal["amount"], bal["currency"], txns), (1250.4, "GBP", 3))
+out = banksync.sync_link(links[0]["id"])
+check("a second sync adds nothing and clears no history", (out["inserted"], out["error"]), (0, None))
+check("the connection is graded like any other", [h for h in banksync.health() if h["bank"] == "Monzo"][0]["status"], "green")
+gcf.fail_next = (429, "Rate limit exceeded")
+out = banksync.sync_link(links[0]["id"])
+check("a refusal is stored on the link, not raised", ("429" in (out["error"] or ""), ), (True,))
+r = c.post("/connect/paste", data={"pasted": f"https://dashboard.example/connect/callback?ref={st['state']}"}, follow_redirects=True)
+check("a pasted GoCardless URL is understood too", b"not one this app started" in r.data or b"Connected" in r.data, True)
+r = c.post("/settings", data={"form": "gocardless_forget"}, follow_redirects=True)
+check("forgetting drops the credentials", (b"forgotten" in r.data, banksync.gocardless_present()), (True, False))
+banksync.gc_client = _gc_client
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM accounts WHERE name IN ('Monzo current', 'Monzo Savings Pot')")
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

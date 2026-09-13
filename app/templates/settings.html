@@ -164,6 +164,36 @@
 
 {% endif %}
 {% if section == 'banks' %}
+<div class="card" id="gocardless">
+  <div class="card-header">
+    <h2>GoCardless Bank Account Data</h2>
+    <span class="card-subtitle">{% if gocardless %}{{ _("set up") }}{% else %}{{ _("not set up") }}{% endif %}</span>
+  </div>
+  <p class="sub">{{ _("A second way into a bank, beside Enable Banking — the aggregator that used to be Nordigen. Two and a half thousand banks in Europe and, unlike Enable Banking, the United Kingdom. A bank that misbehaves through one connector often just works through the other. No private key and no redirect URL to register: a user secret from the portal is all.") }}</p>
+  <ol class="steps">
+    {% set gc_link %}<a href="https://bankaccountdata.gocardless.com/" rel="noreferrer">bankaccountdata.gocardless.com</a>{% endset %}
+    <li>{{ _f("Create an account at {portal} and, under Developers → User secrets, a new user secret. The Secret Key is shown once.", portal=gc_link) | safe }}</li>
+    <li>{{ _("Paste both halves below.") }}</li>
+    <li>{{ _("Open a bank account here, press Connect a bank, and choose GoCardless at the top of the list.") }}</li>
+  </ol>
+  <form method="post" class="form">
+    <input type="hidden" name="form" value="gocardless_credentials">
+    <label for="gc_secret_id">Secret ID</label>
+    <input id="gc_secret_id" name="secret_id" autocomplete="off" placeholder="{{ 'set' if gocardless else '' }}">
+    <label for="gc_secret_key">Secret Key</label>
+    <input id="gc_secret_key" name="secret_key" type="password" autocomplete="off" placeholder="{{ 'set' if gocardless else '' }}">
+    <button type="submit">{{ _("Save GoCardless credentials") }}</button>
+  </form>
+  {% if gocardless %}
+  <form method="post" style="margin-top:10px">
+    <input type="hidden" name="form" value="gocardless_forget">
+    <button type="submit" class="btn-danger">{{ _("Forget GoCardless") }}</button>
+  </form>
+  {% endif %}
+  <p class="sub">{{ _("The consent lasts ninety days at most banks, as with Enable Banking; the account page says when it lapses. GoCardless counts calls per account per day rather than rows, and the daily sync makes two.") }}</p>
+</div>
+{% endif %}
+{% if section == 'banks' %}
 <div class="card" id="saxo">
   <div class="card-header">
     <h2>Saxo Bank</h2>
