@@ -11,6 +11,22 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.36.1] — 2026-09-13
+
+### Added
+- **Undo an import.** Every file import is on record — the file, the
+  importer, when, how many rows it brought — and the account page
+  lists the recent ones with an *Undo* that takes back every row that
+  import brought and only those; a row a re-import found already
+  there stays with the import that first brought it. For a CSV that
+  came through a mapping, a tick forgets the mapping too, so the same
+  file asks again instead of repeating the mistake. Forty rows edited
+  by hand was the wrong answer to a wrong mapping. (Dominique.)
+- The mapping page now says, above the sign box, how signs are read
+  — a named kind decides, otherwise the file's sign stands — and
+  warns when the first rows look like purchases with money coming in,
+  which is nearly always the signs the wrong way round.
+
 ## [0.36.0] — 2026-09-13
 
 ### Added

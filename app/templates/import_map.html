@@ -58,6 +58,11 @@
     </div>
   {% endfor %}
   </div>
+  <div class="flash flash-warn" style="margin-top:12px">
+    <strong>{{ _("Signs.") }}</strong>
+    {{ _("A named kind decides the sign: a Kauf is money out whichever way the bank wrote the figure, a Dividende money in. Without a kind column the sign is the file's — so if your bank writes a purchase as a positive amount and has no kind column, tick the box below, or the buys come in as money received.") }}
+    {% if suspicious %}<br><strong>{{ _n(suspicious, "{n} of the first rows looks like a purchase with money coming in.", "{n} of the first rows look like purchases with money coming in.") }}</strong> {{ _("That is usually the signs the wrong way round.") }}{% endif %}
+  </div>
   <label class="check" style="margin-top:10px"><input type="checkbox" name="negate" value="1" {{ 'checked' if mapping.get('negate') }}> {{ _("The file writes money out as positive — flip every sign") }}</label>
   <label for="currency_fixed">{{ _("Currency when the file has no column for it") }}</label>
   <input id="currency_fixed" name="currency_fixed" value="{{ mapping.get('currency_fixed', '') }}" maxlength="3" placeholder="{{ account.currency }}" style="width:90px">

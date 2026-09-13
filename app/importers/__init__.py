@@ -63,7 +63,33 @@ def sniff(content: bytes | str):
     return generic.sniff(content)
 
 
-def store(account_id: int, parsed: ParseResult, source: str) -> dict:
+def begin_import(account_id: int, filename: str | None, source: str) -> int:
+    """A record of the file about to be imported, so it can be undone."""
+    with get_conn() as conn:
+        cur = conn.execute("INSERT INTO imports (account_id, filename, source) VALUES (?, ?, ?)",
+                           (account_id, (filename or "")[-120:] or None, source))
+        return int(cur.lastrowid)
+
+
+def undo_import(account_id: int, import_id: int) -> int:
+    """Remove every row this import brought — and only those: a row a
+    re-import found already there belongs to the import that first
+    brought it. The balance it wrote stays; a balance is a reading."""
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM transactions WHERE account_id = ? AND import_id = ?",
+                           (account_id, import_id))
+        conn.execute("DELETE FROM imports WHERE id = ? AND account_id = ?", (import_id, account_id))
+        return cur.rowcount
+
+
+def recent_imports(account_id: int, limit: int = 8) -> list[dict]:
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT i.*, (SELECT COUNT(*) FROM transactions t WHERE t.import_id = i.id) AS still "
+            "FROM imports i WHERE i.account_id = ? ORDER BY i.id DESC LIMIT ?", (account_id, limit))]
+
+
+def store(account_id: int, parsed: ParseResult, source: str, import_id: int | None = None) -> dict:
     """Write the parsed rows. Returns what actually happened.
 
     `INSERT OR IGNORE` against the unique index on `external_id` is the
@@ -78,12 +104,12 @@ def store(account_id: int, parsed: ParseResult, source: str) -> dict:
                 "INSERT OR IGNORE INTO transactions "
                 "(account_id, txn_date, description, counterparty, amount, "
                 " currency, external_id, kind, isin, security_name, quantity, "
-                " price, fee, tax, source) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                " price, fee, tax, source, import_id) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (account_id, row.txn_date, row.description, row.counterparty,
                  row.amount, row.currency, row.external_id, row.kind, row.isin,
                  row.security_name, row.quantity, row.price, row.fee, row.tax,
-                 source))
+                 source, import_id))
             if cur.rowcount:
                 inserted += 1
             else:
@@ -106,6 +132,9 @@ def store(account_id: int, parsed: ParseResult, source: str) -> dict:
         # Kinds and the user's rules, on the rows that just arrived —
         # see categories.categorise_new().
         categories.categorise_new(account_id)
+    if import_id is not None:
+        with get_conn() as conn:
+            conn.execute("UPDATE imports SET inserted = inserted + ? WHERE id = ?", (inserted, import_id))
 
     return {"inserted": inserted, "duplicates": duplicates,
             "skipped": parsed.skipped, "problems": parsed.problems,

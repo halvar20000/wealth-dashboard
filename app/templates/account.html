@@ -148,6 +148,34 @@
 <p class="sub">{{ _("Quantities are the running sum of every buy and sell, imported or typed in. The last two columns use the price of your most recent trade, not a market price — this app has no price feed yet, and a stale number presented as a valuation is worse than none.") }} {{ _("Click a security to see, and correct, every row behind it.") }}</p>
 {% endif %}
 
+{% if imports %}
+<h2>{{ _("Recent imports") }}</h2>
+<div class="table-wrap">
+  <table class="grid">
+    <thead><tr><th>{{ _("When") }}</th><th>{{ _("File") }}</th><th>{{ _("Through") }}</th><th class="num">{{ _("Rows brought") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for im in imports %}
+      <tr>
+        <td class="sub nowrap">{{ im.at[:16].replace('T', ' ') }}</td>
+        <td>{{ im.filename or '—' }}</td>
+        <td class="sub">{{ im.source }}</td>
+        <td class="num">{{ im.still }}{% if im.still != im.inserted %}<span class="sub">{{ _f("of {n}", n=im.inserted) }}</span>{% endif %}</td>
+        <td class="num">
+          {% if im.still %}
+          <form method="post" action="{{ url_for('import_undo', account_id=account.id, import_id=im.id) }}" style="display:inline" onsubmit="return confirm({{ _('Remove every row this import brought?') | tojson }})">
+            {% if im.source.startswith('csv:') %}<label class="check" style="margin-right:8px"><input type="checkbox" name="forget_mapping" value="1"> {{ _("and forget its mapping") }}</label>{% endif %}
+            <button type="submit" class="btn-ghost">{{ _("Undo") }}</button>
+          </form>
+          {% else %}<span class="sub">{{ _("nothing left of it") }}</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="sub">{{ _("An import can be taken back as one thing — every row it brought, and only those; a row a re-import found already there belongs to the import that first brought it. Wrong signs from a mapping: undo, forget the mapping, import again.") }}</p>
+{% endif %}
+
 <h2>{{ _("Recent transactions") }}{% if transactions %} <a class="sub" style="font-weight:normal; font-size:13px" href="{{ url_for('account_csv', account_id=account.id) }}">{{ _("Export as CSV") }}</a>{% endif %}</h2>
 {% if transactions %}
 <table class="grid">

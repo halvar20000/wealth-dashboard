@@ -439,6 +439,20 @@ CREATE TABLE IF NOT EXISTS webhooks (
     last_error TEXT
 );
 
+-- One file import: which file, through which importer, when, and
+-- how many rows it brought — so it can be undone as one thing when
+-- the mapping was wrong. Rows carry the import's id; rows a re-import
+-- found already there keep the id of the import that first brought
+-- them. See importers.store().
+CREATE TABLE IF NOT EXISTS imports (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    filename   TEXT,
+    source     TEXT,
+    inserted   INTEGER NOT NULL DEFAULT 0,
+    at         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- A column mapping the user drew for a CSV no built-in importer knows,
 -- keyed on the file's header so the next export from the same bank is
 -- recognised without asking again. See importers/generic.py.
@@ -552,6 +566,7 @@ _ADDED_COLUMNS = {
         ("quote_type", "TEXT"),
     ],
     "transactions": [
+        ("import_id", "INTEGER"),
         # Tags: any number of words on a row, beside the one category.
         # Stored as a comma-separated string, lower-case, searched with
         # LIKE on ',tag,' — the simplest thing that works in one column.

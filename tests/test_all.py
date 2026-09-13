@@ -4399,6 +4399,7 @@ print("\n33. A CSV nobody knows, mapped by hand and remembered")
 # ---------------------------------------------------------------------------
 from app.importers import generic                           # noqa: E402
 
+POSITIVE_BUYS_NOKIND = ("Datum,Betrag,ISIN,Anzahl\n2026-01-05,48.97,LU1681044563,5.2\n2026-02-05,50.36,LU1681044563,5.3\n")
 BANK_CSV = (
     "Buchungsdatum;Umsatzart;Beschreibung;Soll;Haben;Währung;ISIN;Stück;Kurs\n"
     "03.02.2026;Kauf;Vanguard FTSE All-World;1.234,50;;EUR;IE00BK5BQT80;10;123,45\n"
@@ -4461,6 +4462,34 @@ check("...and the same file is now recognised like any other", importers.sniff(B
 r = c.post(f"/accounts/{mid}/import", data={"file": (io.BytesIO(BANK_CSV.encode()), "hausbank-again.csv")},
            content_type="multipart/form-data", follow_redirects=True)
 check("re-importing goes straight through, and is harmless", b"Hausbank: 0 new, 4 already had" in r.data, True)
+imps = importers.recent_imports(mid)
+check("every file import is on record, with what it brought — the re-import brought nothing",
+      [(i["filename"], i["inserted"], i["still"]) for i in imps], [("hausbank-again.csv", 0, 0), ("hausbank.csv", 4, 4)])
+r = c.get(f"/accounts/{mid}")
+check("the account page lists them with an Undo", (b"Recent imports" in r.data, b">Undo<" in r.data, b"and forget its mapping" in r.data), (True, True, True))
+first = imps[-1]["id"]
+r = c.post(f"/accounts/{mid}/imports/{first}/undo", data={}, follow_redirects=True)
+with db.get_conn() as conn:
+    left = conn.execute("SELECT COUNT(*) n FROM transactions WHERE account_id = ?", (mid,)).fetchone()["n"]
+check("undo takes back every row that import brought, and only those", (b"Import undone" in r.data, b"4 rows removed" in r.data, left), (True, True, 0))
+check("...the mapping stays unless asked", generic.find(hdr) is not None, True)
+r = c.post(f"/accounts/{mid}/import", data={"file": (io.BytesIO(BANK_CSV.encode()), "hausbank.csv")},
+           content_type="multipart/form-data", follow_redirects=True)
+again = importers.recent_imports(mid)[0]
+r = c.post(f"/accounts/{mid}/imports/{again['id']}/undo", data={"forget_mapping": "1"}, follow_redirects=True)
+check("...and with the box ticked the mapping goes too", (b"Mapping forgotten" in r.data, generic.find(hdr)), (True, None))
+r = c.post(f"/accounts/{mid}/imports/999999/undo", data={}, follow_redirects=True)
+check("an import that is not on record is refused gently", b"not on record" in r.data, True)
+# The mapping page warns when the signs look backwards.
+r = c.post(f"/accounts/{mid}/import", data={"file": (io.BytesIO(POSITIVE_BUYS_NOKIND.encode()), "positive.csv")},
+           content_type="multipart/form-data")
+map_url2 = r.headers["Location"]
+r = c.post(map_url2, data={"name": "Pos", "col_txn_date": "Datum", "col_amount": "Betrag", "col_isin": "ISIN", "col_quantity": "Anzahl", "action": "preview"})
+check("the mapping page says how signs are read, and warns when the first rows look backwards",
+      (b"Signs." in r.data, b"look like purchases with money coming in" in r.data or b"looks like a purchase with money coming in" in r.data), (True, True))
+# The saved mapping for BANK_CSV is gone; put it back for what follows.
+r = c.post(f"/accounts/{mid}/import", data={"file": (io.BytesIO(BANK_CSV.encode()), "hausbank.csv")}, content_type="multipart/form-data")
+c.post(r.headers["Location"], data={**form, "action": "import"})
 # One more row: a second export that overlaps.
 more = BANK_CSV.replace("Summe;;;;;;;;\n", "25.02.2026;Gebühr;Depotgebühr;5,00;;EUR;;;\nSumme;;;;;;;;\n")
 r = c.post(f"/accounts/{mid}/import", data={"file": (io.BytesIO(more.encode()), "hausbank-march.csv")},

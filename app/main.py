@@ -369,6 +369,7 @@ def account_detail(account_id: int):
                            saxo_state=saxo.describe(),
                            kraken_ready=kraken.credentials_present(),
                            positions=importers.positions(account_id),
+                           imports=importers.recent_imports(account_id),
                            balance=dict(balance) if balance else None,
                            transactions=[dict(t) for t in txns],
                            total_transactions=total,
@@ -657,10 +658,17 @@ def import_map(account_id: int, token: str):
             return redirect(url_for("account_import", account_id=account_id))
     parsed = generic.parse_with(mapping, pending["content"], account["currency"], delimiter, limit=8)
     preview, problems = parsed.rows, parsed.problems[:5]
+    # A file of trades that are all sales and no purchases is, nearly
+    # always, a file of purchases with the signs the wrong way round —
+    # an ISIN with units and money coming in reads as a sale when no
+    # kind column says otherwise. So is a named buy with money in.
+    sells = [t for t in preview if t.kind == "sell" and t.isin]
+    buys = [t for t in preview if t.kind == "buy"]
+    suspicious = (len(sells) if sells and not buys else 0) + sum(1 for t in buys if t.amount > 0)
     return render_template("import_map.html", account=account, token=token, name=name,
                            header=header, sample=rows[:5], delimiter=delimiter,
                            mapping=mapping, fields=generic.FIELDS, preview=preview,
-                           problems=problems, wrong=wrong, saved=saved,
+                           problems=problems, wrong=wrong, saved=saved, suspicious=suspicious,
                            kind_words=sorted(w for ws in generic.KIND_WORDS.values() for w in ws))
 
 
@@ -700,7 +708,9 @@ def _import_files(account_id: int, currency: str, files: list[tuple[str, bytes]]
             total["unrecognised"].append(name)
             continue
         parsed = module.parse(content, account_currency=currency)
-        r = importers.store(account_id, parsed, module.SLUG)
+        import_id = importers.begin_import(account_id, os.path.basename(name), module.SLUG)
+        r = importers.store(account_id, parsed, module.SLUG, import_id)
+        total.setdefault("imports", []).append(import_id)
         for key in ("inserted", "duplicates", "skipped", "parsed"):
             total[key] += r[key]
         total["problems"].extend(
@@ -723,6 +733,28 @@ def _load_account(account_id: int):
         row = conn.execute("SELECT * FROM accounts WHERE id = ?",
                            (account_id,)).fetchone()
     return dict(row) if row else None
+
+
+@app.route("/accounts/<int:account_id>/imports/<int:import_id>/undo", methods=["POST"])
+@auth.login_required
+def import_undo(account_id: int, import_id: int):
+    """Take one file import back — every row it brought, nothing else.
+    With `forget_mapping`, the CSV mapping it came through goes too, so
+    the same file asks again instead of repeating the mistake."""
+    with get_conn() as conn:
+        rec = conn.execute("SELECT * FROM imports WHERE id = ? AND account_id = ?", (import_id, account_id)).fetchone()
+    if rec is None:
+        flash(_t("That import is not on record."), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+    n = importers.undo_import(account_id, import_id)
+    if request.form.get("forget_mapping") and (rec["source"] or "").startswith("csv:"):
+        try:
+            importers.generic.delete(int(rec["source"].split(":", 1)[1]))
+            flash(_t("Mapping forgotten. The next file with that header asks again."), "ok")
+        except (ValueError, IndexError):
+            pass
+    flash(_n(n, "Import undone — {n} row removed.", "Import undone — {n} rows removed."), "ok")
+    return redirect(url_for("account_detail", account_id=account_id))
 
 
 @app.route("/accounts/<int:account_id>/add", methods=["GET", "POST"])
