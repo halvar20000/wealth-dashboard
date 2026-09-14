@@ -60,6 +60,11 @@ def twr(values: list[tuple[str, float | None]], flows: dict[str, float]) -> floa
             continue
         if prev is not None:
             base = prev + flows.get(day, 0.0)
+            # A value below zero is not a return, it is a position the
+            # rows do not add up to — a sale before its purchase — and
+            # a chain with a negative link in it says nothing.
+            if value < 0:
+                return None
             if base > 1e-9:
                 growth *= value / base
                 counted = True
@@ -72,6 +77,8 @@ def annualise(total: float | None, days: int) -> float | None:
         return None
     if days < 30:
         return None                              # a fortnight annualised is a joke
+    if total <= -1.0:
+        return -1.0                              # everything lost; a root of a negative is not a rate
     return (1.0 + total) ** (YEAR / days) - 1.0
 
 

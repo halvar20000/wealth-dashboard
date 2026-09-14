@@ -4589,6 +4589,15 @@ check("the MCP performance tool answers with the three periods and the holdings"
 mcp.revoke()
 c.post(f"/accounts/{pid}/delete", data={"confirm": "Perf test"})
 
+# A position the rows do not add up to — a sale before its purchase —
+# is worth less than nothing on some days. That is not a return, and it
+# must not become a complex number that crashes the Portfolio page.
+check("a chain with a negative value in it is no return",
+      performance.twr([("2026-01-01", 100.0), ("2026-01-02", -20.0), ("2026-01-03", 110.0)], {}), None)
+check("...and a total loss annualises to a total loss, not a complex number",
+      performance.annualise(-1.5, 400), -1.0)
+check("...while an ordinary loss still annualises", round(performance.annualise(-0.5, 365), 3), -0.5)
+
 # ---------------------------------------------------------------------------
 print("\n32. Realised gains, by lots")
 # ---------------------------------------------------------------------------

@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.44.1] — 2026-09-14
+
+### Fixed
+- **The Portfolio page crashed on a holding the rows do not add up to.**
+  A sale before its purchase puts the position below zero for a while;
+  the chain-linked return then came out below −100 %, annualising it
+  took a root of a negative number, and the page died on a complex
+  number. Such a chain is no return now (—), and a total loss
+  annualises to a total loss.
+
 ## [0.44.0] — 2026-09-14
 
 ### Added

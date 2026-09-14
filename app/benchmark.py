@@ -99,7 +99,7 @@ def indexed(values: list[tuple[str, float | None]], flows: dict[str, float]) -> 
             continue
         if prev is not None:
             base = prev + flows.get(day, 0.0)
-            if base > 1e-9:
+            if base > 1e-9 and value >= 0:
                 growth *= value / base
         prev = value
         out.append((day, growth))
