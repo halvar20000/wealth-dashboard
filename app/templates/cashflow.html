@@ -69,6 +69,16 @@
             <td class="num sub">{{ money(c.total, data.base_currency) }}</td>
           </tr>
         {% endfor %}
+        {% if data.income_by_category %}
+          <tr><th colspan="3" class="sub">{{ _("Where it comes from") }}</th></tr>
+          {% for c in data.income_by_category %}
+          <tr>
+            <td><span class="tag tag-muted" style="color:{{ c.colour }};border-color:{{ c.colour }}44">{{ c.label }}</span></td>
+            <td class="num">{{ money(c.per_month, data.base_currency) }}</td>
+            <td class="num sub">{{ money(c.total, data.base_currency) }}</td>
+          </tr>
+          {% endfor %}
+        {% endif %}
         </tbody>
       </table>
     </div>
@@ -87,6 +97,7 @@
 <script>
 const D = {{ data.months | tojson }};
 const CATS = {{ data.by_category | tojson }};
+const INCOME = {{ data.income_by_category | tojson }};
 const GRID = '#232c44', TICK = '#95a0b9';
 {# Month names come from the server, so the chart is in the same language
    as the page around it rather than the browser's. #}
@@ -97,17 +108,21 @@ if (D.length) {
     type: 'bar',
     data: {
       labels: MONTH_LABELS,
+      {# Income is one bar built from its categories — a salary, a rent
+         coming in, interest, each in its own colour — beside a spending
+         bar and an invested bar. Three stacks, side by side. #}
       datasets: [
-        { label: {{ _("Income") | tojson }}, data: D.map(m => m.income), backgroundColor: '#34d399' },
-        { label: {{ _("Spending") | tojson }}, data: D.map(m => -m.spending), backgroundColor: '#f87171' },
-        { label: {{ _("Invested") | tojson }}, data: D.map(m => -m.investment), backgroundColor: '#5b9dff' },
+        ...(INCOME.length ? INCOME.map(c => ({ label: c.label, stack: 'in', data: D.map(m => m.income_categories[c.category] || 0), backgroundColor: c.colour }))
+                          : [{ label: {{ _("Income") | tojson }}, stack: 'in', data: D.map(m => m.income), backgroundColor: '#34d399' }]),
+        { label: {{ _("Spending") | tojson }}, stack: 'out', data: D.map(m => -m.spending), backgroundColor: '#f87171' },
+        { label: {{ _("Invested") | tojson }}, stack: 'inv', data: D.map(m => -m.investment), backgroundColor: '#5b9dff' },
       ],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       scales: {
-        x: { stacked: false, grid: { color: GRID }, ticks: { color: TICK } },
-        y: { grid: { color: GRID }, ticks: { color: TICK } },
+        x: { stacked: true, grid: { color: GRID }, ticks: { color: TICK } },
+        y: { stacked: true, grid: { color: GRID }, ticks: { color: TICK } },
       },
       plugins: { legend: { labels: { color: TICK } } },
     },

@@ -584,20 +584,29 @@ STRINGS: dict[str, str] = {
     "you already sorted stay sorted whatever you call them. What “counts as” "
     "decides is whether Cash Flow and Budget treat the money as spent, or "
     "merely as moved: pay for lunch and it is spending, move €500 to your "
-    "broker and it is not.":
+    "broker and it is not — or as income, which Cash Flow adds up by "
+    "category, so a salary, a rent coming in and interest each show as "
+    "their own.":
         "Une catégorie est identifiée en interne par le nom sous lequel elle a "
         "été créée : la renommer ou la recolorier ne reclasse donc jamais une "
         "transaction — les Courses que tu as déjà triées restent triées, quel "
         "que soit le nom que tu leur donnes. Ce que « compte comme » décide, "
         "c'est si Flux de trésorerie et Budget traitent l'argent comme dépensé "
         "ou simplement déplacé : payer le déjeuner est une dépense, virer "
-        "500 € vers ton courtier n'en est pas une.",
+        "500 € vers ton courtier n'en est pas une — ou comme un revenu, que "
+        "Flux de trésorerie additionne par catégorie, pour que salaire, "
+        "loyers perçus et intérêts apparaissent chacun pour soi.",
     "Colour for {name}": "Couleur de {name}",
     "Name of {name}": "Nom de {name}",
     "Cash Flow knows this one by name — it is never counted as spending.":
         "Flux de trésorerie connaît celle-ci par son nom — elle n'est jamais "
         "comptée comme une dépense.",
     "not spending": "pas une dépense",
+    "income": "revenu",
+    "Salary": "Salaire",
+    "Rental income": "Revenus locatifs",
+    "Interest & dividends": "Intérêts & dividendes",
+    "Where it comes from": "D'où ça vient",
     "What {name} counts as": "Ce que {name} compte comme",
     "Not spending": "Pas une dépense",
     "{n} rule": "{n} règle",
@@ -2051,7 +2060,7 @@ STRINGS: dict[str, str] = {
     # Benchmark (0.33.0)
     'Against a benchmark': 'Face à un indice de référence',
     'Nothing to compare yet.': 'Rien à comparer encore.',
-    "The portfolio line is the time-weighted return — your own deposits and withdrawals taken out — so it can be set against an index at all. The index is turned into the portfolio's currency at each day's rate; where Yahoo has no clean index in euros an accumulating ETF stands in. Nothing is stored but the index's daily closes.": 'La courbe du portefeuille est le rendement pondéré dans le temps — vos propres versements et retraits retirés — pour qu’elle puisse se comparer à un indice. L’indice est converti dans la devise du portefeuille au taux de chaque jour ; là où Yahoo n’a pas d’indice propre en euros, un ETF capitalisant le remplace. Rien n’est stocké hormis les clôtures quotidiennes de l’indice.',
+    "The portfolio line is the time-weighted return: every deposit counts from the day it arrived and every withdrawal stops counting the day it left, so investing bit by bit does not put you behind the index here — what is compared is how the investments did, not when your money came. The return that does feel the timing is the money-weighted one on the Portfolio page. The index is turned into the portfolio's currency at each day's rate; where Yahoo has no clean index in euros an accumulating ETF stands in. Nothing is stored but the index's daily closes.": 'La courbe du portefeuille est le rendement pondéré dans le temps : chaque versement compte à partir du jour où il est arrivé et chaque retrait cesse de compter le jour où il est parti — investir petit à petit ne vous met donc pas derrière l’indice ici. Ce qui est comparé, c’est la performance des placements, pas le moment où l’argent est venu. Le rendement qui ressent le timing est le rendement pondéré par l’argent, sur la page Portefeuille. L’indice est converti dans la devise du portefeuille au taux de chaque jour ; là où Yahoo n’a pas d’indice propre en euros, un ETF capitalisant le remplace. Rien n’est stocké hormis les clôtures quotidiennes de l’indice.',
     'Yahoo has no history for {symbol} over this span.': 'Yahoo n’a pas d’historique pour {symbol} sur cette période.',
     'You': 'Vous',
     'ahead by {pct} points': '{pct} points d’avance',

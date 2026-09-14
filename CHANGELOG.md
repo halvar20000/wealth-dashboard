@@ -11,6 +11,27 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.39.0] — 2026-09-14
+
+### Added
+- **Income has categories.** Cash Flow counted one category, "Income",
+  and a category of your own could only be spending or not — so a
+  salary, the rent a flat brings in and the interest on a savings
+  account were one green bar, or invisible. Categories now have a
+  third group, *income*: three come ready — Salary, Rental income,
+  Interest & dividends — and any category can be set to count as
+  income under Settings. Cash Flow adds up everything in the group,
+  the income bar is stacked by category in its own colours, and the
+  breakdown table says where it comes from. Dividends and interest
+  are filed under Interest & dividends from now on, and the rows
+  already filed as plain income move there once, on the first start.
+
+### Changed
+- The benchmark card says plainly that investing bit by bit does not
+  put you behind the index there: the line is time-weighted, every
+  deposit counts from the day it arrived, and the return that feels
+  the timing is the money-weighted one on the Portfolio page.
+
 ## [0.38.1] — 2026-09-14
 
 ### Fixed

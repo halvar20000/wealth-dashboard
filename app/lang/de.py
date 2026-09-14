@@ -575,19 +575,28 @@ STRINGS: dict[str, str] = {
     "you already sorted stay sorted whatever you call them. What “counts as” "
     "decides is whether Cash Flow and Budget treat the money as spent, or "
     "merely as moved: pay for lunch and it is spending, move €500 to your "
-    "broker and it is not.":
+    "broker and it is not — or as income, which Cash Flow adds up by "
+    "category, so a salary, a rent coming in and interest each show as "
+    "their own.":
         "Eine Kategorie wird intern über den Namen erkannt, mit dem sie "
         "angelegt wurde — Umbenennen oder Umfärben sortiert deshalb nie eine "
         "Transaktion um: die Lebensmittel, die du schon sortiert hast, bleiben "
         "sortiert, wie immer du sie nennst. „Zählt als“ entscheidet, ob "
         "Cashflow und Budget das Geld als ausgegeben behandeln oder nur als "
         "verschoben: das Mittagessen ist eine Ausgabe, 500 € zu deinem Broker "
-        "sind es nicht.",
+        "sind es nicht — oder als Einnahme, die der Cashflow nach Kategorie "
+        "aufsummiert, sodass Gehalt, Mieteinnahmen und Zinsen je für sich "
+        "erscheinen.",
     "Colour for {name}": "Farbe für {name}",
     "Name of {name}": "Name von {name}",
     "Cash Flow knows this one by name — it is never counted as spending.":
         "Der Cashflow kennt diese hier beim Namen — sie zählt nie als Ausgabe.",
     "not spending": "keine Ausgabe",
+    "income": "Einnahme",
+    "Salary": "Gehalt",
+    "Rental income": "Mieteinnahmen",
+    "Interest & dividends": "Zinsen & Dividenden",
+    "Where it comes from": "Woher es kommt",
     "What {name} counts as": "Wofür {name} zählt",
     "Not spending": "Keine Ausgaben",
     "{n} rule": "{n} Regel",
@@ -2044,7 +2053,7 @@ STRINGS: dict[str, str] = {
     # Benchmark (0.33.0)
     'Against a benchmark': 'Gegen einen Vergleichsindex',
     'Nothing to compare yet.': 'Noch nichts zu vergleichen.',
-    "The portfolio line is the time-weighted return — your own deposits and withdrawals taken out — so it can be set against an index at all. The index is turned into the portfolio's currency at each day's rate; where Yahoo has no clean index in euros an accumulating ETF stands in. Nothing is stored but the index's daily closes.": 'Die Portfoliolinie ist die zeitgewichtete Rendite — eigene Ein- und Auszahlungen herausgerechnet —, damit sie sich überhaupt mit einem Index vergleichen lässt. Der Index wird zum Kurs jedes Tages in die Währung des Portfolios umgerechnet; wo Yahoo keinen sauberen Index in Euro hat, steht ein thesaurierender ETF ein. Gespeichert werden nur die Tagesschlusskurse des Index.',
+    "The portfolio line is the time-weighted return: every deposit counts from the day it arrived and every withdrawal stops counting the day it left, so investing bit by bit does not put you behind the index here — what is compared is how the investments did, not when your money came. The return that does feel the timing is the money-weighted one on the Portfolio page. The index is turned into the portfolio's currency at each day's rate; where Yahoo has no clean index in euros an accumulating ETF stands in. Nothing is stored but the index's daily closes.": 'Die Portfoliolinie ist die zeitgewichtete Rendite: jede Einzahlung zählt ab dem Tag, an dem sie kam, jede Auszahlung ab dem Tag, an dem sie ging, nicht mehr — wer nach und nach investiert, liegt hier deshalb nicht hinter dem Index zurück. Verglichen wird, wie die Anlagen liefen, nicht wann das Geld kam. Die Rendite, die das Timing spürt, ist die geldgewichtete auf der Portfolio-Seite. Der Index wird zum Kurs jedes Tages in die Währung des Portfolios umgerechnet; wo Yahoo keinen sauberen Index in Euro hat, steht ein thesaurierender ETF ein. Gespeichert werden nur die Tagesschlusskurse des Index.',
     'Yahoo has no history for {symbol} over this span.': 'Yahoo hat für {symbol} keine Historie über diesen Zeitraum.',
     'You': 'Du',
     'ahead by {pct} points': '{pct} Punkte voraus',

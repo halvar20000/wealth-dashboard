@@ -375,7 +375,7 @@ curl -H "Authorization: Bearer {{ mcp_token }}" -X POST -H "Content-Type: applic
     <h2>{{ _("Categories") }}</h2>
     <span class="card-subtitle">{{ _("renaming one keeps every transaction it holds") }}</span>
   </div>
-  <p class="sub">{{ _("A category is identified internally by the name it was created with, so renaming or recolouring one never re-files a transaction — the Groceries you already sorted stay sorted whatever you call them. What “counts as” decides is whether Cash Flow and Budget treat the money as spent, or merely as moved: pay for lunch and it is spending, move €500 to your broker and it is not.") }}</p>
+  <p class="sub">{{ _("A category is identified internally by the name it was created with, so renaming or recolouring one never re-files a transaction — the Groceries you already sorted stay sorted whatever you call them. What “counts as” decides is whether Cash Flow and Budget treat the money as spent, or merely as moved: pay for lunch and it is spending, move €500 to your broker and it is not — or as income, which Cash Flow adds up by category, so a salary, a rent coming in and interest each show as their own.") }}</p>
 
   <div class="cat-list">
   {% for c in catalogue %}
@@ -388,10 +388,11 @@ curl -H "Authorization: Bearer {{ mcp_token }}" -X POST -H "Content-Type: applic
         <input name="label" value="{{ c.label }}" maxlength="40"
                aria-label="{{ _f('Name of {name}', name=c.label) }}">
         {% if c.group_locked %}
-        <span class="sub cat-fixed" title="{{ _('Cash Flow knows this one by name — it is never counted as spending.') }}">{{ _("not spending") }}</span>
+        <span class="sub cat-fixed" title="{{ _('Cash Flow knows this one by name — it is never counted as spending.') }}">{{ _("income") if c.group == 'income' else _("not spending") }}</span>
         {% else %}
         <select name="group" aria-label="{{ _f('What {name} counts as', name=c.label) }}">
           <option value="spending" {{ 'selected' if c.group == 'spending' }}>{{ _("Spending") }}</option>
+          <option value="income" {{ 'selected' if c.group == 'income' }}>{{ _("Income") }}</option>
           <option value="non_spending" {{ 'selected' if c.group == 'non_spending' }}>{{ _("Not spending") }}</option>
         </select>
         {% endif %}
@@ -429,6 +430,7 @@ curl -H "Authorization: Bearer {{ mcp_token }}" -X POST -H "Content-Type: applic
       <label for="new_group">{{ _("Counts as") }}</label>
       <select id="new_group" name="group">
         <option value="spending">{{ _("Spending") }}</option>
+        <option value="income">{{ _("Income") }}</option>
         <option value="non_spending">{{ _("Not spending") }}</option>
       </select>
     </div>

@@ -1571,7 +1571,17 @@ check("the category deleted rows fall back to is itself undeletable",
 # that moves one into spending must be ignored rather than obeyed.
 cat.update_category("income", "Income", "#34d399", cat.SPENDING_GROUP)
 check("the three cash flow knows by name keep their group",
-      "income" in cat.non_spending(), True)
+      "income" in cat.income(), True)
+cat.update_category("investment", "Investment", "#5b9dff", cat.INCOME_GROUP)
+check("...investment included", "investment" in cat.non_spending(), True)
+# A database from before the income group existed has `income` stored
+# as not-spending on its override row; the stored group is not the
+# catalogue's.
+with db.get_conn() as conn:
+    conn.execute("UPDATE categories SET cat_group = 'non_spending' WHERE slug = 'income'")
+cat.invalidate()
+check("...and a stored group from before the income group is ignored",
+      "income" in cat.income(), True)
 
 check("nor can 'transfer', which is what keeps a transfer out of spending",
       any(not c["deletable"] for c in cat.catalogue() if c["slug"] == "transfer"),
@@ -1630,6 +1640,59 @@ check("every spending category has a budget row, used or not",
       set(cat.spending()) <= listed, True)
 check("...and the non-spending ones do not, since nothing is ever spent there",
       listed & {"income", "investment", "transfer"}, set())
+
+# Income is whatever the user says it is. One category was the whole of
+# it; now every category in the income group counts, each as its own
+# line — a salary, a rent coming in, interest — and one of their own
+# can be moved in beside them.
+r = c.post("/settings", data={"form": "category_new", "label": "Side gig",
+                              "colour": "#ff00ff", "group": "income"})
+check("a category can be created as income", "side_gig" in cat.income(), True)
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "amount, currency, kind, category, external_id) VALUES "
+                 "(?, '2026-06-03', 'Lohn', 3000.0, 'EUR', 'deposit', 'salary', 'inc-salary'), "
+                 "(?, '2026-06-04', 'Miete Whg 2', 900.0, 'EUR', 'deposit', 'rental_income', 'inc-rent'), "
+                 "(?, '2026-06-05', 'Gig', 150.0, 'EUR', 'deposit', 'side_gig', 'inc-gig'), "
+                 "(?, '2026-06-06', 'Refund', 40.0, 'EUR', 'deposit', 'shopping', 'inc-refund')",
+                 (broker_id, broker_id, broker_id, broker_id))
+after = cf.monthly(months=24)
+june = next(m for m in after["months"] if m["month"] == "2026-06")
+check("every income category is added up",
+      round(june["income"] - (before_june["income"] if before_june else 0), 2), 4050.0)
+check("...each kept apart", {k: round(v) for k, v in june["income_categories"].items()
+                                if k in ("salary", "rental_income", "side_gig")},
+      {"salary": 3000, "rental_income": 900, "side_gig": 150})
+check("...a refund in a spending category is not income",
+      "shopping" in june["income_categories"], False)
+srcs = {x["category"]: x for x in after["income_by_category"]}
+check("...and the page gets the sources with their colours",
+      (srcs["side_gig"]["colour"], srcs["salary"]["label"]), ("#ff00ff", "Salary"))
+r = c.get("/cashflow")
+check("the page lists where it comes from", b"Where it comes from" in r.data, True)
+check("...and stacks the income bar by category", b"stack: 'in'" in r.data, True)
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM transactions WHERE external_id LIKE 'inc-%'")
+cat.delete_category("side_gig")
+
+# The dividends and interest already filed as plain income move to
+# their own category — once. A row the user files back by hand stays.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, "
+                 "currency, kind, category, external_id) VALUES "
+                 "(?, '2026-05-01', 'Old dividend', 10.0, 'EUR', 'dividend', 'income', 'old-div')",
+                 (broker_id,))
+    conn.execute("DELETE FROM app_state WHERE key = 'refiled_capital_income'")
+db.init_db()
+with db.get_conn() as conn:
+    moved = conn.execute("SELECT category FROM transactions WHERE external_id = 'old-div'").fetchone()["category"]
+    conn.execute("UPDATE transactions SET category = 'income' WHERE external_id = 'old-div'")
+db.init_db()
+with db.get_conn() as conn:
+    again = conn.execute("SELECT category FROM transactions WHERE external_id = 'old-div'").fetchone()["category"]
+    conn.execute("DELETE FROM transactions WHERE external_id = 'old-div'")
+check("an old dividend filed as income moves to its own category on start", moved, "capital_income")
+check("...once: filed back by hand, it stays", again, "income")
 
 # ---------------------------------------------------------------------------
 print("\n16. Subscriptions")
@@ -1864,7 +1927,8 @@ with db.get_conn() as conn:
     by_kind = {r["kind"]: r for r in conn.execute(
         "SELECT * FROM transactions WHERE account_id = ?", (hand_id,))}
 check("a dividend is money in", by_kind["dividend"]["amount"], 12.5)
-check("...and is income without anyone saying so", by_kind["dividend"]["category"], "income")
+check("...and is income without anyone saying so", by_kind["dividend"]["category"], "capital_income")
+check("...of the kind that has its own line on Cash Flow", "capital_income" in cat.income(), True)
 check("a fee is money out even when typed with a sign", by_kind["fee"]["amount"], -3.0)
 check("...and is a fee", by_kind["fee"]["category"], "fee")
 check("a deposit into a broker is your own money arriving",

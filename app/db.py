@@ -549,10 +549,30 @@ _REPAIRS = [
     "AND quantity IS NOT NULL AND edited_at IS NULL",
 ]
 
+# Re-filings that run ONCE, keyed in app_state: the first start after
+# the change moves the rows, and what the user does with them after
+# that is theirs — a row filed back by hand on the Categorize page
+# must not be moved again at the next start.
+_ONCE = [
+    # 0.39.0 gave income its own categories. Dividends and interest had
+    # been filed as plain income by their kind; they now have a category
+    # of their own, and the rows already there go with it.
+    ("refiled_capital_income",
+     "UPDATE transactions SET category = 'capital_income' "
+     "WHERE kind IN ('dividend', 'interest') AND category = 'income'"),
+]
+
 
 def _repair_rows(conn: sqlite3.Connection) -> None:
     for sql in _REPAIRS:
         conn.execute(sql)
+    done = {r[0] for r in conn.execute("SELECT key FROM app_state")}
+    for key, sql in _ONCE:
+        if key in done:
+            continue
+        conn.execute(sql)
+        conn.execute("INSERT INTO app_state (key, value, updated_at) "
+                     "VALUES (?, 'done', datetime('now'))", (key,))
 
 
 # Columns added after v0.1 shipped. CREATE TABLE IF NOT EXISTS is a no-op

@@ -77,8 +77,10 @@ def monthly(months: int = 13, base_currency: str = "EUR",
             """, (since, *params)).fetchall()
 
     # Read once, not per row: the user can change which categories count
-    # as spending, so this cannot be a constant fixed at import time.
+    # as spending or as income, so this cannot be a constant fixed at
+    # import time.
     spending = set(categories.spending())
+    income = set(categories.income())
 
     rate_cache: dict[str, tuple[str | None, dict[str, float]]] = {}
     converted: dict[str, float] = {}      # currency -> amount converted, as typed
@@ -87,10 +89,11 @@ def monthly(months: int = 13, base_currency: str = "EUR",
 
     months_map: dict[str, dict] = {}
     by_category: dict[str, float] = {}
+    income_by_category: dict[str, float] = {}
     for r in rows:
         m = months_map.setdefault(r["month"], {
             "month": r["month"], "income": 0.0, "spending": 0.0,
-            "investment": 0.0, "categories": {}})
+            "investment": 0.0, "categories": {}, "income_categories": {}})
         cat, total, ccy = r["category"], r["total"] or 0.0, r["currency"] or base
         if ccy != base:
             if r["month"] not in rate_cache:
@@ -105,8 +108,12 @@ def monthly(months: int = 13, base_currency: str = "EUR",
                 fx_as_of = as_of
         if cat == "transfer":
             continue                      # internal: not a flow at all
-        if cat == "income":
+        if cat in income:
+            # Every category in the income group, each its own line:
+            # a salary, a rent coming in, interest — see categories.py.
             m["income"] += total
+            m["income_categories"][cat] = m["income_categories"].get(cat, 0.0) + total
+            income_by_category[cat] = income_by_category.get(cat, 0.0) + total
         elif cat == "investment":
             m["investment"] += abs(total)
         elif cat in spending:
@@ -129,6 +136,11 @@ def monthly(months: int = 13, base_currency: str = "EUR",
             ({"category": c, "label": categories.label(c),
               "colour": categories.colour(c), "total": v, "per_month": v / n}
              for c, v in by_category.items()),
+            key=lambda x: -x["total"]),
+        "income_by_category": sorted(
+            ({"category": c, "label": categories.label(c),
+              "colour": categories.colour(c), "total": v, "per_month": v / n}
+             for c, v in income_by_category.items()),
             key=lambda x: -x["total"]),
         "total_income": sum(m["income"] for m in series),
         "total_spending": sum(m["spending"] for m in series),

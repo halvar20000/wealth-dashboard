@@ -45,22 +45,36 @@ _BUILTIN_SPENDING = {
     "other":          ("Uncategorised", "#5e6a86"),
 }
 
-# Not spending. The distinction is what stops a transfer between your own
+# Income. Cash Flow adds up every category in this group, so a salary,
+# the rent a flat brings in and the interest on a savings account can
+# each be their own category — and their own colour in the bars —
+# rather than one "Income" for everything that comes in. `income` is
+# the one for whatever has no better name.
+_BUILTIN_INCOME = {
+    "income":         ("Income", "#34d399"),
+    "salary":         ("Salary", "#10b981"),
+    "rental_income":  ("Rental income", "#2dd4bf"),
+    "capital_income": ("Interest & dividends", "#a3e635"),
+}
+
+# Neither. The distinction is what stops a transfer between your own
 # accounts from being counted as money you spent — and counted twice,
 # once on each side.
 _BUILTIN_NON_SPENDING = {
-    "income":     ("Income", "#34d399"),
     "investment": ("Investment", "#5b9dff"),
     "transfer":   ("Internal transfer", "#64748b"),
 }
 
 SPENDING_GROUP = "spending"
+INCOME_GROUP = "income"
 NON_SPENDING_GROUP = "non_spending"
-GROUPS = (SPENDING_GROUP, NON_SPENDING_GROUP)
+GROUPS = (SPENDING_GROUP, INCOME_GROUP, NON_SPENDING_GROUP)
 
 BUILTIN: dict[str, tuple[str, str, str]] = {
     **{slug: (name, col, SPENDING_GROUP)
        for slug, (name, col) in _BUILTIN_SPENDING.items()},
+    **{slug: (name, col, INCOME_GROUP)
+       for slug, (name, col) in _BUILTIN_INCOME.items()},
     **{slug: (name, col, NON_SPENDING_GROUP)
        for slug, (name, col) in _BUILTIN_NON_SPENDING.items()},
 }
@@ -73,11 +87,14 @@ BUILTIN: dict[str, tuple[str, str, str]] = {
 # they cannot be is deleted, because nothing would replace them.
 PROTECTED = frozenset({"other", "income", "investment", "transfer"})
 
-# Three of those four have their meaning wired into cashflow.py by name:
-# income is income, investment is investment, and a transfer is neither,
-# whatever group the catalogue puts them in. Offering a “counts as”
-# control for them would be offering a control that does nothing, so the
-# UI shows theirs as fixed and a form that says otherwise is ignored.
+# Three of those four have their meaning wired in: `income` is the
+# income group's home and cannot leave it, and cashflow.py knows
+# `investment` and `transfer` by name — an investment is an investment
+# and a transfer is neither, whatever group the catalogue puts them in.
+# Offering a “counts as” control for them would be offering a control
+# that does nothing, so the UI shows theirs as fixed, a form that says
+# otherwise is ignored, and a stored group from before the income group
+# existed is ignored too.
 GROUP_LOCKED = frozenset({"income", "investment", "transfer"})
 
 
@@ -115,7 +132,7 @@ def _build() -> dict[str, dict]:
             # whatever language they typed it in.
             "label": (row or {}).get("label") or i18n.t(name),
             "colour": (row or {}).get("colour") or col,
-            "group": (row or {}).get("cat_group") or group,
+            "group": group if slug in GROUP_LOCKED else ((row or {}).get("cat_group") or group),
             "builtin": True,
         }
     for slug, row in sorted(rows.items(),
@@ -151,6 +168,11 @@ def all_categories() -> dict[str, dict]:
 def spending() -> dict[str, dict]:
     return {s: e for s, e in all_categories().items()
             if e["group"] == SPENDING_GROUP}
+
+
+def income() -> dict[str, dict]:
+    return {s: e for s, e in all_categories().items()
+            if e["group"] == INCOME_GROUP}
 
 
 def non_spending() -> dict[str, dict]:
@@ -348,8 +370,8 @@ _HINTS: list[tuple[str, str]] = [
     ("rent", "housing"), ("loyer", "housing"), ("miete", "housing"),
     ("mortgage", "housing"), ("electric", "housing"), ("energie", "housing"),
     ("water", "housing"), ("internet", "housing"), ("telecom", "housing"),
-    ("salary", "income"), ("salaire", "income"), ("gehalt", "income"),
-    ("payroll", "income"), ("pension", "income"),
+    ("salary", "salary"), ("salaire", "salary"), ("gehalt", "salary"),
+    ("payroll", "salary"), ("pension", "income"),
     ("atm", "cash_withdrawal"), ("cash withdrawal", "cash_withdrawal"),
     ("retrait", "cash_withdrawal"), ("bargeld", "cash_withdrawal"),
     ("tax", "tax"), ("impot", "tax"), ("steuer", "tax"), ("urssaf", "tax"),
@@ -684,7 +706,7 @@ def uncategorised(limit: int = 60,
 # fee and an interest payment is income whatever the description says,
 # so those need no rule and no human.
 _KIND_CATEGORY = {
-    "dividend": "income", "interest": "income",
+    "dividend": "capital_income", "interest": "capital_income",
     "fee": "fee", "tax": "tax", "transfer": "transfer",
 }
 
@@ -713,7 +735,10 @@ def _categorise_by_kind(conn, account_id: int | None = None) -> int:
     scope = " AND account_id = ?" if account_id is not None else ""
     extra = (account_id,) if account_id is not None else ()
     changed = 0
+    live = all_categories()
     for kind, category in _KIND_CATEGORY.items():
+        if category not in live and category in _BUILTIN_INCOME:
+            category = "income"       # the user removed it: plain income, then
         changed += conn.execute(
             "UPDATE transactions SET category = ? "
             " WHERE kind = ? AND (category IS NULL OR category = '')" + scope,
