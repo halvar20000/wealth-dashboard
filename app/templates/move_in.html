@@ -45,7 +45,7 @@
           {% else %}
           <select name="target_{{ a.fp_id }}" style="width:auto; padding:4px 8px; font-size:13px">
             <option value="">{{ _("a new account") }}</option>
-            {% for x in accounts %}<option value="{{ x.id }}" {{ 'selected' if a.target == x.id }}>{{ x.name }} ({{ x.currency }})</option>{% endfor %}
+            {% for x in accounts %}<option value="{{ x.id }}" {{ 'selected' if a.target == x.id }}>{{ x.name }} ({{ x.currency }}{% if x.rows_here %} · {{ _n(x.rows_here, "{n} row here", "{n} rows here") }}{% endif %})</option>{% endfor %}
           </select>
           {% endif %}
         </td>
@@ -70,6 +70,7 @@
   <h3>{{ _("Worth knowing") }}</h3>
   <ul class="sub">{% for n in plan.notes %}<li>{{ n }}</li>{% endfor %}</ul>
   {% endif %}
+  <p class="sub"><strong>{{ _("Pick the account you already have for the same bank or broker, never a second one:") }}</strong> {{ _("a duplicate account carries the same balance twice. And where the account you pick already has rows from a file of its own, the old app's rows of the same days are booked beside them unless the ids match — they match for Trade Republic, Saxo, Kraken and Crédit Agricole next bank, not for the rest; for those, undo the move's import on that account afterwards, or leave that account out by giving it no rows of its own first.") }}</p>
   <p class="sub">{{ _("Rows keep the ids the old app gave them. Where this app's own importer would give the same row a different id, the account remembers how far its ledger is on record, and an export or a sync covering those days leaves them alone — so an export from before today need not be imported again, and a later one is safe.") }}</p>
   <button type="submit">{{ _("Move in") }}</button>
   <a class="btn btn-ghost" href="{{ url_for('move_in') }}">{{ _("Cancel") }}</a>

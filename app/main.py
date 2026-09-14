@@ -517,7 +517,10 @@ def move_in():
     token = _stash_upload(0, upload.filename or "wealth.db", b"")
     _PENDING[token]["plan"] = plan
     with get_conn() as conn:
-        accounts_list = [dict(r) for r in conn.execute("SELECT id, name, type, currency FROM accounts ORDER BY name")]
+        accounts_list = [dict(r) for r in conn.execute(
+            "SELECT a.id, a.name, a.type, a.currency, "
+            "(SELECT COUNT(*) FROM transactions t WHERE t.account_id = a.id) AS rows_here "
+            "FROM accounts a ORDER BY a.name")]
     return render_template("move_in.html", plan=plan, report=None, token=token, accounts=accounts_list)
 
 

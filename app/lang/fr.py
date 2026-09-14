@@ -2336,4 +2336,8 @@ STRINGS: dict[str, str] = {
     'Liabilities': 'Passifs',
     'In its currency': 'Dans sa devise',
     'what each is worth, cash and holdings together': 'ce que chacun vaut, cash et positions ensemble',
+    '{n} row here': '{n} ligne ici',
+    '{n} rows here': '{n} lignes ici',
+    'Pick the account you already have for the same bank or broker, never a second one:': 'Choisis le compte que tu as déjà pour la même banque ou le même courtier, jamais un second :',
+    "a duplicate account carries the same balance twice. And where the account you pick already has rows from a file of its own, the old app's rows of the same days are booked beside them unless the ids match — they match for Trade Republic, Saxo, Kraken and Crédit Agricole next bank, not for the rest; for those, undo the move's import on that account afterwards, or leave that account out by giving it no rows of its own first.": "un compte en double porte le même solde deux fois. Et là où le compte choisi a déjà des lignes venues d'un fichier à lui, les lignes de l'ancienne app des mêmes jours sont comptabilisées à côté, sauf si les identifiants coïncident — c'est le cas pour Trade Republic, Saxo, Kraken et Crédit Agricole next bank, pas pour les autres ; pour ceux-là, annule ensuite l'import de l'emménagement sur ce compte.",
 }

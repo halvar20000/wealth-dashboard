@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.46.1] — 2026-09-14
+
+### Changed
+- **The move-in plan says which accounts already hold rows** — beside
+  each name in the dropdown — and says outright to pick the account
+  you already have for a bank rather than a second one, and what
+  happens when the picked account has rows of its own from a file:
+  the old app's rows of the same days are booked beside them unless
+  the ids match, and the import can be undone on that account.
+
 ## [0.46.0] — 2026-09-14
 
 ### Added
