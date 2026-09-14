@@ -1733,7 +1733,7 @@ STRINGS: dict[str, str] = {
     'Interest': 'Intérêts',
     'Interest over the whole loan': 'Intérêts sur toute la durée',
     'Latest rows': 'Dernières lignes',
-    'Loan added. Its balance is on the overview from today.': "Prêt ajouté. Son capital restant est dans l'aperçu dès aujourd'hui.",
+    'Loan added. Its balance is on the overview, and its history runs from the first instalment.': "Prêt ajouté. Son solde est sur la vue d'ensemble, et son historique court depuis la première échéance.",
     'Loan deleted, with its account.': 'Prêt supprimé, avec son compte.',
     'Loan or mortgage': 'Prêt ou hypothèque',
     'Loan updated.': 'Prêt mis à jour.',
@@ -2340,4 +2340,9 @@ STRINGS: dict[str, str] = {
     '{n} rows here': '{n} lignes ici',
     'Pick the account you already have for the same bank or broker, never a second one:': 'Choisis le compte que tu as déjà pour la même banque ou le même courtier, jamais un second :',
     "a duplicate account carries the same balance twice. And where the account you pick already has rows from a file of its own, the old app's rows of the same days are booked beside them unless the ids match — they match for Trade Republic, Saxo, Kraken and Crédit Agricole next bank, not for the rest; for those, undo the move's import on that account afterwards, or leave that account out by giving it no rows of its own first.": "un compte en double porte le même solde deux fois. Et là où le compte choisi a déjà des lignes venues d'un fichier à lui, les lignes de l'ancienne app des mêmes jours sont comptabilisées à côté, sauf si les identifiants coïncident — c'est le cas pour Trade Republic, Saxo, Kraken et Crédit Agricole next bank, pas pour les autres ; pour ceux-là, annule ensuite l'import de l'emménagement sur ce compte.",
+    'Coins withdrawn go to': 'Les coins retirés vont vers',
+    'nowhere — they simply leave': 'nulle part — ils partent, simplement',
+    'A coin sent to a wallet of your own is still yours. Name the wallet — an account of type Broker, created under Accounts — and a withdrawal becomes a move between the two, at the cost the units carried; a coin sent back in is the same the other way round.': "Un coin envoyé vers un portefeuille à toi reste à toi. Nomme le portefeuille — un compte de type Courtier, créé sous Comptes — et un retrait devient un mouvement entre les deux, au coût que portaient les unités ; un coin renvoyé, pareil dans l'autre sens.",
+    'Saved. A coin withdrawn from now on arrives there, at the cost it carried.': "Enregistré. Un coin retiré désormais y arrive, au coût qu'il portait.",
+    'Saved. A coin withdrawn simply leaves.': 'Enregistré. Un coin retiré part, simplement.',
 }

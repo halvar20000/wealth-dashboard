@@ -200,6 +200,7 @@ def add(form, person_ids=None) -> int:
     if person_ids:
         people.set_for_account(account_id, person_ids)
     write_balance(loan_id)
+    write_history(loan_id)
     return loan_id
 
 
@@ -217,6 +218,7 @@ def update(loan_id: int, form) -> None:
             (terms["principal"], terms["rate_pct"], terms["first_payment"], terms["period_months"],
              terms["payment"], terms["term_months"], terms["extras"], terms["notes"], loan_id))
     write_balance(loan_id)
+    write_history(loan_id)
 
 
 def delete(loan_id: int) -> None:
@@ -250,6 +252,30 @@ def write_balance(loan_id: int, today: date | None = None) -> float | None:
                      "VALUES (?, ?, ?, 'schedule', ?)",
                      (loan["account_id"], -owed, loan["currency"], today.isoformat()))
     return owed
+
+
+def write_history(loan_id: int, today: date | None = None) -> int:
+    """A reading at every instalment date already past, from the
+    schedule — so the loan has a line on the history chart from its
+    first payment, not from the day it was typed in here. A day that
+    already has a reading is left alone."""
+    loan = get(loan_id)
+    if loan is None:
+        return 0
+    today = today or date.today()
+    written = 0
+    with get_conn() as conn:
+        for row in schedule(loan):
+            if row["date"] > today.isoformat():
+                break
+            if conn.execute("SELECT 1 FROM balances WHERE account_id = ? AND as_of = ?",
+                            (loan["account_id"], row["date"])).fetchone():
+                continue
+            conn.execute("INSERT INTO balances (account_id, amount, currency, balance_type, as_of) "
+                         "VALUES (?, ?, ?, 'schedule', ?)",
+                         (loan["account_id"], -row["balance"], loan["currency"], row["date"]))
+            written += 1
+    return written
 
 
 def write_all_balances(today: date | None = None) -> int:

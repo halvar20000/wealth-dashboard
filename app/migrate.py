@@ -72,6 +72,7 @@ _QUANTITY_KINDS = ("buy", "sell", "transfer", "split")
 # shape. An account whose rows all carry one of these needs no
 # ledger_until: a re-import recognises every row by its id.
 SHARED_ID_PREFIXES = ("tr:", "saxo:", "kraken:", "ca-ch:")
+_KRAKEN_TXID = re.compile(r"^[A-Z0-9]{6}-[A-Z0-9]{5}-[A-Z0-9]{6}$")
 
 
 def is_planner_db(content: bytes) -> bool:
@@ -114,8 +115,8 @@ def _external_id(raw: str | None, source: str | None, fp_id: int) -> str:
     raw = (raw or "").strip()
     if not raw:
         return f"fp:{fp_id}"
-    if (source or "").startswith("kraken_api") and ":" not in raw:
-        return f"kraken:trade:{raw}"
+    if _KRAKEN_TXID.match(raw) or ((source or "").startswith("kraken_api") and ":" not in raw):
+        return f"kraken:trade:{raw}"     # from the API or from a Kraken CSV alike
     if raw.startswith("ca_ch:"):
         return "ca-ch:" + raw[6:]
     return raw

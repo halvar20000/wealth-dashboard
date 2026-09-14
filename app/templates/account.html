@@ -60,6 +60,17 @@
     {% if broker.provider == 'saxo' and not saxo_state.alive %}
       <p><a class="btn" href="{{ url_for('saxo_connect', account_id=account.id) }}">{{ _("Connect Saxo again") }}</a></p>
     {% endif %}
+    {% if broker.provider == 'kraken' %}
+    <form method="post" action="{{ url_for('account_wallet', account_id=account.id) }}" class="form inline sec-form" style="margin-top:12px">
+      <div><label for="wallet">{{ _("Coins withdrawn go to") }}</label>
+        <select id="wallet" name="wallet_account_id" style="width:auto">
+          <option value="">{{ _("nowhere — they simply leave") }}</option>
+          {% for w in wallet_choices %}<option value="{{ w.id }}" {{ 'selected' if broker.wallet_account_id == w.id }}>{{ w.name }}</option>{% endfor %}
+        </select></div>
+      <button type="submit" class="btn-ghost">{{ _("Save") }}</button>
+    </form>
+    <p class="sub">{{ _("A coin sent to a wallet of your own is still yours. Name the wallet — an account of type Broker, created under Accounts — and a withdrawal becomes a move between the two, at the cost the units carried; a coin sent back in is the same the other way round.") }}</p>
+    {% endif %}
   {% else %}
     {% if saxo_state.configured %}
       <p class="sub">{{ _("Saxo Bank: log in at Saxo and this account becomes your first Saxo account; any others are created beside it.") }}</p>

@@ -102,3 +102,11 @@ def sync_link(link: dict) -> dict:
 
 def sync_all() -> list[dict]:
     return [sync_link(link) for link in links()]
+
+
+def set_wallet(link_id: int, wallet_account_id: int | None) -> None:
+    """Where a coin goes when it leaves the exchange: one of the
+    user's own accounts, or nowhere."""
+    with get_conn() as conn:
+        conn.execute("UPDATE broker_links SET wallet_account_id = ? WHERE id = ?",
+                     (wallet_account_id, link_id))

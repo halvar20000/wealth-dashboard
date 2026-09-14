@@ -4148,6 +4148,40 @@ r = c.post(f"/accounts/{kr_id}/sync", follow_redirects=True)
 check("a balance the rows do not explain is reported, not patched",
       b"do not add up" in r.data and b"Kraken says 0.5" in r.data, True)
 BALANCE["XXBT"] = "0.106"
+
+# The coins go to a hardware wallet. Without a wallet named, a
+# withdrawal is units leaving — which is what Kraken's balance says.
+# With one named, it is a move between two of the user's accounts: the
+# units arrive there at the cost they carried, and the coin is still
+# theirs, just elsewhere.
+r = c.post("/accounts/new", data={"name": "Ledger", "type": "broker", "currency": "EUR"})
+wallet_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+r = c.get(f"/accounts/{kr_id}")
+check("the Kraken account asks where withdrawn coins go", (b"Coins withdrawn go to" in r.data, b"Ledger" in r.data), (True, True))
+c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": str(wallet_id)})
+check("...and remembers the answer", brokers.link_for(kr_id)["wallet_account_id"], wallet_id)
+LEDGER["L7"] = {"type": "withdrawal", "asset": "XXBT", "amount": "-0.1", "fee": "0.00005", "time": 1789000000}
+BALANCE["XXBT"] = "0.00595"
+r = c.post(f"/accounts/{kr_id}/sync", follow_redirects=True)
+check("the withdrawal syncs without drift: Kraken's balance and the rows agree", b"Imported 1 new" in r.data, True)
+kpos = {p_["isin"]: p_ for p_ in importers.positions(kr_id)}
+wpos = {p_["isin"]: p_ for p_ in importers.positions(wallet_id)}
+check("the units left Kraken and arrived in the wallet",
+      (round(kpos["CRYPTO:BTC"]["quantity"], 6), round(wpos["CRYPTO:BTC"]["quantity"], 6)), (0.00595, 0.10005))
+with db.get_conn() as conn:
+    wrow = dict(conn.execute("SELECT * FROM transactions WHERE account_id = ? AND isin = 'CRYPTO:BTC'", (wallet_id,)).fetchone())
+check("...as a transfer that carries the cost of the units, under the ledger entry's id",
+      (wrow["kind"], wrow["external_id"], wrow["amount"], wrow["price"] is not None and wrow["price"] > 0, wrow["description"]),
+      ("transfer", "kraken:ledger:L7:wallet", 0.0, True, "From Kraken: 0.10005 BTC"))
+ov_ = ov.summary("EUR")
+btc = next(h for h in ov_["holdings"] if h["isin"] == "CRYPTO:BTC")
+check("...and the household still holds every unit", round(btc["quantity"], 6), 0.106)
+r = c.post(f"/accounts/{kr_id}/sync", follow_redirects=True)
+check("a second sync adds nothing on either side", b"Imported 0 new" in r.data, True)
+c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": ""})
+check("the wallet can be unnamed again", brokers.link_for(kr_id)["wallet_account_id"], None)
+del LEDGER["L7"]; BALANCE["XXBT"] = "0.106"
+c.post(f"/accounts/{wallet_id}/delete", data={"confirm": "Ledger"})
 r = c.post("/settings", data={"form": "kraken_forget"}, follow_redirects=True)
 check("forgetting the key removes it and the link, keeps the account",
       (kraken.credentials_present(), brokers.link_for(kr_id), len(importers.positions(kr_id))),
@@ -4503,6 +4537,11 @@ with db.get_conn() as conn:
 check("...with an account of type loan", (acct["type"], acct["currency"]), ("loan", "CHF"))
 check("...whose balance is today's schedule figure, negative, from the schedule",
       (bal["amount"] < 0, bal["currency"], bal["balance_type"]), (True, "CHF", "schedule"))
+with db.get_conn() as conn:
+    past = conn.execute("SELECT as_of, amount FROM balances WHERE account_id = ? AND as_of < '2020-01-01' ORDER BY as_of",
+                        (loan["account_id"],)).fetchall()
+check("...and a reading at every instalment already past, so the debt has a history",
+      ([(p_["as_of"], round(-p_["amount"])) for p_ in past]), [("2019-10-10", round(168249 - (4271.21 - 128.61)))])
 sm = ov.summary("EUR")
 check("the overview subtracts the debt from the net worth",
       (sm["debt"] > 0, round(sm["net_worth"], 2) == round(sm["cash"] + sm["securities"] - sm["debt"], 2)), (True, True))
@@ -5773,6 +5812,8 @@ check("...an empty one is left out", by_name["Nothing here"].get("skip"), True)
 check("...and the rows are counted", (by_name["Old Broker"]["rows"], by_name["Old Bank"]["rows"], by_name["Old Bank"]["first"]), (5, 3, "2025-03-01"))
 tx = {t["external_id"]: t for t in plan["transactions"]}
 check("a Kraken trade id gets this app's prefix", "kraken:trade:TXID-1" in tx, True)
+check("...whether it came through the API or a Kraken CSV", migrate._external_id("TUT7MA-K67YX-X6Z4TJ", "crypto_csv:kraken", 1), "kraken:trade:TUT7MA-K67YX-X6Z4TJ")
+check("...and a Finary UUID stays what it is", migrate._external_id("019c13b6-064f-72a1-8cdf-a82bc96247f1", "crypto_csv:finary", 1), "019c13b6-064f-72a1-8cdf-a82bc96247f1")
 check("a Saxo id is the same in both apps", "saxo:trade:1" in tx, True)
 check("a trade the old app did not link to its security is linked by its text",
       (tx["saxo:trade:1"]["isin"], tx["saxo:trade:2"]["isin"], tx["saxo:trade:2"]["quantity"]), ("SYM:DCAM", "SYM:DCAM", -40.0))

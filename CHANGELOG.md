@@ -11,6 +11,28 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.47.0] — 2026-09-14
+
+### Added
+- **A coin sent to your own wallet is still yours.** On a Kraken
+  account, name the wallet — an account of type Broker — and a
+  withdrawal becomes a move between the two: the units leave Kraken
+  and arrive in the wallet at the cost they carried, so the holding,
+  its cost basis and the household's total survive the trip; a coin
+  sent back in is the same the other way round. Without a wallet
+  named the units simply leave, which is what Kraken's balance says.
+- **A loan has a history from its first instalment.** Adding or
+  editing a loan writes a reading at every instalment date already
+  past, from the schedule, so the debt has a line on the history
+  chart rather than a single figure from the day it was typed in.
+
+### Fixed
+- **Moving in: a Kraken trade from a Kraken CSV kept its bare id** and
+  was booked a second time by the Kraken sync under this app's — the
+  eight rows counted twice, and an opening row to make the holding
+  agree made the cost basis meaningless. Any Kraken trade id now gets
+  this app's prefix, whichever file it came through.
+
 ## [0.46.1] — 2026-09-14
 
 ### Changed

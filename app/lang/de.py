@@ -1727,7 +1727,7 @@ STRINGS: dict[str, str] = {
     'Interest': 'Zinsen',
     'Interest over the whole loan': 'Zinsen über die ganze Laufzeit',
     'Latest rows': 'Neueste Zeilen',
-    'Loan added. Its balance is on the overview from today.': 'Kredit angelegt. Seine Restschuld steht ab heute in der Übersicht.',
+    'Loan added. Its balance is on the overview, and its history runs from the first instalment.': 'Kredit hinzugefügt. Sein Saldo steht in der Übersicht, seine Historie läuft ab der ersten Rate.',
     'Loan deleted, with its account.': 'Kredit gelöscht, samt Konto.',
     'Loan or mortgage': 'Kredit oder Hypothek',
     'Loan updated.': 'Kredit aktualisiert.',
@@ -2334,4 +2334,9 @@ STRINGS: dict[str, str] = {
     '{n} rows here': '{n} Zeilen hier',
     'Pick the account you already have for the same bank or broker, never a second one:': 'Wähle das Konto, das du für dieselbe Bank oder denselben Broker schon hast, nie ein zweites:',
     "a duplicate account carries the same balance twice. And where the account you pick already has rows from a file of its own, the old app's rows of the same days are booked beside them unless the ids match — they match for Trade Republic, Saxo, Kraken and Crédit Agricole next bank, not for the rest; for those, undo the move's import on that account afterwards, or leave that account out by giving it no rows of its own first.": 'ein doppeltes Konto zählt denselben Saldo zweimal. Und wo das gewählte Konto schon Zeilen aus einer eigenen Datei hat, werden die Zeilen der alten App derselben Tage daneben gebucht, sofern die IDs nicht übereinstimmen — sie stimmen bei Trade Republic, Saxo, Kraken und Crédit Agricole next bank überein, beim Rest nicht; dort den Import des Umzugs auf diesem Konto danach zurücknehmen.',
+    'Coins withdrawn go to': 'Abgehobene Coins gehen an',
+    'nowhere — they simply leave': 'nirgendwohin — sie gehen einfach',
+    'A coin sent to a wallet of your own is still yours. Name the wallet — an account of type Broker, created under Accounts — and a withdrawal becomes a move between the two, at the cost the units carried; a coin sent back in is the same the other way round.': 'Ein Coin, den du an eine eigene Wallet schickst, gehört weiter dir. Benenne die Wallet — ein Konto vom Typ Broker, unter Konten angelegt — und eine Abhebung wird zu einer Umbuchung zwischen beiden, zu den Kosten, die die Einheiten trugen; ein zurückgeschickter Coin ebenso in die andere Richtung.',
+    'Saved. A coin withdrawn from now on arrives there, at the cost it carried.': 'Gespeichert. Ein ab jetzt abgehobener Coin kommt dort an, zu den Kosten, die er trug.',
+    'Saved. A coin withdrawn simply leaves.': 'Gespeichert. Ein abgehobener Coin geht einfach.',
 }

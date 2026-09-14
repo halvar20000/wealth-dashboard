@@ -660,6 +660,13 @@ _ADDED_COLUMNS = {
     "securities": [
         ("quote_type", "TEXT"),
     ],
+    # 0.47.0: where a coin goes when it leaves the exchange — the
+    # user's own wallet, an account here — so a withdrawal is a move
+    # between two of their accounts, not units vanishing. See
+    # brokers/kraken.py.
+    "broker_links": [
+        ("wallet_account_id", "INTEGER"),
+    ],
     "goals": [
         ("kind", "TEXT NOT NULL DEFAULT 'saving'"),
     ],

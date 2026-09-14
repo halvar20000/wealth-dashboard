@@ -1729,7 +1729,7 @@ STRINGS: dict[str, str] = {
     'Interest': 'Intereses',
     'Interest over the whole loan': 'Intereses de todo el préstamo',
     'Latest rows': 'Últimas filas',
-    'Loan added. Its balance is on the overview from today.': 'Préstamo añadido. Su saldo está en el resumen desde hoy.',
+    'Loan added. Its balance is on the overview, and its history runs from the first instalment.': 'Préstamo añadido. Su saldo está en el resumen, y su historial arranca en la primera cuota.',
     'Loan deleted, with its account.': 'Préstamo eliminado, con su cuenta.',
     'Loan or mortgage': 'Préstamo o hipoteca',
     'Loan updated.': 'Préstamo actualizado.',
@@ -2336,4 +2336,9 @@ STRINGS: dict[str, str] = {
     '{n} rows here': '{n} filas aquí',
     'Pick the account you already have for the same bank or broker, never a second one:': 'Elige la cuenta que ya tienes para el mismo banco o bróker, nunca una segunda:',
     "a duplicate account carries the same balance twice. And where the account you pick already has rows from a file of its own, the old app's rows of the same days are booked beside them unless the ids match — they match for Trade Republic, Saxo, Kraken and Crédit Agricole next bank, not for the rest; for those, undo the move's import on that account afterwards, or leave that account out by giving it no rows of its own first.": 'una cuenta duplicada cuenta el mismo saldo dos veces. Y donde la cuenta elegida ya tiene filas de un archivo propio, las filas de la app antigua de esos mismos días se apuntan al lado salvo que los identificadores coincidan — coinciden en Trade Republic, Saxo, Kraken y Crédit Agricole next bank, no en el resto; para esos, deshaz después la importación de la mudanza en esa cuenta.',
+    'Coins withdrawn go to': 'Las monedas retiradas van a',
+    'nowhere — they simply leave': 'a ningún sitio — simplemente salen',
+    'A coin sent to a wallet of your own is still yours. Name the wallet — an account of type Broker, created under Accounts — and a withdrawal becomes a move between the two, at the cost the units carried; a coin sent back in is the same the other way round.': 'Una moneda enviada a un monedero tuyo sigue siendo tuya. Nombra el monedero — una cuenta de tipo Bróker, creada en Cuentas — y una retirada pasa a ser un traspaso entre ambos, al coste que llevaban las unidades; una moneda devuelta, lo mismo al revés.',
+    'Saved. A coin withdrawn from now on arrives there, at the cost it carried.': 'Guardado. Una moneda retirada a partir de ahora llega allí, al coste que llevaba.',
+    'Saved. A coin withdrawn simply leaves.': 'Guardado. Una moneda retirada simplemente sale.',
 }

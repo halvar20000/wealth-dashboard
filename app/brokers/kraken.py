@@ -372,7 +372,34 @@ def sync_link(link: dict, api: Client | None = None) -> int:
     if cash is not None:
         parsed.closing_balance = {"amount": round(cash, 2), "currency": link["account_currency"].upper(),
                                   "as_of": datetime.now(timezone.utc).date().isoformat()}
+    # A coin sent to the user's own wallet — an account here, named on
+    # the link — is a move between two of their accounts: the units
+    # leave Kraken and arrive there, at the cost they carried, so the
+    # holding and its cost basis survive the trip. A coin sent back in
+    # is the same the other way round. Without a wallet named, the
+    # units simply leave, which is what Kraken's balance says.
+    wallet = link.get("wallet_account_id")
+    to_wallet = []
+    if wallet:
+        with get_conn() as conn:
+            seen = {r["external_id"] for r in conn.execute(
+                "SELECT external_id FROM transactions WHERE account_id = ? AND external_id LIKE 'kraken:ledger:%'",
+                (link["account_id"],))}
+        for r in parsed.rows:
+            if r.kind != "transfer" or not r.isin or not r.quantity or not r.description.startswith(("withdrawal", "deposit")):
+                continue
+            if r.external_id in seen:
+                continue                 # booked before the wallet was named; the past is not rewritten
+            code = r.isin.split(":")[-1]
+            to_wallet.append(ParsedTxn(
+                txn_date=r.txn_date,
+                description=f"{'From' if r.quantity < 0 else 'To'} Kraken: {abs(r.quantity):g} {code}",
+                amount=0.0, currency=r.currency, kind="transfer", external_id=f"{r.external_id}:wallet",
+                isin=r.isin, security_name=r.security_name, quantity=-r.quantity,
+                price=_carried_cost(link["account_id"], r.isin) if r.quantity < 0 else None))
     report = store(link["account_id"], parsed, "kraken")
+    if to_wallet:
+        store(int(wallet), ParseResult(rows=to_wallet), "kraken")
     # Kraken's own coin balances against what the rows add up to. A gap
     # is a movement the ledger did not carry — reported, never patched.
     with get_conn() as conn:
@@ -391,6 +418,16 @@ def sync_link(link: dict, api: Client | None = None) -> int:
         raise KrakenError("Synced, but the holdings do not add up — " + "; ".join(drift)
                           + ". A key without 'Query Ledger Entries' cannot see transfers.")
     return report["inserted"]
+
+
+def _carried_cost(account_id: int, key: str) -> float | None:
+    """What a unit of the coin cost, on average, over the lots still
+    open here — the price a transfer to the wallet carries with it."""
+    from .. import gains
+    r = gains.realised(key, [account_id])
+    if r["open_quantity"] > 1e-12:
+        return r["open_cost"] / r["open_quantity"]
+    return None
 
 
 def describe() -> dict:

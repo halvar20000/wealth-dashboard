@@ -372,6 +372,7 @@ def account_detail(account_id: int):
         link["days_left"] = banksync.days_until_expiry(link.get("valid_until"))
     return render_template("account.html", account=dict(account), link=link,
                            broker=brokers.link_for(account_id),
+                           wallet_choices=_wallet_choices(account_id),
                            saxo_state=saxo.describe(),
                            kraken_ready=kraken.credentials_present(),
                            positions=importers.positions(account_id),
@@ -382,6 +383,13 @@ def account_detail(account_id: int):
                            configured=banksync.credentials_present(),
                            owners=people.for_account(account_id),
                            today=date.today().isoformat())
+
+
+def _wallet_choices(account_id: int) -> list[dict]:
+    """The other broker accounts — one of them may be the wallet."""
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT id, name FROM accounts WHERE type = 'broker' AND id != ? ORDER BY name", (account_id,))]
 
 
 def _account_counts(conn, account_id: int) -> dict:
@@ -1077,7 +1085,7 @@ def loans_page():
         try:
             if action == "loan_add":
                 loans.add(request.form, request.form.getlist("people"))
-                flash(_t("Loan added. Its balance is on the overview from today."), "ok")
+                flash(_t("Loan added. Its balance is on the overview, and its history runs from the first instalment."), "ok")
             elif action == "loan_edit":
                 loans.update(int(request.form.get("id", "0")), request.form)
                 flash(_t("Loan updated."), "ok")
@@ -1273,6 +1281,22 @@ def kraken_connect(account_id: int):
     else:
         flash(_n(result["inserted"], "Connected. Imported {n} transaction.",
                  "Connected. Imported {n} transactions."), "ok")
+    return redirect(url_for("account_detail", account_id=account_id))
+
+
+@app.route("/accounts/<int:account_id>/wallet", methods=["POST"])
+@auth.login_required
+def account_wallet(account_id: int):
+    """Name the account a coin goes to when it leaves this exchange."""
+    link = brokers.link_for(account_id)
+    if link is None or link["provider"] != "kraken":
+        flash(_t("That account is not connected to a bank."), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+    raw = (request.form.get("wallet_account_id") or "").strip()
+    wallet = int(raw) if raw.isdigit() and int(raw) != account_id and _load_account(int(raw)) else None
+    brokers.set_wallet(link["id"], wallet)
+    flash(_t("Saved. A coin withdrawn from now on arrives there, at the cost it carried.") if wallet
+          else _t("Saved. A coin withdrawn simply leaves."), "ok")
     return redirect(url_for("account_detail", account_id=account_id))
 
 
