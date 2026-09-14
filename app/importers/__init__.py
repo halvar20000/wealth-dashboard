@@ -18,12 +18,12 @@ import io
 
 from .. import categories
 from ..db import get_conn
-from . import (ca_switzerland, degiro, dkb, dkb_pdf, generic, swissquote_beleg_pdf,
+from . import (ca_switzerland, degiro, dkb, dkb_pdf, finary, generic, swissquote_beleg_pdf,
                swissquote_pdf, trade_republic)
 from .base import (ParsedTxn, ParseResult,  # noqa: F401  (re-exported)
                    normalise_csv_text)
 
-IMPORTERS = [degiro, trade_republic, dkb, ca_switzerland]
+IMPORTERS = [degiro, trade_republic, dkb, ca_switzerland, finary]
 PDF_IMPORTERS = [dkb_pdf, swissquote_pdf, swissquote_beleg_pdf]
 
 

@@ -984,6 +984,24 @@ check("...it is classified by its category instead", unknown.kind, "buy")
 check("...and the broker's own word is preserved",
       "[SOMETHING_NEW]" in unknown.description, True)
 
+# Finary's crypto export: a buy, a swap, a withdrawal to one's own wallet.
+from app.importers import finary                                      # noqa: E402
+check("a Finary export is recognised", importers.sniff(fixtures.FINARY_CSV).SLUG, "finary")
+fn = finary.parse(fixtures.FINARY_CSV)
+check("every row is read, the withdrawal to one's own wallet set aside", (len(fn.rows), fn.skipped, fn.problems), (5, 1, []))
+fb = {r.external_id: r for r in fn.rows}
+b = fb["019c13b6-064f-72a1-8cdf-a82bc96247f1"]
+check("a buy is a buy of the coin, keyed the way the crypto page keys it",
+      (b.kind, b.isin, b.security_name, b.quantity, round(b.price, 2), b.amount, b.fee, b.currency), ("buy", "CRYPTO:BTC", "Bitcoin", 0.00035318, 70077.58, -25.0, 0.25, "EUR"))
+sw_out, sw_in = fb["019e403f-004b-7541-a2ee-9c51ef7a6851:sell"], fb["019e403f-004b-7541-a2ee-9c51ef7a6851:buy"]
+check("a swap is a sale of the coin sent and a buy of the coin received, both at the euro value",
+      ((sw_out.kind, sw_out.isin, sw_out.quantity, sw_out.amount), (sw_in.kind, sw_in.isin, sw_in.quantity, sw_in.amount)),
+      (("sell", "CRYPTO:ETH", -0.011072, 2338.83), ("buy", "CRYPTO:BTC", 0.03500598, -2338.83)))
+check("...and a fee paid in coin is not written as if it were euros", sw_in.fee, None)
+check("a fiat deposit is a deposit", (fb["019c0000-0000-0000-0000-000000000000"].kind, fb["019c0000-0000-0000-0000-000000000000"].amount), ("deposit", 50.0))
+check("the coins moved to one's own wallet are still held: the withdrawal is no row",
+      any(r.txn_date == "2026-05-22" for r in fn.rows), False)
+
 # A file that has been through Excel or Numbers: every line wrapped in one
 # pair of quotes. Parsed naively it is a one-column file, and the import
 # is refused for a file that plainly is the right export.

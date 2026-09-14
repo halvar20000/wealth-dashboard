@@ -779,3 +779,15 @@ CA_SWITZERLAND_CSV = (
     "31.12.2025;31.12.2025;210924780;31.12.24-31.12.25;;98.57;49387.41\n"
     "15.12.2025;15.12.2025;209467357;Paiement en faveur de: Café Zürich Müller;300.00;;49288.84\n"
 ).encode("cp1252")
+
+
+# Finary's crypto export: one row per event, what was received and what
+# was sent. A buy, a swap (coin for coin), a withdrawal to the user's own
+# wallet, and a fiat deposit. The ids are Finary's UUIDs.
+FINARY_CSV = """type,date,timezone,received_amount,received_currency,sent_amount,sent_currency,fee_amount,fee_currency,description,address,transaction_hash,external_id,eur_value
+Deposit,2026-01-30T10:00:00.000000000Z,GMT,50.00,EUR,,,,,Deposit,,,019c0000-0000-0000-0000-000000000000,50.00
+Trade,2026-01-31T11:00:30.017657763Z,GMT,0.00035318,BTC,24.75,EUR,0.25,EUR,Buy,,,019c13b6-064f-72a1-8cdf-a82bc96247f1,25.00
+Trade,2026-01-31T11:00:36.810215685Z,GMT,0.011072,ETH,24.75,EUR,0.25,EUR,Buy,,,019c13b6-064f-72a1-8cdf-a835fe8c6484,25.00
+Trade,2026-05-19T12:38:59.608092187Z,GMT,0.03500598,BTC,0.011072,ETH,0.00035006,BTC,Swap,,,019e403f-004b-7541-a2ee-9c51ef7a6851,2338.83
+Withdrawal,2026-05-22T13:20:01.621331956Z,GMT,,,0.03535916,BTC,0.25,EUR,Withdrawal through Bitcoin network,3NxV7W9e7wnMgMJ2URMA8iRhhuttmEfHha,802b51a9,019e4fc1-7872-7f70-b422-a5d680e74433,
+"""

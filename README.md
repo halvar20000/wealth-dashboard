@@ -49,8 +49,8 @@ a PSD2 API it connects directly, with credentials that are yours.
 - **CSV and PDF import** — Degiro and Trade Republic exports, DKB's
   Girokonto, Tagesgeld and Visa CSVs, DKB's Wertpapierabrechnung PDFs
   for the Depot, Swissquote's and Yuh's statement PDFs and Swissquote's
-  trade receipts, and Crédit Agricole next bank (Suisse)'s Buchungsliste
-  CSV (many at once, or a ZIP). Each file is recognised by what is in it,
+  trade receipts, Crédit Agricole next bank (Suisse)'s Buchungsliste
+  CSV, and Finary's crypto transaction export (many at once, or a ZIP). Each file is recognised by what is in it,
   so there is nothing to choose, and re-importing what you already loaded
   is harmless. **Any other bank's CSV** is mapped once — which column is
   the date, the amount, the ISIN — and recognised by its header from then

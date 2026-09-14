@@ -11,6 +11,17 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.45.0] — 2026-09-14
+
+### Added
+- **Finary's crypto transaction export imports.** A buy is a buy of
+  the coin at the fiat sent per unit; a swap is a sale of the coin sent
+  and a buy of the coin received, both at the euro value, so the
+  disposal and the new cost basis are both on record; a withdrawal to
+  a wallet of your own is no row, since the coins are still yours.
+  Rows carry Finary's own ids, the same ones the move from Financial
+  Planner brought, so the export can be imported over them.
+
 ## [0.44.1] — 2026-09-14
 
 ### Fixed
