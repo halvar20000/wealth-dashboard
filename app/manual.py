@@ -41,6 +41,9 @@ _SIGN = {
 }
 DIRECTIONAL = ("transfer", "other", "split")
 TRADES = ("buy", "sell")
+# The kinds that can concern one security besides a trade — what the
+# holding page offers, and what carries an ISIN when one is given.
+ON_SECURITY = ("dividend", "interest", "fee", "tax")
 
 # The kinds offered per account type. A trade on a current account is
 # not impossible, but offering it there is offering the wrong thing to
@@ -155,8 +158,21 @@ def clean_transaction(account: dict, form) -> dict:
     else:
         sign = _SIGN[kind]
     row["amount"] = sign * amount
+    # A dividend, a fee, a tax on ONE holding: the holding page adds
+    # them with its ISIN, so they show among that security's rows and
+    # in its income — an imported dividend does, and a typed one
+    # should not be the poorer for having been typed.
+    if kind in ON_SECURITY:
+        raw_isin = (form.get("isin") or "").strip().upper()
+        isin = find_isin(raw_isin) or (
+            raw_isin if re.match(r"^CRYPTO:[A-Z0-9]{2,10}$", raw_isin) else None)
+        if isin:
+            row["isin"] = isin
+            row["security_name"] = " ".join((form.get("security_name") or "").split())[:200] or None
     if not description:
         row["description"] = i18n.t(f"{kind} [kind]")
+        if row["isin"]:
+            row["description"] += f" · {row['security_name'] or row['isin']}"
     return row
 
 

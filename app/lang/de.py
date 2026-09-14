@@ -129,6 +129,24 @@ STRINGS: dict[str, str] = {
         "Zustimmung abgelaufen. Verbinde neu, damit wieder abgeglichen wird.",
     "Sync now": "Jetzt abgleichen",
     "Reconnect or change bank": "Neu verbinden oder Bank wechseln",
+    "Add a transaction": "Transaktion hinzufügen",
+    "for this holding — the ISIN and the name are filled in":
+        "für diese Position — ISIN und Name sind schon eingetragen",
+    "Price per unit": "Preis je Stück",
+    "In the account's currency. A dividend, a fee or a tax added here is filed "
+    "against this holding, so it shows among its rows and in its income above. "
+    "Sizes are typed unsigned — whether the money went in or out follows from "
+    "what happened.":
+        "In der Währung des Kontos. Eine Dividende, eine Gebühr oder eine Steuer, "
+        "die hier hinzukommt, wird dieser Position zugeordnet und erscheint unter "
+        "ihren Zeilen und in ihren Erträgen oben. Beträge ohne Vorzeichen eintippen "
+        "— ob das Geld rein- oder rausging, folgt aus dem, was passiert ist.",
+    "There is no broker account to add it to — create one under Accounts first.":
+        "Es gibt kein Depotkonto, dem sie zugeordnet werden könnte — lege erst "
+        "eines unter Konten an.",
+    "Pick which account it happened in.": "Wähle, in welchem Konto es passiert ist.",
+    "optional — given, the row is filed against that holding":
+        "optional — angegeben, wird die Zeile dieser Position zugeordnet",
     "Disconnect": "Trennen",
     "The account and its history stay; the syncing ends.":
         "Konto und Historie bleiben; der Abgleich endet.",

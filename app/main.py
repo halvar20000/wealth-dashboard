@@ -784,6 +784,7 @@ def account_add(account_id: int):
         "account_add.html", account=account, error=error,
         form=request.form if request.method == "POST" else {},
         kinds=manual.kinds_for(account["type"]), trades=manual.TRADES,
+        on_security=manual.ON_SECURITY,
         directional=manual.DIRECTIONAL, today=date.today().isoformat())
 
 
@@ -813,7 +814,48 @@ def security_page(isin: str):
     row editable. The place to go when a quantity on the portfolio
     page looks wrong: the answer is always one of these rows.
     """
+    return _security_page(isin.strip())
+
+
+@app.route("/securities/<path:isin>/add", methods=["POST"])
+@auth.login_required
+def security_add(isin: str):
+    """A row for this holding, typed in where the holding is looked
+    at: the ISIN and the name are the page's, so a buy, a sale or a
+    dividend is a date and two numbers — as recording a split is.
+    On a mistake the page comes back with the form as typed."""
     isin = isin.strip()
+    try:
+        account = _load_account(int(request.form.get("account_id") or 0))
+    except ValueError:
+        account = None
+    scope = people.scope()
+    if account is None or (scope is not None and account["id"] not in scope):
+        flash(_t("Pick which account it happened in."), "error")
+        return redirect(url_for("security_page", isin=isin) + "#add")
+    form = {**request.form, "isin": isin, "security_name": _security_name(isin) or ""}
+    try:
+        manual.add_transaction(account, form)
+    except ValueError as exc:
+        return _security_page(isin, add_error=str(exc), add_form=request.form)
+    flash(_t("Added."), "ok")
+    return redirect(url_for("security_page", isin=isin))
+
+
+def _security_name(isin: str) -> str | None:
+    """What the holding is called: the newest row that names it, else
+    the price feed's name."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT security_name FROM transactions WHERE isin = ? AND security_name IS NOT NULL "
+            "AND security_name != '' ORDER BY txn_date DESC, id DESC LIMIT 1", (isin,)).fetchone()
+        if row:
+            return row["security_name"]
+        sec = conn.execute("SELECT name FROM securities WHERE isin = ?", (isin,)).fetchone()
+    return sec["name"] if sec else None
+
+
+def _security_page(isin: str, add_error: str | None = None, add_form=None):
     only, params = people.sql_in(people.scope(), "t.account_id")
     with get_conn() as conn:
         rows = [dict(r) for r in conn.execute(
@@ -879,6 +921,16 @@ def security_page(isin: str):
             else convert(realised["open_cost"], currency, price["as_of"])
         if open_cost is not None:
             unrealised = price["price"] * realised["open_quantity"] - open_cost
+    # Where a new row can go: the accounts holding it first, then any
+    # other broker account of the person's — a first buy elsewhere.
+    holding_ids = list(dict.fromkeys(r["account_id"] for r in rows if abs(r["quantity"] or 0) > 0))
+    only_a, params_a = people.sql_in(people.scope(), "id")
+    with get_conn() as conn:
+        brokers_ = [dict(r) for r in conn.execute(
+            f"SELECT id, name, currency, type FROM accounts WHERE type = 'broker'{only_a} "
+            f"ORDER BY name", params_a)]
+    add_accounts = [a for a in brokers_ if a["id"] in holding_ids] + \
+                   [a for a in brokers_ if a["id"] not in holding_ids]
     return render_template("security.html", active_page="portfolio", isin=isin, name=name,
                            perf=performance.for_security(isin, people.scope(), currency=shown),
                            shown=shown, options=options, roles=roles, benchmarks=benchmark.BENCHMARKS,
@@ -887,7 +939,9 @@ def security_page(isin: str):
                            income=income, costs=costs, price=price, currency=currency,
                            symbol=sec["symbol"] if sec else None,
                            trades=manual.TRADES, directional=manual.DIRECTIONAL,
-                           accounts=sorted({r["account_name"] for r in rows}))
+                           accounts=sorted({r["account_name"] for r in rows}),
+                           add_accounts=add_accounts, add_kinds=manual.TRADES + manual.ON_SECURITY,
+                           add_error=add_error, add_form=add_form or {}, today=date.today().isoformat())
 
 
 @app.route("/securities/<isin>/split", methods=["POST"])

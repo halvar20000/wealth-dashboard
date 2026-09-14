@@ -133,6 +133,23 @@ STRINGS: dict[str, str] = {
         "sincronizando.",
     "Sync now": "Sincronizar ahora",
     "Reconnect or change bank": "Reconectar o cambiar de banco",
+    "Add a transaction": "Añadir una transacción",
+    "for this holding — the ISIN and the name are filled in":
+        "para esta posición — el ISIN y el nombre ya están puestos",
+    "Price per unit": "Precio por unidad",
+    "In the account's currency. A dividend, a fee or a tax added here is filed "
+    "against this holding, so it shows among its rows and in its income above. "
+    "Sizes are typed unsigned — whether the money went in or out follows from "
+    "what happened.":
+        "En la divisa de la cuenta. Un dividendo, una comisión o un impuesto "
+        "añadidos aquí se asignan a esta posición, así que aparecen entre sus filas "
+        "y en sus ingresos arriba. Los importes se escriben sin signo — si el dinero "
+        "entró o salió se deduce de lo que pasó.",
+    "There is no broker account to add it to — create one under Accounts first.":
+        "No hay ninguna cuenta de bróker a la que añadirla — crea una primero en Cuentas.",
+    "Pick which account it happened in.": "Elige en qué cuenta ocurrió.",
+    "optional — given, the row is filed against that holding":
+        "opcional — si se indica, la fila se asigna a esa posición",
     "Disconnect": "Desconectar",
     "The account and its history stay; the syncing ends.":
         "La cuenta y su historial se quedan; la sincronización termina.",

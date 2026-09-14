@@ -4877,6 +4877,53 @@ r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call",
 out = r.get_json()["result"]["structuredContent"]
 check("the MCP tool records a split too", (len(out["written"]), round(out["written"][0]["quantity"], 4)), (1, 59.0))
 mcp.revoke()
+
+# ---------------------------------------------------------------------------
+print("\n35b. A transaction added where the holding is looked at")
+# ---------------------------------------------------------------------------
+# The ISIN and the name are the page's: a buy is an account, a date and
+# two numbers, as recording a split is — not a trip to the account's
+# add page with the ISIN typed by hand.
+r = c.get("/securities/LU1681044563")
+check("the holding page offers to add a transaction", b"Add a transaction" in r.data, True)
+check("...on the account that holds it", f'<option value="{sid}"'.encode() in r.data, True)
+r = c.post("/securities/LU1681044563/add", data={"account_id": sid, "kind": "buy", "txn_date": "2023-02-01",
+                                                 "quantity": "10", "price": "10.5", "fee": "1"}, follow_redirects=True)
+check("a buy is added", b"Added." in r.data, True)
+with db.get_conn() as conn:
+    row = conn.execute("SELECT * FROM transactions WHERE account_id = ? AND txn_date = '2023-02-01'", (sid,)).fetchone()
+check("...with the page's ISIN and name", (row["isin"], row["security_name"]), ("LU1681044563", "Amundi MSCI Switzerland"))
+check("...the quantity, the price and the total", (row["quantity"], row["price"], row["amount"]), (10.0, 10.5, -106.0))
+check("...as a row typed in by hand", row["source"], "manual")
+
+r = c.post("/securities/LU1681044563/add", data={"account_id": sid, "kind": "dividend", "txn_date": "2023-02-10",
+                                                 "amount": "12.5"}, follow_redirects=True)
+with db.get_conn() as conn:
+    div = conn.execute("SELECT * FROM transactions WHERE account_id = ? AND kind = 'dividend'", (sid,)).fetchone()
+check("a dividend is filed against the holding", (div["isin"], div["amount"], div["quantity"]), ("LU1681044563", 12.5, None))
+check("...says which holding", "Amundi MSCI Switzerland" in div["description"], True)
+check("...and is income of its kind", div["category"], "capital_income")
+r = c.get("/securities/LU1681044563")
+check("...so the holding page shows it in its income", b"12.50" in r.data, True)
+
+r = c.post("/securities/LU1681044563/add", data={"account_id": sid, "kind": "buy", "txn_date": "2023-02-01",
+                                                 "quantity": "banana", "price": "10.5"})
+check("a mistake brings the page back with the sentence", (r.status_code, b"needs a quantity and a price" in r.data), (200, True))
+check("...and the form as typed", b'value="banana"' in r.data, True)
+r = c.post("/securities/LU1681044563/add", data={"account_id": "999999", "kind": "buy", "txn_date": "2023-02-01",
+                                                 "quantity": "1", "price": "1"}, follow_redirects=True)
+check("an account that is not there is refused", b"Pick which account" in r.data, True)
+
+# The general add page files a dividend against a holding too, when an
+# ISIN is given — and stays a plain dividend when none is.
+r = c.post(f"/accounts/{sid}/add", data={"kind": "dividend", "txn_date": "2023-03-01", "amount": "3",
+                                         "isin": "lu1681044563"}, follow_redirects=True)
+r = c.post(f"/accounts/{sid}/add", data={"kind": "dividend", "txn_date": "2023-03-02", "amount": "4"}, follow_redirects=True)
+with db.get_conn() as conn:
+    divs = {r_["txn_date"]: r_["isin"] for r_ in conn.execute(
+        "SELECT txn_date, isin FROM transactions WHERE account_id = ? AND kind = 'dividend'", (sid,))}
+check("the add page files a dividend against the ISIN typed", divs["2023-03-01"], "LU1681044563")
+check("...and against nothing when none is", divs["2023-03-02"], None)
 c.post(f"/accounts/{sid}/delete", data={"confirm": "Split test"})
 
 # ---------------------------------------------------------------------------

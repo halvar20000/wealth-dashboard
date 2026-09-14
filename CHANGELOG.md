@@ -11,6 +11,18 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.40.0] — 2026-09-14
+
+### Added
+- **Add a transaction on the holding's own page.** A card beside
+  "Record a split": pick the account, what happened, the date and the
+  numbers — the ISIN and the name are the page's. Until now a row for
+  one holding meant the account's add page and the ISIN typed by hand.
+- **A dividend, a fee or a tax can belong to a holding.** Added from
+  the holding page it is filed against that ISIN, so it shows among the
+  holding's rows and in its income — as an imported dividend does. The
+  account's add page offers the ISIN for those kinds too, optionally.
+
 ## [0.39.0] — 2026-09-14
 
 ### Added

@@ -18,15 +18,19 @@
   <label for="txn_date">{{ _("Date") }}</label>
   <input id="txn_date" name="txn_date" type="date" value="{{ form.get('txn_date') or today }}" max="{{ today }}" required>
 
-  {# ── A trade: the security, how much, at what ─────────────────── #}
-  <div data-for="{{ trades | join(' ') }}">
-    <label for="isin">{{ _("ISIN") }}</label>
+  {# ── The security: a trade needs one; a dividend, a fee or a tax
+        may concern one, and is filed against the holding when it does ── #}
+  <div data-for="{{ (trades + on_security) | join(' ') }}">
+    <label for="isin">{{ _("ISIN") }} <span class="sub" data-for="{{ on_security | join(' ') }}">{{ _("optional — given, the row is filed against that holding") }}</span></label>
     <input id="isin" name="isin" value="{{ form.get('isin', '') }}" placeholder="IE00B4L5Y983" autocomplete="off"
            style="font-family:var(--font-mono);text-transform:uppercase">
 
     <label for="security_name">{{ _("Security") }} <span class="sub">{{ _("optional, but it is what the holding will be called") }}</span></label>
     <input id="security_name" name="security_name" value="{{ form.get('security_name', '') }}" placeholder="iShares Core MSCI World">
+  </div>
 
+  {# ── A trade: how much, at what ───────────────────────────────── #}
+  <div data-for="{{ trades | join(' ') }}">
     <label for="quantity">{{ _("Quantity") }}</label>
     <input id="quantity" name="quantity" value="{{ form.get('quantity', '') }}" inputmode="decimal" placeholder="10">
 

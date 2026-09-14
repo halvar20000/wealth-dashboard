@@ -203,6 +203,38 @@
   <p class="sub">{{ _("An imported row cannot be removed — it would only come back with the next import — but it can be corrected to a quantity of zero. A row typed in by hand can be removed.") }}</p>
 </div>
 
+<div class="card" id="add">
+  <div class="card-header">
+    <h2>{{ _("Add a transaction") }}</h2>
+    <span class="card-subtitle">{{ _("for this holding — the ISIN and the name are filled in") }}</span>
+  </div>
+  {% if add_error %}<div class="flash flash-error">{{ add_error }}</div>{% endif %}
+  {% if add_accounts %}
+  <form method="post" action="{{ url_for('security_add', isin=isin) }}" class="form inline sec-form" id="sec-add">
+    <div><label for="add-account">{{ _("Account") }}</label>
+      <select id="add-account" name="account_id" style="width:auto">
+        {% for a in add_accounts %}<option value="{{ a.id }}" {{ 'selected' if add_form.get('account_id') == a.id | string }}>{{ a.name }} ({{ a.currency }})</option>{% endfor %}
+      </select></div>
+    <div><label for="add-kind">{{ _("What happened") }}</label>
+      <select id="add-kind" name="kind" style="width:auto">
+        {% for k in add_kinds %}<option value="{{ k }}" {{ 'selected' if add_form.get('kind') == k }}>{{ kind_label(k) }}</option>{% endfor %}
+      </select></div>
+    <div><label for="add-date">{{ _("Date") }}</label><input id="add-date" name="txn_date" type="date" value="{{ add_form.get('txn_date') or today }}" max="{{ today }}" required style="width:auto"></div>
+    <div data-for="{{ trades | join(' ') }}"><label for="add-qty">{{ _("Quantity") }}</label><input id="add-qty" name="quantity" value="{{ add_form.get('quantity', '') }}" inputmode="decimal" placeholder="10" style="width:90px"></div>
+    <div data-for="{{ trades | join(' ') }}"><label for="add-price">{{ _("Price per unit") }}</label><input id="add-price" name="price" value="{{ add_form.get('price', '') }}" inputmode="decimal" placeholder="82.40" style="width:100px"></div>
+    <div data-for="{{ trades | join(' ') }}"><label for="add-fee">{{ _("Fee") }}</label><input id="add-fee" name="fee" value="{{ add_form.get('fee', '') }}" inputmode="decimal" placeholder="1.00" style="width:80px"></div>
+    <div data-for="{{ trades | join(' ') }}"><label for="add-tax">{{ _("Tax") }}</label><input id="add-tax" name="tax" value="{{ add_form.get('tax', '') }}" inputmode="decimal" style="width:80px"></div>
+    <div data-for="{{ trades | join(' ') }}"><label for="add-total">{{ _("Total") }} <span class="sub">{{ _("optional") }}</span></label><input id="add-total" name="total" value="{{ add_form.get('total', '') }}" inputmode="decimal" style="width:100px"></div>
+    <div data-not-for="{{ trades | join(' ') }}"><label for="add-amount">{{ _("Amount") }}</label><input id="add-amount" name="amount" value="{{ add_form.get('amount', '') }}" inputmode="decimal" placeholder="12.50" style="width:100px"></div>
+    <div><label for="add-desc">{{ _("Description") }} <span class="sub">{{ _("optional") }}</span></label><input id="add-desc" name="description" value="{{ add_form.get('description', '') }}" style="width:180px"></div>
+    <button type="submit">{{ _("Add") }}</button>
+  </form>
+  <p class="sub">{{ _("In the account's currency. A dividend, a fee or a tax added here is filed against this holding, so it shows among its rows and in its income above. Sizes are typed unsigned — whether the money went in or out follows from what happened.") }}</p>
+  {% else %}
+  <p class="sub">{{ _("There is no broker account to add it to — create one under Accounts first.") }}</p>
+  {% endif %}
+</div>
+
 <div class="card" id="split">
   <div class="card-header">
     <h2>{{ _("Record a split") }}</h2>
@@ -219,6 +251,19 @@
 
 {% block scripts %}
 <script>
+{# The add form shows the fields the chosen kind needs — quantity and
+   price for a trade, an amount for the rest. Without JavaScript every
+   field shows and the server ignores the ones that do not apply. #}
+(() => {
+  const kind = document.getElementById('add-kind');
+  if (!kind) return;
+  const show = () => {
+    document.querySelectorAll('#sec-add [data-for]').forEach((el) => { el.hidden = el.dataset.for.split(' ').indexOf(kind.value) < 0; });
+    document.querySelectorAll('#sec-add [data-not-for]').forEach((el) => { el.hidden = el.dataset.notFor.split(' ').indexOf(kind.value) >= 0; });
+  };
+  kind.addEventListener('change', show);
+  show();
+})();
 (async () => {
   const res = await fetch({{ url_for('api_security_history', isin=isin, ccy=shown) | tojson }});
   const data = await res.json();
