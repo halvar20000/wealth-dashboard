@@ -61,7 +61,9 @@ TRADE_REPUBLIC_CSV = (
     '"","","","","","500.000000","","","EUR","","","","Apple Pay Top up",'
     '"44444444-4444-4444-4444-444444444444","","","",""\n'
     '"2026-05-05T09:00:00.000000Z","2026-05-05","DEFAULT","CORPORATE_ACTION","DIVIDEND",'
-    '"STOCK","Some AG","DE0007236101","","","12.50","","-1.90","EUR","","","",'
+    # `shares` and `price` are filled on a dividend row: the position
+    # it was paid on and the amount per share. Not a trade.
+    '"STOCK","Some AG","DE0007236101","2.000000","6.250000","12.50","","-1.90","EUR","","","",'
     '"Dividend","55555555-5555-5555-5555-555555555555","","","",""\n'
     # A type this parser has never seen. It must survive, not vanish.
     '"2026-05-06T09:00:00.000000Z","2026-05-06","DEFAULT","TRADING","SOMETHING_NEW",'

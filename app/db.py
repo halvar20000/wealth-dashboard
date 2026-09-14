@@ -528,10 +528,31 @@ def init_db(path: Path | None = None) -> Path:
         conn.executescript(SCHEMA)          # tables
         _add_missing_columns(conn)          # columns an older version lacks
         conn.executescript(INDEXES)         # only now can they be indexed
+        _repair_rows(conn)                  # what an older parser got wrong
         conn.commit()
     finally:
         conn.close()
     return path
+
+
+# Rows an earlier version stored wrongly, put right on start — for the
+# same reason the columns are: starting the app is the upgrade. Every
+# statement here must be idempotent and must leave a row the user has
+# corrected by hand alone, which `edited_at` marks.
+_REPAIRS = [
+    # Up to 0.38.0 the Trade Republic parser stored `shares` and `price`
+    # off a dividend row — the position it was paid on and the amount
+    # per share — as a quantity and a price. Everything that sums
+    # quantities counted the whole position again on every payout.
+    "UPDATE transactions SET quantity = NULL, price = NULL "
+    "WHERE source = 'trade_republic' AND kind IN ('dividend', 'interest') "
+    "AND quantity IS NOT NULL AND edited_at IS NULL",
+]
+
+
+def _repair_rows(conn: sqlite3.Connection) -> None:
+    for sql in _REPAIRS:
+        conn.execute(sql)
 
 
 # Columns added after v0.1 shipped. CREATE TABLE IF NOT EXISTS is a no-op

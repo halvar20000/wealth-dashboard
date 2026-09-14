@@ -929,6 +929,33 @@ check("a top-up is a deposit",
 div = by_id["tr:55555555-5555-5555-5555-555555555555"]
 check("a dividend is a dividend", div.kind, "dividend")
 check("...and its withholding tax is kept", div.tax, -1.90)
+# The export fills `shares` and `price` on a dividend row — the
+# position it was paid on and the amount per share. Stored as a
+# quantity it is counted into the holding on every payout, and the
+# position grows by itself each quarter.
+check("...but the shares it was paid on are not a quantity", div.quantity, None)
+check("...nor the per-share amount a price", div.price, None)
+# Rows an earlier version imported that way are put right when the app
+# starts — unless the user has been at them by hand.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (id, name, type, currency) VALUES (9001, 'Old TR', 'broker', 'EUR')")
+    conn.execute("INSERT INTO transactions (account_id, txn_date, amount, currency, kind, isin, "
+                 "quantity, price, source, external_id) VALUES "
+                 "(9001, '2026-03-01', 12.5, 'EUR', 'dividend', 'DE0007236101', 100, 0.125, 'trade_republic', 'tr:old-div'), "
+                 "(9001, '2026-03-02', 12.5, 'EUR', 'dividend', 'DE0007236101', 100, 0.125, 'kraken', 'k:reward'), "
+                 "(9001, '2026-03-03', -500, 'EUR', 'buy', 'DE0007236101', 5, 100, 'trade_republic', 'tr:old-buy')")
+    conn.execute("INSERT INTO transactions (account_id, txn_date, amount, currency, kind, isin, "
+                 "quantity, price, source, external_id, edited_at) VALUES "
+                 "(9001, '2026-03-04', 12.5, 'EUR', 'dividend', 'DE0007236101', 3, 4.1667, 'trade_republic', 'tr:old-edited', '2026-09-01T00:00:00')")
+db.init_db()
+with db.get_conn() as conn:
+    fixed = {r["external_id"]: (r["quantity"], r["price"]) for r in conn.execute(
+        "SELECT external_id, quantity, price FROM transactions WHERE account_id = 9001")}
+    conn.execute("DELETE FROM accounts WHERE id = 9001")
+check("an old dividend row loses its quantity on start", fixed["tr:old-div"], (None, None))
+check("...a Kraken reward keeps its units", fixed["k:reward"], (100.0, 0.125))
+check("...a buy keeps its quantity", fixed["tr:old-buy"], (5.0, 100.0))
+check("...and a row the user corrected is left alone", fixed["tr:old-edited"], (3.0, 4.1667))
 
 unknown = by_id["tr:66666666-6666-6666-6666-666666666666"]
 check("an unknown type is not dropped", unknown is not None, True)

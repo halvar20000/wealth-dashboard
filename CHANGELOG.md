@@ -11,6 +11,19 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.38.1] — 2026-09-14
+
+### Fixed
+- **A Trade Republic dividend grew the position.** The export fills
+  `shares` and `price` on a dividend row — the position it was paid on
+  and the amount per share — and the importer stored them as a
+  quantity and a price, so everything that sums quantities counted the
+  whole holding again on every payout: a hundred shares with eleven
+  dividends showed as twelve hundred, and the net worth with them. Only
+  a row that changes what is held — a buy, a sale, a transfer, a split
+  — keeps its shares now, and rows imported the old way are put right
+  when the app starts, unless you corrected them by hand.
+
 ## [0.38.0] — 2026-09-14
 
 ### Added

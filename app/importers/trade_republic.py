@@ -120,9 +120,18 @@ def parse(content: bytes | str, account_currency: str = "EUR") -> ParseResult:
             # `symbol` normally holds an ISIN, but not on a cash row.
             isin = None
 
-        quantity = parse_decimal(row.get("shares"))
-        if quantity is not None and kind == "sell":
-            quantity = -abs(quantity)
+        # `shares` and `price` are filled on a dividend row too — the
+        # position the dividend was paid on and the amount per share.
+        # Neither moves units, and a quantity stored there is counted
+        # into the holding by everything that sums quantities: eleven
+        # dividends on a hundred shares showed as twelve hundred. Only
+        # a row that changes what is held keeps them.
+        quantity = price = None
+        if kind in ("buy", "sell", "transfer"):
+            quantity = parse_decimal(row.get("shares"))
+            price = parse_decimal(row.get("price"))
+            if quantity is not None and kind == "sell":
+                quantity = -abs(quantity)
 
         description = (row.get("description") or row.get("name")
                        or ttype.replace("_", " ").title())
@@ -142,7 +151,7 @@ def parse(content: bytes | str, account_currency: str = "EUR") -> ParseResult:
             isin=isin,
             security_name=row.get("name") or None,
             quantity=quantity,
-            price=parse_decimal(row.get("price")),
+            price=price,
             fee=parse_decimal(row.get("fee")),
             tax=parse_decimal(row.get("tax")),
         ))
