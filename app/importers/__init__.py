@@ -99,7 +99,16 @@ def store(account_id: int, parsed: ParseResult, source: str, import_id: int | No
     """
     inserted = duplicates = 0
     with get_conn() as conn:
+        # Rows the account already has from elsewhere, under other ids
+        # — see accounts.ledger_until. They count as duplicates, which
+        # is what they are.
+        until = conn.execute("SELECT ledger_until FROM accounts WHERE id = ?",
+                             (account_id,)).fetchone()
+        until = until["ledger_until"] if until else None
         for row in parsed.rows:
+            if until and row.txn_date <= until and not (row.external_id or "").startswith("fp:"):
+                duplicates += 1
+                continue
             cur = conn.execute(
                 "INSERT OR IGNORE INTO transactions "
                 "(account_id, txn_date, description, counterparty, amount, "

@@ -168,8 +168,29 @@ check("the description is collapsed to one line",
       debit["description"], "REWE SAGT DANKE 25873946")
 check("on a debit the counterparty is the creditor",
       debit["counterparty"], "REWE Markt GmbH")
-check("the id uses the bank's own reference",
-      debit["external_id"], "eb:idhash0001:DKB-2026-09-08-0001")
+# The reference, with the day and the amount folded in: Crédit Agricole
+# sends base64 of the description as the reference, so every quarterly
+# "ECH PRET" of a year shares one, and an id made of it alone would
+# keep the first and silently drop the rest.
+check("the id uses the bank's own reference, with the day and the amount",
+      debit["external_id"], "eb:idhash0001:2026-09-08:42.90:DKB-2026-09-08-0001")
+same_ref = [dict(t, booking_date="2026-06-08") for t in fake_bank.TRANSACTIONS_PAGE_1["transactions"][:1]]
+check("...so the same reference on another day is another row",
+      eb.normalise_transaction(same_ref[0], "idhash0001")["external_id"] != debit["external_id"], True)
+# Rows synced under the old shape are given the new one on start.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (id, name, type, currency) VALUES (9002, 'Old ids', 'bank', 'EUR')")
+    conn.execute("INSERT INTO transactions (account_id, txn_date, amount, currency, kind, external_id) VALUES "
+                 "(9002, '2026-05-29', -65.99, 'EUR', 'withdrawal', 'eb:abc:REF-77'), "
+                 "(9002, '2026-05-30', 5, 'EUR', 'deposit', 'eb:abc:h:deadbeef'), "
+                 "(9002, '2026-05-31', 5, 'EUR', 'deposit', 'eb:abc:2026-05-31:5.00:REF-9')")
+    conn.execute("DELETE FROM app_state WHERE key = 'eb_ids_with_day'")
+db.init_db()
+with db.get_conn() as conn:
+    ids = sorted(r_["external_id"] for r_ in conn.execute("SELECT external_id FROM transactions WHERE account_id = 9002"))
+    conn.execute("DELETE FROM accounts WHERE id = 9002")
+check("...and an old-shape id already on record is reshaped, the others left alone",
+      ids, ["eb:abc:2026-05-29:65.99:REF-77", "eb:abc:2026-05-31:5.00:REF-9", "eb:abc:h:deadbeef"])
 
 credit = rows[1]
 check("CRDT is stored positive", credit["amount"], 3200.00)
@@ -5587,6 +5608,143 @@ with db.get_conn() as conn:
 check("money sent to the platform is moved, the interest is income", cats_, {"p2p-dep": "transfer", "p2p-int": "capital_income"})
 with db.get_conn() as conn:
     conn.execute("DELETE FROM accounts WHERE name IN ('PK', 'Notes', 'Maison')")
+
+# ---------------------------------------------------------------------------
+print("\n42. Moving in from Financial Planner")
+# ---------------------------------------------------------------------------
+# A wealth.db in the old app's shape, small: three accounts, a ledger,
+# a holding the ledger does not explain, a house, snapshots. Read into
+# a plan, looked at, written — and the net worth is the old app's.
+import sqlite3 as _sq
+from app import migrate                                     # noqa: E402
+
+def fp_database() -> bytes:
+    path = pathlib.Path(TMP) / "fp_wealth.db"
+    if path.exists():
+        path.unlink()
+    c = _sq.connect(path)
+    c.executescript("""
+        CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT, type TEXT, currency TEXT, institution TEXT, notes TEXT, is_liability INTEGER, closed_on TEXT);
+        CREATE TABLE assets (id INTEGER PRIMARY KEY, ticker TEXT, isin TEXT, name TEXT, asset_class TEXT, currency TEXT, yahoo_symbol TEXT, industry TEXT, notes TEXT);
+        CREATE TABLE holdings (id INTEGER PRIMARY KEY, account_id INTEGER, asset_id INTEGER, quantity REAL, avg_cost REAL, cost_total REAL, cost_currency TEXT, updated_at TEXT);
+        CREATE TABLE transactions (id INTEGER PRIMARY KEY, account_id INTEGER, asset_id INTEGER, txn_date TEXT, txn_time TEXT, type TEXT, quantity REAL, price REAL, currency TEXT, amount REAL, amount_eur REAL, fx_rate REAL, fee REAL, description TEXT, category TEXT, counterparty TEXT, source TEXT, external_id TEXT, retirement_gone INTEGER, expense_owner TEXT);
+        CREATE TABLE snapshots (id INTEGER PRIMARY KEY, snapshot_date TEXT, net_worth_eur REAL, source TEXT);
+        CREATE TABLE snapshot_lines (id INTEGER PRIMARY KEY, snapshot_id INTEGER, account_id INTEGER, asset_id INTEGER, quantity REAL, price REAL, value_eur REAL, currency TEXT);
+        CREATE TABLE prices (id INTEGER PRIMARY KEY, asset_id INTEGER, price_date TEXT, open REAL, high REAL, low REAL, close REAL, volume REAL, currency TEXT, source TEXT);
+        CREATE TABLE expense_owner_rules (id INTEGER PRIMARY KEY, keyword TEXT, owner TEXT, created_at TEXT);
+        INSERT INTO accounts VALUES (1, 'Old Broker', 'broker', 'EUR', NULL, NULL, 0, NULL),
+                                    (2, 'Old Bank', 'bank', 'EUR', NULL, NULL, 0, NULL),
+                                    (3, 'Maison', 'real_estate', 'EUR', NULL, NULL, 0, NULL),
+                                    (4, 'Old Pension', 'pension', 'CHF', NULL, NULL, 0, NULL),
+                                    (5, 'Nothing here', 'other', 'EUR', NULL, NULL, 0, NULL),
+                                    (6, 'Coins', 'crypto', 'EUR', NULL, NULL, 0, NULL);
+        INSERT INTO assets VALUES (1, 'IWDA', 'IE00B4L5Y983', 'iShares Core MSCI World', 'etf', 'EUR', 'IWDA.AS', NULL, NULL),
+                                  (2, 'CASH_EUR', NULL, 'Cash EUR', 'cash', 'EUR', NULL, NULL, NULL),
+                                  (3, 'MAISON-FR', NULL, 'House', 'real_estate', 'EUR', NULL, NULL, NULL),
+                                  (4, 'CASH_CHF', NULL, 'Cash CHF', 'cash', 'CHF', NULL, NULL, NULL),
+                                  (5, 'FCNTX', NULL, 'Fidelity Contrafund', 'etf', 'USD', 'FCNTX', NULL, NULL),
+                                  (6, 'BTCEUR', NULL, 'Bitcoin', 'crypto', 'EUR', 'BTC-EUR', NULL, NULL),
+                                  (7, 'DCAM', NULL, 'Amundi PEA Monde', 'etf', 'EUR', 'DCAM.PA', NULL, NULL);
+        INSERT INTO transactions (id, account_id, asset_id, txn_date, type, quantity, price, currency, amount, fee, description, category, source, external_id) VALUES
+            (1, 1, 1, '2025-01-10', 'buy', 10, 80.0, 'EUR', -802.0, -2.0, 'Kauf IWDA', 'investment', 'degiro_csv:Account.csv', 'deg_h:aaaa'),
+            (2, 1, 1, '2025-06-10', 'buy', 5, 90.0, 'EUR', -450.0, 0, 'Kauf IWDA', 'investment', 'degiro_csv:Account.csv', 'deg_h:bbbb'),
+            (3, 1, 1, '2025-07-01', 'dividend', 15, 0.5, 'EUR', 7.5, 0, 'Dividende IWDA Anzahl: 15', 'interest', 'degiro_csv:Account.csv', 'deg_h:cccc'),
+            (4, 1, NULL, '2025-08-01', 'buy', 100, 6.0, 'EUR', -600.0, 0, 'BUY 100.0 DCAM:xpar', 'investment', 'saxo', 'saxo:trade:1'),
+            (5, 1, NULL, '2025-08-02', 'sell', -40, 6.5, 'EUR', 260.0, 0, 'SELL -40.0 DCAM:xpar', 'investment', 'saxo', 'saxo:trade:2'),
+            (6, 2, NULL, '2025-03-01', 'deposit', NULL, NULL, 'EUR', 3000.0, 0, 'Salaire', 'income', 'enablebanking:bank:1', 'eb:x:2025-03-01:3000.00:R1'),
+            (7, 2, NULL, '2025-03-05', 'withdrawal', NULL, NULL, 'EUR', -60.0, 0, 'Simracing shop', 'simracing', 'enablebanking:bank:1', 'eb:x:2025-03-05:60.00:R2'),
+            (8, 2, NULL, '2025-03-06', 'withdrawal', NULL, NULL, 'EUR', -12.0, 0, 'Assurance auto', 'assurance', 'enablebanking:bank:1', 'eb:x:2025-03-06:12.00:R3'),
+            (9, 6, 6, '2026-02-01', 'buy', 0.01, 60000.0, 'EUR', -600.0, -1.2, 'Buy BTC on Kraken', 'investment', 'kraken_api', 'TXID-1');
+        INSERT INTO holdings (account_id, asset_id, quantity, avg_cost, cost_currency, updated_at) VALUES
+            (1, 1, 15, 83.33, 'EUR', '2026-09-13 10:00:00'), (1, 7, 60, 6.0, 'EUR', '2026-09-13 10:00:00'),
+            (1, 5, 100, 12.0, 'USD', '2026-06-11 10:00:00'),
+            (2, 2, 2928.0, 1.0, 'EUR', '2026-09-13 10:00:00'), (3, 3, 1, 361000.0, 'EUR', '2026-09-13 10:00:00'),
+            (4, 4, 500000.0, 1.0, 'CHF', '2026-09-13 10:00:00'), (6, 6, 0.01, 60000.0, 'EUR', '2026-09-13 10:00:00'),
+            (6, 2, 250.0, 1.0, 'EUR', '2026-09-14 07:00:00');
+        INSERT INTO snapshots VALUES (1, '2026-09-12', 0, 'refresh'), (2, '2026-09-13', 0, 'refresh'), (3, '2026-05-01', 0, 'excel');
+        INSERT INTO snapshot_lines (snapshot_id, account_id, asset_id, quantity, price, value_eur, currency) VALUES
+            (1, 1, 1, 15, 100.0, 1500.0, 'EUR'), (1, 2, 2, 2900.0, 1.0, 2900.0, 'EUR'), (1, 3, 3, 1, 410000.0, 410000.0, 'EUR'), (1, 4, 4, 499000.0, 1.0, 520000.0, 'CHF'),
+            (2, 1, 1, 15, 101.0, 1515.0, 'EUR'), (2, 2, 2, 2928.0, 1.0, 2928.0, 'EUR'), (2, 3, 3, 1, 416233.0, 416233.0, 'EUR'), (2, 4, 4, 500000.0, 1.0, 521000.0, 'CHF');
+        INSERT INTO prices (asset_id, price_date, close, currency) VALUES (1, '2026-09-12', 100.0, 'EUR'), (1, '2026-09-13', 101.0, 'EUR');
+        INSERT INTO expense_owner_rules VALUES (1, 'simracing', 'thomas', '2026-01-01');
+    """)
+    c.commit(); c.close()
+    return path.read_bytes()
+
+blob = fp_database()
+check("the file is recognised as the old app's", migrate.is_planner_db(blob), True)
+check("...and a CSV is not", migrate.is_planner_db(b"date,amount\n"), False)
+# An account of the same name here is offered as the target.
+r = c.post("/accounts/new", data={"name": "Old Broker", "type": "broker", "currency": "EUR"})
+old_broker_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+plan = migrate.read(blob)
+by_name = {a["name"]: a for a in plan["accounts"]}
+check("the plan lists every account with what it becomes",
+      {a["name"]: a["type"] for a in plan["accounts"]},
+      {"Old Broker": "broker", "Old Bank": "bank", "Maison": "property", "Old Pension": "pension", "Nothing here": "other", "Coins": "broker"})
+check("...an account of the same name is the proposed target", by_name["Old Broker"]["target"], old_broker_id)
+check("...an empty one is left out", by_name["Nothing here"].get("skip"), True)
+check("...and the rows are counted", (by_name["Old Broker"]["rows"], by_name["Old Bank"]["rows"], by_name["Old Bank"]["first"]), (5, 3, "2025-03-01"))
+tx = {t["external_id"]: t for t in plan["transactions"]}
+check("a Kraken trade id gets this app's prefix", "kraken:trade:TXID-1" in tx, True)
+check("a Saxo id is the same in both apps", "saxo:trade:1" in tx, True)
+check("a trade the old app did not link to its security is linked by its text",
+      (tx["saxo:trade:1"]["isin"], tx["saxo:trade:2"]["isin"], tx["saxo:trade:2"]["quantity"]), ("SYM:DCAM", "SYM:DCAM", -40.0))
+check("a coin is keyed the way this app keys it", tx["kraken:trade:TXID-1"]["isin"], "CRYPTO:BTC")
+check("a dividend's quantity is the position it was paid on, not units", tx["deg_h:cccc"]["quantity"], None)
+check("interest is this app's income category, a foreign slug is created",
+      (tx["deg_h:cccc"]["category"], tx["eb:x:2025-03-06:12.00:R3"]["category"], plan["categories"]),
+      ("capital_income", "insurance", {"simracing": "Simracing"}))
+ops = {(o["account"], o["isin"]): o for o in plan["openings"]}
+check("a holding the ledger does not explain gets an opening row",
+      (round(ops[("Old Broker", "SYM:FCNTX")]["quantity"], 2), ops[("Old Broker", "SYM:FCNTX")]["txn_date"], ops[("Old Broker", "SYM:FCNTX")]["price"]), (100.0, "2026-06-11", 12.0))
+check("...and one the rows add up to does not", ("Old Broker", "IE00B4L5Y983") in ops, False)
+bal = {(b["fp_account"], b["as_of"]): b for b in plan["balances"]}
+check("the house is a balance of its snapshot value, not a holding at its price",
+      (bal[(3, "2026-09-13")]["amount"], any(t["isin"] == "SYM:MAISON-FR" for t in plan["transactions"]), any(o["isin"] == "SYM:MAISON-FR" for o in plan["openings"])), (416233.0, False, False))
+check("the pension is a reading in its own currency", (bal[(4, "2026-09-12")]["amount"], bal[(4, "2026-09-12")]["currency"]), (499000.0, "CHF"))
+check("the bank's cash is a reading per snapshot day", (bal[(2, "2026-09-12")]["amount"], bal[(2, "2026-09-13")]["amount"]), (2900.0, 2928.0))
+check("today's cash from the holdings table where no snapshot has the day", bal[(6, "2026-09-14")]["amount"], 250.0)
+check("what does not cross is said", any("expense owner rules" in n for n in plan["notes"]) and any("snapshots from before" in n for n in plan["notes"]), True)
+
+# Through the page: upload, look, confirm.
+r = c.post("/move-in", data={"file": (io.BytesIO(b"not a database"), "wealth.db")}, content_type="multipart/form-data", follow_redirects=True)
+check("a file that is not the old app's database is refused", b"not a Financial Planner database" in r.data, True)
+r = c.post("/move-in", data={"file": (io.BytesIO(blob), "wealth.db")}, content_type="multipart/form-data")
+check("the plan page shows the accounts and the openings", (r.status_code, b"Old Pension" in r.data, b"Fidelity Contrafund" in r.data, b"Simracing" in r.data), (200, True, True, True))
+tok = re.search(rb'name="token" value="([^"]+)"', r.data).group(1).decode()
+form = {"token": tok, "target_1": str(old_broker_id)}
+r = c.post("/move-in", data=form, follow_redirects=True)
+check("confirming writes it", b"Moved in" in r.data, True)
+with db.get_conn() as conn:
+    names = {r_["name"]: dict(r_) for r_ in conn.execute("SELECT * FROM accounts")}
+    n_broker = conn.execute("SELECT COUNT(*) n FROM accounts WHERE name = 'Old Broker'").fetchone()["n"]
+    rows = [dict(r_) for r_ in conn.execute("SELECT * FROM transactions WHERE source LIKE 'financial_planner%' ORDER BY txn_date, id")]
+    imps = conn.execute("SELECT COUNT(*) n FROM imports WHERE source = 'financial_planner'").fetchone()["n"]
+    secs = {r_["isin"]: r_ for r_ in conn.execute("SELECT * FROM securities WHERE isin IN ('SYM:FCNTX', 'CRYPTO:BTC', 'IE00B4L5Y983')")}
+check("the chosen account was used, the others created, the empty one not",
+      (n_broker, "Old Bank" in names, "Maison" in names, "Nothing here" in names), (1, True, True, False))
+check("...with their types", (names["Maison"]["type"], names["Old Pension"]["type"], names["Coins"]["type"]), ("property", "pension", "broker"))
+check("every row and every opening is written, each account with rows as one import", (len(rows), imps), (9 + 1, 3))
+check("the symbols come along as the user's own", (secs["SYM:FCNTX"]["symbol"], secs["SYM:FCNTX"]["symbol_source"], secs["CRYPTO:BTC"]["symbol"]), ("FCNTX", "manual", "BTC-EUR"))
+pos = {p_["isin"]: p_["quantity"] for p_ in importers.positions(old_broker_id)}
+check("the holdings are the old app's", ({k: round(v, 4) for k, v in pos.items()}), {"IE00B4L5Y983": 15.0, "SYM:DCAM": 60.0, "SYM:FCNTX": 100.0})
+check("a ledger under ids this app would not produce is marked as on record",
+      (names["Old Bank"]["ledger_until"], names["Old Broker"]["ledger_until"], names["Coins"]["ledger_until"]), ("2025-03-06", "2025-08-02", None))
+sm = ov.summary("EUR")
+check("the house and the pension are in the net worth as other assets", round(sm["assets_by_type"]["property"]), 416233)
+r = c.get(f"/accounts/{names['Old Bank']['id']}/edit")
+check("the account page shows how far the ledger is on record", b"Ledger on record until" in r.data, True)
+
+# A statement covering the days already on record is left alone; one
+# reaching past them adds only what is new.
+r = upload(old_broker_id, fixtures.DEGIRO_CSV)
+check("an export over the recorded span is not booked again", b"0 new" in r.data or b"already had" in r.data, True)
+with db.get_conn() as conn:
+    conn.execute("UPDATE accounts SET ledger_until = NULL WHERE id = ?", (old_broker_id,))
+    conn.execute("DELETE FROM transactions WHERE account_id = ?", (old_broker_id,))
+    conn.execute("DELETE FROM accounts WHERE name IN ('Old Broker', 'Old Bank', 'Maison', 'Old Pension', 'Coins')")
+cat.delete_category("simracing")
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

@@ -37,6 +37,7 @@
   {% if s.hidden_accounts %}
   <p class="sub">{{ _n(s.hidden_accounts, "{n} more account belongs to somebody else, or to nobody yet — switch to Everyone to see it.", "{n} more accounts belong to somebody else, or to nobody yet — switch to Everyone to see them.") }}</p>
   {% endif %}
-  <p><a class="btn" href="{{ url_for('account_new') }}">{{ _("Add an account") }}</a></p>
+  <p><a class="btn" href="{{ url_for('account_new') }}">{{ _("Add an account") }}</a>
+     <a class="btn btn-ghost" href="{{ url_for('move_in') }}">{{ _("Move in from Financial Planner") }}</a></p>
 </section>
 {% endblock %}

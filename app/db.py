@@ -554,6 +554,18 @@ _REPAIRS = [
 # that is theirs — a row filed back by hand on the Categorize page
 # must not be moved again at the next start.
 _ONCE = [
+    # 0.42.0 folded the day and the amount into a bank row's id — the
+    # reference alone is not unique at every bank. The rows already
+    # synced get the new shape from what they carry, so the next sync
+    # recognises them. The id is eb:<hash>:<rest>; a rest that is a
+    # hash of the row (h:…) or already starts with a day is left alone.
+    ("eb_ids_with_day",
+     "UPDATE OR IGNORE transactions SET external_id = "
+     "  substr(external_id, 1, instr(substr(external_id, 4), ':') + 3) || txn_date || ':' "
+     "  || printf('%.2f', abs(amount)) || ':' || substr(external_id, instr(substr(external_id, 4), ':') + 4) "
+     "WHERE external_id LIKE 'eb:%' AND instr(substr(external_id, 4), ':') > 0 "
+     "  AND substr(external_id, instr(substr(external_id, 4), ':') + 4) NOT LIKE 'h:%' "
+     "  AND substr(external_id, instr(substr(external_id, 4), ':') + 4) NOT LIKE '____-__-__:%'"),
     # 0.39.0 gave income its own categories. Dividends and interest had
     # been filed as plain income by their kind; they now have a category
     # of their own, and the rows already there go with it.
@@ -584,6 +596,13 @@ def _repair_rows(conn: sqlite3.Connection) -> None:
 _ADDED_COLUMNS = {
     "people": [
         ("birthday", "TEXT"),
+    ],
+    # 0.42.0: rows up to this day are on record from elsewhere — moved
+    # in from another app under ids this app's importers would not
+    # produce — so an import or a sync leaves that span alone rather
+    # than booking every row a second time. See migrate.py.
+    "accounts": [
+        ("ledger_until", "TEXT"),
     ],
     # A rule that says where to look, which way the money went, and
     # how much — see categories.py. Older rows: anywhere, any, any.

@@ -11,6 +11,36 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.42.0] — 2026-09-14
+
+### Added
+- **Move in from Financial Planner** — Accounts › "Move in". Upload
+  the old app's wealth.db, look at the plan — every account and what
+  it becomes, where its rows go (a new account, or one already here of
+  the same name), the opening positions, what is left behind — and
+  confirm. Then it is all here: the accounts by type (a crypto wallet
+  as a broker holding `CRYPTO:` coins, the mortgage as a loan, the
+  pension, the P2P books and the house as themselves), every row of
+  the ledger under its old id, the holdings — with an opening row where
+  the ledger did not add up to them, at the old app's cost — the daily
+  balance snapshots as readings, so the history chart reaches back to
+  them, the price history, each security's symbol, and the categories
+  only the old app had. On the household this was written for, the
+  net worth after the move is the old app's to 0.006 %.
+- **"Ledger on record until"** on an account: rows moved in from
+  another app carry its ids, which this app's importer would not
+  produce, so an export or a bank sync covering those days would book
+  them again. The move sets the date on the accounts where that
+  applies; an import or a sync leaves that span alone; the account's
+  edit page shows it and can clear it.
+
+### Fixed
+- **A bank row's id now carries its day and amount.** Crédit Agricole
+  sends base64 of the description as the entry reference, identical for
+  every recurring payment, so a sync trusting it kept the first "ECH
+  PRET" of the year and silently dropped the rest as duplicates. Rows
+  already synced get the new shape on start.
+
 ## [0.41.0] — 2026-09-14
 
 ### Added

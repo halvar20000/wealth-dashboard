@@ -17,6 +17,14 @@
   <label for="currency">{{ _("Currency") }}</label>
   <input id="currency" name="currency" value="{{ account.currency }}" maxlength="3">
 
+  {% if account.ledger_until %}
+  <label for="ledger_until">{{ _("Ledger on record until") }}</label>
+  <input id="ledger_until" name="ledger_until" type="date" value="{{ account.ledger_until }}" style="width:auto">
+  <p class="sub">{{ _("Rows up to this day were moved in from another app under its own ids. An import or a sync covering those days leaves them alone, so nothing is booked twice. Clear it to let everything in.") }}</p>
+  {% else %}
+  <input type="hidden" name="ledger_until" value="">
+  {% endif %}
+
 
   <fieldset class="owners">
     <legend>{{ _("Whose is it") }}</legend>

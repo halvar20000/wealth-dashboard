@@ -40,7 +40,7 @@ from pathlib import Path
 from flask import (Flask, flash, g, jsonify, redirect, render_template,
                    request, session, url_for)
 
-from . import __version__, auth, changelog, fx, i18n, prices, settings
+from . import __version__, auth, changelog, fx, i18n, migrate, prices, settings
 from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, loans, retirement, webhooks,
@@ -419,13 +419,14 @@ def account_edit(account_id: int):
         if not name:
             error = _t("The account needs a name.")
         else:
+            until = (request.form.get("ledger_until") or "").strip()[:10] or None
             with get_conn() as conn:
                 conn.execute(
-                    "UPDATE accounts SET name = ?, type = ?, currency = ? "
+                    "UPDATE accounts SET name = ?, type = ?, currency = ?, ledger_until = ? "
                     "WHERE id = ?",
                     (name, request.form.get("type") or "bank",
                      (request.form.get("currency") or "EUR").upper()[:3],
-                     account_id))
+                     until, account_id))
             people.set_for_account(account_id, request.form.getlist("people"))
             flash(_t("Account updated."), "ok")
             return redirect(url_for("account_detail", account_id=account_id))
@@ -476,6 +477,46 @@ def account_delete(account_id: int):
         conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
     flash(_f("Deleted {name}.", name=account["name"]), "ok")
     return redirect(url_for("accounts"))
+
+
+@app.route("/move-in", methods=["GET", "POST"])
+@auth.login_required
+def move_in():
+    """The books of another app, brought over in one go — see
+    migrate.py. Upload, then a plan to look at, then the writing."""
+    if request.method == "GET":
+        return render_template("move_in.html", plan=None, report=None, token=None)
+    token = request.form.get("token")
+    if token:
+        pending = _PENDING.get(token)
+        if not pending or "plan" not in pending:
+            flash(_t("That upload has expired — start again."), "error")
+            return redirect(url_for("move_in"))
+        targets = {}
+        for a in pending["plan"]["accounts"]:
+            raw = request.form.get(f"target_{a['fp_id']}")
+            if raw is not None:
+                targets[a["fp_id"]] = int(raw) if raw.strip().isdigit() else None
+        report = migrate.apply(pending["plan"], targets)
+        _PENDING.pop(token, None)
+        flash(_f("Moved in: {rows} rows, {balances} balance readings, {accounts} accounts created.",
+                 rows=report["rows"], balances=report["balances"], accounts=report["accounts_created"]), "ok")
+        return render_template("move_in.html", plan=None, report=report, token=None)
+    upload = request.files.get("file")
+    content = upload.read() if upload else b""
+    if not content or not migrate.is_planner_db(content):
+        flash(_t("That is not a Financial Planner database — it should be the wealth.db file."), "error")
+        return redirect(url_for("move_in"))
+    try:
+        plan = migrate.read(content)
+    except Exception as exc:                        # noqa: BLE001
+        flash(_f("Could not read the file: {reason}", reason=str(exc)[:200]), "error")
+        return redirect(url_for("move_in"))
+    token = _stash_upload(0, upload.filename or "wealth.db", b"")
+    _PENDING[token]["plan"] = plan
+    with get_conn() as conn:
+        accounts_list = [dict(r) for r in conn.execute("SELECT id, name, type, currency FROM accounts ORDER BY name")]
+    return render_template("move_in.html", plan=plan, report=None, token=token, accounts=accounts_list)
 
 
 @app.route("/accounts/<int:account_id>/import", methods=["GET", "POST"])

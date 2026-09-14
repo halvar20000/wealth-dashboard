@@ -401,9 +401,20 @@ def external_id(txn: dict, identification_hash: str) -> str:
     vanish.
     """
     ref = txn.get("entry_reference")
-    if isinstance(ref, str) and ref.strip():
-        return f"eb:{identification_hash}:{ref.strip()}"
     amount = txn.get("transaction_amount") or {}
+    if isinstance(ref, str) and ref.strip():
+        # The reference is not a key on its own. Crédit Agricole sends
+        # base64 of the description, so every quarterly "ECH PRET" of
+        # the year shares one — and a unique index that trusts it drops
+        # all but the first, counted as skipped, so the sync looks clean.
+        # The day and the amount go in with it.
+        day = str(txn.get("booking_date") or txn.get("value_date")
+                  or txn.get("transaction_date") or "")[:10]
+        try:
+            size = f"{abs(float(amount.get('amount'))):.2f}"
+        except (TypeError, ValueError):
+            size = "na"
+        return f"eb:{identification_hash}:{day}:{size}:{ref.strip()}"
     seed = "|".join([
         identification_hash,
         str(txn.get("booking_date") or txn.get("value_date") or ""),

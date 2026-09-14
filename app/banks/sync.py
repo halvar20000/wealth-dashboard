@@ -237,7 +237,8 @@ def sync_link(link_id: int) -> dict:
     """Pull balance and transactions for one linked account."""
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT bl.*, a.currency AS account_currency, a.name AS account_name "
+            "SELECT bl.*, a.currency AS account_currency, a.name AS account_name, "
+            "a.ledger_until AS ledger_until "
             "FROM bank_links bl JOIN accounts a ON a.id = bl.account_id "
             "WHERE bl.id = ?", (link_id,)).fetchone()
     if row is None:
@@ -266,6 +267,10 @@ def sync_link(link_id: int) -> dict:
                 default_currency=link["account_currency"])
             if norm:
                 rows.append(norm)
+        # The span already on record from elsewhere — see
+        # accounts.ledger_until — is not booked a second time.
+        if link.get("ledger_until"):
+            rows = [r for r in rows if r["txn_date"] > link["ledger_until"]]
 
         with get_conn() as conn:
             for r in rows:

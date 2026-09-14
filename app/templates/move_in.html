@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Move in") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Move in from Financial Planner") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("Bring the books of the Financial Planner app over in one go: its accounts, every row of its ledger, its holdings, the daily balances it snapshotted and the price history it kept. Upload its wealth.db, look at what will be written, then confirm — nothing is touched until you do.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% if report %}
+<div class="card">
+  <h2>{{ _("Moved in") }}</h2>
+  <table class="grid"><tbody>
+    <tr><td>{{ _("Accounts created") }}</td><td class="num">{{ report.accounts_created }}</td></tr>
+    <tr><td>{{ _("Rows") }}</td><td class="num">{{ report.rows }}</td></tr>
+    <tr><td>{{ _("Rows already here") }}</td><td class="num">{{ report.duplicates }}</td></tr>
+    <tr><td>{{ _("Opening positions") }}</td><td class="num">{{ report.openings }}</td></tr>
+    <tr><td>{{ _("Balance readings") }}</td><td class="num">{{ report.balances }}</td></tr>
+    <tr><td>{{ _("Securities") }}</td><td class="num">{{ report.securities }}</td></tr>
+    <tr><td>{{ _("Price days") }}</td><td class="num">{{ report.prices }}</td></tr>
+    <tr><td>{{ _("Categories created") }}</td><td class="num">{{ report.categories }}</td></tr>
+  </tbody></table>
+  <p class="sub">{{ _("Each account's rows are one import, so an account page can undo its share. Refresh the prices and the rates next — Settings › Market — and compare the overview with the old app's.") }}</p>
+  <p><a class="btn" href="{{ url_for('index') }}">{{ _("To the overview") }}</a> <a class="btn btn-ghost" href="{{ url_for('accounts') }}">{{ _("Accounts") }}</a></p>
+</div>
+
+{% elif plan %}
+<form method="post" class="card">
+  <input type="hidden" name="token" value="{{ token }}">
+  <h2>{{ _("What will be written") }}</h2>
+  <p class="sub">{{ _f("{rows} rows across {accounts} accounts, {balances} balance readings, {openings} opening positions, {prices} price days, {cats} new categories.", rows=plan.totals.rows, accounts=plan.totals.accounts, balances=plan.totals.balances, openings=plan.totals.openings, prices=plan.totals.prices, cats=plan.totals.new_categories) }}
+  {% if plan.totals.duplicates %}{{ _f("{n} rows are already here and are left alone.", n=plan.totals.duplicates) }}{% endif %}</p>
+  <div class="table-wrap">
+  <table class="grid">
+    <thead><tr><th>{{ _("Old account") }}</th><th>{{ _("Type") }}</th><th class="num">{{ _("Rows") }}</th><th>{{ _("From — to") }}</th><th class="num">{{ _("Readings") }}</th><th>{{ _("Goes into") }}</th></tr></thead>
+    <tbody>
+    {% for a in plan.accounts %}
+      <tr{% if a.skip %} class="sub"{% endif %}>
+        <td>{{ a.name }}{% if a.closed %} <span class="tag tag-muted">{{ _("closed") }}</span>{% endif %}</td>
+        <td class="sub">{{ type_label(a.type) }} · {{ a.currency }}</td>
+        <td class="num">{{ a.rows or '—' }}</td>
+        <td class="sub nowrap">{% if a.first %}{{ d(a.first) }} — {{ d(a.last) }}{% else %}—{% endif %}</td>
+        <td class="num">{{ a.balances or '—' }}</td>
+        <td>
+          {% if a.skip %}<span class="sub">{{ _("left out — holds nothing") }}</span>
+          {% else %}
+          <select name="target_{{ a.fp_id }}" style="width:auto; padding:4px 8px; font-size:13px">
+            <option value="">{{ _("a new account") }}</option>
+            {% for x in accounts %}<option value="{{ x.id }}" {{ 'selected' if a.target == x.id }}>{{ x.name }} ({{ x.currency }})</option>{% endfor %}
+          </select>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if plan.openings %}
+  <h3>{{ _("Opening positions") }}</h3>
+  <p class="sub">{{ _("Where the rows do not add up to what the old app held — a position set from a statement, a sale whose purchase predates the ledger — a row dated before the first one makes up the difference, at the cost the old app carried.") }}</p>
+  <table class="grid"><tbody>
+    {% for o in plan.openings %}
+    <tr><td>{{ o.account }}</td><td>{{ o.name or o.isin }}</td><td class="num">{{ qty(o.quantity) }}</td><td class="sub">{{ _f("held {held}, rows give {rows}", held=qty(o.held), rows=qty(o.from_rows)) }}</td><td class="sub nowrap">{{ d(o.txn_date) }}</td></tr>
+    {% endfor %}
+  </tbody></table>
+  {% endif %}
+  {% if plan.categories %}
+  <p class="sub">{{ _("New categories:") }} {% for slug, label in plan.categories.items() %}{{ label }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+  {% endif %}
+  {% if plan.notes %}
+  <h3>{{ _("Worth knowing") }}</h3>
+  <ul class="sub">{% for n in plan.notes %}<li>{{ n }}</li>{% endfor %}</ul>
+  {% endif %}
+  <p class="sub">{{ _("Rows keep the ids the old app gave them. Where this app's own importer would give the same row a different id, the account remembers how far its ledger is on record, and an export or a sync covering those days leaves them alone — so an export from before today need not be imported again, and a later one is safe.") }}</p>
+  <button type="submit">{{ _("Move in") }}</button>
+  <a class="btn btn-ghost" href="{{ url_for('move_in') }}">{{ _("Cancel") }}</a>
+</form>
+
+{% else %}
+<form method="post" enctype="multipart/form-data" class="card form">
+  <label for="file">{{ _("The wealth.db file") }}</label>
+  <input id="file" name="file" type="file" accept=".db,application/x-sqlite3,application/octet-stream" required>
+  <button type="submit">{{ _("Read it") }}</button>
+  <p class="sub">{{ _("Take a copy of the old app's wealth.db while it is not running, and upload the copy. Nothing is written until you have seen the plan and confirmed it.") }}</p>
+</form>
+{% endif %}
+{% endblock %}
