@@ -101,6 +101,10 @@
       <button type="submit">{{ _("Sync now") }}</button>
     </form>
     <p class="sub"><a href="{{ url_for('connect_pick', account_id=account.id) }}">{{ _("Reconnect or change bank") }}</a></p>
+    <form method="post" action="{{ url_for('account_disconnect', account_id=account.id) }}" onsubmit="return confirm({{ _('Disconnect this account from the bank? The account, its balances and its history stay; only the connection goes.') | tojson }})">
+      <button type="submit" class="btn-ghost">{{ _("Disconnect") }}</button>
+      <span class="sub">{{ _("The account and its history stay; the syncing ends.") }}</span>
+    </form>
   {% else %}
     <p class="sub">{{ _("This account is not connected to a bank. Connecting it pulls the balance and the transaction history straight from the bank, with your own Enable Banking credentials.") }}</p>
     {% if configured %}

@@ -8,7 +8,6 @@ matter of writing one more client rather than touching the schema.
 
 from __future__ import annotations
 
-import sqlite3
 from datetime import datetime, timezone
 
 from .. import categories, settings
@@ -123,6 +122,7 @@ def complete_connect(code: str, state: str) -> dict:
             "means no account was ticked on the bank's own consent screen.")
 
     linked = []
+    valid_until = session.get("access", {}).get("valid_until")
     with get_conn() as conn:
         for i, acct in enumerate(accounts):
             uid = acct.get("uid") or acct.get("account_uid")
@@ -139,35 +139,96 @@ def complete_connect(code: str, state: str) -> dict:
             # and its savings account — creates the extra ones rather
             # than merging them, because two balances added together is
             # not a balance.
-            if i == 0:
-                target_id = pending["account_id"]
-            else:
+            target_id = pending["account_id"] if i == 0 else None
+            existing = _renewable_link(conn, uid, ident, iban, target_id)
+            if existing:
+                # A renewal, not a second connection. An account has one
+                # link, and the link is the consent: a new session goes
+                # on the row the history was synced through, so the
+                # account page, the sync and the nightly job all find
+                # one connection and it is the live one. Two links on
+                # an account is how a bank account's every booking
+                # arrives twice under two ids.
+                if existing["iban"] and existing["iban"] == iban:
+                    # The same bank account, whatever hash it carries
+                    # today: its bookings are already on record under
+                    # the old one, and a re-sync must find them there.
+                    ident = existing["identification_hash"] or ident
+                conn.execute(
+                    "UPDATE bank_links SET aspsp_name = ?, aspsp_country = ?, "
+                    "session_id = ?, account_uid = ?, identification_hash = ?, "
+                    "iban = ?, valid_until = ?, last_error = NULL WHERE id = ?",
+                    (pending["aspsp_name"], pending["aspsp_country"], session_id,
+                     uid, ident, iban, valid_until, existing["id"]))
+                conn.execute("DELETE FROM bank_links WHERE account_id = ? AND id != ?",
+                             (existing["account_id"], existing["id"]))
+                linked.append(label)
+                continue
+
+            if target_id is None:
                 cur = conn.execute(
                     "INSERT INTO accounts (name, type, currency) VALUES (?, ?, ?)",
                     (f"{pending['aspsp_name']} {label}", "bank",
                      acct.get("currency") or settings.get("base_currency", "EUR")))
                 target_id = int(cur.lastrowid)
-
-            try:
-                conn.execute(
-                    "INSERT INTO bank_links (account_id, provider, aspsp_name, "
-                    "aspsp_country, session_id, account_uid, identification_hash, "
-                    "iban, valid_until) VALUES (?, 'enablebanking', ?, ?, ?, ?, ?, ?, ?)",
-                    (target_id, pending["aspsp_name"], pending["aspsp_country"],
-                     session_id, uid, ident, iban,
-                     session.get("access", {}).get("valid_until")))
-            except sqlite3.IntegrityError:
-                # Re-authorising an account that is already linked: keep
-                # one link and move it to the new session, so the history
-                # attached to it survives.
-                conn.execute(
-                    "UPDATE bank_links SET session_id = ?, valid_until = ?, "
-                    "last_error = NULL WHERE account_uid = ?",
-                    (session_id, session.get("access", {}).get("valid_until"), uid))
+            conn.execute(
+                "INSERT INTO bank_links (account_id, provider, aspsp_name, "
+                "aspsp_country, session_id, account_uid, identification_hash, "
+                "iban, valid_until) VALUES (?, 'enablebanking', ?, ?, ?, ?, ?, ?, ?)",
+                (target_id, pending["aspsp_name"], pending["aspsp_country"],
+                 session_id, uid, ident, iban, valid_until))
             linked.append(label)
 
     return {"account_id": pending["account_id"], "linked": linked,
             "session_id": session_id}
+
+
+def _renewable_link(conn, uid: str, ident: str, iban: str | None,
+                    target_id: int | None):
+    """The link a bank account from a fresh consent renews, or None.
+
+    By Enable Banking's uid first — the same session finished twice,
+    from the callback and the paste page. Then the link on the account
+    the user was connecting: its consent ran out, or they are moving
+    it to another bank, and either way what they asked for is one
+    connection on this account. For the further accounts a consent
+    covers there is no chosen account, so the bank account itself is
+    looked for — by the hash the bank identifies it with, or its IBAN —
+    so a renewal does not create "DKB Tagesgeld" a second time.
+    """
+    row = conn.execute("SELECT * FROM bank_links WHERE account_uid = ?",
+                       (uid,)).fetchone()
+    if row is None and target_id is not None:
+        row = conn.execute("SELECT * FROM bank_links WHERE account_id = ? "
+                           "ORDER BY id DESC LIMIT 1", (target_id,)).fetchone()
+    if row is None and target_id is None:
+        row = conn.execute(
+            "SELECT * FROM bank_links WHERE identification_hash = ? "
+            "OR (iban IS NOT NULL AND iban = ?) ORDER BY id DESC LIMIT 1",
+            (ident, iban)).fetchone()
+    return dict(row) if row else None
+
+
+def disconnect(account_id: int) -> int:
+    """Drop the bank connection(s) of an account; the account, its
+    balances and its history stay. Returns how many links went.
+
+    The consent at Enable Banking is ended too, as a courtesy and so
+    that "disconnected" means what it says — best effort: a consent
+    that has already expired, or a bank that will not answer, must not
+    keep a link alive on this side.
+    """
+    with get_conn() as conn:
+        links = [dict(r) for r in conn.execute(
+            "SELECT id, session_id FROM bank_links WHERE account_id = ?", (account_id,))]
+        conn.execute("DELETE FROM bank_links WHERE account_id = ?", (account_id,))
+    for link in links:
+        if link["session_id"]:
+            try:
+                client().delete_session(link["session_id"])
+            except Exception:                       # noqa: BLE001
+                pass
+    return len(links)
 
 
 # ─── Sync ────────────────────────────────────────────────────────────

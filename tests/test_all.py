@@ -621,6 +621,124 @@ check("no expiry date is unknown, not expired",
       banksync.days_until_expiry(None), None)
 
 # ---------------------------------------------------------------------------
+print("\n9a. Renewing a connection, and ending one")
+# ---------------------------------------------------------------------------
+# A consent runs out every ninety days. Renewing it gives the bank
+# account a NEW Enable Banking uid — and a second link on the same
+# account would mean the account page and the sync finding the dead one,
+# and, if the hash differed, every booking arriving twice under two ids.
+# One account, one link: a renewal goes on the row that is there.
+def _connect(acct_id, session):
+    saved = fake_bank.SESSION_RESPONSE
+    fake_bank.SESSION_RESPONSE = session
+    try:
+        c.post(f"/connect/{acct_id}/start", data={"aspsp_name": "DKB", "aspsp_country": "DE"})
+        with db.get_conn() as conn:
+            st = conn.execute("SELECT state FROM auth_states").fetchone()["state"]
+        return c.get(f"/connect/callback?code=THE-CODE&state={st}")
+    finally:
+        fake_bank.SESSION_RESPONSE = saved
+
+renewed = json.loads(json.dumps(fake_bank.SESSION_RESPONSE))
+renewed["session_id"] = "sess-renewed"
+renewed["access"]["valid_until"] = "2027-04-01T00:00:00+00:00"
+renewed["accounts"][0]["uid"] = "acct-uid-0002"
+_connect(second_id, renewed)
+with db.get_conn() as conn:
+    links = [dict(r) for r in conn.execute("SELECT * FROM bank_links")]
+    n_txn = conn.execute("SELECT COUNT(*) n FROM transactions").fetchone()["n"]
+check("a renewed consent does not add a second link", len(links), 1)
+check("...the one link moves to the new session", links[0]["session_id"], "sess-renewed")
+check("...and the new uid", links[0]["account_uid"], "acct-uid-0002")
+check("...and the new expiry", links[0]["valid_until"], "2027-04-01T00:00:00+00:00")
+check("...with the old error cleared", links[0]["last_error"], None)
+check("...and the history is not doubled", n_txn, 4)
+
+# The bank account itself may come back with a different hash — the
+# IBAN says it is the same account, and its bookings are on record
+# under the old hash, so that is the namespace the sync keeps using.
+rehashed = json.loads(json.dumps(renewed))
+rehashed["session_id"] = "sess-rehashed"
+rehashed["accounts"][0]["uid"] = "acct-uid-0003"
+rehashed["accounts"][0]["identification_hash"] = "idhash-changed"
+_connect(second_id, rehashed)
+with db.get_conn() as conn:
+    links = [dict(r) for r in conn.execute("SELECT * FROM bank_links")]
+    n_txn = conn.execute("SELECT COUNT(*) n FROM transactions").fetchone()["n"]
+check("a changed hash on the same IBAN keeps the old namespace",
+      links[0]["identification_hash"], "idhash0001")
+check("...so the re-sync finds every booking already there", n_txn, 4)
+
+# A leftover from the days before this: two links on one account. The
+# next renewal leaves one.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO bank_links (account_id, aspsp_name, aspsp_country, "
+                 "session_id, account_uid, identification_hash) "
+                 "VALUES (?, 'DKB', 'DE', 'sess-old', 'acct-uid-stale', 'idhash0001')",
+                 (second_id,))
+_connect(second_id, renewed)
+with db.get_conn() as conn:
+    uids = [r["account_uid"] for r in conn.execute("SELECT account_uid FROM bank_links")]
+check("a stale second link is dropped by the renewal", uids, ["acct-uid-0002"])
+
+# A consent that covers two bank accounts creates the second one once,
+# not once per renewal.
+two = json.loads(json.dumps(renewed))
+two["session_id"] = "sess-two"
+two["accounts"].append({
+    "uid": "acct-uid-savings-1", "identification_hash": "idhash-savings",
+    "account_id": {"iban": "DE02120300000000202052"}, "name": "Tagesgeld",
+    "product": "DKB Tagesgeld", "currency": "EUR", "cash_account_type": "SVGS"})
+_connect(second_id, two)
+two_again = json.loads(json.dumps(two))
+two_again["session_id"] = "sess-two-again"
+two_again["accounts"][0]["uid"] = "acct-uid-0004"
+two_again["accounts"][1]["uid"] = "acct-uid-savings-2"
+_connect(second_id, two_again)
+with db.get_conn() as conn:
+    savings = conn.execute("SELECT COUNT(*) n FROM accounts WHERE name LIKE '%Tagesgeld%'").fetchone()["n"]
+    links = [dict(r) for r in conn.execute("SELECT * FROM bank_links ORDER BY id")]
+check("the savings account a consent covers is created once", savings, 1)
+check("...with one link each", [l["account_uid"] for l in links],
+      ["acct-uid-0004", "acct-uid-savings-2"])
+check("...both on the newest session", {l["session_id"] for l in links}, {"sess-two-again"})
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM accounts WHERE name LIKE '%Tagesgeld%'")
+
+# Disconnecting drops the link and nothing else. What the user is
+# telling the app is "stop syncing this", not "forget it".
+r = c.get(f"/accounts/{second_id}")
+check("a connected account offers to disconnect", b"/disconnect" in r.data, True)
+shared.calls.clear()
+r = c.post(f"/accounts/{second_id}/disconnect", follow_redirects=True)
+check("disconnecting says what stayed", b"The history stays" in r.data, True)
+with db.get_conn() as conn:
+    links = conn.execute("SELECT COUNT(*) n FROM bank_links").fetchone()["n"]
+    n_txn = conn.execute("SELECT COUNT(*) n FROM transactions").fetchone()["n"]
+    n_bal = conn.execute("SELECT COUNT(*) n FROM balances WHERE account_id = ?",
+                         (second_id,)).fetchone()["n"]
+    acct = conn.execute("SELECT id FROM accounts WHERE id = ?", (second_id,)).fetchone()
+check("...the link is gone", links, 0)
+check("...the account is not", acct is not None, True)
+check("...nor its transactions", n_txn, 4)
+check("...nor its balances", n_bal > 0, True)
+check("...and the consent was ended at the bank too",
+      [(x["method"], x["path"]) for x in shared.calls],
+      [("DELETE", "/sessions/sess-two-again")])
+r = c.get(f"/accounts/{second_id}")
+check("the page offers to connect again", b"Connect a bank" in r.data, True)
+r = c.post(f"/accounts/{second_id}/disconnect", follow_redirects=True)
+check("disconnecting twice says there was nothing to disconnect",
+      b"not connected to a bank" in r.data, True)
+r = c.post("/accounts/999999/disconnect")
+check("...and a missing account is a 404", r.status_code, 404)
+
+# Back to the state section 9 left, for everything after.
+_connect(second_id, fake_bank.SESSION_RESPONSE)
+shared.fail_next = (403, "consent expired")
+banksync.sync_account(second_id)
+
+# ---------------------------------------------------------------------------
 print("\n9b. Upgrading a database made by an older version")
 # ---------------------------------------------------------------------------
 # Reported from a real install: starting the new version against a v0.1

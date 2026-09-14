@@ -132,6 +132,15 @@ STRINGS: dict[str, str] = {
         "Consentement expiré. Reconnecte-toi pour reprendre la synchro.",
     "Sync now": "Synchroniser",
     "Reconnect or change bank": "Reconnecter ou changer de banque",
+    "Disconnect": "Déconnecter",
+    "The account and its history stay; the syncing ends.":
+        "Le compte et son historique restent ; la synchro s'arrête.",
+    "Disconnect this account from the bank? The account, its balances and its "
+    "history stay; only the connection goes.":
+        "Déconnecter ce compte de la banque ? Le compte, ses soldes et son "
+        "historique restent ; seule la connexion disparaît.",
+    "Disconnected {name} from its bank. The history stays.":
+        "{name} déconnecté de sa banque. L'historique reste.",
     "This account is not connected to a bank. Connecting it pulls the balance "
     "and the transaction history straight from the bank, with your own Enable "
     "Banking credentials.":

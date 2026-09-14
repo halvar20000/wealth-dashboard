@@ -222,6 +222,11 @@ class Client:
     def session(self, session_id: str) -> dict:
         return self.request("GET", f"/sessions/{session_id}")
 
+    def delete_session(self, session_id: str) -> None:
+        """End a session and the consent behind it, at the bank's
+        end. What the user's "Disconnect" should mean."""
+        self.request("DELETE", f"/sessions/{session_id}")
+
     def balances(self, account_uid: str) -> dict:
         return self.request("GET", f"/accounts/{account_uid}/balances")
 

@@ -11,6 +11,29 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.38.0] — 2026-09-14
+
+### Added
+- **Disconnect**, on the account page of a connected bank account. The
+  link goes — and the consent is ended at Enable Banking too — while
+  the account, its balances and its history stay. Until now the only
+  way to end a connection was to delete the account with everything in
+  it, or to wait for the consent to run out and live with the error.
+
+### Fixed
+- **A renewed consent replaced the connection instead of adding one.**
+  Every bank account gets a new Enable Banking uid per session, so
+  re-connecting after the ninety days put a second link on the account,
+  and the page, "Sync now" and the nightly job kept finding the dead
+  one. Worse: had the bank's identification hash changed between the
+  two, every booking would have arrived twice under two ids. Now an
+  account has one link, and a renewal moves it to the new session; a
+  bank account that comes back with a different hash on the same IBAN
+  keeps the namespace its bookings are already stored under; and the
+  further accounts a consent covers — a savings account beside the
+  current one — are created once, not once per renewal. A leftover
+  second link from before is dropped by the next renewal.
+
 ## [0.37.1] — 2026-09-14
 
 ### Fixed

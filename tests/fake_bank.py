@@ -165,6 +165,8 @@ class FakeBank:
             return 200, json.dumps(AUTH_RESPONSE).encode()
         if path == "/sessions":
             return 200, json.dumps(SESSION_RESPONSE).encode()
+        if method == "DELETE" and path.startswith("/sessions/"):
+            return 200, b""
         if path.endswith("/balances"):
             return 200, json.dumps(BALANCES_RESPONSE).encode()
         if path.endswith("/transactions"):

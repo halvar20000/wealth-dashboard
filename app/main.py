@@ -1072,6 +1072,27 @@ def account_sync(account_id: int):
     return redirect(url_for("account_detail", account_id=account_id))
 
 
+@app.route("/accounts/<int:account_id>/disconnect", methods=["POST"])
+@auth.login_required
+def account_disconnect(account_id: int):
+    """Drop the bank connection. The account and everything synced
+    through it stay — the link is the consent, not the history, and a
+    consent that has run out is the normal end of one. The next
+    connection, if there is one, starts from a clean account page."""
+    with get_conn() as conn:
+        account = conn.execute("SELECT name FROM accounts WHERE id = ?",
+                               (account_id,)).fetchone()
+    if account is None:
+        return render_template("missing.html",
+                               what=_t("That account does not exist.")), 404
+    if banksync.disconnect(account_id):
+        flash(_f("Disconnected {name} from its bank. The history stays.",
+                 name=account["name"]), "ok")
+    else:
+        flash(_t("That account is not connected to a bank."), "error")
+    return redirect(url_for("account_detail", account_id=account_id))
+
+
 # ─── Brokers by API: Saxo and Kraken ─────────────────────────────────
 
 @app.route("/saxo/connect/<int:account_id>")
