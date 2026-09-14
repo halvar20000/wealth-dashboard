@@ -148,6 +148,12 @@ html.nav-collapsed .nav-group-items {
   background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 12px;
   box-shadow: var(--shadow-card);
 }
+/* Collapsed, a group that is open (it holds the current page, or was
+   left open) must NOT show its items: `.nav-group.is-open > …` above
+   outranks `html.nav-collapsed .nav-group-items`, and without this the
+   group of the page you are on sits beside the sidebar as a flyout
+   that never goes away. Only a hover or a tap opens a flyout. */
+html.nav-collapsed .nav-group.is-open > .nav-group-items { display: none; }
 @media (hover: hover) { html.nav-collapsed .nav-group:hover > .nav-group-items { display: block; } }
 html.nav-collapsed .nav-group.is-flyout > .nav-group-items { display: block; }
 html.nav-collapsed .nav-group-items::before { content: ""; position: absolute; left: -8px; top: 0; bottom: 0; width: 8px; }

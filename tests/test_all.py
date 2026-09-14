@@ -4989,6 +4989,19 @@ r = c.get("/login")
 check("signed out, there is no sidebar", b'class="sidenav"' in c.get("/logout", follow_redirects=True).data, False)
 c.post("/login", data={"username": "alex", "password": "a-good-password"})
 
+# The collapsed sidebar: the group holding the current page is "open",
+# and the wide sidebar's rule for an open group outranks the collapsed
+# sidebar's "hidden" — so without a rule of its own the flyout of the
+# page you are on never goes away. Pinned by the order of the rules.
+css_ = pathlib.Path("app/static/css/app.css").read_text()
+i_open = css_.index(".nav-group.is-open > .nav-group-items { display: block; }")
+i_hide = css_.index("html.nav-collapsed .nav-group.is-open > .nav-group-items { display: none; }")
+i_fly = css_.index("html.nav-collapsed .nav-group.is-flyout > .nav-group-items { display: block; }")
+check("collapsed, an open group's items are hidden — after the wide rule, before the flyout rule",
+      i_open < i_hide < i_fly, True)
+check("...and hover opens a flyout only where hovering exists",
+      "@media (hover: hover) { html.nav-collapsed .nav-group:hover > .nav-group-items { display: block; } }" in css_, True)
+
 # ---------------------------------------------------------------------------
 print("\n37. The three stages")
 # ---------------------------------------------------------------------------

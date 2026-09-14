@@ -11,6 +11,15 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.43.1] — 2026-09-14
+
+### Fixed
+- **The collapsed sidebar's flyout stayed open on the page it led to.**
+  The group holding the current page is "open", and the wide sidebar's
+  rule for an open group outranked the collapsed sidebar's "hidden" —
+  so the flyout of the page you had just chosen sat beside the sidebar
+  for good. Collapsed, only a hover or a tap opens a flyout now.
+
 ## [0.43.0] — 2026-09-14
 
 ### Added
