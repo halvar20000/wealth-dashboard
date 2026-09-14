@@ -43,6 +43,13 @@ def _latest_balances(conn) -> dict[int, dict]:
     return {r["account_id"]: dict(r) for r in rows}
 
 
+# Accounts whose balance is an asset but not cash: a pension fund, the
+# notes on a lending platform, a house. They count in the net worth
+# and get a pile of their own — a pension in the cash tile would say
+# there is money to spend that cannot be touched for twenty years.
+ASSET_TYPES = {"pension": "Pension", "p2p": "P2P lending", "property": "Property"}
+
+
 def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) -> dict:
     """Everything, or one person's share of it — see people.scope()."""
     only, params = people.sql_in(account_ids, "id")
@@ -94,6 +101,8 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
 
     cash_by_currency: dict[str, float] = {}
     debt_by_currency: dict[str, float] = {}
+    assets_by_currency: dict[str, float] = {}
+    assets_by_type: dict[str, float] = {}
     rows = []
     for acct in accounts:
         bal = balances.get(acct["id"])
@@ -102,7 +111,13 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
         if amount is not None:
             # A loan's reading is negative — money owed — and is debt,
             # not cash: the net worth subtracts it, the cash tile does not.
-            pile = debt_by_currency if acct["type"] == "loan" else cash_by_currency
+            # A pension, a P2P book or a house is an asset, not cash.
+            if acct["type"] == "loan":
+                pile = debt_by_currency
+            elif acct["type"] in ASSET_TYPES:
+                pile = assets_by_currency
+            else:
+                pile = cash_by_currency
             pile[currency] = pile.get(currency, 0.0) + amount
         rows.append({
             **acct,
@@ -172,7 +187,7 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
 
     # ── Totals ───────────────────────────────────────────────────
     totals_by_currency: dict[str, float] = {}
-    for source in (cash_by_currency, securities_by_currency, debt_by_currency):
+    for source in (cash_by_currency, securities_by_currency, assets_by_currency, debt_by_currency):
         for ccy, amount in source.items():
             totals_by_currency[ccy] = totals_by_currency.get(ccy, 0.0) + amount
 
@@ -225,16 +240,26 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
     debt_base = -sum(v for v in (to_base(a, c)
                                  for c, a in debt_by_currency.items())
                      if v is not None)
+    assets_base = 0.0
+    for r in rows:
+        if r["type"] in ASSET_TYPES and r["balance_base"]:
+            assets_base += r["balance_base"]
+            assets_by_type[r["type"]] = assets_by_type.get(r["type"], 0.0) + r["balance_base"]
     if cash_base:
         by_class.append({"name": "Cash", "value": cash_base})
     if sec_base:
         by_class.append({"name": "Securities", "value": sec_base})
+    for t, v in sorted(assets_by_type.items(), key=lambda kv: -kv[1]):
+        by_class.append({"name": ASSET_TYPES[t], "value": v})
 
     return {
         "base_currency": base_currency,
-        "net_worth": cash_base + sec_base - debt_base,
+        "net_worth": cash_base + sec_base + assets_base - debt_base,
         "cash": cash_base,
         "securities": sec_base,
+        # The pension, P2P and property balances: an asset, not cash.
+        "assets": assets_base,
+        "assets_by_type": assets_by_type,
         "debt": debt_base,
         "unconverted": unconverted,
         "converted": converted,

@@ -723,6 +723,12 @@ _KIND_CATEGORY_BY_ACCOUNT_TYPE = {
     "broker": {"deposit": "transfer", "withdrawal": "transfer"},
     "bank":   {"deposit": "income"},
     "savings": {"deposit": "transfer", "withdrawal": "transfer"},
+    # Money sent to a lending platform or into a pension is moved, not
+    # spent — and what comes back is the principal, not income; the
+    # interest arrives as its own row.
+    "p2p":    {"deposit": "transfer", "withdrawal": "transfer"},
+    "pension": {"deposit": "transfer", "withdrawal": "transfer"},
+    "property": {},
     "card":   {},
     "other":  {},
 }

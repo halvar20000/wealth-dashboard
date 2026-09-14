@@ -10,6 +10,7 @@
       <div class="hero-sub">
         {{ _("Cash") }} <strong>{{ money(s.cash, s.base_currency) }}</strong>
         · {{ _("Securities") }} <strong>{{ money(s.securities, s.base_currency) }}</strong>
+        {% if s.assets %}· {{ _("Other assets") }} <strong>{{ money(s.assets, s.base_currency) }}</strong>{% endif %}
         {% if s.debt %}· {{ _("Debt") }} <strong class="loss">−{{ money(s.debt, s.base_currency) }}</strong>{% endif %}
       </div>
       {% if s.converted %}
@@ -96,6 +97,13 @@
       {%- if s.holdings_unpriced %}, {{ _f("{n} with no price", n=s.holdings_unpriced) }}{% endif %}
     </div>
   </div>
+  {% if s.assets %}
+  <div class="stat-card stat-gold">
+    <div class="stat-label">{{ _("Other assets") }}</div>
+    <div class="stat-value">{{ money(s.assets, s.base_currency) }}</div>
+    <div class="stat-sub">{{ _("pension, P2P, property") }}</div>
+  </div>
+  {% endif %}
   {% if s.debt %}
   <div class="stat-card stat-purple">
     <div class="stat-label">{{ _("Debt") }}</div>

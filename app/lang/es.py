@@ -79,6 +79,11 @@ STRINGS: dict[str, str] = {
     "Bank account": "Cuenta corriente",
     "Savings": "Ahorro",
     "Credit card": "Tarjeta de crédito",
+    "Pension fund": "Fondo de pensiones",
+    "P2P lending": "Préstamos P2P",
+    "Property": "Inmueble",
+    "Other assets": "Otros activos",
+    "pension, P2P, property": "pensión, P2P, inmueble",
     "Broker": "Bróker",
     "Other": "Otro",
 

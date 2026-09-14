@@ -11,6 +11,19 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.41.0] — 2026-09-14
+
+### Added
+- **Three more account types: Pension fund, P2P lending, Property.**
+  Their balance is wealth but not cash — a pension cannot be touched
+  for twenty years, a house cannot be spent — so the overview keeps
+  them in a pile of their own, "Other assets", beside cash and
+  securities, and the net worth counts all three. In the allocation a
+  property is real estate, a P2P book is debt paper, a pension fund is
+  its own thing; and the pension is left out of what the region and
+  bucket shares are measured against, since it cannot be moved. Money
+  sent to a platform or a pension is filed as moved, not spent.
+
 ## [0.40.0] — 2026-09-14
 
 ### Added

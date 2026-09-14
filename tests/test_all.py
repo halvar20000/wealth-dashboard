@@ -5542,5 +5542,52 @@ check("a goal keeps what it is for", (gh["kind"], b"A home" in r.data), ("house"
 goals.delete(gh["id"])
 
 # ---------------------------------------------------------------------------
+print("\n41. A pension, a P2P book, a house: assets that are not cash")
+# ---------------------------------------------------------------------------
+# A pension fund's balance is wealth, but a cash tile that counts it
+# says there is money to spend that cannot be touched for twenty years.
+# So the three types get a pile of their own: in the net worth, in the
+# asset classes, not in the cash — and, for the pension, not in what
+# the region and bucket shares are measured against, since it cannot
+# be moved.
+before = ov.summary("EUR")
+with db.get_conn() as conn:
+    for name, typ, amount in (("PK", "pension", 300000.0), ("Notes", "p2p", 9000.0), ("Maison", "property", 400000.0)):
+        cur = conn.execute("INSERT INTO accounts (name, type, currency) VALUES (?, ?, 'EUR')", (name, typ))
+        conn.execute("INSERT INTO balances (account_id, amount, currency, balance_type, as_of) VALUES (?, ?, 'EUR', 'manual', '2026-09-01')",
+                     (cur.lastrowid, amount))
+after_ = ov.summary("EUR")
+check("the three balances are in the net worth", round(after_["net_worth"] - before["net_worth"]), 709000)
+check("...and not in the cash", round(after_["cash"] - before["cash"]), 0)
+check("...but in a pile of their own", (round(after_["assets"]), after_["assets_by_type"]),
+      (709000, {"pension": 300000.0, "p2p": 9000.0, "property": 400000.0}))
+check("...each a class on the chart", [b["name"] for b in after_["by_class"] if b["name"] not in ("Cash", "Securities")],
+      ["Property", "Pension", "P2P lending"])
+r = c.get("/")
+check("the overview shows them as other assets", (b"Other assets" in r.data, b"709" in r.data), (True, True))
+bd = allocation.breakdown(after_)
+cls_ = {r_["key"]: r_["value"] for r_ in bd["dimensions"]["asset_class"]["rows"]}
+check("the house is real estate, the notes are debt paper, the pension is other",
+      (round(cls_.get("real_estate", 0)) >= 400000, round(cls_.get("bond", 0)) >= 9000, round(cls_.get("other", 0)) >= 300000), (True, True, True))
+bucket_rows = bd["dimensions"]["bucket"]["rows"]
+bucket_total = sum(r_["value"] for r_ in bucket_rows)
+check("...and the bucket shares leave the locked pension out",
+      round(sum(r_["share"] for r_ in bucket_rows)) if bucket_rows else 0,
+      round(bucket_total / (bd["total"] - 300000.0) * 100) if bucket_rows else 0)
+r = c.get("/accounts/new")
+check("the account form offers the types", (b"Pension fund" in r.data, b"P2P lending" in r.data, b"Property" in r.data), (True, True, True))
+with db.get_conn() as conn:
+    p2p_id = conn.execute("SELECT id FROM accounts WHERE name = 'Notes'").fetchone()["id"]
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, external_id) "
+                 "VALUES (?, '2026-09-02', 'Top up', 500.0, 'EUR', 'deposit', 'p2p-dep'), (?, '2026-09-03', 'Interest', 4.2, 'EUR', 'interest', 'p2p-int')",
+                 (p2p_id, p2p_id))
+cat.categorise_new(p2p_id)
+with db.get_conn() as conn:
+    cats_ = {r_["external_id"]: r_["category"] for r_ in conn.execute("SELECT external_id, category FROM transactions WHERE account_id = ?", (p2p_id,))}
+check("money sent to the platform is moved, the interest is income", cats_, {"p2p-dep": "transfer", "p2p-int": "capital_income"})
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM accounts WHERE name IN ('PK', 'Notes', 'Maison')")
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

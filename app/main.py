@@ -142,12 +142,16 @@ def _month(value) -> str:
     return i18n.fmt_month(value, current_language())
 
 
-# The five account types, and the English of each. Stored as the slug,
+# The account types, and the English of each. Stored as the slug,
 # shown through the catalogue — so a German install lists "Girokonto"
 # while the database still says "bank" and an export still matches.
+# The last three hold an asset that is neither cash nor a security —
+# a pension fund's balance, notes on a lending platform, a house — and
+# the overview keeps them in a pile of their own; see overview.ASSET_TYPES.
 ACCOUNT_TYPES = {"bank": "Bank account", "savings": "Savings",
                  "card": "Credit card", "broker": "Broker",
-                 "loan": "Loan or mortgage", "other": "Other"}
+                 "loan": "Loan or mortgage", "pension": "Pension fund",
+                 "p2p": "P2P lending", "property": "Property", "other": "Other"}
 
 
 def _type_label(slug: str) -> str:

@@ -177,7 +177,12 @@ def breakdown(summary: dict, contribution: float = 0.0) -> dict:
         qt = {r["isin"]: r["quote_type"] for r in conn.execute("SELECT isin, quote_type FROM securities")}
     cls = classes(isins, {h["isin"]: h.get("name") for h in summary["holdings"]}, qt)
     cash = summary.get("cash") or 0.0
-    total = sum(h["value_base"] for h in holdings) + cash
+    assets_by_type = summary.get("assets_by_type") or {}
+    total = sum(h["value_base"] for h in holdings) + cash + sum(assets_by_type.values())
+    # A pension fund is locked until it pays out: it is in the asset
+    # classes, since it is wealth, but not in what the region and bucket
+    # shares are measured against — those are about what can be moved.
+    investable = total - assets_by_type.get("pension", 0.0)
     out = {"total": total, "cash": cash, "dimensions": {}, "holdings": []}
     for h in summary["holdings"]:
         c = cls.get(h["isin"], {})
@@ -194,8 +199,15 @@ def breakdown(summary: dict, contribution: float = 0.0) -> dict:
             elif not key:
                 key = "unassigned"
             values[key] = values.get(key, 0.0) + h["value_base"]
-        if dim == "asset_class" and cash:
-            values["cash"] = values.get("cash", 0.0) + cash
+        if dim == "asset_class":
+            if cash:
+                values["cash"] = values.get("cash", 0.0) + cash
+            # The balance-only assets: a house is real estate, a P2P
+            # book is debt paper, a pension fund is its own thing.
+            for t, v in assets_by_type.items():
+                key = {"property": "real_estate", "p2p": "bond"}.get(t, "other")
+                values[key] = values.get(key, 0.0) + v
+        total = out["total"] if dim == "asset_class" else investable
         tg = targets(dim)
         keys = sorted(set(values) | set(tg), key=lambda k: -(values.get(k, 0.0)))
         rows = []
