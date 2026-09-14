@@ -27,21 +27,17 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
   Assistant's ingress with `X-Ingress-Path` — now gets every link,
   form, chart request and redirect with the prefix on. Before, the
   first click left the app.
+- **Balance over time, on the account page.** Every account with more
+  than one reading draws them: a pension statement by statement, a
+  loan instalment by instalment, a cash account sync by sync. The
+  newest reading of a day stands for the day; between readings the
+  last one holds. The page used to show the newest figure alone.
 
 ### Changed
 - **The session cookie is called `wealth_session`**, not `session`.
   Behind ingress every add-on shares one origin, and two apps both
   naming their cookie `session` sign each other out. Updating signs
   you out once.
-
-## [0.47.1] — 2026-09-14
-
-### Added
-- **Balance over time, on the account page.** Every account with more
-  than one reading draws them: a pension statement by statement, a
-  loan instalment by instalment, a cash account sync by sync. The
-  newest reading of a day stands for the day; between readings the
-  last one holds. The page used to show the newest figure alone.
 
 ## [0.47.0] — 2026-09-14
 
