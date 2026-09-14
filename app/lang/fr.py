@@ -2328,4 +2328,6 @@ STRINGS: dict[str, str] = {
     'newest first': 'les plus récents en premier',
     '{n} securities no longer held': '{n} titres plus détenus',
     '{n} security no longer held': '{n} titre plus détenu',
+    'Without {what}: the whole is {total}.': 'Sans {what} : le tout fait {total}.',
+    'incl.': 'incl.',
 }

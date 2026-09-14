@@ -454,6 +454,18 @@ CREATE TABLE IF NOT EXISTS removed_rows (
     removed_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Net worth as another app recorded it, day by day, from before this
+-- app's own records reach. The history line uses these up to the day
+-- the records take over; nothing else does — a total nobody here can
+-- take apart is a total, not an account.
+CREATE TABLE IF NOT EXISTS net_worth_readings (
+    as_of    TEXT NOT NULL,
+    currency TEXT NOT NULL,
+    amount   REAL NOT NULL,
+    source   TEXT,
+    PRIMARY KEY (as_of, currency)
+);
+
 CREATE TABLE IF NOT EXISTS imports (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -564,6 +576,19 @@ _REPAIRS = [
 # that is theirs — a row filed back by hand on the Categorize page
 # must not be moved again at the next start.
 _ONCE = [
+    # 0.44.0: the move from Financial Planner summed the lines of every
+    # snapshot of a day — and a day with two snapshots (a manual one
+    # beside the nightly one) came out doubled. A reading that is
+    # twice the day before and twice the day after, on the same
+    # account from the same move, is that day; it is halved.
+    ("fp_double_snapshot_day",
+     "UPDATE balances SET amount = amount / 2 WHERE id IN ("
+     "  SELECT b.id FROM balances b "
+     "  JOIN balances p ON p.account_id = b.account_id AND p.balance_type = b.balance_type AND p.as_of = date(b.as_of, '-1 day') "
+     "  JOIN balances n ON n.account_id = b.account_id AND n.balance_type = b.balance_type AND n.as_of = date(b.as_of, '+1 day') "
+     "  WHERE b.balance_type = 'financial_planner' AND abs(p.amount) > 1 AND abs(n.amount) > 1 "
+     "    AND abs(b.amount - 2 * p.amount) < abs(p.amount) * 0.02 + 1 "
+     "    AND abs(b.amount - 2 * n.amount) < abs(n.amount) * 0.02 + 1)"),
     # 0.42.0 folded the day and the amount into a bank row's id — the
     # reference alone is not unique at every bank. The rows already
     # synced get the new shape from what they carry, so the next sync

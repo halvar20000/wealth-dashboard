@@ -255,9 +255,14 @@ def _read(src: sqlite3.Connection) -> dict:
     # Balances: the cash lines of every snapshot day, and the value of
     # every balance-only account — a pension, a house, a loan.
     balance_only = {"pension", "p2p", "property", "loan", "other"}
+    # One snapshot per day: a day with two — a manual one beside the
+    # nightly one — would otherwise count every balance twice. The
+    # newest of the day is the one.
     lines = src.execute(
         "SELECT s.snapshot_date, l.account_id, l.asset_id, l.quantity, l.price, l.currency "
         "FROM snapshot_lines l JOIN snapshots s ON s.id = l.snapshot_id "
+        "WHERE s.id = (SELECT MAX(s2.id) FROM snapshots s2 WHERE s2.snapshot_date = s.snapshot_date "
+        "              AND EXISTS (SELECT 1 FROM snapshot_lines l2 WHERE l2.snapshot_id = s2.id)) "
         "ORDER BY s.snapshot_date").fetchall()
     per_day: dict[tuple[int, str], dict[str, float]] = {}
     for l_ in lines:
@@ -320,13 +325,26 @@ def _read(src: sqlite3.Connection) -> dict:
         if key:
             plan["prices"].append((key, p["price_date"], p["close"], (p["currency"] or "EUR").upper()[:3]))
 
-    # What the file held that has no home here — said, not dropped silently.
+    # The net worth the old app recorded on the days before it kept
+    # per-position lines: no account to hang it on, but a day and a
+    # figure, and the history line uses them up to the day the
+    # readings above take over.
+    plan["net_worth"] = []
     try:
-        n_snap = src.execute("SELECT COUNT(*) FROM snapshots WHERE id NOT IN (SELECT DISTINCT snapshot_id FROM snapshot_lines)").fetchone()[0]
+        first_lines = src.execute("SELECT MIN(s.snapshot_date) FROM snapshots s "
+                                  "JOIN snapshot_lines l ON l.snapshot_id = s.id").fetchone()[0]
+        for r in src.execute("SELECT snapshot_date, MAX(id) AS id FROM snapshots WHERE net_worth_eur IS NOT NULL "
+                             "GROUP BY snapshot_date ORDER BY snapshot_date"):
+            if first_lines and r["snapshot_date"] >= first_lines:
+                continue
+            nw = src.execute("SELECT net_worth_eur FROM snapshots WHERE id = ?", (r["id"],)).fetchone()[0]
+            plan["net_worth"].append({"as_of": r["snapshot_date"], "amount": float(nw), "currency": "EUR"})
     except sqlite3.Error:
-        n_snap = 0
-    if n_snap:
-        plan["notes"].append(f"{n_snap} net-worth snapshots from before per-position lines were kept have no account to go on and are left behind.")
+        pass
+    plan["lines_from"] = first_lines
+    if plan["net_worth"]:
+        plan["notes"].append(f"{len(plan['net_worth'])} days of net worth from before the old app kept per-position lines "
+                             f"go on the history line as recorded, up to {first_lines}.")
     for tbl, what in (("expense_owner_rules", "expense owner rules"), ("retirement_rules", "retirement rules"),
                       ("recurring_contributions", "recurring contributions")):
         try:
@@ -484,9 +502,23 @@ def apply(plan: dict, targets: dict[int, int | None] | None = None) -> dict:
             report["openings"] += cur.rowcount
         for b in plan["balances"]:
             acc = id_map[b["fp_account"]]
-            conn.execute("INSERT INTO balances (account_id, amount, currency, balance_type, as_of) "
-                         "VALUES (?, ?, ?, ?, ?)", (acc, b["amount"], b["currency"], SOURCE, b["as_of"]))
-            report["balances"] += 1
+            cur = conn.execute(
+                "INSERT INTO balances (account_id, amount, currency, balance_type, as_of) "
+                "SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM balances WHERE account_id = ? "
+                "AND as_of = ? AND currency = ? AND balance_type = ? AND abs(amount - ?) < 0.005)",
+                (acc, b["amount"], b["currency"], SOURCE, b["as_of"], acc, b["as_of"], b["currency"], SOURCE, b["amount"]))
+            report["balances"] += cur.rowcount
+        for r in plan.get("net_worth") or []:
+            conn.execute("INSERT OR REPLACE INTO net_worth_readings (as_of, currency, amount, source) VALUES (?, ?, ?, ?)",
+                         (r["as_of"], r["currency"], r["amount"], SOURCE))
+        report["net_worth_days"] = len(plan.get("net_worth") or [])
+        # From this day the readings above cover every account, and the
+        # history line is this app's own arithmetic; before it, the
+        # recorded totals. See history.series().
+        if plan.get("lines_from"):
+            conn.execute("INSERT INTO app_state (key, value, updated_at) VALUES ('records_from', ?, datetime('now')) "
+                         "ON CONFLICT(key) DO UPDATE SET value = MIN(value, excluded.value), updated_at = excluded.updated_at",
+                         (plan["lines_from"],))
         for acc, imp in imports_by_account.items():
             conn.execute("UPDATE imports SET inserted = (SELECT COUNT(*) FROM transactions WHERE import_id = ?) "
                          "WHERE id = ?", (imp, imp))

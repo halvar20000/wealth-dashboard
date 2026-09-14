@@ -72,6 +72,12 @@ class Valuer:
         only, params = people.sql_in(account_ids)
         only_t, params_t = people.sql_in(account_ids, "t.account_id")
         with get_conn() as conn:
+            # Which pile an account's balance belongs in: a pension, a P2P
+            # book, a house is wealth but not cash — see overview.ASSET_TYPES
+            # — and the page can leave a pile out of the line.
+            only_a, params_a = people.sql_in(account_ids, "id")
+            self.types: dict[int, str] = {r["id"]: r["type"] for r in
+                                          conn.execute(f"SELECT id, type FROM accounts WHERE 1=1{only_a}", params_a)}
             self.balances: dict[int, tuple[list[str], list[tuple[float, str]]]] = {}
             for r in conn.execute(
                     f"SELECT account_id, as_of, amount, currency FROM balances "
@@ -140,17 +146,33 @@ class Valuer:
     def value_on(self, day: str) -> tuple[float | None, float | None]:
         """(cash, securities) in the base currency on `day`; None where
         nothing is known yet. A holding with no market price on the day
-        is valued at the last price it was traded at."""
+        is valued at the last price it was traded at. "Cash" here is
+        every balance — a pension's, a loan's — so the two add up to the
+        net worth; assets_on() says how much of it is which."""
+        cash, sec, _ = self._on(day)
+        return cash, sec
+
+    def assets_on(self, day: str) -> dict[str, float]:
+        """The balance-only assets on `day`, by type — what the line can
+        be drawn without."""
+        return self._on(day)[2]
+
+    def _on(self, day: str) -> tuple[float | None, float | None, dict[str, float]]:
+        from .overview import ASSET_TYPES
         rates = self.rates_at(day)
         cash = sec = 0.0
         known_cash = known_sec = False
-        for days, vals in self.balances.values():
+        assets: dict[str, float] = {}
+        for account_id, (days, vals) in self.balances.items():
             i = bisect_right(days, day)
             if not i:
                 continue
             v = self.to_base(vals[i - 1][0], vals[i - 1][1], day, rates)
             if v is not None:
                 cash += v; known_cash = True
+                t = self.types.get(account_id)
+                if t in ASSET_TYPES:
+                    assets[t] = assets.get(t, 0.0) + v
         for isin, (days, qty, paid) in self.trades.items():
             i = bisect_right(days, day)
             if not i or abs(qty[i - 1]) < 1e-9:
@@ -163,7 +185,7 @@ class Valuer:
             v = self.to_base(qty[i - 1] * price, ccy, day, rates)
             if v is not None:
                 sec += v; known_sec = True
-        return (cash if known_cash else None), (sec if known_sec else None)
+        return (cash if known_cash else None), (sec if known_sec else None), assets
 
 
 def series(base_currency: str = "EUR", account_ids: list[int] | None = None,
@@ -177,6 +199,18 @@ def series(base_currency: str = "EUR", account_ids: list[int] | None = None,
     today = today or date.today()
     v = Valuer(base_currency, account_ids)
     first_date = v.first_date
+    # Net worth as another app recorded it, for the days before this
+    # app's own records reach — see net_worth_readings in db.py. Used
+    # only up to the day the records take over, so the two never mix.
+    recorded = _recorded(v.base, account_ids)
+    takeover = _records_from(account_ids)
+    if recorded:
+        # The other app's total is the first complete picture; what
+        # this app can work out for the days before it — the trades of
+        # a broker or two, no cash — is a fraction that would draw a
+        # step up to the real number. The line starts where the whole
+        # is known.
+        first_date = min(recorded)
     start = period_start(period, today)
     if start is None:
         start = date.fromisoformat(first_date) if first_date else today
@@ -184,14 +218,29 @@ def series(base_currency: str = "EUR", account_ids: list[int] | None = None,
         # No point drawing months of nothing before the first record.
         start = date.fromisoformat(first_date)
 
+    rec_days = sorted(recorded)
     points = []
     for day in _sample_dates(start, today):
         d = day.isoformat()
-        cash, sec = v.value_on(d)
+        if rec_days and (takeover is None or d < takeover):
+            # The newest recorded day at or before this one, as a
+            # balance reading is carried forward — but not across a
+            # gap of more than a month, which would draw a flat line
+            # over days nobody recorded.
+            i = bisect_right(rec_days, d)
+            if i and (day - date.fromisoformat(rec_days[i - 1])).days <= 31:
+                points.append({"date": d, "net_worth": recorded[rec_days[i - 1]], "cash": None,
+                               "securities": None, "assets": {}, "recorded": True})
+                continue
+        if rec_days and d < rec_days[0]:
+            points.append({"date": d, "net_worth": None, "cash": None, "securities": None, "assets": {}})
+            continue
+        cash, sec, assets = v._on(d)
         known = cash is not None or sec is not None
         points.append({"date": d, "net_worth": ((cash or 0.0) + (sec or 0.0)) if known else None,
                        "cash": (cash or 0.0) if known else None,
-                       "securities": (sec or 0.0) if known else None})
+                       "securities": (sec or 0.0) if known else None,
+                       "assets": assets if known else {}})
 
     firsts = [p for p in points if p["net_worth"] is not None]
     return {
@@ -201,3 +250,31 @@ def series(base_currency: str = "EUR", account_ids: list[int] | None = None,
         "start": firsts[0] if firsts else None,
         "base_currency": v.base,
     }
+
+
+def _recorded(base: str, account_ids: list[int] | None) -> dict[str, float]:
+    """Net worth readings brought over from another app, in the base
+    currency. Only for the whole household: another app's total cannot
+    be cut down to one person's accounts."""
+    if account_ids is not None:
+        return {}
+    with get_conn() as conn:
+        return {r["as_of"]: r["amount"] for r in conn.execute(
+            "SELECT as_of, amount FROM net_worth_readings WHERE currency = ? ORDER BY as_of", (base.upper(),))}
+
+
+def _records_from(account_ids: list[int] | None) -> str | None:
+    """The first day the readings moved in from another app cover every
+    account — from there on this app's own arithmetic draws the line.
+    The move writes it down (a stray reading dated earlier, a fund's
+    last update, would otherwise hand the line over months too soon);
+    an older move without it falls back to the first such reading."""
+    from .db import get_state
+    day = get_state("records_from")
+    if day:
+        return day
+    only, params = people.sql_in(account_ids)
+    with get_conn() as conn:
+        row = conn.execute(f"SELECT MIN(as_of) AS d FROM balances WHERE balance_type = 'financial_planner'{only}",
+                           params).fetchone()
+    return row["d"] if row and row["d"] else None

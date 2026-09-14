@@ -283,6 +283,8 @@ def index():
         "overview.html", active_page="overview",
         s=overview.summary(base, account_ids=people.scope()),
         history=history.series(base, people.scope(), "ytd"),
+        seps={"group": i18n.FORMATS.get(current_language(), i18n.FORMATS[i18n.DEFAULT])["group"],
+              "decimal": i18n.FORMATS.get(current_language(), i18n.FORMATS[i18n.DEFAULT])["decimal"]},
         health=banksync.health())
 
 

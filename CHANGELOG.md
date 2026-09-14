@@ -11,6 +11,30 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.44.0] — 2026-09-14
+
+### Added
+- **Leave the house out — or the pension.** A switch on the overview's
+  headline per asset that is wealth but not money: property, pension
+  fund, P2P lending. Off, the figure, the line and the change since
+  the start of the range are drawn without it, and a line says what
+  the whole is. Remembered per browser.
+- **The history line reaches back to the old app's records.** Moving
+  in brings the net worth Financial Planner recorded on the days before
+  it kept per-position lines — 142 days, for the household this was
+  written for — and the line uses them up to the day the readings
+  cover every account, then this app's own arithmetic. Before the
+  first recorded day the line is not drawn: what this app can work out
+  for those days is a fraction, and a fraction draws a step.
+
+### Fixed
+- **A day the old app snapshotted twice came through doubled.** The
+  move summed the lines of every snapshot of a day, and a manual
+  snapshot beside the nightly one doubled every balance-only account
+  for that day — a spike of a million in the line. The move reads one
+  snapshot per day now, and a reading from the move that is twice both
+  its neighbours is halved once on start.
+
 ## [0.43.1] — 2026-09-14
 
 ### Fixed

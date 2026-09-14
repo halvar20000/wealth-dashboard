@@ -5,14 +5,26 @@
 <section class="hero-block">
   <div class="hero-top">
     <div>
-      <div class="hero-label">{{ _("Net worth") }}</div>
-      <div class="hero-value">{{ money(s.net_worth, s.base_currency) }}</div>
+      <div class="hero-label">{{ _("Net worth") }}
+        {% if s.assets_by_type %}
+        {# One switch per asset that is wealth but not money: leave the
+           house out, or the pension, and the number, the line and the
+           change follow. Remembered per browser. #}
+        <span class="hero-toggles">
+          {% for t, v in s.assets_by_type.items() %}
+          <label class="hero-toggle" title="{{ money(v, s.base_currency) }}"><input type="checkbox" data-type="{{ t }}" checked> {{ _("incl.") }} {{ type_label(t) | lower }}</label>
+          {% endfor %}
+        </span>
+        {% endif %}
+      </div>
+      <div class="hero-value" id="hero-value">{{ money(s.net_worth, s.base_currency) }}</div>
       <div class="hero-sub">
         {{ _("Cash") }} <strong>{{ money(s.cash, s.base_currency) }}</strong>
         · {{ _("Securities") }} <strong>{{ money(s.securities, s.base_currency) }}</strong>
-        {% if s.assets %}· {{ _("Other assets") }} <strong>{{ money(s.assets, s.base_currency) }}</strong>{% endif %}
+        {% for t, v in s.assets_by_type.items() %}· <span class="hero-asset" data-type="{{ t }}">{{ type_label(t) }} <strong>{{ money(v, s.base_currency) }}</strong></span>{% endfor %}
         {% if s.debt %}· {{ _("Debt") }} <strong class="loss">−{{ money(s.debt, s.base_currency) }}</strong>{% endif %}
       </div>
+      <div class="hero-sub" id="hero-without" hidden></div>
       {% if s.converted %}
       {% set amounts %}{% for u in s.converted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}{% endset %}
       <div class="hero-sub">
@@ -248,22 +260,52 @@
 // ── Net worth over time ─────────────────────────────────────────
 const LANG = {{ lang | tojson }}, CCY = {{ s.base_currency | tojson }};
 const NOW = {{ s.net_worth | tojson }};
+const ASSETS = {{ s.assets_by_type | tojson }};
 const fmtMoney = v => new Intl.NumberFormat(LANG, { style: 'currency', currency: CCY, maximumFractionDigits: 0 }).format(v);
+{# The headline is formatted the way the server does it — grouped the
+   language's way, two decimals, the code after — so a toggle does not
+   change its face, only its figure. #}
+const SEP = {{ seps | tojson }};
+const fmtHero = v => { const [i, f] = Math.abs(v).toFixed(2).split('.'); return (v < 0 ? '-' : '') + i.replace(/\B(?=(\d{3})+(?!\d))/g, SEP.group) + SEP.decimal + f + '\u00a0' + CCY; };
+const toggles = [...document.querySelectorAll('.hero-toggle input')];
+const excluded = () => toggles.filter(cb => !cb.checked).map(cb => cb.dataset.type);
+const without = (value, assets) => { const ex = excluded(); return value == null ? null : value - ex.reduce((a, t) => a + ((assets || {})[t] || 0), 0); };
+let lastHistory = null;
+function applyToggles() {
+  const ex = excluded();
+  document.getElementById('hero-value').textContent = fmtHero(without(NOW, ASSETS));
+  document.querySelectorAll('.hero-asset').forEach(el => el.classList.toggle('is-excluded', ex.includes(el.dataset.type)));
+  const line = document.getElementById('hero-without');
+  if (ex.length) {
+    line.hidden = false;
+    line.textContent = {{ _("Without {what}: the whole is {total}.") | tojson }}
+      .replace('{what}', ex.map(t => document.querySelector(`.hero-asset[data-type="${t}"]`).firstChild.textContent.trim().toLowerCase()).join(', '))
+      .replace('{total}', fmtHero(NOW));
+  } else line.hidden = true;
+  try { localStorage.setItem('hero-excluded', JSON.stringify(ex)); } catch (e) {}
+  if (lastHistory) drawHistory(lastHistory);
+}
+try { const saved = JSON.parse(localStorage.getItem('hero-excluded') || '[]'); toggles.forEach(cb => { cb.checked = !saved.includes(cb.dataset.type); }); } catch (e) {}
+toggles.forEach(cb => cb.addEventListener('change', applyToggles));
 const fmtCompact = v => new Intl.NumberFormat(LANG, { notation: 'compact', maximumFractionDigits: 1 }).format(v);
 const fmtDay = new Intl.DateTimeFormat(LANG, { day: 'numeric', month: 'short' });
 const fmtMonth = new Intl.DateTimeFormat(LANG, { month: 'short', year: 'numeric' });
 let heroChart = null;
 
 function drawHistory(h) {
+  lastHistory = h;
   const pts = h.points;
   const el = document.getElementById('chart-networth');
   if (!el) return;
   // Today's live figure closes the line, so the chart ends on the same
   // number as the headline above it.
-  if (pts.length) pts[pts.length - 1].net_worth = NOW;
+  if (pts.length) { pts[pts.length - 1].net_worth = NOW; pts[pts.length - 1].assets = ASSETS; }
   const long = pts.length > 1 && (new Date(pts[pts.length - 1].date) - new Date(pts[0].date)) > 200 * 86400000;
   const labels = pts.map(p => (long ? fmtMonth : fmtDay).format(new Date(p.date)));
-  const data = pts.map(p => p.net_worth);
+  // A day recorded by another app is a total with no parts, so a
+  // switch cannot take anything out of it; the line says so by
+  // keeping its full value there.
+  const data = pts.map(p => p.recorded ? p.net_worth : without(p.net_worth, p.assets));
   if (heroChart) heroChart.destroy();
   const ctx = el.getContext('2d');
   const grad = ctx.createLinearGradient(0, 0, 0, el.parentElement.clientHeight || 180);
@@ -285,10 +327,11 @@ function drawHistory(h) {
                                 label: c => ' ' + fmtMoney(c.parsed.y) } } },
     },
   });
-  const first = h.start ? h.start.net_worth : null;
+  const first = h.start ? (h.start.recorded ? h.start.net_worth : without(h.start.net_worth, h.start.assets)) : null;
   const delta = document.getElementById('hero-delta');
   if (first !== null && first !== undefined && pts.length > 1) {
-    const diff = NOW - first, pct = first ? (diff / Math.abs(first) * 100) : null;
+    const now = without(NOW, ASSETS);
+    const diff = now - first, pct = first ? (diff / Math.abs(first) * 100) : null;
     delta.textContent = (diff >= 0 ? '+' : '−') + fmtMoney(Math.abs(diff))
       + (pct !== null ? ` (${diff >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(1)} %)` : '');
     delta.className = 'hero-delta ' + (diff >= 0 ? 'gain' : 'loss');
@@ -298,6 +341,7 @@ function drawHistory(h) {
     delta.hidden = true;
   }
 }
+applyToggles();
 drawHistory({{ history | tojson }});
 document.querySelectorAll('.period-btn').forEach(btn => btn.addEventListener('click', async () => {
   document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b === btn));

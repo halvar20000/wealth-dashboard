@@ -5620,7 +5620,12 @@ check("...but in a pile of their own", (round(after_["assets"]), after_["assets_
 check("...each a class on the chart", [b["name"] for b in after_["by_class"] if b["name"] not in ("Cash", "Securities")],
       ["Property", "Pension", "P2P lending"])
 r = c.get("/")
-check("the overview shows them as other assets", (b"Other assets" in r.data, b"709" in r.data), (True, True))
+check("the overview shows them, each with a switch to leave it out",
+      (b'data-type="property"' in r.data, b'data-type="pension"' in r.data, b"hero-toggle" in r.data, b"709" in r.data), (True, True, True, True))
+hist = history.series("EUR", None, "1m")
+lastpt = [p_ for p_ in hist["points"] if p_["net_worth"] is not None][-1]
+check("the history line carries each type apart, so the switch can take it out of every day",
+      ({k: round(v_) for k, v_ in lastpt["assets"].items()}), {"pension": 300000, "p2p": 9000, "property": 400000})
 bd = allocation.breakdown(after_)
 cls_ = {r_["key"]: r_["value"] for r_ in bd["dimensions"]["asset_class"]["rows"]}
 check("the house is real estate, the notes are debt paper, the pension is other",
@@ -5696,10 +5701,12 @@ def fp_database() -> bytes:
             (2, 2, 2928.0, 1.0, 'EUR', '2026-09-13 10:00:00'), (3, 3, 1, 361000.0, 'EUR', '2026-09-13 10:00:00'),
             (4, 4, 500000.0, 1.0, 'CHF', '2026-09-13 10:00:00'), (6, 6, 0.01, 60000.0, 'EUR', '2026-09-13 10:00:00'),
             (6, 2, 250.0, 1.0, 'EUR', '2026-09-14 07:00:00');
-        INSERT INTO snapshots VALUES (1, '2026-09-12', 0, 'refresh'), (2, '2026-09-13', 0, 'refresh'), (3, '2026-05-01', 0, 'excel');
+        INSERT INTO snapshots VALUES (1, '2026-09-12', 930000, 'refresh'), (2, '2026-09-13', 940000, 'refresh'), (3, '2026-05-01', 900000, 'excel'),
+                                     (4, '2026-06-01', 910000, 'interpolated'), (5, '2026-09-12', 1, 'manual');
         INSERT INTO snapshot_lines (snapshot_id, account_id, asset_id, quantity, price, value_eur, currency) VALUES
             (1, 1, 1, 15, 100.0, 1500.0, 'EUR'), (1, 2, 2, 2900.0, 1.0, 2900.0, 'EUR'), (1, 3, 3, 1, 410000.0, 410000.0, 'EUR'), (1, 4, 4, 499000.0, 1.0, 520000.0, 'CHF'),
-            (2, 1, 1, 15, 101.0, 1515.0, 'EUR'), (2, 2, 2, 2928.0, 1.0, 2928.0, 'EUR'), (2, 3, 3, 1, 416233.0, 416233.0, 'EUR'), (2, 4, 4, 500000.0, 1.0, 521000.0, 'CHF');
+            (2, 1, 1, 15, 101.0, 1515.0, 'EUR'), (2, 2, 2, 2928.0, 1.0, 2928.0, 'EUR'), (2, 3, 3, 1, 416233.0, 416233.0, 'EUR'), (2, 4, 4, 500000.0, 1.0, 521000.0, 'CHF'),
+            (5, 1, 1, 15, 100.0, 1500.0, 'EUR'), (5, 2, 2, 2900.0, 1.0, 2900.0, 'EUR'), (5, 3, 3, 1, 410000.0, 410000.0, 'EUR'), (5, 4, 4, 499000.0, 1.0, 520000.0, 'CHF');
         INSERT INTO prices (asset_id, price_date, close, currency) VALUES (1, '2026-09-12', 100.0, 'EUR'), (1, '2026-09-13', 101.0, 'EUR');
         INSERT INTO expense_owner_rules VALUES (1, 'simracing', 'thomas', '2026-01-01');
     """)
@@ -5751,9 +5758,12 @@ bal = {(b["fp_account"], b["as_of"]): b for b in plan["balances"]}
 check("the house is a balance of its snapshot value, not a holding at its price",
       (bal[(3, "2026-09-13")]["amount"], any(t["isin"] == "SYM:MAISON-FR" for t in plan["transactions"]), any(o["isin"] == "SYM:MAISON-FR" for o in plan["openings"])), (416233.0, False, False))
 check("the pension is a reading in its own currency", (bal[(4, "2026-09-12")]["amount"], bal[(4, "2026-09-12")]["currency"]), (499000.0, "CHF"))
+check("a day with two snapshots is read once, not summed", bal[(2, "2026-09-12")]["amount"], 2900.0)
+check("the net worth the old app recorded before it kept lines comes along, up to the day the lines begin",
+      [(x["as_of"], x["amount"]) for x in plan["net_worth"]], [("2026-05-01", 900000.0), ("2026-06-01", 910000.0)])
 check("the bank's cash is a reading per snapshot day", (bal[(2, "2026-09-12")]["amount"], bal[(2, "2026-09-13")]["amount"]), (2900.0, 2928.0))
 check("today's cash from the holdings table where no snapshot has the day", bal[(6, "2026-09-14")]["amount"], 250.0)
-check("what does not cross is said", any("expense owner rules" in n for n in plan["notes"]) and any("snapshots from before" in n for n in plan["notes"]), True)
+check("what does not cross is said", any("expense owner rules" in n for n in plan["notes"]) and any("days of net worth" in n for n in plan["notes"]), True)
 
 # Through the page: upload, look, confirm.
 r = c.post("/move-in", data={"file": (io.BytesIO(b"not a database"), "wealth.db")}, content_type="multipart/form-data", follow_redirects=True)
@@ -5781,6 +5791,24 @@ check("a ledger under ids this app would not produce is marked as on record",
       (names["Old Bank"]["ledger_until"], names["Old Broker"]["ledger_until"], names["Coins"]["ledger_until"]), ("2025-03-06", "2025-08-02", None))
 sm = ov.summary("EUR")
 check("the house and the pension are in the net worth as other assets", round(sm["assets_by_type"]["property"]), 416233)
+hist = history.series("EUR", None, "all", today=date(2026, 9, 13))
+rec = [p_ for p_ in hist["points"] if p_.get("recorded")]
+own = [p_ for p_ in hist["points"] if p_["date"] >= "2026-09-12" and p_["net_worth"] is not None]
+check("the history line uses the recorded net worth before the readings, and its own arithmetic from them on",
+      (bool(rec), {p_["net_worth"] for p_ in rec} <= {900000.0, 910000.0}, all(not p_.get("recorded") for p_ in own), bool(own)), (True, True, True, True))
+check("...and reaches back to the first recorded day", hist["first_date"] <= "2026-05-01", True)
+check("...the move wrote down the day its readings cover every account", db.get_state("records_from"), "2026-09-12")
+# A doubled day from the move as it was in 0.42 — twice the day before
+# and twice the day after — is halved once on start.
+with db.get_conn() as conn:
+    pk = names["Old Pension"]["id"]
+    conn.execute("INSERT INTO balances (account_id, amount, currency, balance_type, as_of) VALUES (?, 998000, 'CHF', 'financial_planner', '2026-09-11'), (?, 499500, 'CHF', 'financial_planner', '2026-09-10')", (pk, pk))
+    conn.execute("DELETE FROM app_state WHERE key = 'fp_double_snapshot_day'")
+db.init_db()
+with db.get_conn() as conn:
+    fixed = conn.execute("SELECT amount FROM balances WHERE account_id = ? AND as_of = '2026-09-11'", (pk,)).fetchone()["amount"]
+    kept = conn.execute("SELECT amount FROM balances WHERE account_id = ? AND as_of = '2026-09-12' ORDER BY id LIMIT 1", (pk,)).fetchone()["amount"]
+check("a reading twice its neighbours from the move is halved on start, its neighbours left alone", (fixed, kept), (499000.0, 499000.0))
 r = c.get(f"/accounts/{names['Old Bank']['id']}/edit")
 check("the account page shows how far the ledger is on record", b"Ledger on record until" in r.data, True)
 
@@ -5792,6 +5820,8 @@ with db.get_conn() as conn:
     conn.execute("UPDATE accounts SET ledger_until = NULL WHERE id = ?", (old_broker_id,))
     conn.execute("DELETE FROM transactions WHERE account_id = ?", (old_broker_id,))
     conn.execute("DELETE FROM accounts WHERE name IN ('Old Broker', 'Old Bank', 'Maison', 'Old Pension', 'Coins')")
+    conn.execute("DELETE FROM net_worth_readings")
+    conn.execute("DELETE FROM app_state WHERE key = 'records_from'")
 cat.delete_category("simracing")
 
 # ---------------------------------------------------------------------------
