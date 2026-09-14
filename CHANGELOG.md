@@ -11,6 +11,17 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.37.1] — 2026-09-14
+
+### Fixed
+- **The Portfolio page took ten to twenty seconds** once the full ECB
+  history was on record. Every holding's prices are turned into its
+  own currency, and the converter read the whole rate table — two
+  hundred thousand rows since 1999 — from the database twice per
+  holding, and the return figures three more times. The table is now
+  read once and kept, and re-read only when it has changed: after a
+  refresh, a backfill, a restored backup. Same figures, under a second.
+
 ## [0.37.0] — 2026-09-13
 
 ### Added

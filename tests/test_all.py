@@ -2529,6 +2529,24 @@ check("no amount converts to no amount", fx.convert(None, "USD", "EUR"),
       (None, None))
 check("lower case is fine", round(fx.convert(100, "usd", "eur")[0], 2), 85.82)
 
+# The whole table is read once and kept — the Portfolio page used to
+# read two hundred thousand rows per holding — but kept is not stale: a
+# rate planted, changed in place or removed under it is seen on the
+# next read, with no restart.
+days_, table_ = fx.table()
+check("the kept table has every day", days_, ["2026-09-08", "2026-09-09"])
+check("...and the euro as 1 on each", table_["2026-09-09"]["EUR"], 1.0)
+check("...and is the same object the next time round", fx.table()[1] is table_, True)
+with db.get_conn() as conn:
+    conn.execute("INSERT OR REPLACE INTO fx_rates (as_of, currency, per_eur) "
+                 "VALUES ('2026-09-09', 'USD', 2.0)")
+check("a rate changed in place is seen", fx.table()[1]["2026-09-09"]["USD"], 2.0)
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM fx_rates WHERE as_of = '2026-09-08'")
+check("...and so is a day removed", fx.table()[0], ["2026-09-09"])
+fx.store(days)
+check("...and the rates put back", fx.table()[1]["2026-09-09"]["USD"], 1.1652)
+
 # A date picks the newest publication at or before it, which is what
 # makes a Sunday work: nothing traded, so Friday's rate is the rate.
 check("an exact date is used", fx.rates_on("2026-09-08")[0], "2026-09-08")

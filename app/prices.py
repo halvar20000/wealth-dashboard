@@ -457,15 +457,14 @@ def series_for(isin: str, account_ids: list[int] | None = None,
 
 def in_currency(to: str):
     """A converter (price, currency, day) → price in `to` at that day's
-    ECB rate, or None when no rate says how. The rate table is read
-    once; a chart of a thousand days must not run a thousand queries."""
+    ECB rate, or None when no rate says how. The rate table is the one
+    fx.table() keeps; a chart of a thousand days must not run a
+    thousand queries, and a page of forty holdings must not read the
+    whole history forty times."""
     from bisect import bisect_right
+    from . import fx
     to = (to or "EUR").upper()
-    table: dict[str, dict[str, float]] = {}
-    with get_conn() as conn:
-        for r in conn.execute("SELECT as_of, currency, per_eur FROM fx_rates ORDER BY as_of"):
-            table.setdefault(r["as_of"], {"EUR": 1.0})[r["currency"]] = r["per_eur"]
-    fx_days = sorted(table)
+    fx_days, table = fx.table()
 
     def convert(price, ccy, day):
         if price is None:

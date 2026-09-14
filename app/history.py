@@ -117,12 +117,8 @@ class Valuer:
                     days, vals = self.prices.setdefault(r["isin"], ([], []))
                     days.append(r["as_of"]); vals.append((r["price"], r["currency"]))
 
-            self.fx_days: list[str] = [r["as_of"] for r in conn.execute(
-                "SELECT DISTINCT as_of FROM fx_rates ORDER BY as_of")]
-            fx_rows = conn.execute("SELECT as_of, currency, per_eur FROM fx_rates").fetchall()
-        self.fx: dict[str, dict[str, float]] = {}
-        for r in fx_rows:
-            self.fx.setdefault(r["as_of"], {"EUR": 1.0})[r["currency"]] = r["per_eur"]
+        from . import fx
+        self.fx_days, self.fx = fx.table()
         firsts = [d[0] for d, _ in self.balances.values() if d] + \
                  [d[0] for d, _, _ in self.trades.values() if d]
         self.first_date: str | None = min(firsts) if firsts else None

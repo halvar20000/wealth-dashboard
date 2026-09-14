@@ -178,6 +178,37 @@ def latest_date() -> str | None:
     return row["d"] if row and row["d"] else None
 
 
+# Every rate on record, read once per process and kept. The full ECB
+# history is two hundred thousand rows, and the Portfolio page turns
+# every holding's prices into its own currency — reading the table
+# again for each holding was ten seconds of a twelve-second page. A
+# stamp of the table says when it has changed under us (a refresh, a
+# backfill, a restored backup, a test that plants a rate) and the next
+# read is a real one; the stamp is checked once per request.
+_table: tuple[tuple, list[str], dict[str, dict[str, float]]] | None = None
+
+
+def table() -> tuple[list[str], dict[str, dict[str, float]]]:
+    """`(days, {day: {currency: per_eur, "EUR": 1.0}})`, days sorted —
+    what a converter bisects into. The dict is shared: read it, never
+    write to it."""
+    global _table
+    from flask import g, has_request_context
+    if has_request_context() and getattr(g, "_fx_table_checked", False) and _table:
+        return _table[1], _table[2]
+    with get_conn() as conn:
+        stamp = tuple(conn.execute(
+            "SELECT COUNT(*), MAX(as_of), TOTAL(per_eur) FROM fx_rates").fetchone())
+        if _table is None or _table[0] != stamp:
+            days: dict[str, dict[str, float]] = {}
+            for r in conn.execute("SELECT as_of, currency, per_eur FROM fx_rates ORDER BY as_of"):
+                days.setdefault(r["as_of"], {BASE: 1.0})[r["currency"]] = r["per_eur"]
+            _table = (stamp, sorted(days), days)
+    if has_request_context():
+        g._fx_table_checked = True
+    return _table[1], _table[2]
+
+
 def rates_on(when: str | None = None) -> tuple[str | None, dict[str, float]]:
     """The rates of the newest publication day at or before `when`.
 
