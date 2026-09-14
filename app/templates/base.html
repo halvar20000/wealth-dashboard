@@ -146,11 +146,25 @@
     head.setAttribute('aria-expanded', g.classList.contains('is-open'));
     head.addEventListener('click', () => {
       const phone = window.matchMedia('(max-width: 800px)').matches;
-      if (root.classList.contains('nav-collapsed') && !phone) return;   // a flyout, on hover, when collapsed
+      if (root.classList.contains('nav-collapsed') && !phone) {
+        // Collapsed: the group is a flyout. Hover opens it where there
+        // is a pointer that hovers; a tap opens it where there is not,
+        // and a second tap — or one anywhere else — closes it, which
+        // is what a stuck hover on a touch screen never did.
+        const on = !g.classList.contains('is-flyout');
+        nav.querySelectorAll('.nav-group.is-flyout').forEach((x) => x.classList.remove('is-flyout'));
+        g.classList.toggle('is-flyout', on);
+        head.blur();
+        return;
+      }
       const open = g.classList.toggle('is-open');
       head.setAttribute('aria-expanded', open);
       remember(key, open ? 'open' : 'closed');
     });
+    g.addEventListener('mouseleave', () => g.classList.remove('is-flyout'));
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.nav-group')) nav.querySelectorAll('.nav-group.is-flyout').forEach((x) => x.classList.remove('is-flyout'));
   });
   // On a phone the menu is a drawer.
   const drawer = (open) => { root.classList.toggle('nav-drawer', open); };

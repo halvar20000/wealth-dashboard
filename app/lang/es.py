@@ -895,9 +895,6 @@ STRINGS: dict[str, str] = {
     "Back to the account": "Volver a la cuenta",
     "Added.": "Añadido.",
     "Remove": "Quitar",
-    "Removed.": "Quitado.",
-    "Only a transaction typed in by hand can be removed. An imported one would only come back with the next import.":
-        "Solo se puede quitar una transacción introducida a mano. Una importada volvería con la siguiente importación.",
     "Connect a bank, import a CSV, or {add}.":
         "Conecta un banco, importa un CSV o {add}.",
     "Pick what kind of entry this is.":
@@ -1677,8 +1674,6 @@ STRINGS: dict[str, str] = {
 
     # ─── Die Zeilen eines Wertpapiers ─────────────────────────────────
     'Amount in {currency}': 'Importe en {currency}',
-    'An imported row cannot be removed — it would only come back with the next import — but it can be corrected to a quantity of zero. A row typed in by hand can be removed.':
-        'Una fila importada no se puede eliminar (volvería con la siguiente importación), pero sí corregir a una cantidad de cero. Una fila tecleada a mano sí se puede eliminar.',
     'Click a security to see, and correct, every row behind it.': 'Pulsa un valor para ver, y corregir, cada fila que hay detrás.',
     'Correct': 'Corregir',
     'Corrected.': 'Corregido.',
@@ -2314,4 +2309,19 @@ STRINGS: dict[str, str] = {
     'Ledger on record until': 'Libro registrado hasta',
     'Rows up to this day were moved in from another app under its own ids. An import or a sync covering those days leaves them alone, so nothing is booked twice. Clear it to let everything in.': 'Las filas hasta este día se trajeron de otra app con sus propios identificadores. Una importación o sincronización que cubra esos días las deja en paz, para que nada se contabilice dos veces. Vacíalo para dejar entrar todo.',
     'Worked out for the accounts proposed above, and again for the ones you pick when you confirm: rows already in a chosen account count towards its holding.': 'Calculado para las cuentas propuestas arriba, y de nuevo para las que elijas al confirmar: las filas que ya estén en una cuenta elegida cuentan para su posición.',
+    # Trades on the chart, sold-out list, removing a row (0.43.0)
+    'A correction survives the next import: the row is recognised by its id and left as you set it. So does a removal — the id is remembered, and an import or a sync leaves that row out.': 'Una corrección sobrevive a la siguiente importación: la fila se reconoce por su identificador y se deja como la pusiste. Una eliminación también — el identificador se recuerda, y una importación o sincronización deja esa fila fuera.',
+    "A position sold down to nothing leaves the table above; it is kept here so what it made does not vanish with it. Its rows are on its page, like any other's.": 'Una posición vendida hasta cero sale de la tabla de arriba; se conserva aquí para que lo que dio no desaparezca con ella. Sus filas están en su página, como las de cualquier otra.',
+    'Bought': 'Comprado',
+    'Dividend': 'Dividendo',
+    'Mark the trades': 'Marcar las operaciones',
+    'Remove this row? An import or a sync will not bring it back.': '¿Eliminar esta fila? Una importación o sincronización no la traerá de vuelta.',
+    'Removed. An import or a sync will not bring it back.': 'Eliminada. Una importación o sincronización no la traerá de vuelta.',
+    'Sold': 'Vendido',
+    'Sold out': 'Vendidos por completo',
+    'Split': 'Split',
+    'That row is not there.': 'Esa fila no existe.',
+    'newest first': 'los más recientes primero',
+    '{n} securities no longer held': '{n} valores que ya no se tienen',
+    '{n} security no longer held': '{n} valor que ya no se tiene',
 }

@@ -11,6 +11,33 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.43.0] — 2026-09-14
+
+### Added
+- **The trades on the holding's chart.** A mark per buy, sale,
+  dividend and split on the day it happened, at that day's value, with
+  what it was in the tooltip. A switch beside the chart, remembered:
+  on by itself up to a dozen marks, off beyond — a savings plan is
+  forty marks a year and would bury the line.
+- **Sold out**, under the holdings on the Portfolio page: every
+  security with rows and no units left — sold, delisted, exchanged
+  away — with what went in, what came out, its income and what it
+  made by lots. A position sold down to nothing used to vanish from
+  the page, and its gain with it.
+- **Any row can be removed, and stays removed.** Until now only a row
+  typed in by hand could go, because an imported one would come back
+  with the next import of the file. Now its id is remembered, and an
+  import or a sync leaves it out. "Remove this row" sits under the
+  correction form on the holding page and beside every row on the
+  account page, and asks once.
+
+### Fixed
+- **The collapsed sidebar's flyout could not be closed on a touch
+  screen.** It opened on hover, a tap on a tablet is a hover that never
+  ends, and the click did nothing. A tap now opens it, a second tap or
+  one anywhere else closes it; hover still works where there is a
+  pointer that hovers.
+
 ## [0.42.1] — 2026-09-14
 
 ### Fixed

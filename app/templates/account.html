@@ -183,8 +183,7 @@
 <h2>{{ _("Recent transactions") }}{% if transactions %} <a class="sub" style="font-weight:normal; font-size:13px" href="{{ url_for('account_csv', account_id=account.id) }}">{{ _("Export as CSV") }}</a>{% endif %}</h2>
 {% if transactions %}
 <table class="grid">
-  {% set by_hand = transactions | selectattr('source', 'equalto', 'manual') | list %}
-  <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Description") }}</th><th>{{ _("Counterparty") }}</th><th class="num">{{ _("Amount") }}</th>{% if by_hand %}<th></th>{% endif %}</tr></thead>
+  <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Description") }}</th><th>{{ _("Counterparty") }}</th><th class="num">{{ _("Amount") }}</th><th></th></tr></thead>
   <tbody>
   {% for t in transactions %}
     <tr>
@@ -192,15 +191,11 @@
       <td>{{ t.description }}{% if t.source == 'manual' %}<span class="sub">{{ _("typed in") }}</span>{% endif %}</td>
       <td class="sub">{{ t.counterparty or '' }}</td>
       <td class="num {{ 'neg' if t.amount < 0 else 'pos' }}">{{ money(t.amount, t.currency) }}</td>
-      {% if by_hand %}
       <td class="num">
-        {% if t.source == 'manual' %}
-        <form method="post" action="{{ url_for('transaction_delete', account_id=account.id, txn_id=t.id) }}">
-          <button class="btn-danger" type="submit">{{ _("Remove") }}</button>
+        <form method="post" action="{{ url_for('transaction_delete', account_id=account.id, txn_id=t.id) }}" onsubmit="return confirm({{ _('Remove this row? An import or a sync will not bring it back.') | tojson }})">
+          <button class="btn-ghost" type="submit">{{ _("Remove") }}</button>
         </form>
-        {% endif %}
       </td>
-      {% endif %}
     </tr>
   {% endfor %}
   </tbody>

@@ -1998,7 +1998,6 @@ with db.get_conn() as conn:
                           (hand_id,)).fetchone()["n"]
 check("nothing refused was stored", n_hand, 6)
 
-# Only what was typed can be removed.
 r = c.post(f"/accounts/{hand_id}/transactions/{by_kind['fee']['id']}/delete",
            follow_redirects=True)
 check("a typed row can be removed", b"Removed." in r.data, True)
@@ -2006,16 +2005,31 @@ with db.get_conn() as conn:
     gone = conn.execute("SELECT COUNT(*) n FROM transactions WHERE id = ?",
                         (by_kind["fee"]["id"],)).fetchone()["n"]
 check("...and is gone", gone, 0)
+# An imported row can be removed too — and stays removed: its id is
+# remembered, and the next import of the same file leaves it out. That
+# is the difference between removing and hiding until tomorrow.
 with db.get_conn() as conn:
-    imported = conn.execute("SELECT id, account_id FROM transactions "
-                            "WHERE source = 'degiro' LIMIT 1").fetchone()
+    imported = dict(conn.execute("SELECT id, account_id, external_id FROM transactions "
+                                 "WHERE source = 'degiro' AND external_id IS NOT NULL LIMIT 1").fetchone())
 r = c.post(f"/accounts/{imported['account_id']}/transactions/{imported['id']}/delete",
            follow_redirects=True)
-check("an imported row cannot", b"typed in by hand can be removed" in r.data, True)
+check("an imported row can be removed", b"will not bring it back" in r.data, True)
 with db.get_conn() as conn:
-    still = conn.execute("SELECT COUNT(*) n FROM transactions WHERE id = ?",
-                         (imported["id"],)).fetchone()["n"]
-check("...and is still there", still, 1)
+    still = conn.execute("SELECT COUNT(*) n FROM transactions WHERE id = ?", (imported["id"],)).fetchone()["n"]
+    remembered = conn.execute("SELECT COUNT(*) n FROM removed_rows WHERE external_id = ?", (imported["external_id"],)).fetchone()["n"]
+check("...it is gone, and its id remembered", (still, remembered), (0, 1))
+r = upload(imported["account_id"], fixtures.DEGIRO_CSV)
+with db.get_conn() as conn:
+    back = conn.execute("SELECT COUNT(*) n FROM transactions WHERE external_id = ?", (imported["external_id"],)).fetchone()["n"]
+check("...and importing the file again does not bring it back", back, 0)
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM removed_rows WHERE external_id = ?", (imported["external_id"],))
+upload(imported["account_id"], fixtures.DEGIRO_CSV)
+with db.get_conn() as conn:
+    back = conn.execute("SELECT COUNT(*) n FROM transactions WHERE external_id = ?", (imported["external_id"],)).fetchone()["n"]
+check("...forgetting the removal lets it in again", back, 1)
+r = c.post(f"/accounts/{hand_id}/transactions/99999999/delete", follow_redirects=True)
+check("a row that is not there says so", b"not there" in r.data, True)
 r = c.get(f"/accounts/{hand_id}")
 check("the account page marks typed rows and offers to remove them",
       b"/delete" in r.data, True)
@@ -4294,6 +4308,14 @@ r = c.get("/securities/XX0000000000")
 check("an unknown security is a 404, not a crash", r.status_code, 404)
 r = c.get("/portfolio")
 check("the portfolio's holdings link to the security page", b"/securities/IE00B4L5Y983" in r.data, True)
+# A security sold down to nothing leaves the holdings table; it is
+# listed below it, with what it made, rather than vanishing.
+check("a security sold out is listed under the holdings, not gone",
+      (b"Sold out" in r.data, b"LU0000000009" in r.data), (True, True))
+# And the holding page marks the trades on its chart, as a switch.
+r = c.get("/securities/IE00B4L5Y983")
+check("the holding page carries its trades for the chart's marks",
+      (b'id="sec-marks"' in r.data, b'"kind": "buy"' in r.data), (True, True))
 r = c.get(f"/accounts/{broker_id}")
 check("...and so does the account's holdings table", b"/securities/IE00B4L5Y983" in r.data, True)
 

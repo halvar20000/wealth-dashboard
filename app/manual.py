@@ -200,14 +200,36 @@ def add_transaction(account: dict, form) -> int:
 
 
 def delete_transaction(account_id: int, txn_id: int) -> bool:
-    """Remove a hand-entered row. Only those: an imported row is the
-    bank's word, and deleting it would only hide it until the next
-    sync put it back."""
+    """Remove a row, typed in or imported.
+
+    An imported row is the bank's word and would come back with the
+    next import or sync — so its id is remembered in `removed_rows`,
+    and the importers leave a remembered id out. A duplicate the bank
+    booked, a corporate action the export got wrong, a row that
+    belongs to somebody else: gone, and staying gone.
+    """
     with get_conn() as conn:
-        cur = conn.execute(
-            "DELETE FROM transactions WHERE id = ? AND account_id = ? "
-            "AND source = ?", (txn_id, account_id, SOURCE))
-        return cur.rowcount > 0
+        row = conn.execute("SELECT external_id FROM transactions WHERE id = ? AND account_id = ?",
+                           (txn_id, account_id)).fetchone()
+        if row is None:
+            return False
+        _remember_removed(conn, row["external_id"], account_id)
+        conn.execute("DELETE FROM transactions WHERE id = ?", (txn_id,))
+    return True
+
+
+def _remember_removed(conn, external_id: str | None, account_id: int | None) -> None:
+    if external_id:
+        conn.execute("INSERT OR IGNORE INTO removed_rows (external_id, account_id) VALUES (?, ?)",
+                     (external_id, account_id))
+
+
+def removed_ids(conn, account_id: int | None = None) -> set[str]:
+    """The ids the user removed — what an import or a sync leaves out."""
+    if account_id is None:
+        return {r["external_id"] for r in conn.execute("SELECT external_id FROM removed_rows")}
+    return {r["external_id"] for r in conn.execute(
+        "SELECT external_id FROM removed_rows WHERE account_id = ? OR account_id IS NULL", (account_id,))}
 
 
 def set_balance(account: dict, form) -> dict:
@@ -360,12 +382,14 @@ def patch_transactions(txn_ids: list[int], fields: dict, negate_amount: bool = F
 
 def delete_transactions(txn_ids: list[int]) -> int:
     """Remove rows, whatever their source — for the MCP, where the
-    caller has looked at them. An imported row comes back if the same
-    file is imported again, because its id is in the file; a
-    correction survives that, a deletion does not."""
+    caller has looked at them. Remembered by id, as delete_transaction
+    does, so a re-import does not bring them back."""
     ids = [int(i) for i in txn_ids]
     if not ids:
         return 0
+    marks = ",".join("?" * len(ids))
     with get_conn() as conn:
-        cur = conn.execute(f"DELETE FROM transactions WHERE id IN ({','.join('?' * len(ids))})", ids)
+        for r in conn.execute(f"SELECT external_id, account_id FROM transactions WHERE id IN ({marks})", ids):
+            _remember_removed(conn, r["external_id"], r["account_id"])
+        cur = conn.execute(f"DELETE FROM transactions WHERE id IN ({marks})", ids)
         return cur.rowcount

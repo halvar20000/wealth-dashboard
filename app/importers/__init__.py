@@ -105,9 +105,13 @@ def store(account_id: int, parsed: ParseResult, source: str, import_id: int | No
         until = conn.execute("SELECT ledger_until FROM accounts WHERE id = ?",
                              (account_id,)).fetchone()
         until = until["ledger_until"] if until else None
+        removed = {r["external_id"] for r in conn.execute("SELECT external_id FROM removed_rows")}
         for row in parsed.rows:
             if until and row.txn_date <= until and not (row.external_id or "").startswith("fp:"):
                 duplicates += 1
+                continue
+            if row.external_id in removed:
+                duplicates += 1           # the user removed it; it stays removed
                 continue
             cur = conn.execute(
                 "INSERT OR IGNORE INTO transactions "

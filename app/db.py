@@ -444,6 +444,16 @@ CREATE TABLE IF NOT EXISTS webhooks (
 -- the mapping was wrong. Rows carry the import's id; rows a re-import
 -- found already there keep the id of the import that first brought
 -- them. See importers.store().
+-- A row the user removed, by the id it arrived under. An imported row
+-- is the bank's word and comes back with the next import or sync —
+-- unless its id is remembered here, which is what makes "remove"
+-- mean remove and not "hide until tomorrow".
+CREATE TABLE IF NOT EXISTS removed_rows (
+    external_id TEXT PRIMARY KEY,
+    account_id  INTEGER,
+    removed_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS imports (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,

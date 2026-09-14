@@ -55,6 +55,7 @@
   <div class="card-header">
     <h2>{{ _("Since the first purchase") }}</h2>
     <span class="card-subtitle" id="sec-chart-sub">{{ _("what it was worth against what went in, day by day") }}</span>
+    <label class="sub" style="margin-left:auto; display:flex; align-items:center; gap:6px; font-weight:400"><input type="checkbox" id="sec-marks" style="width:auto; margin:0"> {{ _("Mark the trades") }}</label>
   </div>
   <div class="sec-change" id="sec-change" hidden>
     <span class="sec-change-value" id="sec-change-value"></span>
@@ -186,12 +187,10 @@
               <div><label>{{ _("Security name") }}</label><input name="security_name" value="{{ r.security_name or '' }}" style="width:260px"></div>
               <button type="submit">{{ _("Save correction") }}</button>
             </form>
-            {% if r.source == 'manual' %}
-            <form method="post" action="{{ url_for('transaction_delete', account_id=r.account_id, txn_id=r.id) }}" style="margin-top:6px">
+            <form method="post" action="{{ url_for('transaction_delete', account_id=r.account_id, txn_id=r.id) }}" style="margin-top:6px" onsubmit="return confirm({{ _('Remove this row? An import or a sync will not bring it back.') | tojson }})">
               <input type="hidden" name="back" value="{{ url_for('security_page', isin=isin) }}">
               <button type="submit" class="btn-danger">{{ _("Remove this row") }}</button>
             </form>
-            {% endif %}
           </div>
         {% endfor %}
         </div>
@@ -200,7 +199,7 @@
     </div>
   </div>
   {% endfor %}
-  <p class="sub">{{ _("An imported row cannot be removed — it would only come back with the next import — but it can be corrected to a quantity of zero. A row typed in by hand can be removed.") }}</p>
+  <p class="sub">{{ _("A correction survives the next import: the row is recognised by its id and left as you set it. So does a removal — the id is remembered, and an import or a sync leaves that row out.") }}</p>
 </div>
 
 <div class="card" id="add">
@@ -284,19 +283,55 @@
     document.getElementById('sec-change-note').textContent = {{ _("value plus income, against what went in, since {date}") | tojson }}.replace('{date}', data.first || pts[0].date);
   }
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  new Chart(document.getElementById('sec-chart'), {
+  {# The trades on the line: a mark per buy, sale, dividend or split on
+     the day it happened, at the value of that day. A savings plan is
+     forty marks a year and hides the line, so they are a switch,
+     remembered, off by default once there are more than a handful. #}
+  const EVENTS = {{ events | tojson }};
+  const byDay = {}; pts.forEach((p) => { byDay[p.date] = p; });
+  const dayIndex = {}; pts.forEach((p, i) => { dayIndex[p.date] = i; });
+  const MARK = { buy: { c: css('--accent-blue'), s: 'circle', l: {{ _("Bought") | tojson }} },
+                 sell: { c: css('--loss'), s: 'rectRot', l: {{ _("Sold") | tojson }} },
+                 dividend: { c: css('--gain'), s: 'triangle', l: {{ _("Dividend") | tojson }} },
+                 split: { c: css('--accent-gold'), s: 'rect', l: {{ _("Split") | tojson }} } };
+  const marks = Object.keys(MARK).map((kind) => {
+    const ev = EVENTS.filter((e) => e.kind === kind && dayIndex[e.date] !== undefined);
+    return { label: MARK[kind].l, type: 'scatter', kind,
+             data: ev.map((e) => ({ x: e.date, y: byDay[e.date].value, e })),
+             backgroundColor: MARK[kind].c, borderColor: css('--bg-elevated'), borderWidth: 1.5,
+             pointStyle: MARK[kind].s, pointRadius: 6, pointHoverRadius: 8, showLine: false, hidden: true, order: -1 };
+  }).filter((d) => d.data.length);
+  const chart = new Chart(document.getElementById('sec-chart'), {
     type: 'line',
     data: { labels: pts.map((p) => p.date), datasets: [
       { label: {{ _("Value") | tojson }}, data: pts.map((p) => p.value), borderColor: css('--accent-gold'), backgroundColor: 'rgba(245,215,110,0.08)', fill: true, pointRadius: 0, borderWidth: 2, spanGaps: true },
       { label: {{ _("Invested") | tojson }}, data: pts.map((p) => p.invested), borderColor: css('--accent-blue'), pointRadius: 0, borderWidth: 2, stepped: true },
       { label: {{ _("Income") | tojson }}, data: pts.map((p) => p.income), borderColor: css('--gain'), pointRadius: 0, borderWidth: 1.5, borderDash: [4, 4], stepped: true },
+      ...marks,
     ] },
-    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-      plugins: { legend: { labels: { color: css('--text-secondary') } },
-                 tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmt(c.parsed.y)}` } } },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'nearest', axis: 'x', intersect: false },
+      plugins: { legend: { labels: { color: css('--text-secondary'), filter: (item, data) => !data.datasets[item.datasetIndex].kind || !data.datasets[item.datasetIndex].hidden } },
+                 tooltip: { callbacks: { label: (c) => {
+                   const e = c.raw && c.raw.e;
+                   if (!e) return `${c.dataset.label}: ${fmt(c.parsed.y)}`;
+                   const q = e.quantity != null ? Math.abs(e.quantity).toLocaleString(lang, { maximumFractionDigits: 6 }) + ' × ' : '';
+                   return `${c.dataset.label}: ${q}${e.amount != null ? fmt(Math.abs(e.amount)) : ''}`;
+                 } } } },
       scales: { x: { ticks: { color: css('--text-tertiary'), maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } },
                 y: { ticks: { color: css('--text-tertiary'), callback: (v) => fmt(v) }, grid: { color: css('--border') } } } },
   });
+  const box = document.getElementById('sec-marks');
+  const total = marks.reduce((n, d) => n + d.data.length, 0);
+  let want = null;
+  try { want = localStorage.getItem('sec-marks'); } catch (e) {}
+  box.checked = want === null ? total <= 12 : want === 'on';
+  if (!total) box.parentElement.hidden = true;
+  const applyMarks = () => {
+    chart.data.datasets.forEach((d, i) => { if (d.kind) chart.setDatasetVisibility(i, box.checked); });
+    chart.update();
+  };
+  box.addEventListener('change', () => { try { localStorage.setItem('sec-marks', box.checked ? 'on' : 'off'); } catch (e) {} applyMarks(); });
+  applyMarks();
 })();
 
 const open = (el, on) => el.classList.toggle('is-open', on);

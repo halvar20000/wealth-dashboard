@@ -894,9 +894,6 @@ STRINGS: dict[str, str] = {
     "Back to the account": "Zurück zum Konto",
     "Added.": "Eingetragen.",
     "Remove": "Entfernen",
-    "Removed.": "Entfernt.",
-    "Only a transaction typed in by hand can be removed. An imported one would only come back with the next import.":
-        "Nur eine von Hand eingetragene Transaktion lässt sich entfernen. Eine importierte käme mit dem nächsten Import einfach wieder.",
     "Connect a bank, import a CSV, or {add}.":
         "Verbinde eine Bank, importiere eine CSV, oder {add}.",
     "Pick what kind of entry this is.":
@@ -1675,8 +1672,6 @@ STRINGS: dict[str, str] = {
 
     # ─── Die Zeilen eines Wertpapiers ─────────────────────────────────
     'Amount in {currency}': 'Betrag in {currency}',
-    'An imported row cannot be removed — it would only come back with the next import — but it can be corrected to a quantity of zero. A row typed in by hand can be removed.':
-        'Eine importierte Zeile lässt sich nicht entfernen — sie käme mit dem nächsten Import zurück — aber auf eine Stückzahl von null korrigieren. Eine von Hand eingetippte Zeile lässt sich entfernen.',
     'Click a security to see, and correct, every row behind it.': 'Klicke auf ein Wertpapier, um jede Zeile dahinter zu sehen und zu korrigieren.',
     'Correct': 'Korrigieren',
     'Corrected.': 'Korrigiert.',
@@ -2312,4 +2307,19 @@ STRINGS: dict[str, str] = {
     'Ledger on record until': 'Journal erfasst bis',
     'Rows up to this day were moved in from another app under its own ids. An import or a sync covering those days leaves them alone, so nothing is booked twice. Clear it to let everything in.': 'Zeilen bis zu diesem Tag kamen aus einer anderen App mit deren IDs herüber. Ein Import oder Abgleich über diese Tage lässt sie in Ruhe, damit nichts doppelt gebucht wird. Leer lassen, um alles hereinzulassen.',
     'Worked out for the accounts proposed above, and again for the ones you pick when you confirm: rows already in a chosen account count towards its holding.': 'Berechnet für die oben vorgeschlagenen Konten, und beim Bestätigen noch einmal für die, die du wählst: Zeilen, die in einem gewählten Konto schon liegen, zählen zu dessen Bestand.',
+    # Trades on the chart, sold-out list, removing a row (0.43.0)
+    'A correction survives the next import: the row is recognised by its id and left as you set it. So does a removal — the id is remembered, and an import or a sync leaves that row out.': 'Eine Korrektur überlebt den nächsten Import: die Zeile wird an ihrer ID erkannt und bleibt, wie du sie gesetzt hast. Ein Entfernen ebenso — die ID wird gemerkt, und ein Import oder Abgleich lässt diese Zeile draußen.',
+    "A position sold down to nothing leaves the table above; it is kept here so what it made does not vanish with it. Its rows are on its page, like any other's.": 'Eine ganz verkaufte Position verlässt die Tabelle oben; hier bleibt sie stehen, damit nicht mit ihr verschwindet, was sie gebracht hat. Ihre Zeilen stehen auf ihrer Seite wie bei jeder anderen.',
+    'Bought': 'Gekauft',
+    'Dividend': 'Dividende',
+    'Mark the trades': 'Käufe und Verkäufe markieren',
+    'Remove this row? An import or a sync will not bring it back.': 'Diese Zeile entfernen? Ein Import oder Abgleich bringt sie nicht zurück.',
+    'Removed. An import or a sync will not bring it back.': 'Entfernt. Ein Import oder Abgleich bringt sie nicht zurück.',
+    'Sold': 'Verkauft',
+    'Sold out': 'Ganz verkauft',
+    'Split': 'Split',
+    'That row is not there.': 'Diese Zeile gibt es nicht.',
+    'newest first': 'neueste zuerst',
+    '{n} securities no longer held': '{n} Wertpapiere nicht mehr gehalten',
+    '{n} security no longer held': '{n} Wertpapier nicht mehr gehalten',
 }

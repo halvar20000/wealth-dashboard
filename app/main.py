@@ -985,6 +985,8 @@ def _security_page(isin: str, add_error: str | None = None, add_form=None):
                            symbol=sec["symbol"] if sec else None,
                            trades=manual.TRADES, directional=manual.DIRECTIONAL,
                            accounts=sorted({r["account_name"] for r in rows}),
+                           events=[{"date": r["txn_date"], "kind": r["kind"], "quantity": r["quantity"], "amount": r["amount"]}
+                                   for r in rows if r["kind"] in ("buy", "sell", "dividend", "split")],
                            add_accounts=add_accounts, add_kinds=manual.TRADES + manual.ON_SECURITY,
                            add_error=add_error, add_form=add_form or {}, today=date.today().isoformat())
 
@@ -1133,11 +1135,9 @@ def transaction_edit(txn_id: int):
 @auth.login_required
 def transaction_delete(account_id: int, txn_id: int):
     if manual.delete_transaction(account_id, txn_id):
-        flash(_t("Removed."), "ok")
+        flash(_t("Removed. An import or a sync will not bring it back."), "ok")
     else:
-        flash(_t("Only a transaction typed in by hand can be removed. An "
-                 "imported one would only come back with the next import."),
-              "error")
+        flash(_t("That row is not there."), "error")
     back = request.form.get("back") or ""
     if back.startswith("/") and not back.startswith("//"):
         return redirect(back)
@@ -1958,7 +1958,29 @@ def _holdings_with_figures():
     # Every security ever sold, held or not: a position closed last
     # year still made what it made.
     realised = gains.summary(scope)
+    s["closed"] = _closed_positions(scope, {h["isin"] for h in s["holdings"]}, realised["per_isin"])
     return s["holdings"], s, perf, realised
+
+
+def _closed_positions(scope, held: set[str], realised_by_isin: dict) -> list[dict]:
+    """Securities with rows but no units left: sold out, delisted,
+    exchanged away. They fall off the holdings table the day the last
+    unit goes, and what they made — or lost — would go with them; so
+    they are listed below it, newest first."""
+    only, params = people.sql_in(scope, "t.account_id")
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"SELECT t.isin, MAX(t.security_name) AS name, MIN(t.txn_date) AS first, MAX(t.txn_date) AS last, "
+            f"SUM(COALESCE(t.quantity, 0)) AS qty, MAX(t.currency) AS currency, "
+            f"SUM(CASE WHEN t.kind = 'buy' THEN -t.amount ELSE 0 END) AS bought, "
+            f"SUM(CASE WHEN t.kind = 'sell' THEN t.amount ELSE 0 END) AS sold, "
+            f"SUM(CASE WHEN t.kind IN ('dividend', 'interest') THEN t.amount ELSE 0 END) AS income, "
+            f"COUNT(*) AS n, GROUP_CONCAT(DISTINCT a.name) AS accounts "
+            f"FROM transactions t JOIN accounts a ON a.id = t.account_id "
+            f"WHERE t.isin IS NOT NULL{only} GROUP BY t.isin HAVING ABS(qty) < 1e-9 ORDER BY last DESC",
+            params).fetchall()
+    return [{**dict(r), "realised": realised_by_isin.get(r["isin"])}
+            for r in rows if r["isin"] not in held and (r["bought"] or r["sold"])]
 
 
 # ─── Share Ideas ─────────────────────────────────────────────────────

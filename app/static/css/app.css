@@ -148,8 +148,8 @@ html.nav-collapsed .nav-group-items {
   background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 12px;
   box-shadow: var(--shadow-card);
 }
-html.nav-collapsed .nav-group:hover > .nav-group-items,
-html.nav-collapsed .nav-group:focus-within > .nav-group-items { display: block; }
+@media (hover: hover) { html.nav-collapsed .nav-group:hover > .nav-group-items { display: block; } }
+html.nav-collapsed .nav-group.is-flyout > .nav-group-items { display: block; }
 html.nav-collapsed .nav-group-items::before { content: ""; position: absolute; left: -8px; top: 0; bottom: 0; width: 8px; }
 html.nav-collapsed .nav-group-items .navlink { justify-content: flex-start; padding: 7px 10px; }
 html.nav-collapsed .nav-group-items .nav-text { display: inline; }

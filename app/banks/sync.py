@@ -273,6 +273,8 @@ def sync_link(link_id: int) -> dict:
             rows = [r for r in rows if r["txn_date"] > link["ledger_until"]]
 
         with get_conn() as conn:
+            removed = {r["external_id"] for r in conn.execute("SELECT external_id FROM removed_rows")}
+            rows = [r for r in rows if r["external_id"] not in removed]
             for r in rows:
                 # INSERT OR IGNORE against the unique index is the whole
                 # deduplication strategy: a re-sync of an overlapping

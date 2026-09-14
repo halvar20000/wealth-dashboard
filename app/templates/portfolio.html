@@ -137,4 +137,32 @@
   <p class="sub">{{ _("Import a broker export from an account and the positions are computed from its trades.") }}</p>
 </section>
 {% endif %}
+{% if s.closed %}
+<section class="card">
+  <div class="card-header"><h2>{{ _("Sold out") }}</h2>
+    <span class="card-subtitle">{{ _n(s.closed | length, "{n} security no longer held", "{n} securities no longer held") }} · {{ _("newest first") }}</span></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Security") }}</th><th>{{ _("ISIN") }}</th><th>{{ _("Where") }}</th><th>{{ _("Held") }}</th>
+                 <th class="num">{{ _("Bought") }}</th><th class="num">{{ _("Sold") }}</th><th class="num">{{ _("Income") }}</th>
+                 <th class="num" title="{{ _('What the sales of this security made, by lots.') }}">{{ _("Realised") }}</th></tr></thead>
+      <tbody>
+      {% for h in s.closed %}
+        <tr>
+          <td><a href="{{ url_for('security_page', isin=h.isin) }}">{{ h.name or h.isin }}</a></td>
+          <td class="sub nowrap">{{ h.isin }}</td>
+          <td class="sub">{{ h.accounts }}</td>
+          <td class="sub nowrap">{{ d(h.first) }} — {{ d(h.last) }}</td>
+          <td class="num">{{ money(h.bought, h.currency) }}</td>
+          <td class="num">{{ money(h.sold, h.currency) }}</td>
+          <td class="num">{{ money(h.income, h.currency) if h.income else '—' }}</td>
+          <td class="num {{ 'pos' if h.realised and h.realised > 0 else ('neg' if h.realised else '') }}">{{ money(h.realised, h.currency) if h.realised is not none else '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="sub">{{ _("A position sold down to nothing leaves the table above; it is kept here so what it made does not vanish with it. Its rows are on its page, like any other's.") }}</p>
+</section>
+{% endif %}
 {% endblock %}
