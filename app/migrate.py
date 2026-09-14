@@ -241,53 +241,16 @@ def _read(src: sqlite3.Connection) -> dict:
             "source": f"{SOURCE}:{(r['source'] or '').split(':')[0]}",
         })
 
-    # Holdings the rows do not add up to: an opening row each.
-    first_row: dict[tuple[int, str], str] = {}
-    summed: dict[tuple[int, str], float] = {}
-    for t in plan["transactions"]:
-        if t["isin"] and t["quantity"] is not None and not t["duplicate"]:
-            k = (t["fp_account"], t["isin"])
-            summed[k] = summed.get(k, 0.0) + t["quantity"]
-            first_row[k] = min(first_row.get(k, t["txn_date"]), t["txn_date"])
-    for h in holdings:
-        key = keys.get(h["asset_id"])
-        a = by_fp.get(h["account_id"])
-        if not key or a is None:
-            continue
-        k = (h["account_id"], key)
-        already = held.get((a["target"], key), 0.0) if a["target"] else 0.0
-        diff = (h["quantity"] or 0.0) - summed.get(k, 0.0) - already
-        if abs(diff) < 1e-6:
-            continue
-        asset = assets[h["asset_id"]]
-        day = first_row.get(k)
-        opening = (date.fromisoformat(day) - timedelta(days=1)).isoformat() if day \
-            else (h["updated_at"] or date.today().isoformat())[:10]
-        plan["openings"].append({
-            "fp_account": h["account_id"], "account": a["name"], "isin": key,
-            "name": asset.get("name"), "quantity": diff, "held": h["quantity"],
-            "from_rows": summed.get(k, 0.0) + already,
-            "price": h["avg_cost"], "currency": (h["cost_currency"] or a["currency"]).upper()[:3],
-            "txn_date": opening,
-        })
-
-    # And the other way round: rows that add up to a position the old
-    # app did not hold — a sale whose purchase predates the ledger. The
-    # old app's holdings are the truth; an opening row closes the gap.
-    listed = {(h["account_id"], keys.get(h["asset_id"])) for h in holdings if keys.get(h["asset_id"])}
-    for k, q in summed.items():
-        if k in listed or abs(q) < 1e-9:
-            continue
-        a = by_fp[k[0]]
-        already = held.get((a["target"], k[1]), 0.0) if a["target"] else 0.0
-        if abs(q + already) < 1e-9:
-            continue
-        plan["openings"].append({
-            "fp_account": k[0], "account": a["name"], "isin": k[1], "name": names.get(k[1]),
-            "quantity": -(q + already), "held": 0.0, "from_rows": q + already, "price": None,
-            "currency": a["currency"],
-            "txn_date": (date.fromisoformat(first_row[k]) - timedelta(days=1)).isoformat(),
-        })
+    # What the old app held, per account and holding — kept in the plan,
+    # because the opening rows depend on which account here the rows go
+    # into, and that is the user's choice on the page.
+    plan["holdings"] = [
+        {"fp_account": h["account_id"], "isin": keys[h["asset_id"]], "name": assets[h["asset_id"]].get("name"),
+         "quantity": h["quantity"] or 0.0, "price": h["avg_cost"],
+         "currency": (h["cost_currency"] or by_fp[h["account_id"]]["currency"]).upper()[:3],
+         "updated_at": (h["updated_at"] or date.today().isoformat())[:10]}
+        for h in holdings if keys.get(h["asset_id"]) and h["account_id"] in by_fp]
+    plan["openings"] = openings(plan, {a["fp_id"]: a["target"] for a in plan["accounts"]}, held)
 
     # Balances: the cash lines of every snapshot day, and the value of
     # every balance-only account — a pension, a house, a loan.
@@ -380,6 +343,65 @@ def _read(src: sqlite3.Connection) -> dict:
     return plan
 
 
+def openings(plan: dict, targets: dict[int, int | None], held: dict | None = None) -> list[dict]:
+    """The rows that make the holdings agree, given where each old
+    account's rows go: what the old app held, less what the rows to be
+    written add up to, less what the chosen account here already holds
+    — the duplicates left alone are counted through the latter. And the
+    other way round: rows that add up to a position the old app did not
+    hold — a sale whose purchase predates the ledger — are closed."""
+    if held is None:
+        with get_conn() as conn:
+            held = {(r["account_id"], r["isin"]): r["q"] for r in conn.execute(
+                "SELECT account_id, isin, SUM(COALESCE(quantity, 0)) AS q FROM transactions "
+                "WHERE isin IS NOT NULL AND quantity IS NOT NULL GROUP BY account_id, isin")}
+    by_fp = {a["fp_id"]: a for a in plan["accounts"]}
+    first_row: dict[tuple[int, str], str] = {}
+    summed: dict[tuple[int, str], float] = {}
+    for t in plan["transactions"]:
+        if t["isin"] and t["quantity"] is not None and not t["duplicate"]:
+            k = (t["fp_account"], t["isin"])
+            summed[k] = summed.get(k, 0.0) + t["quantity"]
+            first_row[k] = min(first_row.get(k, t["txn_date"]), t["txn_date"])
+
+    def already(fp_account: int, key: str) -> float:
+        target = targets.get(fp_account, by_fp[fp_account]["target"])
+        return held.get((target, key), 0.0) if target else 0.0
+
+    out = []
+    listed = set()
+    for h in plan["holdings"]:
+        k = (h["fp_account"], h["isin"])
+        listed.add(k)
+        a = by_fp[k[0]]
+        from_rows = summed.get(k, 0.0) + already(*k)
+        diff = h["quantity"] - from_rows
+        if abs(diff) < 1e-6:
+            continue
+        day = first_row.get(k)
+        out.append({
+            "fp_account": k[0], "account": a["name"], "isin": k[1], "name": h["name"],
+            "quantity": diff, "held": h["quantity"], "from_rows": from_rows,
+            "price": h["price"], "currency": h["currency"],
+            "txn_date": (date.fromisoformat(day) - timedelta(days=1)).isoformat() if day else h["updated_at"],
+        })
+    names = {h["isin"]: h["name"] for h in plan["holdings"]}
+    for k, q in summed.items():
+        if k in listed or abs(q) < 1e-9:
+            continue
+        a = by_fp[k[0]]
+        total = q + already(*k)
+        if abs(total) < 1e-9:
+            continue
+        out.append({
+            "fp_account": k[0], "account": a["name"], "isin": k[1], "name": names.get(k[1]),
+            "quantity": -total, "held": 0.0, "from_rows": total, "price": None,
+            "currency": a["currency"],
+            "txn_date": (date.fromisoformat(first_row[k]) - timedelta(days=1)).isoformat(),
+        })
+    return out
+
+
 def apply(plan: dict, targets: dict[int, int | None] | None = None) -> dict:
     """Write the plan. `targets` maps an old account id to an account
     here, or None for a new one; unset means what the plan proposed."""
@@ -402,12 +424,14 @@ def apply(plan: dict, targets: dict[int, int | None] | None = None) -> dict:
         else:
             slug_map[slug] = next((s for s, e in live.items() if e["label"].casefold() == label.casefold()), None)
 
+    chosen_targets = {a["fp_id"]: targets.get(a["fp_id"], a["target"]) for a in plan["accounts"]}
+    plan["openings"] = openings(plan, chosen_targets)
     id_map: dict[int, int] = {}
     with get_conn() as conn:
         for a in plan["accounts"]:
             if a.get("skip"):
                 continue
-            chosen = targets.get(a["fp_id"], a["target"])
+            chosen = chosen_targets[a["fp_id"]]
             if chosen:
                 id_map[a["fp_id"]] = int(chosen)
                 continue

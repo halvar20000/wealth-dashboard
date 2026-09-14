@@ -56,7 +56,7 @@
   </div>
   {% if plan.openings %}
   <h3>{{ _("Opening positions") }}</h3>
-  <p class="sub">{{ _("Where the rows do not add up to what the old app held — a position set from a statement, a sale whose purchase predates the ledger — a row dated before the first one makes up the difference, at the cost the old app carried.") }}</p>
+  <p class="sub">{{ _("Where the rows do not add up to what the old app held — a position set from a statement, a sale whose purchase predates the ledger — a row dated before the first one makes up the difference, at the cost the old app carried.") }} {{ _("Worked out for the accounts proposed above, and again for the ones you pick when you confirm: rows already in a chosen account count towards its holding.") }}</p>
   <table class="grid"><tbody>
     {% for o in plan.openings %}
     <tr><td>{{ o.account }}</td><td>{{ o.name or o.isin }}</td><td class="num">{{ qty(o.quantity) }}</td><td class="sub">{{ _f("held {held}, rows give {rows}", held=qty(o.held), rows=qty(o.from_rows)) }}</td><td class="sub nowrap">{{ d(o.txn_date) }}</td></tr>

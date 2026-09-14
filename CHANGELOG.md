@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.42.1] — 2026-09-14
+
+### Fixed
+- **Moving in: the opening positions follow the account you pick.**
+  They were worked out against the account the plan proposed; choosing
+  another in the dropdown — the Trade Republic already synced here,
+  say — could have written an opening row on top of rows that account
+  already holds. They are now worked out again on confirmation, for the
+  accounts chosen, with what those accounts already hold counted in.
+
 ## [0.42.0] — 2026-09-14
 
 ### Added

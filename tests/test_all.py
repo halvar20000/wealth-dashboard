@@ -5677,7 +5677,14 @@ check("...and a CSV is not", migrate.is_planner_db(b"date,amount\n"), False)
 # An account of the same name here is offered as the target.
 r = c.post("/accounts/new", data={"name": "Old Broker", "type": "broker", "currency": "EUR"})
 old_broker_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+# One of the old rows is already here — a Degiro file imported into
+# this app before the move — so it must neither be written twice nor
+# make the holding come out short or double.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, quantity, price, external_id) "
+                 "VALUES (?, '2025-01-10', 'Kauf IWDA', -802.0, 'EUR', 'buy', 'IE00B4L5Y983', 10, 80.0, 'deg_h:aaaa')", (old_broker_id,))
 plan = migrate.read(blob)
+check("a row already here is seen as such", (plan["totals"]["duplicates"], {a["name"]: a["duplicates"] for a in plan["accounts"]}["Old Broker"]), (1, 1))
 by_name = {a["name"]: a for a in plan["accounts"]}
 check("the plan lists every account with what it becomes",
       {a["name"]: a["type"] for a in plan["accounts"]},
@@ -5699,6 +5706,12 @@ ops = {(o["account"], o["isin"]): o for o in plan["openings"]}
 check("a holding the ledger does not explain gets an opening row",
       (round(ops[("Old Broker", "SYM:FCNTX")]["quantity"], 2), ops[("Old Broker", "SYM:FCNTX")]["txn_date"], ops[("Old Broker", "SYM:FCNTX")]["price"]), (100.0, "2026-06-11", 12.0))
 check("...and one the rows add up to does not", ("Old Broker", "IE00B4L5Y983") in ops, False)
+# The openings follow the choice of account: into the account that
+# already has the row, nothing is missing; into a new one, the row
+# left behind is made up by an opening.
+ops_new = {(o["account"], o["isin"]): o for o in migrate.openings(plan, {1: None})}
+check("the openings are worked out against the chosen account",
+      (("Old Broker", "IE00B4L5Y983") in ops_new, round(ops_new[("Old Broker", "IE00B4L5Y983")]["quantity"], 4) if ("Old Broker", "IE00B4L5Y983") in ops_new else None), (True, 10.0))
 bal = {(b["fp_account"], b["as_of"]): b for b in plan["balances"]}
 check("the house is a balance of its snapshot value, not a holding at its price",
       (bal[(3, "2026-09-13")]["amount"], any(t["isin"] == "SYM:MAISON-FR" for t in plan["transactions"]), any(o["isin"] == "SYM:MAISON-FR" for o in plan["openings"])), (416233.0, False, False))
@@ -5725,7 +5738,7 @@ with db.get_conn() as conn:
 check("the chosen account was used, the others created, the empty one not",
       (n_broker, "Old Bank" in names, "Maison" in names, "Nothing here" in names), (1, True, True, False))
 check("...with their types", (names["Maison"]["type"], names["Old Pension"]["type"], names["Coins"]["type"]), ("property", "pension", "broker"))
-check("every row and every opening is written, each account with rows as one import", (len(rows), imps), (9 + 1, 3))
+check("every row not already here and every opening is written, each account with rows as one import", (len(rows), imps), (8 + 1, 3))
 check("the symbols come along as the user's own", (secs["SYM:FCNTX"]["symbol"], secs["SYM:FCNTX"]["symbol_source"], secs["CRYPTO:BTC"]["symbol"]), ("FCNTX", "manual", "BTC-EUR"))
 pos = {p_["isin"]: p_["quantity"] for p_ in importers.positions(old_broker_id)}
 check("the holdings are the old app's", ({k: round(v, 4) for k, v in pos.items()}), {"IE00B4L5Y983": 15.0, "SYM:DCAM": 60.0, "SYM:FCNTX": 100.0})

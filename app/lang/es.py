@@ -2313,4 +2313,5 @@ STRINGS: dict[str, str] = {
     'Could not read the file: {reason}': 'No se pudo leer el archivo: {reason}',
     'Ledger on record until': 'Libro registrado hasta',
     'Rows up to this day were moved in from another app under its own ids. An import or a sync covering those days leaves them alone, so nothing is booked twice. Clear it to let everything in.': 'Las filas hasta este día se trajeron de otra app con sus propios identificadores. Una importación o sincronización que cubra esos días las deja en paz, para que nada se contabilice dos veces. Vacíalo para dejar entrar todo.',
+    'Worked out for the accounts proposed above, and again for the ones you pick when you confirm: rows already in a chosen account count towards its holding.': 'Calculado para las cuentas propuestas arriba, y de nuevo para las que elijas al confirmar: las filas que ya estén en una cuenta elegida cuentan para su posición.',
 }
