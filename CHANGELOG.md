@@ -11,6 +11,17 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.46.0] — 2026-09-14
+
+### Added
+- **The accounts on the overview read like a balance sheet.** Four
+  groups — Cash & banks, Investments, Pension, Liabilities — each with
+  its subtotal, every account worth its cash and its holdings together
+  (a broker is what it holds, not the cash left in it), in its own
+  currency where everything in it is in that currency and in the base
+  currency always, and the net worth at the foot. What the pie chart
+  said only on hover.
+
 ## [0.45.0] — 2026-09-14
 
 ### Added

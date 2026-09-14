@@ -159,30 +159,41 @@
 <section class="card">
   <div class="card-header">
     <h2>{{ _("Accounts") }}</h2>
-    <span class="card-subtitle"><a href="{{ url_for('account_new') }}">{{ _("Add an account") }}</a></span>
+    <span class="card-subtitle">{{ _("what each is worth, cash and holdings together") }} · <a href="{{ url_for('account_new') }}">{{ _("Add an account") }}</a></span>
   </div>
   <div class="table-wrap">
-    <table class="grid">
+    <table class="grid acct-sheet">
       <thead>
-        <tr><th>{{ _("Account") }}</th><th>{{ _("Source") }}</th><th class="num">{{ _("Balance") }}</th>
-            <th class="num">{{ _("Transactions") }}</th><th>{{ _("As of") }}</th></tr>
+        <tr><th>{{ _("Account") }}</th><th>{{ _("Source") }}</th><th class="num">{{ _("In its currency") }}</th>
+            <th class="num">{{ s.base_currency }}</th><th class="num">{{ _("Transactions") }}</th><th>{{ _("As of") }}</th></tr>
       </thead>
       <tbody>
-      {% for a in s.accounts %}
+      {% set group_labels = {'cash': _("Cash & banks"), 'investments': _("Investments"), 'pension': _("Pension"), 'liabilities': _("Liabilities")} %}
+      {% for g in s.groups %}
+        <tr class="acct-group"><th colspan="3">{{ group_labels[g.key] }} <span class="sub">· {{ _n(g.accounts | length, "{n} account", "{n} accounts") }}</span></th>
+            <th class="num {{ 'loss' if g.total_base < 0 }}">{{ money(g.total_base, s.base_currency) }}</th><th colspan="2"></th></tr>
+        {% for a in g.accounts %}
         <tr>
           <td><a href="{{ url_for('account_detail', account_id=a.id) }}">{{ a.name }}</a>
               <span class="sub">{{ type_label(a.type) }}</span></td>
           <td>{% if a.bank %}{{ a.bank }}<span class="sub">{{ _("connected") }}</span>
               {% elif a.transactions %}<span class="sub">{{ _("imported file") }}</span>
               {% else %}<span class="sub">{{ _("nothing yet") }}</span>{% endif %}</td>
-          <td class="num">{% if a.balance is not none %}{{ money(a.balance, a.balance_currency) }}{% else %}—{% endif %}</td>
+          <td class="num sub">{% if a.total_native is not none and a.currency != s.base_currency %}{{ money(a.total_native, a.currency) }}{% elif a.total_native is none and a.securities_base %}—{% endif %}</td>
+          <td class="num {{ 'loss' if a.total_base < 0 }}">{% if a.balance is not none or a.securities_base %}{{ money(a.total_base, s.base_currency) }}{% else %}—{% endif %}</td>
           <td class="num">{{ a.transactions or '—' }}</td>
           <td class="sub nowrap">{{ d(a.balance_as_of) }}</td>
         </tr>
+        {% endfor %}
       {% endfor %}
+      <tr class="acct-total"><th colspan="3">{{ _("Net worth") }}</th><th class="num">{{ money(s.net_worth, s.base_currency) }}</th><th colspan="2"></th></tr>
       </tbody>
     </table>
   </div>
+  {% if s.unconverted %}
+  <p class="sub">{{ _("Not included, because no rate here covers them:") }}
+     {% for u in s.unconverted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}</p>
+  {% endif %}
 </section>
 
 {% if s.holdings %}

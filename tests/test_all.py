@@ -5649,6 +5649,16 @@ check("...each a class on the chart", [b["name"] for b in after_["by_class"] if 
 r = c.get("/")
 check("the overview shows them, each with a switch to leave it out",
       (b'data-type="property"' in r.data, b'data-type="pension"' in r.data, b"hero-toggle" in r.data, b"709" in r.data), (True, True, True, True))
+# The accounts sheet: four groups with a subtotal, each account worth
+# its cash and its holdings together, the household's total at the foot.
+grp = {g["key"]: g for g in after_["groups"]}
+check("the accounts are laid out as a balance sheet",
+      ([g["key"] for g in after_["groups"]], round(grp["pension"]["total_base"]), {a["name"] for a in grp["investments"]["accounts"]} >= {"Maison", "Notes"}),
+      (["cash", "investments", "pension"], 300000, True))
+broker_row = next(a for a in after_["accounts"] if a["id"] == broker_id)
+check("...a broker is worth its holdings, not only its cash", broker_row["securities_base"] > 0 and broker_row["total_base"] >= broker_row["securities_base"], True)
+check("the overview renders the sheet with the groups and the total",
+      (b"acct-sheet" in r.data, b"Cash &amp; banks" in r.data, b"Investments" in r.data, b"acct-total" in r.data), (True, True, True, True))
 hist = history.series("EUR", None, "1m")
 lastpt = [p_ for p_ in hist["points"] if p_["net_worth"] is not None][-1]
 check("the history line carries each type apart, so the switch can take it out of every day",

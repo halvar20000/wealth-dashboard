@@ -49,6 +49,15 @@ def _latest_balances(conn) -> dict[int, dict]:
 # there is money to spend that cannot be touched for twenty years.
 ASSET_TYPES = {"pension": "Pension", "p2p": "P2P lending", "property": "Property"}
 
+# The four groups the accounts table is laid out in — the way a
+# balance sheet reads: what is money, what is invested, what is put
+# away for later, what is owed.
+GROUPS = (("cash", "Cash & banks", ("bank", "savings", "card", "other")),
+          ("investments", "Investments", ("broker", "p2p", "property")),
+          ("pension", "Pension", ("pension",)),
+          ("liabilities", "Liabilities", ("loan",)))
+GROUP_OF = {t: g for g, _, types in GROUPS for t in types}
+
 
 def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) -> dict:
     """Everything, or one person's share of it — see people.scope()."""
@@ -135,9 +144,13 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
     # one position from where the owner is standing.
     holdings: dict[str, dict] = {}
     securities_by_currency: dict[str, float] = {}
+    # Per account too, so the accounts table can say what each broker
+    # is worth, not only what the household holds of each security.
+    per_account: dict[int, list[tuple[str, float]]] = {}
     for acct in accounts:
         for pos in positions(acct["id"]):
             key = pos["isin"]
+            per_account.setdefault(acct["id"], []).append((key, pos["quantity"]))
             item = holdings.setdefault(key, {
                 "isin": key, "name": pos["name"], "quantity": 0.0,
                 "net_invested": 0.0, "currency": pos["currency"],
@@ -184,6 +197,39 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
 
     holdings_list = sorted(holdings.values(),
                            key=lambda h: -(h["value"] or 0))
+
+    # Each account: its cash, its securities at the prices above, the
+    # two together — and the figure in the account's own currency when
+    # everything in it is in that currency, as a statement would show.
+    for r in rows:
+        sec_base = 0.0
+        own = True
+        sec_native = 0.0
+        for key, qty in per_account.get(r["id"], []):
+            item = holdings[key]
+            if item["price"] is None:
+                continue
+            v = qty * item["price"]
+            vb = to_base(v, item["currency"] or base_currency)
+            sec_base += vb or 0.0
+            if (item["currency"] or base_currency).upper() == r["currency"].upper():
+                sec_native += v
+            else:
+                own = False
+        r["securities_base"] = sec_base
+        r["total_base"] = (r["balance_base"] or 0.0) + sec_base
+        native_cash = r["balance"] if r["balance"] is not None and r["balance_currency"].upper() == r["currency"].upper() else None
+        if r["balance"] is not None and r["balance_currency"].upper() != r["currency"].upper():
+            own = False
+        r["total_native"] = ((native_cash or 0.0) + sec_native) if own and (native_cash is not None or sec_native) else None
+        r["group"] = GROUP_OF.get(r["type"], "cash")
+    groups = []
+    for key, label, _types in GROUPS:
+        members = [r for r in rows if r["group"] == key]
+        if members:
+            members.sort(key=lambda r: -abs(r["total_base"]))
+            groups.append({"key": key, "label": label, "accounts": members,
+                           "total_base": sum(r["total_base"] for r in members)})
 
     # ── Totals ───────────────────────────────────────────────────
     totals_by_currency: dict[str, float] = {}
@@ -267,6 +313,7 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
         # when nothing needed converting.
         "fx_as_of": fx_as_of if converted else None,
         "accounts": rows,
+        "groups": groups,
         "account_count": len(rows),
         "connected_count": sum(1 for r in rows if r["bank"]),
         "holdings": holdings_list,

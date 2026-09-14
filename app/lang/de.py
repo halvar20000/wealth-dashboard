@@ -2324,4 +2324,10 @@ STRINGS: dict[str, str] = {
     '{n} security no longer held': '{n} Wertpapier nicht mehr gehalten',
     'Without {what}: the whole is {total}.': 'Ohne {what}: das Ganze ist {total}.',
     'incl.': 'inkl.',
+    'Cash & banks': 'Cash & Banken',
+    'Investments': 'Investments',
+    'Pension': 'Vorsorge',
+    'Liabilities': 'Verbindlichkeiten',
+    'In its currency': 'In seiner Währung',
+    'what each is worth, cash and holdings together': 'was jedes wert ist, Cash und Positionen zusammen',
 }

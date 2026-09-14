@@ -857,3 +857,10 @@ a.period-btn:hover { text-decoration: none; }
 .goal-kind:hover { text-decoration: none; border-color: var(--border-strong); background: var(--bg-card-hover); }
 .goal-kind.active { border-color: var(--accent-gold); box-shadow: 0 0 0 1px var(--accent-gold) inset; }
 .goal-kind.is-link { border-style: dashed; }
+
+/* The accounts sheet on the overview: groups with a subtotal, the
+   household's total at the foot — a balance sheet, read top to bottom. */
+.acct-sheet tr.acct-group th { background: var(--bg-elevated); color: var(--text-primary); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding-top: 10px; }
+.acct-sheet tr.acct-group th.num { font-family: var(--font-mono); font-size: 13px; text-transform: none; letter-spacing: 0; }
+.acct-sheet tr.acct-total th { border-top: 2px solid var(--border-strong); font-size: 14px; color: var(--text-primary); padding-top: 12px; }
+.acct-sheet tr.acct-total th.num { font-family: var(--font-mono); color: var(--accent-gold); }
