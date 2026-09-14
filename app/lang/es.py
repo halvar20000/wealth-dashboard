@@ -2341,4 +2341,8 @@ STRINGS: dict[str, str] = {
     'A coin sent to a wallet of your own is still yours. Name the wallet — an account of type Broker, created under Accounts — and a withdrawal becomes a move between the two, at the cost the units carried; a coin sent back in is the same the other way round.': 'Una moneda enviada a un monedero tuyo sigue siendo tuya. Nombra el monedero — una cuenta de tipo Bróker, creada en Cuentas — y una retirada pasa a ser un traspaso entre ambos, al coste que llevaban las unidades; una moneda devuelta, lo mismo al revés.',
     'Saved. A coin withdrawn from now on arrives there, at the cost it carried.': 'Guardado. Una moneda retirada a partir de ahora llega allí, al coste que llevaba.',
     'Saved. A coin withdrawn simply leaves.': 'Guardado. Una moneda retirada simplemente sale.',
+    'Balance over time': 'Saldo a lo largo del tiempo',
+    '{n} reading since {date}': '{n} lectura desde el {date}',
+    '{n} readings since {date}': '{n} lecturas desde el {date}',
+    "Each point is a reading of the balance on that day — from a sync, a statement, the loan's schedule, or typed in above. The newest reading of a day stands for the day; between readings the last one holds.": 'Cada punto es una lectura del saldo de ese día — de una sincronización, un extracto, el cuadro del préstamo, o escrita arriba. La lectura más reciente de un día vale por el día; entre lecturas, se mantiene la última.',
 }

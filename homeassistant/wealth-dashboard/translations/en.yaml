@@ -1,0 +1,2 @@
+network:
+  8000/tcp: Direct access, without ingress. Off by default; only needed for the bank-sync redirect URL, or to reach the dashboard from outside Home Assistant.

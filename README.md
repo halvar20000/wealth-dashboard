@@ -308,6 +308,20 @@ https://raw.githubusercontent.com/halvar20000/wealth-dashboard/main/templates/we
 
 The template itself is [`templates/wealth-dashboard.xml`](templates/wealth-dashboard.xml).
 
+### Home Assistant
+
+**Settings → Add-ons → Add-on Store → ⋮ → Repositories**, add
+
+```
+https://github.com/halvar20000/wealth-dashboard
+```
+
+then install **Wealth Dashboard** from the store, start it and open it from
+the sidebar. It runs behind Home Assistant's login through ingress, keeps its
+data where a Home Assistant backup picks it up, and has nothing to configure.
+The [add-on guide](homeassistant/wealth-dashboard/DOCS.md) covers backups and
+the one thing ingress changes for bank sync.
+
 ### Docker, anywhere
 
 ```bash
@@ -555,6 +569,11 @@ TLS in front of it. It serves over plain HTTP through waitress — a real
 server, but one with no rate limiting, no lockout and no second factor in
 front of the single password, so the reverse proxy is doing the work that
 matters on anything reachable from outside.
+
+A proxy may mount it under a path rather than a host of its own: send
+`X-Forwarded-Prefix: /wealth` (nginx, Traefik) and every link and redirect
+carries the prefix. Home Assistant's ingress does the same with
+`X-Ingress-Path`, which is how the add-on works.
 
 Your Enable Banking private key is the credential. Anyone who can read it
 and knows your Application ID can act as your application. It is stored

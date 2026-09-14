@@ -11,6 +11,38 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.48.0] — 2026-09-14
+
+### Added
+- **A Home Assistant add-on.** Add this repository under *Add-on Store →
+  Repositories* and the dashboard installs like any other add-on: the
+  same image Docker and Unraid run, opened from the sidebar through
+  ingress, behind Home Assistant's login, with its data in the add-on's
+  folder where a Home Assistant backup picks it up. Nothing to
+  configure — the timezone is Home Assistant's and everything else is
+  set in the app. The add-on's version is the app's, so a release tag
+  is what makes it appear as an update.
+- **Runs under a path prefix.** A reverse proxy that mounts the app at
+  `/wealth/` — nginx or Traefik with `X-Forwarded-Prefix`, Home
+  Assistant's ingress with `X-Ingress-Path` — now gets every link,
+  form, chart request and redirect with the prefix on. Before, the
+  first click left the app.
+
+### Changed
+- **The session cookie is called `wealth_session`**, not `session`.
+  Behind ingress every add-on shares one origin, and two apps both
+  naming their cookie `session` sign each other out. Updating signs
+  you out once.
+
+## [0.47.1] — 2026-09-14
+
+### Added
+- **Balance over time, on the account page.** Every account with more
+  than one reading draws them: a pension statement by statement, a
+  loan instalment by instalment, a cash account sync by sync. The
+  newest reading of a day stands for the day; between readings the
+  last one holds. The page used to show the newest figure alone.
+
 ## [0.47.0] — 2026-09-14
 
 ### Added

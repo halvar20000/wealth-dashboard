@@ -2339,4 +2339,8 @@ STRINGS: dict[str, str] = {
     'A coin sent to a wallet of your own is still yours. Name the wallet — an account of type Broker, created under Accounts — and a withdrawal becomes a move between the two, at the cost the units carried; a coin sent back in is the same the other way round.': 'Ein Coin, den du an eine eigene Wallet schickst, gehört weiter dir. Benenne die Wallet — ein Konto vom Typ Broker, unter Konten angelegt — und eine Abhebung wird zu einer Umbuchung zwischen beiden, zu den Kosten, die die Einheiten trugen; ein zurückgeschickter Coin ebenso in die andere Richtung.',
     'Saved. A coin withdrawn from now on arrives there, at the cost it carried.': 'Gespeichert. Ein ab jetzt abgehobener Coin kommt dort an, zu den Kosten, die er trug.',
     'Saved. A coin withdrawn simply leaves.': 'Gespeichert. Ein abgehobener Coin geht einfach.',
+    'Balance over time': 'Saldo im Zeitverlauf',
+    '{n} reading since {date}': '{n} Stand seit {date}',
+    '{n} readings since {date}': '{n} Stände seit {date}',
+    "Each point is a reading of the balance on that day — from a sync, a statement, the loan's schedule, or typed in above. The newest reading of a day stands for the day; between readings the last one holds.": 'Jeder Punkt ist ein Saldenstand dieses Tages — aus einem Abgleich, einem Auszug, dem Tilgungsplan oder oben eingetippt. Der neueste Stand eines Tages steht für den Tag; zwischen zwei Ständen gilt der letzte.',
 }

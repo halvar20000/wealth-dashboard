@@ -256,7 +256,7 @@ const BOARDS = {
   value: {
     label: {{ _("Cheap and beaten down") | tojson }},
     desc: {{ _("Shares that have fallen from their own 52-week high, trade on a low P/E, still earn well, and pay a dividend their earnings cover.") | tojson }},
-    url: '/api/screener?profile=value&top=500&failed=1',
+    url: '{{ request.script_root }}/api/screener?profile=value&top=500&failed=1',
     pillars: ['value', 'cheap', 'quality', 'dividend'],
     groupLabel: T.sector, groupField: 'sector', groupsFrom: 'sectors',
     pillarHelp: {{ _("Pillar bars are, left to right: value (how far it has fallen), cheap (P/E and price-to-book), quality (ROE, operating margin, leverage, liquidity), dividend (yield, and whether earnings cover it).") | tojson }},
@@ -282,7 +282,7 @@ const BOARDS = {
   income: {
     label: {{ _("High dividend, still growing") | tojson }},
     desc: {{ _("The highest yields that are not warning you about themselves: the dividend must be growing, covered by earnings AND by free cash flow, on a business that is not shrinking.") | tojson }},
-    url: '/api/screener?profile=income&top=500&failed=1',
+    url: '{{ request.script_root }}/api/screener?profile=income&top=500&failed=1',
     pillars: ['yield', 'growth', 'safety', 'quality'],
     groupLabel: T.sector, groupField: 'sector', groupsFrom: 'sectors',
     pillarHelp: {{ _("Pillar bars are, left to right: yield (what it pays today), growth (dividend, revenue and earnings growth), safety (payout ratio, free-cash-flow cover, leverage, liquidity), quality (ROE and margins). Dividend growth is the forward annual rate against the last twelve months actually paid, so a declared cut shows up here the day it is announced rather than a year later.") | tojson }},
@@ -309,7 +309,7 @@ const BOARDS = {
   etf: {
     label: {{ _("High growth, low TER") | tojson }},
     desc: {{ _("UCITS ETFs ranked on compound annual total return in EUR against what they charge for it. Growth is the past; the TER is the only column here that is a fact about the future.") | tojson }},
-    url: '/api/screener/etf?top=500&failed=1',
+    url: '{{ request.script_root }}/api/screener/etf?top=500&failed=1',
     pillars: ['growth', 'cost', 'risk', 'size'],
     groupLabel: T.region, groupField: 'region', groupsFrom: 'regions',
     pillarHelp: {{ _("Pillar bars are, left to right: growth (5-year and 3-year CAGR in EUR, total return), cost (TER), risk (return per unit of volatility, and the worst peak-to-trough fall in the window), size (fund assets — a small fund can close, and trades on a wider spread). Returns are converted to euros before they are measured: a USD-quoted UCITS ETF and its EUR-quoted twin are the same fund, and comparing their raw returns would rank the dollar.") | tojson }},
@@ -338,7 +338,7 @@ const BOARDS = {
   etf_dividend: {
     label: {{ _("High yield, low TER") | tojson }},
     desc: {{ _("Distributing UCITS ETFs ranked on the income they actually paid over the last twelve months against what they charge for it — and on whether that income is growing rather than being cut. Accumulating share classes are excluded: they pay nothing.") | tojson }},
-    url: '/api/screener/etf?profile=dividend&top=500&failed=1',
+    url: '{{ request.script_root }}/api/screener/etf?profile=dividend&top=500&failed=1',
     pillars: ['yield', 'cost', 'growth', 'stability'],
     groupLabel: T.region, groupField: 'region', groupsFrom: 'regions',
     pillarHelp: {{ _("Pillar bars are, left to right: yield (distributions paid over the last twelve months, divided by today’s price), cost (TER), growth (this year’s distributions against last year’s, plus the price return as a check that the income is not just capital coming back), stability (the worst year-on-year fall in the distribution on record, and the worst peak-to-trough price fall). The yield is computed from the distributions themselves, not read from a field — Yahoo populates its own yield for barely one European listing in six. Because the numerator is the past year and the denominator is today’s price, it reads lower than a provider’s “indicated yield” whenever the fund has risen.") | tojson }},
@@ -694,7 +694,7 @@ function openDrawer(sym) {
 
 async function setWatch(symbol, status) {
   try {
-    const res = await fetch(`/api/screener/watch/${encodeURIComponent(symbol)}`, {
+    const res = await fetch(`{{ request.script_root }}/api/screener/watch/${encodeURIComponent(symbol)}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });

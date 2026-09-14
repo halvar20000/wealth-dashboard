@@ -2060,6 +2060,14 @@ check("a balance can be typed in", b"Balance recorded" in r.data, True)
 acct = next(a for a in ov.summary("EUR")["accounts"] if a["id"] == hand_id)
 check("...and the overview counts it", acct["balance"], 1234.56)
 check("...as of the day it was true", acct["balance_as_of"], "2026-09-01")
+# A second reading, and the account has a line: the readings, day by
+# day, on its page.
+r = c.get(f"/accounts/{hand_id}")
+check("one reading is a figure, not a line", b"Balance over time" in r.data, False)
+c.post(f"/accounts/{hand_id}/balance", data={"amount": "1300", "as_of": "2026-09-08"})
+r = c.get(f"/accounts/{hand_id}")
+check("two readings are a line on the account's page",
+      (b"Balance over time" in r.data, b"2 readings since" in r.data, b'"amount": 1234.56' in r.data, b'"amount": 1300.0' in r.data), (True, True, True, True))
 r = c.get(f"/accounts/{hand_id}")
 check("...and the account page says it was typed in", b"typed in" in r.data, True)
 r = c.post(f"/accounts/{hand_id}/balance", data={"amount": "", "as_of": "2026-09-01"},
@@ -2713,6 +2721,46 @@ check("...with the section names translated",
 
 r = c.get("/")
 check("the version is in the header", b"version-badge" in r.data, True)
+
+# The Home Assistant add-on pulls the image tagged with the version in
+# its config.yaml. A version there that was never tagged is an add-on
+# that installs nothing.
+addon_cfg = (REPO / "homeassistant" / "wealth-dashboard" / "config.yaml").read_text()
+addon_version = re.search(r'^version:\s*"?([\d.]+)"?\s*$', addon_cfg, re.M)
+check("the Home Assistant add-on names the same version",
+      addon_version and addon_version.group(1), __version__)
+check("...and the same image the workflow publishes",
+      "image: ghcr.io/halvar20000/wealth-dashboard\n" in addon_cfg, True)
+check("...with its changelog being the app's",
+      (REPO / "homeassistant" / "wealth-dashboard" / "CHANGELOG.md").resolve(),
+      (REPO / "CHANGELOG.md").resolve())
+
+# Behind a reverse proxy that mounts the app under a prefix — Home
+# Assistant's ingress, nginx with X-Forwarded-Prefix — every link, form
+# action, fetch() and redirect has to carry the prefix, or the first
+# click leaves the app. The test client can say the header itself.
+ingress = {"X-Ingress-Path": "/api/hassio_ingress/abc"}
+r = c.get("/", headers=ingress)
+check("under a prefix the page renders", r.status_code, 200)
+body = r.data.decode()
+check("...links carry the prefix", 'href="/api/hassio_ingress/abc/transactions"' in body, True)
+check("...and so does the stylesheet", '/api/hassio_ingress/abc/static/' in body, True)
+check("...while no link points at the root",
+      re.search(r'(href|action)="/(?!api/hassio_ingress/)', body) is None, True)
+r = c.get("/transactions", headers=ingress)
+check("a form's action carries the prefix",
+      'action="/api/hassio_ingress/abc/transactions/' in r.data.decode(), True)
+r = c.post("/view", data={"next": "/transactions"}, headers=ingress)
+check("a 'back to where you were' redirect carries it too",
+      r.headers.get("Location"), "/api/hassio_ingress/abc/transactions")
+r = c.post("/view", data={"next": "//evil.example"}, headers=ingress)
+check("...and a bad one still falls back inside the app",
+      r.headers.get("Location"), "/api/hassio_ingress/abc/")
+r = c.get("/", headers={"X-Ingress-Path": "//evil.example"})
+check("a prefix that is a host is ignored", 'href="//evil' in r.data.decode(), False)
+r = c.get("/", headers={"X-Forwarded-Prefix": "/wealth/"})
+check("X-Forwarded-Prefix works the same, trailing slash dropped",
+      'href="/wealth/transactions"' in r.data.decode(), True)
 
 # The changelog ships in the image, so the page is not empty for the
 # people who install it rather than clone it.

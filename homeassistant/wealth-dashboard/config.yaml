@@ -1,0 +1,41 @@
+# The Home Assistant add-on. It runs the same image Unraid and Docker
+# users run — nothing is built on the Home Assistant machine, and
+# `version` is the image tag it pulls, so it must be a version that was
+# tagged and published. The release check in the workflow refuses a tag
+# where this file and app/__init__.py disagree.
+name: Wealth Dashboard
+version: 0.48.0
+slug: wealth-dashboard
+description: Self-hosted net worth tracking. One SQLite file, no cloud, no account with anybody.
+url: https://github.com/halvar20000/wealth-dashboard
+image: ghcr.io/halvar20000/wealth-dashboard
+# The two platforms the image is published for.
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: auto
+# Reached inside Home Assistant, behind its login, with no port of its
+# own. The app is told the prefix in X-Ingress-Path and serves from
+# under it.
+ingress: true
+ingress_port: 8000
+panel_icon: mdi:finance
+panel_title: Wealth
+# Off by default. Only needed for the bank-sync redirect URL, which a
+# bank cannot deliver through ingress, or to reach the dashboard from
+# outside Home Assistant.
+ports:
+  8000/tcp: null
+ports_description:
+  8000/tcp: Direct access without ingress. Leave it off unless you set up bank sync, whose redirect URL needs a plain port the bank can send you back to.
+webui: http://[HOST]:[PORT:8000]
+# The app's own health endpoint reports its version; a container that
+# never restarted after an update looks healthy otherwise.
+watchdog: http://[HOST]:[PORT:8000]/healthz
+# Nothing to configure: the data directory, the port and the timezone
+# are all supplied — /data is the add-on's persistent folder, and
+# Home Assistant sets TZ from its own timezone. The rest is set in the
+# app under Settings.
+options: {}
+schema: {}

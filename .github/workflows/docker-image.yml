@@ -19,6 +19,9 @@ on:
       - 'templates/**'
       - 'ca_profile.xml'
       - 'icon.png'
+      # The Home Assistant add-on is metadata around the same image.
+      - 'homeassistant/**'
+      - 'repository.yaml'
       - 'LICENSE'
       - '.gitignore'
   workflow_dispatch:
@@ -47,16 +50,17 @@ jobs:
       # image somebody installs.
       - run: python3 tests/test_all.py
 
-  # A release tag has to mean something. Three places carry the version
-  # — the tag, __version__, and the changelog — and any two of them
-  # agreeing while the third does not is how you end up shipping 0.8.0
-  # twice with different contents.
+  # A release tag has to mean something. Four places carry the version
+  # — the tag, __version__, the changelog and the Home Assistant add-on
+  # — and any of them agreeing while another does not is how you end up
+  # shipping 0.8.0 twice with different contents, or an add-on that
+  # pulls an image tag that was never published.
   version:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Tag, __version__ and CHANGELOG must agree
+      - name: Tag, __version__, CHANGELOG and the add-on must agree
         run: |
           tag="${GITHUB_REF_NAME#v}"
           code=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' app/__init__.py)
@@ -68,7 +72,12 @@ jobs:
             echo "::error::CHANGELOG.md has no '## [$tag]' entry"
             exit 1
           fi
-          echo "$tag is consistent across tag, code and changelog"
+          addon=$(sed -n 's/^version: *"\{0,1\}\([0-9.]*\)"\{0,1\}$/\1/p' homeassistant/wealth-dashboard/config.yaml)
+          if [ "$tag" != "$addon" ]; then
+            echo "::error::homeassistant/wealth-dashboard/config.yaml says $addon, tag says $tag"
+            exit 1
+          fi
+          echo "$tag is consistent across tag, code, changelog and add-on"
 
   build:
     # Both, and the `if` is what makes that work: `version` only runs for

@@ -356,7 +356,7 @@ applyToggles();
 drawHistory({{ history | tojson }});
 document.querySelectorAll('.period-btn').forEach(btn => btn.addEventListener('click', async () => {
   document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b === btn));
-  const res = await fetch('/api/networth?period=' + btn.dataset.period, { credentials: 'same-origin' });
+  const res = await fetch('{{ url_for("api_networth") }}?period=' + btn.dataset.period, { credentials: 'same-origin' });
   if (res.ok) drawHistory(await res.json());
 }));
 

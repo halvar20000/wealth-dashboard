@@ -12,6 +12,8 @@ docs
 templates
 ca_profile.xml
 icon.png
+homeassistant
+repository.yaml
 *.md
 # …except this one: the app reads it to render its own history.
 !CHANGELOG.md

@@ -56,6 +56,37 @@ APP_DIR = Path(__file__).resolve().parent
 app = Flask(__name__, template_folder=str(APP_DIR / "templates"),
             static_folder=str(APP_DIR / "static"))
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+# Its own cookie name, not Flask's default `session`. Behind Home
+# Assistant's ingress every add-on shares one origin, and two Flask apps
+# both calling their cookie `session` sign each other out on every
+# page load. Renaming it signs everyone out once, on the update.
+app.config["SESSION_COOKIE_NAME"] = "wealth_session"
+
+
+class _PathPrefix:
+    """Serve from under a prefix when a reverse proxy says there is one.
+
+    Home Assistant's ingress mounts the app at /api/hassio_ingress/<token>/
+    and says so in `X-Ingress-Path`; nginx and Traefik say it in
+    `X-Forwarded-Prefix`. Either becomes SCRIPT_NAME, and from there every
+    url_for() and redirect carries the prefix without a template knowing.
+    A client that sends the header itself only bends the links on its own
+    page, which is why there is no trust switch to configure.
+    """
+
+    def __init__(self, wsgi):
+        self.wsgi = wsgi
+
+    def __call__(self, environ, start_response):
+        prefix = (environ.get("HTTP_X_INGRESS_PATH")
+                  or environ.get("HTTP_X_FORWARDED_PREFIX") or "").rstrip("/")
+        if (prefix.startswith("/") and not prefix.startswith("//")
+                and not any(c.isspace() for c in prefix)):
+            environ["SCRIPT_NAME"] = prefix
+        return self.wsgi(environ, start_response)
+
+
+app.wsgi_app = _PathPrefix(app.wsgi_app)
 
 # A transaction export is tens of kilobytes. The ceiling is not about
 # disk: it is so that a mis-chosen file — a database dump, a video — is
@@ -93,6 +124,16 @@ def _secret_key() -> bytes:
 
 
 app.secret_key = _secret_key()
+
+
+def _back(raw: str | None, fallback: str) -> str:
+    """Where a `next` or `back` field points. It carries request.path —
+    the path inside the app, without whatever a proxy put in front — so
+    the prefix goes back on here, or under ingress the redirect lands on
+    Home Assistant's own root. `fallback` is a url_for() and has it."""
+    if raw and auth.safe_next(raw) == raw:
+        return request.script_root + raw
+    return fallback
 
 
 @app.before_request
@@ -259,7 +300,7 @@ def login():
                 session.clear()
                 session["uid"] = user["id"]
                 session.permanent = True
-                return redirect(auth.safe_next(request.args.get("next")))
+                return redirect(_back(request.args.get("next"), url_for("index")))
             auth.record_failure(ip)
             # One message for both cases. "No such user" tells an
             # attacker which half to keep guessing.
@@ -306,10 +347,7 @@ def view_switch():
     it was pressed on, which now adds up differently."""
     chosen = (request.form.get("person") or "").strip()
     people.choose(int(chosen) if chosen.isdigit() else None)
-    nxt = request.form.get("next") or ""
-    if not nxt.startswith("/") or nxt.startswith("//"):
-        nxt = url_for("index")
-    return redirect(nxt)
+    return redirect(_back(request.form.get("next"), url_for("index")))
 
 
 @app.route("/accounts")
@@ -366,6 +404,14 @@ def account_detail(account_id: int):
         total = conn.execute(
             "SELECT COUNT(*) AS n FROM transactions WHERE account_id = ?",
             (account_id,)).fetchone()["n"]
+        # Every reading, the newest of a day standing for the day — the
+        # line the balance has drawn: a pension statement by statement,
+        # a loan instalment by instalment, a cash account sync by sync.
+        readings = {}
+        for r in conn.execute("SELECT as_of, amount, currency FROM balances WHERE account_id = ? "
+                              "ORDER BY as_of, id", (account_id,)):
+            readings[r["as_of"]] = {"date": r["as_of"], "amount": r["amount"], "currency": r["currency"]}
+        readings = list(readings.values())
 
     link = dict(link) if link else None
     if link:
@@ -378,6 +424,7 @@ def account_detail(account_id: int):
                            positions=importers.positions(account_id),
                            imports=importers.recent_imports(account_id),
                            balance=dict(balance) if balance else None,
+                           readings=readings,
                            transactions=[dict(t) for t in txns],
                            total_transactions=total,
                            configured=banksync.credentials_present(),
@@ -1137,10 +1184,7 @@ def transaction_edit(txn_id: int):
         flash(_t("Corrected."), "ok")
     except ValueError as exc:
         flash(str(exc), "error")
-    back = request.form.get("back") or ""
-    if not back.startswith("/") or back.startswith("//"):
-        back = url_for("transactions")
-    return redirect(back)
+    return redirect(_back(request.form.get("back"), url_for("transactions")))
 
 
 @app.route("/accounts/<int:account_id>/transactions/<int:txn_id>/delete",
@@ -1151,10 +1195,8 @@ def transaction_delete(account_id: int, txn_id: int):
         flash(_t("Removed. An import or a sync will not bring it back."), "ok")
     else:
         flash(_t("That row is not there."), "error")
-    back = request.form.get("back") or ""
-    if back.startswith("/") and not back.startswith("//"):
-        return redirect(back)
-    return redirect(url_for("account_detail", account_id=account_id))
+    return redirect(_back(request.form.get("back"),
+                          url_for("account_detail", account_id=account_id)))
 
 
 @app.route("/accounts/<int:account_id>/sync", methods=["POST"])
@@ -1539,10 +1581,7 @@ def transaction_tags(txn_id: int):
     """Set one row's tags — words, comma-separated. No rule follows:
     a tag is a label on this row, where a category is a habit."""
     categories.set_tags(txn_id, request.form.get("tags"))
-    back = request.form.get("back") or ""
-    if back.startswith("/") and not back.startswith("//"):
-        return redirect(back)
-    return redirect(url_for("transactions"))
+    return redirect(_back(request.form.get("back"), url_for("transactions")))
 
 
 @app.route("/transactions/<int:txn_id>/category", methods=["POST"])
@@ -2404,8 +2443,8 @@ def settings_page(section: str = "general"):
                            saxo_state=saxo.describe(),
                            kraken_state=kraken.describe(),
                            broker_links=brokers.links(),
-                           mcp_url=request.host_url.rstrip("/") + "/mcp",
-                           api_url=request.host_url.rstrip("/") + "/api/v1/tools",
+                           mcp_url=request.url_root.rstrip("/") + "/mcp",
+                           api_url=request.url_root.rstrip("/") + "/api/v1/tools",
                            hooks=webhooks.all_hooks(), hook_events=webhooks.EVENTS,
                            csv_mappings=importers.generic.all_mappings(),
                            check=check)

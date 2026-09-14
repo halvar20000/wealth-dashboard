@@ -40,6 +40,17 @@
   </div>
 </div>
 
+{% if readings | length > 1 %}
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("Balance over time") }}</h2>
+    <span class="card-subtitle">{{ _n(readings | length, "{n} reading since {date}", "{n} readings since {date}", date=d(readings[0].date)) }}</span>
+  </div>
+  <div class="chart-wrap" style="height:220px"><canvas id="bal-chart"></canvas></div>
+  <p class="sub">{{ _("Each point is a reading of the balance on that day — from a sync, a statement, the loan's schedule, or typed in above. The newest reading of a day stands for the day; between readings the last one holds.") }}</p>
+</div>
+{% endif %}
+
 {% if broker or (account.type == 'broker' and not link and (saxo_state.configured or kraken_ready)) %}
 <div class="card">
   <h2>{{ _("Broker connection") }}</h2>
@@ -218,5 +229,29 @@
 <div class="card empty"><p>{{ _("No transactions yet.") }}</p>
   {% set add_link %}<a href="{{ url_for('account_add', account_id=account.id) }}">{{ _("Add by hand") }}</a>{% endset %}
   <p class="sub">{{ _f("Connect a bank, import a CSV, or {add}.", add=add_link) | safe }}</p></div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if readings | length > 1 %}
+<script>
+(() => {
+  const R = {{ readings | tojson }};
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const lang = {{ lang | tojson }};
+  const ccy = R[R.length - 1].currency;
+  const fmt = (v) => v.toLocaleString(lang, { maximumFractionDigits: 0 }) + '\u00a0' + ccy;
+  new Chart(document.getElementById('bal-chart'), {
+    type: 'line',
+    data: { labels: R.map((r) => r.date), datasets: [{ label: {{ _("Balance") | tojson }}, data: R.map((r) => r.amount),
+      borderColor: css('--accent-gold'), backgroundColor: 'rgba(245,215,110,0.08)', fill: 'origin', borderWidth: 2,
+      pointRadius: R.length > 60 ? 0 : 3, pointHoverRadius: 5, stepped: 'before' }] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ' ' + fmt(c.parsed.y) } } },
+      scales: { x: { ticks: { color: css('--text-tertiary'), maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } },
+                y: { ticks: { color: css('--text-tertiary'), callback: (v) => fmt(v), maxTicksLimit: 5 }, grid: { color: css('--border') } } } },
+  });
+})();
+</script>
 {% endif %}
 {% endblock %}

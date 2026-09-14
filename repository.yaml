@@ -1,0 +1,6 @@
+# Everything is in the add-on folder; this file only has to exist
+# at the root for Home Assistant to treat the repository as an add-on
+# repository. The add-on itself is homeassistant/wealth-dashboard/.
+name: Wealth Dashboard add-ons
+url: https://github.com/halvar20000/wealth-dashboard
+maintainer: halvar20000

@@ -1,6 +1,6 @@
 # Cutting a release
 
-The version lives in **three places** and they must agree. The build refuses a
+The version lives in **four places** and they must agree. The build refuses a
 tag where they do not, because a version number that means nothing is worse
 than no version number.
 
@@ -8,13 +8,19 @@ than no version number.
 |---|---|
 | `app/__init__.py` | `__version__ = "0.8.0"` — the one place it is written |
 | `CHANGELOG.md` | a `## [0.8.0] — YYYY-MM-DD` section saying what changed |
+| `homeassistant/wealth-dashboard/config.yaml` | `version: 0.8.0` — the image tag the Home Assistant add-on pulls |
 | the git tag | `v0.8.0` |
+
+The add-on entry is why **a tag is not optional any more**: Home Assistant
+installs `ghcr.io/halvar20000/wealth-dashboard:<version>`, and only a tag
+publishes that. `latest` alone leaves Home Assistant users on the previous
+release.
 
 ## The steps
 
 ```bash
-# 1. Bump the version.
-$EDITOR app/__init__.py
+# 1. Bump the version, in both places it is typed.
+$EDITOR app/__init__.py homeassistant/wealth-dashboard/config.yaml
 
 # 2. Write the entry. Newest at the top, under Added / Changed / Fixed /
 #    Removed. Say what changed and why, not which files moved.
@@ -30,7 +36,7 @@ git tag v0.8.0
 git push && git push --tags
 ```
 
-The tag build runs the suite, checks the three places against each other, then
+The tag build runs the suite, checks the four places against each other, then
 publishes `ghcr.io/halvar20000/wealth-dashboard` as `0.8.0`, `0.8` and — only
 from `main` — `latest`.
 
@@ -65,4 +71,6 @@ the tag instead:
 ghcr.io/halvar20000/wealth-dashboard:0.8.0
 ```
 
-In Unraid that is the **Repository** field on the container.
+In Unraid that is the **Repository** field on the container. The Home
+Assistant add-on is always pinned: it pulls the version in its `config.yaml`,
+and the next tag is what offers it an update.
