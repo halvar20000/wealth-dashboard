@@ -11,6 +11,23 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.50.0] — 2026-09-15
+
+### Added
+- **`wealth-dashboard install`: an icon, and running after a reboot.**
+  One command puts Wealth Dashboard in the applications menu and on
+  the desktop and starts it at login — a systemd user service on
+  Linux (an autostart entry where there is no systemd), a LaunchAgent
+  and a small app bundle on macOS, Start Menu, desktop and Startup
+  shortcuts on Windows — all per user, nothing needing an
+  administrator. Flags given to `install` are kept by the shortcut.
+  `wealth-dashboard uninstall` removes them; the data stays.
+- **Starting it twice opens it.** A second `wealth-dashboard` on a
+  port where one is already answering opens the browser on the
+  running copy instead of dying with "address in use" — so the icon
+  always ends on the dashboard, service or no service.
+- **A favicon.** The icon in the tab, and in the shortcut.
+
 ## [0.49.0] — 2026-09-15
 
 ### Added

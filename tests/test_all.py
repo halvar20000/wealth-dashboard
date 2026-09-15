@@ -2816,6 +2816,77 @@ finally:
         del os.environ["XDG_DATA_HOME"]
     else:
         os.environ["XDG_DATA_HOME"] = _xdg
+# `wealth-dashboard install`: a shortcut and start-at-login, written
+# into this user's folders and nowhere else — so a throwaway HOME shows
+# everything it touches, and uninstall must leave only the data.
+from app import launcher                                        # noqa: E402
+
+if sys.platform.startswith("linux"):
+    fake_home = pathlib.Path(TMP) / "home"
+    (fake_home / "Desktop").mkdir(parents=True)
+    _saved = {k: os.environ.get(k) for k in ("HOME", "XDG_DATA_HOME", "XDG_CONFIG_HOME")}
+    os.environ["HOME"] = str(fake_home)
+    os.environ.pop("XDG_DATA_HOME", None)
+    os.environ.pop("XDG_CONFIG_HOME", None)
+    # Record the systemctl calls instead of making them: the suite must
+    # not enable a real service on the machine running it.
+    calls: list[list[str]] = []
+    _real_run = launcher._run
+    launcher._run = lambda cmd: calls.append(cmd) is None
+    try:
+        written = launcher.install(["--port", "8123"])
+        entry = fake_home / ".local" / "share" / "applications" / "wealth-dashboard.desktop"
+        check("install writes a menu entry", entry.is_file(), True)
+        text = entry.read_text()
+        check("...that runs this interpreter with -m, not a PATH lookup",
+              f"Exec={sys.executable} -m app --port 8123" in text, True)
+        check("...from the checkout, which is where `-m app` imports from",
+              f"Path={REPO}" in text, True)
+        check("...without a terminal", "Terminal=false" in text, True)
+        check("...and a copy on the desktop, executable so GNOME trusts it",
+              (fake_home / "Desktop" / "wealth-dashboard.desktop").stat().st_mode & 0o100, 0o100)
+        check("...and the icon where the menu looks for it",
+              (fake_home / ".local/share/icons/hicolor/512x512/apps/wealth-dashboard.png").is_file(), True)
+        service = fake_home / ".config" / "systemd" / "user" / "wealth-dashboard.service"
+        autostart = fake_home / ".config" / "autostart" / "wealth-dashboard.desktop"
+        check("start-at-login is a user service or, without systemd, an autostart entry",
+              service.is_file() or autostart.is_file(), True)
+        login_text = (service if service.is_file() else autostart).read_text()
+        check("...which does not try to open a browser at boot",
+              "--no-browser" in login_text, True)
+        check("...and every written path is reported", len(written) >= 3, True)
+        gone = launcher.uninstall()
+        check("uninstall removes what install wrote",
+              [p for p in (entry, service, autostart, fake_home / "Desktop" / "wealth-dashboard.desktop")
+               if p.exists()], [])
+        check("...and reports it", len(gone) >= 3, True)
+        if service.exists() or any(c[:2] == ["systemctl", "--user"] for c in calls):
+            check("with systemd the service is enabled and started, then disabled",
+                  [c[2:4] for c in calls if c[:2] == ["systemctl", "--user"] and c[2] in ("enable", "disable")],
+                  [["enable", "--now"], ["disable", "--now"]])
+    finally:
+        launcher._run = _real_run
+        for k, v in _saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+# The Windows icon is the PNG in an .ico envelope — check the envelope,
+# since no Windows is going to.
+ico = pathlib.Path(TMP) / "t.ico"
+launcher._ico_from_png(launcher.ICON, ico)
+raw = ico.read_bytes()
+check("the .ico header says one icon", raw[:6], b"\x00\x00\x01\x00\x01\x00")
+check("...whose bytes are the PNG itself", raw[22:], launcher.ICON.read_bytes())
+ps = launcher._ps_shortcut(pathlib.Path("DESKTOP") / "Wealth Dashboard.lnk",
+                           ["C:\\py\\pythonw.exe", "-m", "wealth_dashboard", "--no-browser"], pathlib.Path("C:\\i.ico"))
+check("a desktop shortcut on Windows asks Windows where the desktop is",
+      "GetFolderPath('Desktop')" in ps and "$s.Arguments = '-m wealth_dashboard --no-browser'" in ps, True)
+
+# A second start on the same port is not an error: it opens the running one.
+check("nothing listening means not running", cli.running_version("127.0.0.1", "1"), None)
+
 _wd = os.environ.pop("WD_DATA_DIR")
 try:
     if not (pathlib.Path("/data").is_dir() and os.access("/data", os.W_OK)):

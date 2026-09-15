@@ -58,7 +58,7 @@ packages = [
 # Templates and the stylesheet are what the app serves; CHANGELOG.md is
 # a symlink to the repo's, resolved to a file when the wheel is built,
 # so the changelog page works with no repo to read it from.
-wealth_dashboard = ["templates/*.html", "static/css/*.css", "CHANGELOG.md"]
+wealth_dashboard = ["templates/*.html", "static/css/*.css", "static/*.png", "CHANGELOG.md"]
 
 [tool.setuptools.dynamic]
 version = { attr = "wealth_dashboard.__version__" }

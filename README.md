@@ -335,9 +335,25 @@ It starts on <http://127.0.0.1:8000>, opens it in your browser, and keeps
 its data in your user folder — `~/.local/share/wealth-dashboard` on Linux,
 `~/Library/Application Support/wealth-dashboard` on macOS,
 `%LOCALAPPDATA%\wealth-dashboard` on Windows; the path is printed on start.
+
+Then, once, so that a terminal is never needed again:
+
+```bash
+wealth-dashboard install
+```
+
+That puts **Wealth Dashboard** in your applications menu and on your desktop,
+and starts it at login — a systemd user service on Linux, a LaunchAgent on
+macOS, a Startup-folder shortcut on Windows. After a reboot it is simply
+running; the icon opens it in the browser, whether or not it already was.
+Flags given to `install` are kept by the shortcut (`wealth-dashboard install
+--port 8001`). `wealth-dashboard uninstall` removes the three again; your
+data stays.
+
 `wealth-dashboard --help` lists the flags: `--port`, `--host 0.0.0.0` for
 the LAN, `--data DIR` to keep it somewhere else, `--no-browser`. Update with
-`pipx upgrade wealth-dashboard`.
+`pipx upgrade wealth-dashboard` — the shortcut and the service pick up the
+new version on their next start.
 
 Until the first PyPI release, or to run the newest commit, the same
 command works straight from the repository:
