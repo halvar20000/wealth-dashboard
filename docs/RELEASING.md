@@ -38,7 +38,16 @@ git push && git push --tags
 
 The tag build runs the suite, checks the four places against each other, then
 publishes `ghcr.io/halvar20000/wealth-dashboard` as `0.8.0`, `0.8` and — only
-from `main` — `latest`.
+from `main` — `latest`. The same tag runs `pypi.yml`, which builds the wheel,
+installs it into a clean interpreter to prove it runs, and uploads it to PyPI
+as `wealth-dashboard 0.8.0` — the version is read from `app/__init__.py`, so
+there is no fifth place to type it.
+
+PyPI publishing uses *trusted publishing*: the PyPI project trusts this
+repository's `pypi.yml` workflow in the `pypi` environment, and no token is
+stored anywhere. It is set up once, under the project's **Publishing** page
+on PyPI (owner `halvar20000`, repository `wealth-dashboard`, workflow
+`pypi.yml`, environment `pypi`).
 
 ## Which number to bump
 

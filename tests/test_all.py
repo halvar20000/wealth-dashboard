@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 import base64
+import contextlib
 import hashlib
 import hmac
 import urllib.parse
@@ -2771,6 +2772,57 @@ check("...and the Dockerfile copies it",
 workflow = (REPO / ".github" / "workflows" / "docker-image.yml").read_text()
 check("...and editing it rebuilds the image",
       "'**.md'" in workflow, False)
+
+# The PyPI package: `pipx install wealth-dashboard`. The code is the
+# same `app/` mapped to the import name `wealth_dashboard`, and what
+# the image gets from the repo — the changelog, the dependencies — the
+# package has to carry itself.
+pyproject = (REPO / "pyproject.toml").read_text()
+check("the package maps app/ to wealth_dashboard",
+      'package-dir = { "wealth_dashboard" = "app" }' in pyproject, True)
+check("...with the version read from the code, not typed again",
+      'attr = "wealth_dashboard.__version__"' in pyproject, True)
+pins = re.findall(r'^\s*"([A-Za-z]+[^"]*)",\s*$', pyproject.split("dependencies = [", 1)[1].split("]", 1)[0], re.M)
+wants = [ln.split("#", 1)[0].strip() for ln in (REPO / "requirements.txt").read_text().splitlines()]
+check("...and the same dependencies as requirements.txt",
+      pins, [w for w in wants if w])
+check("the changelog is inside the package",
+      (REPO / "app" / "CHANGELOG.md").resolve(), (REPO / "CHANGELOG.md").resolve())
+check("...and the package data ships it", '"CHANGELOG.md"' in pyproject, True)
+check("...and the app finds it there", changelog.CHANGELOG_PATH.is_file(), True)
+ep = re.search(r'^wealth-dashboard = "wealth_dashboard\.(\w+):(\w+)"', pyproject, re.M)
+from app import cli                                             # noqa: E402
+check("the command line entry point exists",
+      ep and callable(getattr(__import__("app." + ep.group(1), fromlist=[ep.group(2)]), ep.group(2), None)), True)
+
+buf = io.StringIO()
+try:
+    with contextlib.redirect_stdout(buf):
+        cli.main(["--version"])
+except SystemExit as exc:
+    check("--version exits cleanly", exc.code, 0)
+check("...naming the version", buf.getvalue().strip(), f"wealth-dashboard {__version__}")
+
+# Installed rather than cloned, data goes where the OS keeps a user's
+# files — not next to the code, which the next upgrade replaces.
+_xdg = os.environ.get("XDG_DATA_HOME")
+os.environ["XDG_DATA_HOME"] = "/tmp/xdg-test"
+try:
+    if sys.platform.startswith("linux"):
+        check("on Linux the user data folder follows XDG",
+              str(settings.user_data_dir()), "/tmp/xdg-test/wealth-dashboard")
+finally:
+    if _xdg is None:
+        del os.environ["XDG_DATA_HOME"]
+    else:
+        os.environ["XDG_DATA_HOME"] = _xdg
+_wd = os.environ.pop("WD_DATA_DIR")
+try:
+    if not (pathlib.Path("/data").is_dir() and os.access("/data", os.W_OK)):
+        check("a checkout keeps its data beside the repo",
+              settings._data_dir(), REPO / "data")
+finally:
+    os.environ["WD_DATA_DIR"] = _wd
 
 # ---------------------------------------------------------------------------
 print("\n15. Exchange rates")

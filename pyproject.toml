@@ -1,0 +1,64 @@
+# The PyPI package: `pipx install wealth-dashboard`, then `wealth-dashboard`.
+#
+# The import name is `wealth_dashboard`; the code lives in `app/` and is
+# mapped there at build time. That keeps the checkout, the image and the
+# tests as they are (`python -m app`) while nothing called `app` lands
+# in anybody's site-packages, where the name would collide with the
+# first other project that used it.
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wealth-dashboard"
+dynamic = ["version"]
+description = "Self-hosted net worth tracking. One SQLite file, no cloud, no account with anybody."
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+requires-python = ">=3.10"
+# The same four as requirements.txt, which stays the file a NAS
+# installs from; the two must be kept in step (the suite checks).
+dependencies = [
+    "Flask>=3.0",
+    "cryptography>=42.0",
+    "waitress>=3.0",
+    "pypdf>=4.0",
+]
+keywords = ["finance", "net-worth", "budget", "portfolio", "self-hosted", "psd2"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Office/Business :: Financial :: Accounting",
+]
+
+[project.urls]
+Homepage = "https://github.com/halvar20000/wealth-dashboard"
+Changelog = "https://github.com/halvar20000/wealth-dashboard/blob/main/CHANGELOG.md"
+Issues = "https://github.com/halvar20000/wealth-dashboard/issues"
+
+[project.scripts]
+wealth-dashboard = "wealth_dashboard.cli:main"
+
+[tool.setuptools]
+package-dir = { "wealth_dashboard" = "app" }
+packages = [
+    "wealth_dashboard",
+    "wealth_dashboard.banks",
+    "wealth_dashboard.brokers",
+    "wealth_dashboard.importers",
+    "wealth_dashboard.lang",
+]
+
+[tool.setuptools.package-data]
+# Templates and the stylesheet are what the app serves; CHANGELOG.md is
+# a symlink to the repo's, resolved to a file when the wheel is built,
+# so the changelog page works with no repo to read it from.
+wealth_dashboard = ["templates/*.html", "static/css/*.css", "CHANGELOG.md"]
+
+[tool.setuptools.dynamic]
+version = { attr = "wealth_dashboard.__version__" }

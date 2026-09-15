@@ -322,6 +322,30 @@ data where a Home Assistant backup picks it up, and has nothing to configure.
 The [add-on guide](homeassistant/wealth-dashboard/DOCS.md) covers backups and
 the one thing ingress changes for bank sync.
 
+### Linux, macOS, Windows
+
+With Python 3.10 or newer and [pipx](https://pipx.pypa.io/) installed:
+
+```bash
+pipx install wealth-dashboard
+wealth-dashboard
+```
+
+It starts on <http://127.0.0.1:8000>, opens it in your browser, and keeps
+its data in your user folder — `~/.local/share/wealth-dashboard` on Linux,
+`~/Library/Application Support/wealth-dashboard` on macOS,
+`%LOCALAPPDATA%\wealth-dashboard` on Windows; the path is printed on start.
+`wealth-dashboard --help` lists the flags: `--port`, `--host 0.0.0.0` for
+the LAN, `--data DIR` to keep it somewhere else, `--no-browser`. Update with
+`pipx upgrade wealth-dashboard`.
+
+Until the first PyPI release, or to run the newest commit, the same
+command works straight from the repository:
+
+```bash
+pipx install git+https://github.com/halvar20000/wealth-dashboard
+```
+
 ### Docker, anywhere
 
 ```bash

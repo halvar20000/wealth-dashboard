@@ -11,6 +11,21 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.49.0] — 2026-09-15
+
+### Added
+- **`pipx install wealth-dashboard`.** The app is a Python package on
+  PyPI, for Linux, macOS and Windows: one command installs it, one
+  starts it, and it opens in your browser. Installed this way its
+  data lives in your user folder — `~/.local/share/wealth-dashboard`,
+  `~/Library/Application Support/wealth-dashboard`,
+  `%LOCALAPPDATA%\wealth-dashboard` — where the next upgrade will not
+  touch it; a checkout keeps `data/` beside the repo as before.
+- **A command line.** `wealth-dashboard --help`: `--port`, `--host`
+  for the LAN, `--data DIR`, `--no-browser`, `--version`. The
+  environment variables still work, because that is how a container
+  is told the same things.
+
 ## [0.48.0] — 2026-09-14
 
 ### Added

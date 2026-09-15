@@ -1,0 +1,62 @@
+name: Publish to PyPI
+
+# The same tag that publishes the image publishes the package, so
+# `pipx upgrade wealth-dashboard` and Home Assistant's update see the
+# same version on the same day. Trusted publishing: PyPI trusts this
+# repository's workflow by name, and there is no API token to leak.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The image build checks tag, code, changelog and add-on against
+      # each other; this one only has to know that the package it is
+      # about to upload is the tag it was started for.
+      - name: The tag is the version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          code=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' app/__init__.py)
+          [ "$tag" = "$code" ] || { echo "::error::tag says $tag, app/__init__.py says $code"; exit 1; }
+
+      - run: pip install build
+      - run: python -m build
+
+      # Install what was just built, into a clean interpreter, and ask
+      # it what it is. A wheel missing its templates imports fine and
+      # fails on the first page; the version check at least proves the
+      # entry point and the package data are wired.
+      - name: The wheel installs and runs
+        run: |
+          python -m venv /tmp/smoke
+          /tmp/smoke/bin/pip install dist/*.whl
+          /tmp/smoke/bin/wealth-dashboard --version | grep -F "${GITHUB_REF_NAME#v}"
+          /tmp/smoke/bin/python -c "import wealth_dashboard.changelog as c; assert c.CHANGELOG_PATH.is_file(), c.CHANGELOG_PATH"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

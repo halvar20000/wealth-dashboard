@@ -17,11 +17,28 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
 APP_DIR = Path(__file__).resolve().parent
 ROOT_DIR = APP_DIR.parent
+
+
+def user_data_dir() -> Path:
+    """Where the operating system says a program keeps a person's data.
+
+    Used when the app was installed as a package rather than cloned: a
+    `data/` folder next to the code would then be inside site-packages,
+    which the next `pipx upgrade` replaces."""
+    if sys.platform == "win32":
+        base = (os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+                or str(Path.home() / "AppData" / "Local"))
+        return Path(base) / "wealth-dashboard"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "wealth-dashboard"
+    base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(base) / "wealth-dashboard"
 
 
 def _data_dir() -> Path:
@@ -35,7 +52,12 @@ def _data_dir() -> Path:
     # question before it shows anything.
     if Path("/data").is_dir() and os.access("/data", os.W_OK):
         return Path("/data")
-    return ROOT_DIR / "data"
+    # A checkout has requirements.txt beside the package; an installed
+    # copy in site-packages does not, and its data belongs to the user,
+    # not to the package.
+    if (ROOT_DIR / "requirements.txt").is_file():
+        return ROOT_DIR / "data"
+    return user_data_dir()
 
 
 DATA_DIR = _data_dir()

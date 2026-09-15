@@ -26,9 +26,12 @@ from pathlib import Path
 
 from markupsafe import Markup
 
-from .settings import ROOT_DIR
+from .settings import APP_DIR, ROOT_DIR
 
-CHANGELOG_PATH = ROOT_DIR / "CHANGELOG.md"
+# Beside the repo in a checkout and in the image; inside the package
+# when installed from PyPI, where there is no repo to be beside.
+CHANGELOG_PATH = next((p for p in (ROOT_DIR / "CHANGELOG.md", APP_DIR / "CHANGELOG.md")
+                       if p.is_file()), ROOT_DIR / "CHANGELOG.md")
 
 # "## [0.8.0] — 2026-09-10", with either kind of dash and the date
 # optional, because a release written in a hurry still has to parse.
