@@ -97,6 +97,10 @@ DEFAULTS: dict[str, Any] = {
     # rule) or "average" (every unit at the average paid — France's
     # prix moyen pondéré). A tax question, so a setting, never a guess.
     "gains_method": "fifo",
+    # Ask PyPI once a day whether there is a newer version. One public
+    # GET with nothing about the user in it; still, a switch, because
+    # the promise is that the app talks to nobody it has not named.
+    "check_updates": True,
 }
 
 

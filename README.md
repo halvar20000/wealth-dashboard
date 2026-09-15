@@ -353,7 +353,9 @@ data stays.
 `wealth-dashboard --help` lists the flags: `--port`, `--host 0.0.0.0` for
 the LAN, `--data DIR` to keep it somewhere else, `--no-browser`. Update with
 `pipx upgrade wealth-dashboard` — the shortcut and the service pick up the
-new version on their next start.
+new version on their next start. You will know when: the app asks PyPI once
+a day for the newest version (a switch under Settings) and the version in the
+menu gets a dot when there is one.
 
 Until the first PyPI release, or to run the newest commit, the same
 command works straight from the repository:

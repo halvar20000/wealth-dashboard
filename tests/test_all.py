@@ -2723,6 +2723,57 @@ check("...with the section names translated",
 r = c.get("/")
 check("the version is in the header", b"version-badge" in r.data, True)
 
+# Is there a newer version. A pipx install has nobody to tell it, so
+# the app asks PyPI once a day and the badge in the menu grows a dot.
+from app import updates                                         # noqa: E402
+
+check("versions compare as numbers, not strings", updates.is_newer("0.10.0", "0.9.0"), True)
+check("...and the same version is not newer", updates.is_newer(__version__), False)
+check("...nor an older one", updates.is_newer("0.1.0"), False)
+check("...nor garbage", updates.is_newer("latest"), False)
+check("never checked means due", updates.is_stale(), True)
+
+
+class _FakeResponse:
+    def __init__(self, body): self.body = body
+    def read(self): return self.body
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+
+_real_urlopen = updates.urllib.request.urlopen
+asked = []
+updates.urllib.request.urlopen = lambda req, timeout=0: (asked.append(req.full_url) or
+                                                         _FakeResponse(b'{"info": {"version": "99.0.0"}}'))
+try:
+    check("the check asks PyPI for the project's JSON", updates.check(), "99.0.0")
+    check("...at the public URL", asked, [updates.PYPI_URL])
+    check("...and is then not due again today", updates.is_stale(), False)
+    check("a newer answer is available to the pages", updates.available(), "99.0.0")
+    r = c.get("/")
+    body = r.data.decode()
+    check("the version badge gets its dot", 'version-badge has-update' in body, True)
+    check("...naming the version", "Version 99.0.0 is available." in body, True)
+    r = c.get("/changelog", headers={"X-Ingress-Path": "/api/hassio_ingress/x"})
+    check("through Home Assistant the advice is the add-on's",
+          "Update the add-on in Home Assistant." in r.data.decode(), True)
+    check("...and elsewhere it is not", "add-on in Home Assistant" in body, False)
+    updates.urllib.request.urlopen = lambda req, timeout=0: (_ for _ in ()).throw(OSError("no route"))
+    check("a failed check is None, not an exception", updates.check(), None)
+    check("...and the last good answer stands", updates.available(), "99.0.0")
+finally:
+    updates.urllib.request.urlopen = _real_urlopen
+    db.set_state("latest_version", __version__)
+check("running the newest, nothing is available", updates.available(), None)
+check("...and the badge is plain again", 'has-update' in c.get("/").data.decode(), False)
+check("the check is on by default", settings.DEFAULTS["check_updates"], True)
+c.post("/settings", data={"form": "general", "base_currency": "EUR",
+                          "redirect_url": "http://localhost:8000/connect/callback"})
+check("...and the switch under Settings turns it off", settings.load()["check_updates"], False)
+c.post("/settings", data={"form": "general", "base_currency": "EUR", "check_updates": "1",
+                          "redirect_url": "http://localhost:8000/connect/callback"})
+check("...and on", settings.load()["check_updates"], True)
+
 # The Home Assistant add-on pulls the image tagged with the version in
 # its config.yaml. A version there that was never tagged is an add-on
 # that installs nothing.

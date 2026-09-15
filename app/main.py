@@ -40,7 +40,7 @@ from pathlib import Path
 from flask import (Flask, flash, g, jsonify, redirect, render_template,
                    request, session, url_for)
 
-from . import __version__, auth, changelog, fx, i18n, migrate, prices, settings
+from . import __version__, auth, changelog, fx, i18n, migrate, prices, settings, updates
 from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, loans, retirement, webhooks,
@@ -226,6 +226,20 @@ def _kind_label(slug: str) -> str:
     return _t(f"{KINDS[slug]} [kind]") if slug in KINDS else (slug or "")
 
 
+def _update_how(version: str) -> str:
+    """One sentence: the newer version, and the one thing this install
+    does to get it. Which install it is depends on the request — the
+    Home Assistant add-on is the Unraid image reached through ingress."""
+    kind = updates.install_kind(ingress="X-Ingress-Path" in request.headers)
+    how = {
+        "pipx": _t("Update with: pipx upgrade wealth-dashboard — then start it again."),
+        "container": _t("Update the container; your data is in the volume."),
+        "hass": _t("Update the add-on in Home Assistant."),
+        "source": _t("git pull, then restart."),
+    }[kind]
+    return _f("Version {version} is available. {how}", version=version, how=how)
+
+
 @app.context_processor
 def _globals():
     return {"user": auth.current_user(),
@@ -239,6 +253,8 @@ def _globals():
             "class_label": allocation.class_label, "region_label": allocation.region_label,
             "asset_version": _ASSET_VERSION,
             "version": __version__,
+            "update_available": updates.available() if auth.current_user() else None,
+            "update_how": _update_how,
             # The household, and whose picture the header is set to.
             "people": people.all_people() if auth.current_user() else [],
             "view_person": people.current() if auth.current_user() else None}
@@ -2400,6 +2416,7 @@ def settings_page(section: str = "general"):
             chosen = (request.form.get("language") or "").strip()
             cfg["language"] = chosen if i18n.known(chosen) else ""
             cfg["auto_sync"] = bool(request.form.get("auto_sync"))
+            cfg["check_updates"] = bool(request.form.get("check_updates"))
             how = (request.form.get("gains_method") or "fifo").strip()
             cfg["gains_method"] = how if how in gains.METHODS else "fifo"
             when = (request.form.get("sync_time") or "12:00").strip()
@@ -2678,6 +2695,22 @@ def _start_rate_refresher() -> None:
             time.sleep(prices.FRESH_HOURS * 3600)
 
     threading.Thread(target=price_loop, name="prices-refresh", daemon=True).start()
+
+    def update_loop() -> None:
+        # Once a day, if the switch is on. Polled hourly so that turning
+        # the switch on takes effect without a restart.
+        while True:
+            try:
+                if settings.get("check_updates", True) and updates.is_stale():
+                    latest = updates.check()
+                    if latest and updates.is_newer(latest):
+                        print(f"  update: {latest} is available (running {__version__})",
+                              flush=True)
+            except Exception as exc:                      # noqa: BLE001
+                print(f"  update: unexpected: {exc}", flush=True)
+            time.sleep(3600)
+
+    threading.Thread(target=update_loop, name="update-check", daemon=True).start()
 
     def sync_loop() -> None:
         # Once a day, at the time under Settings. Checked every minute

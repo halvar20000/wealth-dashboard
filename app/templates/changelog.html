@@ -7,6 +7,11 @@
 {% endblock %}
 {% block content %}
 
+{% if update_available %}
+<div class="flash flash-warn">{{ update_how(update_available) }}
+  <a href="https://github.com/halvar20000/wealth-dashboard/blob/main/CHANGELOG.md" rel="noreferrer">{{ _("What is new") }}</a></div>
+{% endif %}
+
 {% if releases %}
 {% for r in releases %}
 <section class="card">

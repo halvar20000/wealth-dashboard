@@ -2349,4 +2349,14 @@ STRINGS: dict[str, str] = {
     '{n} reading since {date}': '{n} relevé depuis le {date}',
     '{n} readings since {date}': '{n} relevés depuis le {date}',
     "Each point is a reading of the balance on that day — from a sync, a statement, the loan's schedule, or typed in above. The newest reading of a day stands for the day; between readings the last one holds.": "Chaque point est un relevé du solde ce jour-là — d'une synchro, d'un extrait, de l'échéancier du prêt, ou saisi ci-dessus. Le relevé le plus récent d'un jour vaut pour le jour ; entre deux relevés, le dernier tient.",
+
+    # ─── Updates ─────────────────────────────────────────────────────
+    'Update with: pipx upgrade wealth-dashboard — then start it again.': 'Mettez à jour avec : pipx upgrade wealth-dashboard — puis relancez.',
+    'Update the container; your data is in the volume.': 'Mettez à jour le conteneur ; vos données sont dans le volume.',
+    'Update the add-on in Home Assistant.': 'Mettez à jour le module complémentaire dans Home Assistant.',
+    'git pull, then restart.': 'git pull, puis relancez.',
+    'Version {version} is available. {how}': 'La version {version} est disponible. {how}',
+    'What is new': 'Quoi de neuf',
+    'Check for a newer version once a day': "Vérifier une fois par jour s'il existe une version plus récente",
+    'Asks PyPI which version is the newest — one small request for a public page, with nothing about you in it. When there is a newer one, the version in the menu gets a dot and says what to do.': "Demande à PyPI quelle est la version la plus récente — une petite requête vers une page publique, sans rien sur vous. S'il en existe une plus récente, la version dans le menu reçoit un point et dit quoi faire.",
 }

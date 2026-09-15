@@ -442,6 +442,13 @@ button:hover, .btn:hover { filter: brightness(1.08); text-decoration: none; }
   border: 1px solid var(--border); text-decoration: none;
 }
 .version-badge:hover { color: var(--accent-gold); border-color: var(--border-strong); }
+/* A newer version exists: a dot, not a banner. The badge says which on
+   hover and the changelog page says what to do. */
+.version-badge.has-update { color: var(--accent-gold); border-color: var(--accent-gold); position: relative; }
+.version-badge.has-update::after {
+  content: ""; position: absolute; top: -3px; right: -3px;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--accent-gold);
+}
 
 /* One changelog section — "Added", "Fixed" — above its bullets. */
 .change-heading { margin: 18px 0 8px; font-size: 13px; }

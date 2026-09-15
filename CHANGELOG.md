@@ -11,6 +11,18 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.51.0] — 2026-09-15
+
+### Added
+- **It says when there is a newer version.** Once a day the app asks
+  PyPI which version is the newest — one small request for a public
+  page, with nothing about you in it — and when the answer is newer
+  than what is running, the version in the menu gets a dot and, on
+  the changelog page, one sentence with the one thing to do: `pipx
+  upgrade` for a pipx install, update the container, update the
+  add-on. Unraid and Home Assistant already told you; a pipx install
+  had nobody to. A switch under Settings, on by default.
+
 ## [0.50.0] — 2026-09-15
 
 ### Added

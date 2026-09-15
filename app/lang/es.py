@@ -2345,4 +2345,14 @@ STRINGS: dict[str, str] = {
     '{n} reading since {date}': '{n} lectura desde el {date}',
     '{n} readings since {date}': '{n} lecturas desde el {date}',
     "Each point is a reading of the balance on that day — from a sync, a statement, the loan's schedule, or typed in above. The newest reading of a day stands for the day; between readings the last one holds.": 'Cada punto es una lectura del saldo de ese día — de una sincronización, un extracto, el cuadro del préstamo, o escrita arriba. La lectura más reciente de un día vale por el día; entre lecturas, se mantiene la última.',
+
+    # ─── Updates ─────────────────────────────────────────────────────
+    'Update with: pipx upgrade wealth-dashboard — then start it again.': 'Actualiza con: pipx upgrade wealth-dashboard — y vuelve a iniciarlo.',
+    'Update the container; your data is in the volume.': 'Actualiza el contenedor; tus datos están en el volumen.',
+    'Update the add-on in Home Assistant.': 'Actualiza el complemento en Home Assistant.',
+    'git pull, then restart.': 'git pull, y reinicia.',
+    'Version {version} is available. {how}': 'La versión {version} está disponible. {how}',
+    'What is new': 'Qué hay de nuevo',
+    'Check for a newer version once a day': 'Comprobar una vez al día si hay una versión más reciente',
+    'Asks PyPI which version is the newest — one small request for a public page, with nothing about you in it. When there is a newer one, the version in the menu gets a dot and says what to do.': 'Pregunta a PyPI cuál es la versión más reciente — una pequeña petición a una página pública, sin nada sobre ti. Si hay una más reciente, la versión en el menú recibe un punto y dice qué hacer.',
 }

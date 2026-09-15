@@ -75,7 +75,7 @@
     <div class="sidenav-foot">
       {# Which version is in front of you, without going to GitHub to find
          out whether this container has the fix you read about. #}
-      <a class="version-badge" href="{{ url_for('changelog_page') }}" title="{{ _('What changed') }}">{{ version }}</a>
+      <a class="version-badge{{ ' has-update' if update_available }}" href="{{ url_for('changelog_page') }}" title="{{ update_how(update_available) if update_available else _('What changed') }}">{{ version }}</a>
       <button type="button" class="nav-collapse" id="nav-collapse" title="{{ _('Collapse the menu') }}" aria-label="{{ _('Collapse the menu') }}">{{ icon('collapse') }}</button>
     </div>
   </div>

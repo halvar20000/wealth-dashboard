@@ -41,6 +41,9 @@
     <input id="sync_time" name="sync_time" type="time" value="{{ cfg.sync_time }}" style="width:auto">
     <p class="sub">{{ _("Local time of the machine this runs on. A day that was slept through — the machine was off at that hour — is caught up as soon as it is next awake.") }}</p>
 
+    <label class="check" style="margin-top:10px"><input type="checkbox" name="check_updates" value="1" {{ 'checked' if cfg.check_updates }}> {{ _("Check for a newer version once a day") }}</label>
+    <p class="sub">{{ _("Asks PyPI which version is the newest — one small request for a public page, with nothing about you in it. When there is a newer one, the version in the menu gets a dot and says what to do.") }}</p>
+
     <label for="redirect_url">{{ _("Redirect URL") }}</label>
     <input id="redirect_url" name="redirect_url" value="{{ cfg.redirect_url }}">
     <p class="sub">{{ _("Where your bank sends you back after you authorise. This exact string must also be registered in the Enable Banking Control Panel — if the two differ by so much as a trailing slash, the bank refuses the handover and the error it shows names nothing useful.") }}</p>
