@@ -4722,6 +4722,24 @@ held_coins = crypto.coins("EUR")
 check("the coin is held with its cost basis and gain",
       (held_coins[0]["code"], held_coins[0]["quantity"], held_coins[0]["net_invested"], round(held_coins[0]["gain"], 2)),
       ("BTC", 0.05, 3005.0, round(0.05 * 66000 - 3005, 2)))
+check("...and with no sale the cost basis is what went in", held_coins[0]["cost_basis"], 3005.0)
+# Half the coins move to a hardware wallet — an account here — at the
+# cost they carry. Nothing was sold, so the cost basis of what is held
+# must not move; "net invested" cannot tell, the lots can.
+r = c.post("/accounts/new", data={"name": "Ledger", "type": "broker", "currency": "EUR"})
+ledger_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, quantity, price, external_id) "
+                 "VALUES (?, '2026-09-12', 'To Ledger: 0.025 BTC', 0, 'EUR', 'transfer', 'CRYPTO:BTC', 'Bitcoin', -0.025, NULL, 'move-out')", (broker_id,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, quantity, price, external_id) "
+                 "VALUES (?, '2026-09-12', 'From Kraken: 0.025 BTC', 0, 'EUR', 'transfer', 'CRYPTO:BTC', 'Bitcoin', 0.025, 60100, 'move-in')", (ledger_id,))
+held_coins = crypto.coins("EUR")
+check("a coin moved to one's own wallet keeps the quantity and the cost basis",
+      (round(held_coins[0]["quantity"], 6), round(held_coins[0]["cost_basis"], 2), sorted(held_coins[0]["accounts"])),
+      (0.05, 3005.0, sorted([held_coins[0]["accounts"][0], "Ledger"])))
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM transactions WHERE external_id IN ('move-out', 'move-in')")
+    conn.execute("DELETE FROM accounts WHERE id = ?", (ledger_id,))
 r = c.get("/crypto")
 check("the crypto page shows the wallet", b"BTC" in r.data and b"Unrealised gain" in r.data, True)
 BTC_DAILY = {"chart": {"result": [{"meta": {"currency": "EUR"},
@@ -4735,6 +4753,14 @@ check("the price chart runs over the range with the change",
 wl = crypto.chart("CRYPTO:BTC", "1m", "wallet", "EUR")
 check("the wallet chart is price times units held on the day",
       (wl["points"][-1]["value"], wl["points"][-1]["units"]), (0.05 * 64500, 0.05))
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, quantity, external_id) "
+                 "VALUES (?, '2020-01-01', 'fee 0.0001 BTC', 0, 'EUR', 'transfer', 'CRYPTO:BTC', 'Bitcoin', -0.0001, 'early-fee')", (broker_id,))
+wl = crypto.chart("CRYPTO:BTC", "1m", "wallet", "EUR")
+check("a wallet that starts below nothing has a change but no percentage",
+      (wl["change"] is not None, wl["change_pct"]), (True, None))
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM transactions WHERE external_id = 'early-fee'")
 r = c.get("/api/crypto/BTC/chart?range=1m&mode=wallet")
 check("the chart API answers", (r.status_code, len(r.get_json()["points"])), (200, 10))
 check("an unknown coin is a 404", c.get("/crypto/DOGE").status_code, 404)

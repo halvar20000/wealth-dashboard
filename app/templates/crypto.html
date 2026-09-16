@@ -34,8 +34,9 @@
   </div>
   <div class="stat-card stat-purple">
     <div class="stat-label">{{ _("Cost basis") }}</div>
-    <div class="stat-value">{{ money(coin.net_invested, coin.currency) }}</div>
-    <div class="stat-sub">{% if coin.avg_cost %}{{ _f("avg {price} per {code}", price=money(coin.avg_cost, coin.currency), code=coin.code) }}{% else %}{{ _("buys minus sales, fees included") }}{% endif %}</div>
+    <div class="stat-value">{{ money(coin.cost_basis, coin.currency) }}</div>
+    <div class="stat-sub">{% if coin.avg_cost %}{{ _f("avg {price} per {code}", price=money(coin.avg_cost, coin.currency), code=coin.code) }}{% else %}{{ _("what the coins still held cost, fees included") }}{% endif %}
+      {%- if coin.net_invested is not none and (coin.net_invested - coin.cost_basis) | abs > 0.5 %} · {{ _f("net invested {amount}", amount=money(coin.net_invested, coin.currency)) }}{% endif %}</div>
   </div>
   <div class="stat-card stat-green">
     <div class="stat-label">{{ _("Unrealised gain") }}</div>
@@ -127,7 +128,7 @@ async function load() {
     const up = data.change >= 0;
     document.getElementById('cr-change-value').textContent = (up ? '+' : '') + fmt(data.change, data.currency);
     document.getElementById('cr-change-value').className = 'sec-change-value ' + (up ? 'pos' : 'neg');
-    document.getElementById('cr-change-pct').textContent = data.change_pct == null ? '' : (up ? '+' : '') + data.change_pct.toLocaleString(LANG, { maximumFractionDigits: 1 }) + '%';
+    document.getElementById('cr-change-pct').textContent = data.change_pct == null ? '' : (data.change_pct >= 0 ? '+' : '') + data.change_pct.toLocaleString(LANG, { maximumFractionDigits: 1 }) + '%';
     document.getElementById('cr-change-pct').className = 'sec-change-pct ' + (up ? 'pos' : 'neg');
     document.getElementById('cr-change-note').textContent = MODE === 'wallet' ? {{ _("wallet value over the range — units bought or sold count too") | tojson }} : {{ _("over the range") | tojson }};
   } else { el.hidden = true; }

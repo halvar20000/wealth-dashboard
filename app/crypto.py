@@ -19,7 +19,7 @@ import time
 from bisect import bisect_right
 from datetime import date, timedelta
 
-from . import people, prices
+from . import gains, people, prices
 from .db import get_conn
 from .importers import positions
 from .prices import CRYPTO_PREFIX
@@ -56,9 +56,16 @@ def coins(base_currency: str = "EUR", account_ids: list[int] | None = None) -> l
         c["price_currency"] = m["currency"] if m else None
         c["symbol"] = (m or {}).get("symbol") or f"{c['code']}-{base_currency}"
         c["value"] = c["quantity"] * m["price"] if m else None
-        c["avg_cost"] = (c["net_invested"] / c["quantity"]) if c["quantity"] > 1e-12 and c["net_invested"] > 0 else None
-        c["gain"] = (c["value"] - c["net_invested"]) if c["value"] is not None else None
-        c["gain_pct"] = (c["gain"] / c["net_invested"] * 100) if c["gain"] is not None and c["net_invested"] > 0 else None
+        # What the coins still held cost — the lots, under the method
+        # chosen in Settings — not what went in minus what came out.
+        # The two agree until a coin is sold or moved between wallets;
+        # then "net invested" carries a realised gain, or the cost of
+        # units that are no longer here, and calls it unrealised.
+        lots = gains.realised(c["isin"], account_ids)
+        c["cost_basis"] = lots["open_cost"]
+        c["avg_cost"] = lots["avg_cost"] if lots["open_cost"] > 0 else None
+        c["gain"] = (c["value"] - c["cost_basis"]) if c["value"] is not None else None
+        c["gain_pct"] = (c["gain"] / c["cost_basis"] * 100) if c["gain"] is not None and c["cost_basis"] > 0 else None
     return sorted(out.values(), key=lambda c: -(c["value"] or 0))
 
 
@@ -107,9 +114,12 @@ def chart(isin: str, range_key: str, mode: str, base_currency: str = "EUR",
     first = next((p["value"] for p in points if p["value"]), None)
     last = points[-1]["value"]
     change = (last - first) if first is not None and last is not None else None
+    # No percentage from a start at or below nothing: a wallet whose
+    # rows begin with units leaving is briefly negative, and a change
+    # "of −45 000 %" is arithmetic, not information.
     return {"points": points, "currency": currency, "symbol": symbol,
             "change": change,
-            "change_pct": (change / first * 100) if change is not None and first else None,
+            "change_pct": (change / first * 100) if change is not None and first and first > 0 else None,
             "from": points[0]["date"], "to": points[-1]["date"]}
 
 

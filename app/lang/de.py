@@ -2353,4 +2353,8 @@ STRINGS: dict[str, str] = {
     'last 30 days': 'letzte 30 Tage',
     'no reading to compare with yet': 'noch kein Stand zum Vergleichen',
     'since 1 January': 'seit 1. Januar',
+
+    # ─── Crypto cost basis ───────────────────────────────────────────
+    'what the coins still held cost, fees included': 'was die noch gehaltenen Coins gekostet haben, samt Gebühren',
+    'net invested {amount}': 'netto investiert {amount}',
 }

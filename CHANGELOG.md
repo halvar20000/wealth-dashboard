@@ -11,6 +11,21 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.52.1] — 2026-09-16
+
+### Fixed
+- **The crypto page's cost basis is what the coins still held cost.**
+  It was "net invested" — buys minus sales — which is the same number
+  until a coin is sold or moved to another wallet, and then carries a
+  realised gain, or the cost of units no longer there, and calls it
+  unrealised. It is now the lots, under the method chosen in Settings
+  (FIFO or average cost), as the securities pages already did; where
+  the two differ the card says what net invested is too.
+- **A wallet chart that starts below nothing has no percentage.** The
+  rows of a wallet can begin with units leaving — a fee taken in the
+  coin before the first buy in the export — and the change "of
+  −45 204 %" that produced was arithmetic, not information.
+
 ## [0.52.0] — 2026-09-16
 
 ### Changed
