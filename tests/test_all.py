@@ -2389,8 +2389,24 @@ check("the period's first day is the start of the year for YTD",
 check("a long range is thinned to a fixed number of points",
       len(history.series("EUR", [hist_id, hist_broker], "all", today=_date(2036, 7, 2))["points"]) <= history.MAX_POINTS, True)
 
+# The two tiles under the hero: a month back, and the year so far.
+ch = history.changes(1800.0, "EUR", [hist_id, hist_broker], today=_date(2026, 7, 2))
+check("a month back is 30 days before today", ch["month"]["since"], "2026-06-02")
+check("...valued as the chart would value that day", ch["month"]["from"], 1000.0)
+check("...and the change is against the number in the hero", (ch["month"]["diff"], round(ch["month"]["pct"], 1)), (800.0, 80.0))
+check("the year starts where the records do, when that is later than 1 January",
+      ch["ytd"]["since"], "2026-06-01")
+ch = history.changes(1800.0, "EUR", [hist_id], today=_date(2026, 6, 1))
+check("a change measured from no reading is no change", ch["month"]["diff"], None)
+check("...and says which day it would have compared with", ch["month"]["since"], "2026-06-01")
+
 r = c.get("/")
 check("the overview carries the chart", b"chart-networth" in r.data, True)
+check("...the four tiles under it", (b"Liquid + investments" in r.data, b"This month" in r.data, b"YTD" in r.data), (True, True, True))
+check("...with the change coloured by its sign",
+      (b'class="stat-value gain">+' in r.data) or (b'class="stat-value loss">' in r.data) or (b"no reading to compare with yet" in r.data), True)
+check("...and the two donuts, by asset class and by account",
+      (b"By asset class" in r.data, b"By account" in r.data), (True, True))
 check("...and says how far back the records go", b"Records go back to" in r.data, True)
 r = c.get("/api/networth?period=3m")
 check("the chart's data is served as JSON", r.status_code, 200)
@@ -2547,8 +2563,12 @@ check("...even when the catalogue has no entry for it",
 # The space before the currency is non-breaking on purpose: an amount
 # that wraps between the number and its currency is unreadable, and it
 # happens on a phone in a table cell.
+# The name of this check said "comma" while the assertion pinned a
+# non-breaking space, and the assertion won for as long as nobody read
+# both. English groups with a comma — en-GB and en-US alike — so the
+# behaviour now matches what this check always claimed to be testing.
 check("English groups with a comma and a dot",
-      i18n.money(1234.5, "EUR", "en"), "1\u00a0234.50\u00a0EUR")
+      i18n.money(1234.5, "EUR", "en"), "1,234.50\u00a0EUR")
 check("German swaps both separators",
       i18n.money(1234.5, "EUR", "de"), "1.234,50\u00a0EUR")
 check("French groups with a narrow space",
@@ -5419,11 +5439,11 @@ check("the series is in the currency the shares were paid in",
       (ser["currency"], round(pts["2026-02-10"]["value"]), round(pts["2026-03-02"]["value"]), round(pts["2026-03-02"]["invested"])), ("EUR", 1000, 1200, 1000))
 r = c.get("/securities/US0231351067")
 check("the page values the holding in euros and says what the quote was",
-      ("1\u00a0200.00\u00a0EUR" in r.data.decode(), b"quoted 132 USD" in r.data, b"USD unrealised" not in r.data), (True, True, True))
+      ("1,200.00\u00a0EUR" in r.data.decode(), b"quoted 132 USD" in r.data, b"USD unrealised" not in r.data), (True, True, True))
 check("the Overview's holdings link to the security's page", b'href="/securities/US0231351067"' in c.get("/").data, True)
 r = c.get("/securities/US0231351067", query_string={"ccy": "USD"})
 check("...and can be shown in the currency it is quoted in instead",
-      (b"Show in" in r.data, "1\u00a0320.00\u00a0USD" in r.data.decode(), b"quoted 132 USD" in r.data), (True, True, False))
+      (b"Show in" in r.data, "1,320.00\u00a0USD" in r.data.decode(), b"quoted 132 USD" in r.data), (True, True, False))
 ser_usd = prices.series_for("US0231351067", [uid], today=date(2026, 3, 5), currency="USD")
 pts = {p["date"]: p for p in ser_usd["points"]}
 check("the series in dollars: the buy turned at its day's rate — the oldest on record, until the history arrives — the price as quoted",

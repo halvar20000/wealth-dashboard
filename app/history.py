@@ -219,28 +219,8 @@ def series(base_currency: str = "EUR", account_ids: list[int] | None = None,
         start = date.fromisoformat(first_date)
 
     rec_days = sorted(recorded)
-    points = []
-    for day in _sample_dates(start, today):
-        d = day.isoformat()
-        if rec_days and (takeover is None or d < takeover):
-            # The newest recorded day at or before this one, as a
-            # balance reading is carried forward — but not across a
-            # gap of more than a month, which would draw a flat line
-            # over days nobody recorded.
-            i = bisect_right(rec_days, d)
-            if i and (day - date.fromisoformat(rec_days[i - 1])).days <= 31:
-                points.append({"date": d, "net_worth": recorded[rec_days[i - 1]], "cash": None,
-                               "securities": None, "assets": {}, "recorded": True})
-                continue
-        if rec_days and d < rec_days[0]:
-            points.append({"date": d, "net_worth": None, "cash": None, "securities": None, "assets": {}})
-            continue
-        cash, sec, assets = v._on(d)
-        known = cash is not None or sec is not None
-        points.append({"date": d, "net_worth": ((cash or 0.0) + (sec or 0.0)) if known else None,
-                       "cash": (cash or 0.0) if known else None,
-                       "securities": (sec or 0.0) if known else None,
-                       "assets": assets if known else {}})
+    points = [_point(v, recorded, rec_days, takeover, day)
+              for day in _sample_dates(start, today)]
 
     firsts = [p for p in points if p["net_worth"] is not None]
     return {
@@ -250,6 +230,64 @@ def series(base_currency: str = "EUR", account_ids: list[int] | None = None,
         "start": firsts[0] if firsts else None,
         "base_currency": v.base,
     }
+
+
+def _point(v: Valuer, recorded: dict[str, float], rec_days: list[str],
+           takeover: str | None, day: date) -> dict:
+    """The net worth on one day, from this app's records or — before
+    they reach — from another app's recorded totals."""
+    d = day.isoformat()
+    if rec_days and (takeover is None or d < takeover):
+        # The newest recorded day at or before this one, as a balance
+        # reading is carried forward — but not across a gap of more
+        # than a month, which would draw a flat line over days nobody
+        # recorded.
+        i = bisect_right(rec_days, d)
+        if i and (day - date.fromisoformat(rec_days[i - 1])).days <= 31:
+            return {"date": d, "net_worth": recorded[rec_days[i - 1]], "cash": None,
+                    "securities": None, "assets": {}, "recorded": True}
+    if rec_days and d < rec_days[0]:
+        return {"date": d, "net_worth": None, "cash": None, "securities": None, "assets": {}}
+    cash, sec, assets = v._on(d)
+    known = cash is not None or sec is not None
+    return {"date": d, "net_worth": ((cash or 0.0) + (sec or 0.0)) if known else None,
+            "cash": (cash or 0.0) if known else None,
+            "securities": (sec or 0.0) if known else None,
+            "assets": assets if known else {}}
+
+
+def changes(now: float | None, base_currency: str = "EUR",
+            account_ids: list[int] | None = None, today: date | None = None) -> dict:
+    """How far the net worth `now` is from a month ago and from the
+    start of the year: the two tiles under the hero.
+
+    {month: {since, from, diff, pct}, ytd: {...}} — `from` is None where
+    no reading covers the earlier day, and then there is no diff either:
+    a change measured from nothing is not a change. `since` is the day
+    actually compared against, which for the year is 1 January unless
+    the records start later, in which case it says so.
+    """
+    today = today or date.today()
+    v = Valuer(base_currency, account_ids)
+    recorded = _recorded(v.base, account_ids)
+    rec_days = sorted(recorded)
+    takeover = _records_from(account_ids)
+    # As series() does: where another app's totals exist, the line —
+    # and so the comparison — starts where the whole is known.
+    first = rec_days[0] if rec_days else v.first_date
+    out = {}
+    for key, since in (("month", today - timedelta(days=30)), ("ytd", date(today.year, 1, 1))):
+        if first and date.fromisoformat(first) > since:
+            since = date.fromisoformat(first)
+        earlier = _point(v, recorded, rec_days, takeover, since)["net_worth"] \
+            if since < today else None
+        if earlier is None or now is None:
+            out[key] = {"since": since.isoformat(), "from": None, "diff": None, "pct": None}
+            continue
+        diff = now - earlier
+        out[key] = {"since": since.isoformat(), "from": earlier, "diff": diff,
+                    "pct": (diff / abs(earlier) * 100) if earlier else None}
+    return out
 
 
 def _recorded(base: str, account_ids: list[int] | None) -> dict[str, float]:

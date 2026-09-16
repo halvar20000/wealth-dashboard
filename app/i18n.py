@@ -59,7 +59,11 @@ NBSP = "\u00a0"
 NARROW_NBSP = "\u202f"
 
 FORMATS: dict[str, dict[str, str]] = {
-    "en": {"group": NBSP, "decimal": ".", "date": "iso"},
+    # A comma, because that is what English does — en-GB and en-US both
+    # group with one, and a six-figure number spaced instead of grouped
+    # reads as continental to an English speaker. The other three
+    # languages here genuinely use a dot or a space.
+    "en": {"group": ",", "decimal": ".", "date": "iso"},
     "de": {"group": ".", "decimal": ",", "date": "dmy."},
     "es": {"group": ".", "decimal": ",", "date": "dmy/"},
     "fr": {"group": NARROW_NBSP, "decimal": ",", "date": "dmy/"},
@@ -224,6 +228,41 @@ def money(amount, currency: str, lang: str) -> str:
     # exactly where that happens.
     return (f"{sign}{group(f'{abs(amount):,.2f}', lang)}"
             f"{NBSP}{currency.upper()}")
+
+
+# The symbol, where a symbol is what people read. A code is correct and
+# a symbol is legible, and a headline figure is read at a glance from
+# across a room. Anything not here keeps its code — inventing a glyph for
+# a currency nobody recognises helps no one.
+SYMBOLS = {"EUR": "€", "USD": "$", "GBP": "£", "JPY": "¥", "CHF": "CHF",
+           "SEK": "kr", "NOK": "kr", "DKK": "kr", "PLN": "zł", "CZK": "Kč",
+           "CAD": "$", "AUD": "$", "NZD": "$", "HUF": "Ft", "RON": "lei",
+           "BGN": "лв", "TRY": "₺", "ZAR": "R", "BRL": "R$", "INR": "₹"}
+
+
+def money0(amount, currency: str, lang: str) -> str:
+    """A headline figure: €1,027,527.
+
+    Rounded to the unit and with the symbol in front, because this is the
+    form used where the number IS the statement — the net-worth hero, a
+    stat card, the middle of a donut. Cents there are noise on a
+    six-figure number and they cost the reading its shape.
+
+    `money()` keeps the cents and stays the right choice everywhere a
+    row has to reconcile: a transaction, a balance, a holding.
+    """
+    if amount is None:
+        return "—"
+    code = currency.upper()
+    symbol = SYMBOLS.get(code)
+    sign = "−" if amount < 0 else ""       # a real minus, not a hyphen
+    digits = group(f"{abs(amount):,.0f}", lang)
+    if symbol is None:
+        return f"{sign}{digits}{NBSP}{code}"
+    if symbol.isalpha() or len(symbol) > 1:
+        # "CHF 1 200" reads; "CHF1 200" does not.
+        return f"{sign}{symbol}{NBSP}{digits}"
+    return f"{sign}{symbol}{digits}"
 
 
 def qty(value, lang: str) -> str:

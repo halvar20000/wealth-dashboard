@@ -11,6 +11,24 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.52.0] — 2026-09-16
+
+### Changed
+- **The overview reads like a statement.** The net worth stands alone
+  at the top — `€1,027,527`, symbol first, no cents — over *Assets ·
+  Liabilities* and the parts below them; the change since the start
+  of the range is a pill beside it with its arrow, its percentage and
+  the range it refers to; the line is green on a warmer card. Under
+  it, four tiles: *Liquid + investments*, the other assets (or the
+  debt), *This month* against thirty days ago and *YTD* against
+  1 January — each change coloured by its sign, and "no reading to
+  compare with yet" where there is none. Then two donuts, *by asset
+  class* and *by account*, each with its total in the middle. The
+  bank connections moved below the accounts; the transaction count
+  and the largest holding left the page.
+- **English groups thousands with a comma** — `1,234.50 EUR` — as
+  English does; German, Spanish and French keep their dot and space.
+
 ## [0.51.0] — 2026-09-15
 
 ### Added

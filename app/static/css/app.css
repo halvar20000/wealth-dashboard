@@ -215,14 +215,18 @@ h2 { font-size: 15px; margin: 0; letter-spacing: -0.005em; }
 
 .hero-block {
   position: relative; overflow: hidden;
+  /* Warm at the top left where the number is, cool at the bottom right
+     where the chart ends: the card reads as one lit surface, not a
+     box with a chart in it. */
   background:
-    radial-gradient(ellipse 120% 140% at 8% 0%, rgba(245,215,110,0.10) 0%, transparent 55%),
-    radial-gradient(ellipse 100% 120% at 92% 100%, rgba(91,157,255,0.10) 0%, transparent 55%),
-    linear-gradient(160deg, #182034 0%, #101625 55%, #0d1220 100%);
-  border: 1px solid var(--border-strong);
+    radial-gradient(ellipse 70% 55% at 0% 0%, rgba(245,215,110,0.20) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 65% at 100% 100%, rgba(167,139,250,0.20) 0%, transparent 60%),
+    linear-gradient(135deg, #1b2347 0%, #151c38 45%, #0e1428 100%);
+  border: 1px solid rgba(245,215,110,0.28);
   border-radius: 18px;
-  padding: 28px 30px; margin-bottom: 20px;
-  box-shadow: var(--shadow-card);
+  padding: 30px 34px 22px; margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 12px 50px rgba(91,157,255,0.12),
+              inset 0 1px 0 rgba(255,255,255,0.05);
 }
 .hero-top {
   display: flex; align-items: flex-start; justify-content: space-between;
@@ -241,22 +245,45 @@ h2 { font-size: 15px; margin: 0; letter-spacing: -0.005em; }
 .hero-asset.is-excluded { text-decoration: line-through; color: var(--text-tertiary); }
 .hero-asset.is-excluded strong { color: inherit; }
 .hero-value {
-  font-size: 46px; font-weight: 800; line-height: 1.05;
-  letter-spacing: -0.025em; color: var(--accent-gold);
+  /* Bigger than a heading on purpose: on this page the number IS the
+     heading, and everything else is a footnote to it. */
+  font-size: 54px; font-weight: 800; line-height: 1.02;
+  letter-spacing: -0.03em; color: var(--accent-gold);
   font-variant-numeric: tabular-nums;
 }
-.hero-sub { color: var(--text-secondary); font-size: 13px; margin-top: 10px; }
+.hero-sub { color: var(--text-secondary); font-size: 13.5px; margin-top: 10px; font-variant-numeric: tabular-nums; }
 .hero-sub strong { color: var(--text-primary); font-weight: 600; }
-.hero-side { text-align: right; min-width: 160px; }
-.hero-delta { margin-top: 8px; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.hero-delta.gain { color: var(--gain); }
-.hero-delta.loss { color: var(--loss); }
-.hero-chart-wrap { position: relative; height: 190px; margin: 22px -6px 0; }
+.hero-sub strong.loss { color: var(--loss); }
+.hero-parts { font-size: 12.5px; margin-top: 6px; color: var(--text-tertiary); }
+.hero-parts strong { color: var(--text-secondary); }
+.hero-side { text-align: right; min-width: 180px; }
+/* The change is a claim, so it is given the shape of one: a pill that
+   carries its own arrow, its own percentage and the range it refers to.
+   "+85,225" on its own leaves the reader asking "since when", and the
+   answer is a button they pressed and can no longer see from here. */
+.hero-delta {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 8px; padding: 7px 15px; border-radius: 999px;
+  font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.hero-delta.gain { color: var(--gain); background: var(--gain-soft); border-color: rgba(52,211,153,0.35); box-shadow: 0 0 24px rgba(52,211,153,0.15); }
+.hero-delta.loss { color: var(--loss); background: var(--loss-soft); border-color: rgba(248,113,113,0.35); box-shadow: 0 0 24px rgba(248,113,113,0.15); }
+.hero-chart-wrap { position: relative; height: 270px; margin: 26px -6px 0; }
 .hero-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
 .period-pills { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: rgba(10,14,26,0.5); border: 1px solid var(--border); }
-.period-btn { margin: 0; padding: 4px 10px; border-radius: 6px; background: transparent; border: none; box-shadow: none; color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; }
-.period-btn:hover { color: var(--text-primary); }
-.period-btn.active { background: var(--bg-elevated); color: var(--accent-gold); }
+.period-pills {
+  display: inline-flex; gap: 2px; padding: 4px;
+  background: rgba(10,14,26,0.55); border: 1px solid var(--border);
+  border-radius: 11px;
+}
+.period-btn { margin: 0; padding: 6px 15px; border-radius: 8px; background: transparent; border: none; box-shadow: none; color: var(--text-secondary); font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; cursor: pointer; }
+.period-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.04); }
+.period-btn.active {
+  background: linear-gradient(135deg, var(--accent-gold) 0%, #d9b94a 100%);
+  color: #1a1308;
+  box-shadow: 0 4px 14px rgba(245,215,110,0.30);
+}
 
 /* Bank connections: a dot per link, worst first. */
 .health-list { list-style: none; margin: 0; padding: 0; }
@@ -271,15 +298,17 @@ h2 { font-size: 15px; margin: 0; letter-spacing: -0.005em; }
 /* ─── Stat strip ──────────────────────────────────────────────── */
 
 .stat-strip {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 14px; margin-bottom: 20px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px; margin-bottom: 20px;
 }
 .stat-card {
   position: relative; overflow: hidden;
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 14px; padding: 17px 19px;
+  border-radius: 14px; padding: 20px 22px;
   box-shadow: var(--shadow-card);
+  transition: transform 0.18s ease, border-color 0.18s ease;
 }
+.stat-card:hover { transform: translateY(-2px); border-color: var(--border-strong); }
 .stat-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; }
 .stat-blue::before   { background: radial-gradient(ellipse 80% 80% at 0% 0%, rgba(91,157,255,0.12)  0%, transparent 60%); }
 .stat-purple::before { background: radial-gradient(ellipse 80% 80% at 0% 0%, rgba(167,139,250,0.14) 0%, transparent 60%); }
@@ -292,16 +321,18 @@ h2 { font-size: 15px; margin: 0; letter-spacing: -0.005em; }
 
 .stat-label {
   display: flex; align-items: center; gap: 6px;
-  color: var(--text-secondary); font-size: 11px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.07em; position: relative;
+  color: var(--text-tertiary); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.10em; position: relative;
 }
 .stat-value {
-  font-size: 24px; font-weight: 700; margin: 6px 0 2px;
-  letter-spacing: -0.015em; font-variant-numeric: tabular-nums; position: relative;
+  font-size: 30px; font-weight: 800; margin: 10px 0 8px; line-height: 1;
+  letter-spacing: -0.025em; font-variant-numeric: tabular-nums; position: relative;
 }
 .stat-value.gain { color: var(--gain); }
 .stat-value.loss { color: var(--loss); }
-.stat-sub { color: var(--text-tertiary); font-size: 12px; position: relative; }
+.stat-sub { color: var(--text-secondary); font-size: 12px; position: relative; font-variant-numeric: tabular-nums; }
+.stat-sub .gain { color: var(--gain); font-weight: 600; }
+.stat-sub .loss { color: var(--loss); font-weight: 600; }
 
 /* ─── Cards ───────────────────────────────────────────────────── */
 

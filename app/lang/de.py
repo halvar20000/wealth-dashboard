@@ -83,7 +83,6 @@ STRINGS: dict[str, str] = {
     "P2P lending": "P2P-Kredite",
     "Property": "Immobilie",
     "Other assets": "Sonstige Vermögenswerte",
-    "pension, P2P, property": "Pensionskasse, P2P, Immobilie",
     "Broker": "Broker",
     "Other": "Sonstiges",
 
@@ -240,18 +239,6 @@ STRINGS: dict[str, str] = {
     "Cash": "Barmittel",
     "Securities": "Wertpapiere",
     "{n} connected to a bank": "{n} mit einer Bank verbunden",
-    "across {n} account with a balance": "über {n} Konto mit Saldo",
-    "across {n} accounts with a balance": "über {n} Konten mit Saldo",
-    "{n} holding": "{n} Bestand",
-    "{n} holdings": "{n} Bestände",
-    "{n} with no price": "{n} ohne Preis",
-    "imported and synced": "importiert und abgeglichen",
-    "Largest holding": "Größter Bestand",
-    "import a broker export to see holdings":
-        "Broker-Export importieren, um Bestände zu sehen",
-    "Cash vs securities": "Barmittel gegen Wertpapiere",
-    "Where it is": "Wo es liegt",
-    "by account": "nach Konto",
     "no price": "kein Preis",
     "Latest activity": "Neueste Bewegungen",
     "Date": "Datum",
@@ -449,6 +436,7 @@ STRINGS: dict[str, str] = {
     "Category": "Kategorie",
     "Per month": "Pro Monat",
     "Total": "Gesamt",
+    "Assets": "Vermögen",
     "No transactions in the base currency yet.":
         "Noch keine Transaktionen in der Basiswährung.",
     "Connect a bank or import a statement, then categorise on the {page} page "
@@ -2353,4 +2341,16 @@ STRINGS: dict[str, str] = {
     'What is new': 'Was neu ist',
     'Check for a newer version once a day': 'Einmal am Tag nach einer neueren Version sehen',
     'Asks PyPI which version is the newest — one small request for a public page, with nothing about you in it. When there is a newer one, the version in the menu gets a dot and says what to do.': 'Fragt PyPI, welche Version die neueste ist — eine kleine Anfrage nach einer öffentlichen Seite, ohne etwas über dich. Gibt es eine neuere, bekommt die Version im Menü einen Punkt und sagt, was zu tun ist.',
+
+    # ─── Overview tiles ──────────────────────────────────────────────
+    'By account': 'Nach Konto',
+    'Liquid + investments': 'Liquide + Anlagen',
+    'This month': 'Dieser Monat',
+    'YTD': 'Seit Jahresbeginn',
+    'cash and {n} holding': 'Cash und {n} Position',
+    'cash and {n} holdings': 'Cash und {n} Positionen',
+    'excludes pension, P2P, property': 'ohne Vorsorge, P2P, Immobilien',
+    'last 30 days': 'letzte 30 Tage',
+    'no reading to compare with yet': 'noch kein Stand zum Vergleichen',
+    'since 1 January': 'seit 1. Januar',
 }

@@ -17,12 +17,15 @@
         </span>
         {% endif %}
       </div>
-      <div class="hero-value" id="hero-value">{{ money(s.net_worth, s.base_currency) }}</div>
+      <div class="hero-value" id="hero-value">{{ big(s.net_worth, s.base_currency) }}</div>
       <div class="hero-sub">
-        {{ _("Cash") }} <strong>{{ money(s.cash, s.base_currency) }}</strong>
-        · {{ _("Securities") }} <strong>{{ money(s.securities, s.base_currency) }}</strong>
-        {% for t, v in s.assets_by_type.items() %}· <span class="hero-asset" data-type="{{ t }}">{{ type_label(t) }} <strong>{{ money(v, s.base_currency) }}</strong></span>{% endfor %}
-        {% if s.debt %}· {{ _("Debt") }} <strong class="loss">−{{ money(s.debt, s.base_currency) }}</strong>{% endif %}
+        {{ _("Assets") }} <strong>{{ big(s.net_worth + s.debt, s.base_currency) }}</strong>
+        · {{ _("Liabilities") }} <strong class="{{ 'loss' if s.debt }}">{% if s.debt %}−{{ big(s.debt, s.base_currency) }}{% else %}{{ big(0, s.base_currency) }}{% endif %}</strong>
+      </div>
+      <div class="hero-sub hero-parts">
+        {{ _("Cash") }} <strong>{{ big(s.cash, s.base_currency) }}</strong>
+        · {{ _("Securities") }} <strong>{{ big(s.securities, s.base_currency) }}</strong>
+        {% for t, v in s.assets_by_type.items() %}· <span class="hero-asset" data-type="{{ t }}">{{ type_label(t) }} <strong>{{ big(v, s.base_currency) }}</strong></span>{% endfor %}
       </div>
       <div class="hero-sub" id="hero-without" hidden></div>
       {% if s.converted %}
@@ -40,11 +43,6 @@
       {% endif %}
     </div>
     <div class="hero-side">
-      <div class="stat-label">{{ _("Accounts") }}</div>
-      <div class="stat-value">{{ s.account_count }}</div>
-      <div class="stat-sub">
-        {{ _f("{n} connected to a bank", n=s.connected_count) }}
-      </div>
       <div class="hero-delta" id="hero-delta" hidden></div>
     </div>
   </div>
@@ -65,92 +63,60 @@
   </div>
 </section>
 
-{% if health %}
-<section class="card">
-  <div class="card-header">
-    <h2>{{ _("Bank connections") }}</h2>
-    <span class="card-subtitle">{{ _n(health | length, "{n} connected account", "{n} connected accounts") }}</span>
-  </div>
-  <ul class="health-list">
-    {% for h in health %}
-    <li class="health-row">
-      <span class="dot dot-{{ h.status }}" aria-hidden="true"></span>
-      <a href="{{ url_for('account_detail', account_id=h.account_id) }}">{{ h.account }}</a>
-      <span class="sub">{{ h.bank }}</span>
-      <span class="health-hint">
-        {% if h.hint == 'expired' %}{{ _("Consent expired — reconnect.") }}
-        {% elif h.hint == 'never' %}{{ _("Never synced.") }}
-        {% elif h.hint == 'error' %}{{ _f("Last sync failed: {error}", error=h.error) }}
-        {% elif h.hint == 'stale' %}{{ _f("Last sync {n} days ago.", n=(h.hours_ago // 24) | int) }}
-        {% elif h.hint == 'expiring' %}{{ _n(h.days_left, "Consent expires in {n} day — reconnect soon.", "Consent expires in {n} days — reconnect soon.") }}
-        {% elif h.hint == 'old' %}{{ _f("Last sync {n} hours ago.", n=h.hours_ago | int) }}
-        {% else %}{{ _f("Synced {n} hours ago", n=h.hours_ago | int) }}
-        {% endif %}
-        {% if h.hint in ('stale', 'old', 'ok') and h.days_left is not none %} · {{ _f("consent for {n} more days", n=h.days_left) }}{% endif %}
-      </span>
-    </li>
-    {% endfor %}
-  </ul>
-</section>
-{% endif %}
-
 <section class="stat-strip">
   <div class="stat-card stat-blue">
-    <div class="stat-label">{{ _("Cash") }}</div>
-    <div class="stat-value">{{ money(s.cash, s.base_currency) }}</div>
-    {% set with_balance = s.accounts | selectattr('balance') | list | length %}
-    <div class="stat-sub">{{ _n(with_balance, "across {n} account with a balance", "across {n} accounts with a balance") }}</div>
-  </div>
-  <div class="stat-card stat-purple">
-    <div class="stat-label">{{ _("Securities") }}</div>
-    <div class="stat-value">{{ money(s.securities, s.base_currency) }}</div>
-    <div class="stat-sub">
-      {{ _n(s.holdings | length, "{n} holding", "{n} holdings") }}
-      {%- if s.holdings_unpriced %}, {{ _f("{n} with no price", n=s.holdings_unpriced) }}{% endif %}
-    </div>
+    <div class="stat-label">{{ _("Liquid + investments") }}</div>
+    <div class="stat-value">{{ big(s.cash + s.securities, s.base_currency) }}</div>
+    <div class="stat-sub">{% if s.assets %}{{ _("excludes pension, P2P, property") }}{% else %}{{ _n(s.holdings | length, "cash and {n} holding", "cash and {n} holdings") }}{% endif %}</div>
   </div>
   {% if s.assets %}
-  <div class="stat-card stat-gold">
+  <div class="stat-card stat-purple">
     <div class="stat-label">{{ _("Other assets") }}</div>
-    <div class="stat-value">{{ money(s.assets, s.base_currency) }}</div>
-    <div class="stat-sub">{{ _("pension, P2P, property") }}</div>
+    <div class="stat-value">{{ big(s.assets, s.base_currency) }}</div>
+    <div class="stat-sub">{% for t in s.assets_by_type %}{{ type_label(t) }}{{ ", " if not loop.last }}{% endfor %}</div>
   </div>
-  {% endif %}
-  {% if s.debt %}
+  {% elif s.debt %}
   <div class="stat-card stat-purple">
     <div class="stat-label">{{ _("Debt") }}</div>
-    <div class="stat-value loss">{{ money(s.debt, s.base_currency) }}</div>
+    <div class="stat-value loss">{{ big(s.debt, s.base_currency) }}</div>
     <div class="stat-sub"><a href="{{ url_for('loans_page') }}">{{ _("loans and mortgages") }}</a></div>
   </div>
-  {% endif %}
-  <div class="stat-card stat-green">
-    <div class="stat-label">{{ _("Transactions") }}</div>
-    <div class="stat-value">{{ qty(s.transaction_count) }}</div>
-    <div class="stat-sub">{{ _("imported and synced") }}</div>
+  {% else %}
+  <div class="stat-card stat-purple">
+    <div class="stat-label">{{ _("Accounts") }}</div>
+    <div class="stat-value">{{ s.account_count }}</div>
+    <div class="stat-sub">{{ _f("{n} connected to a bank", n=s.connected_count) }}</div>
   </div>
-  <div class="stat-card stat-gold">
-    <div class="stat-label">{{ _("Largest holding") }}</div>
-    {% if s.holdings and s.holdings[0].value %}
-    <div class="stat-value">{{ money(s.holdings[0].value, s.holdings[0].currency) }}</div>
-    <div class="stat-sub">{{ s.holdings[0].name or s.holdings[0].isin }}</div>
+  {% endif %}
+  {# The two changes: a month, and the year so far. A change measured
+     from a day nobody has a reading for is not a change, and says so. #}
+  {% for key, label, tone in (("month", _("This month"), "green"), ("ytd", _("YTD"), "gold")) %}
+  {% set c = changes[key] %}
+  <div class="stat-card stat-{{ tone }}">
+    <div class="stat-label">{{ label }}</div>
+    {% if c.diff is not none %}
+    <div class="stat-value {{ 'gain' if c.diff >= 0 else 'loss' }}">{{ '+' if c.diff >= 0 else '−' }}{{ big(c.diff | abs, s.base_currency) }}</div>
+    <div class="stat-sub">
+      {% if c.pct is not none %}<span class="{{ 'gain' if c.diff >= 0 else 'loss' }}">{{ '+' if c.diff >= 0 else '−' }}{{ '%.2f' | format(c.pct | abs) }} %</span> · {% endif %}
+      {% if key == 'month' %}{{ _("last 30 days") }}{% elif c.since.endswith('-01-01') %}{{ _("since 1 January") }}{% else %}{{ _f("since {date}", date=d(c.since)) }}{% endif %}
+    </div>
     {% else %}
     <div class="stat-value">—</div>
-    <div class="stat-sub">{{ _("import a broker export to see holdings") }}</div>
+    <div class="stat-sub">{{ _("no reading to compare with yet") }}</div>
     {% endif %}
   </div>
+  {% endfor %}
 </section>
 
-{% if s.by_class or s.by_account %}
+{% if by_class or s.by_account %}
 <section class="grid-2">
   <div class="card">
-    <div class="card-header"><h2>{{ _("Cash vs securities") }}</h2></div>
+    <div class="card-header"><h2>{{ _("By asset class") }}</h2>
+      <span class="card-subtitle"><a href="{{ url_for('allocation_page') }}">{{ _("Allocation") }}</a></span></div>
     <div class="chart-wrap"><canvas id="chart-class"></canvas></div>
   </div>
   <div class="card">
-    <div class="card-header">
-      <h2>{{ _("Where it is") }}</h2>
-      <span class="card-subtitle">{{ _("by account") }}</span>
-    </div>
+    <div class="card-header"><h2>{{ _("By account") }}</h2></div>
     <div class="chart-wrap"><canvas id="chart-account"></canvas></div>
   </div>
 </section>
@@ -195,6 +161,35 @@
      {% for u in s.unconverted %}<strong>{{ money(u.amount, u.currency) }}</strong>{{ ", " if not loop.last }}{% endfor %}</p>
   {% endif %}
 </section>
+
+{% if health %}
+<section class="card">
+  <div class="card-header">
+    <h2>{{ _("Bank connections") }}</h2>
+    <span class="card-subtitle">{{ _n(health | length, "{n} connected account", "{n} connected accounts") }}</span>
+  </div>
+  <ul class="health-list">
+    {% for h in health %}
+    <li class="health-row">
+      <span class="dot dot-{{ h.status }}" aria-hidden="true"></span>
+      <a href="{{ url_for('account_detail', account_id=h.account_id) }}">{{ h.account }}</a>
+      <span class="sub">{{ h.bank }}</span>
+      <span class="health-hint">
+        {% if h.hint == 'expired' %}{{ _("Consent expired — reconnect.") }}
+        {% elif h.hint == 'never' %}{{ _("Never synced.") }}
+        {% elif h.hint == 'error' %}{{ _f("Last sync failed: {error}", error=h.error) }}
+        {% elif h.hint == 'stale' %}{{ _f("Last sync {n} days ago.", n=(h.hours_ago // 24) | int) }}
+        {% elif h.hint == 'expiring' %}{{ _n(h.days_left, "Consent expires in {n} day — reconnect soon.", "Consent expires in {n} days — reconnect soon.") }}
+        {% elif h.hint == 'old' %}{{ _f("Last sync {n} hours ago.", n=h.hours_ago | int) }}
+        {% else %}{{ _f("Synced {n} hours ago", n=h.hours_ago | int) }}
+        {% endif %}
+        {% if h.hint in ('stale', 'old', 'ok') and h.days_left is not none %} · {{ _f("consent for {n} more days", n=h.days_left) }}{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 
 {% if s.holdings %}
 <section class="card">
@@ -273,11 +268,16 @@ const LANG = {{ lang | tojson }}, CCY = {{ s.base_currency | tojson }};
 const NOW = {{ s.net_worth | tojson }};
 const ASSETS = {{ s.assets_by_type | tojson }};
 const fmtMoney = v => new Intl.NumberFormat(LANG, { style: 'currency', currency: CCY, maximumFractionDigits: 0 }).format(v);
-{# The headline is formatted the way the server does it — grouped the
-   language's way, two decimals, the code after — so a toggle does not
-   change its face, only its figure. #}
+{# The headline is formatted the way the server does it — big(): the
+   symbol in front, grouped the language's way, no cents — so a toggle
+   does not change its face, only its figure. #}
 const SEP = {{ seps | tojson }};
-const fmtHero = v => { const [i, f] = Math.abs(v).toFixed(2).split('.'); return (v < 0 ? '-' : '') + i.replace(/\B(?=(\d{3})+(?!\d))/g, SEP.group) + SEP.decimal + f + '\u00a0' + CCY; };
+const fmtHero = v => {
+  const digits = Math.round(Math.abs(v)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, SEP.group);
+  const sign = v < 0 ? '\u2212' : '';
+  if (!SEP.symbol) return sign + digits + '\u00a0' + CCY;
+  return SEP.symbol.length > 1 ? sign + SEP.symbol + '\u00a0' + digits : sign + SEP.symbol + digits;
+};
 const toggles = [...document.querySelectorAll('.hero-toggle input')];
 const excluded = () => toggles.filter(cb => !cb.checked).map(cb => cb.dataset.type);
 const without = (value, assets) => { const ex = excluded(); return value == null ? null : value - ex.reduce((a, t) => a + ((assets || {})[t] || 0), 0); };
@@ -320,11 +320,11 @@ function drawHistory(h) {
   if (heroChart) heroChart.destroy();
   const ctx = el.getContext('2d');
   const grad = ctx.createLinearGradient(0, 0, 0, el.parentElement.clientHeight || 180);
-  grad.addColorStop(0, 'rgba(245,215,110,0.28)'); grad.addColorStop(1, 'rgba(245,215,110,0)');
+  grad.addColorStop(0, 'rgba(52,211,153,0.30)'); grad.addColorStop(1, 'rgba(52,211,153,0)');
   heroChart = new Chart(el, {
     type: 'line',
     data: { labels, datasets: [{ label: {{ _("Net worth") | tojson }}, data,
-      borderColor: '#f5d76e', backgroundColor: grad, fill: 'origin', borderWidth: 2,
+      borderColor: '#34d399', backgroundColor: grad, fill: 'origin', borderWidth: 2,
       pointRadius: 0, pointHoverRadius: 5, tension: 0.25, spanGaps: false }] },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -343,8 +343,11 @@ function drawHistory(h) {
   if (first !== null && first !== undefined && pts.length > 1) {
     const now = without(NOW, ASSETS);
     const diff = now - first, pct = first ? (diff / Math.abs(first) * 100) : null;
-    delta.textContent = (diff >= 0 ? '+' : '−') + fmtMoney(Math.abs(diff))
-      + (pct !== null ? ` (${diff >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(1)} %)` : '');
+    const period = document.querySelector('.period-btn.active');
+    const range = period ? period.textContent.trim() : '';
+    delta.textContent = (diff >= 0 ? '▲ +' : '▼ −') + fmtMoney(Math.abs(diff))
+      + (pct !== null ? ` · ${diff >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(2)} %` : '')
+      + (range ? ` · ${range}` : '');
     delta.className = 'hero-delta ' + (diff >= 0 ? 'gain' : 'loss');
     delta.title = {{ _("since the start of the range") | tojson }};
     delta.hidden = false;
@@ -360,12 +363,46 @@ document.querySelectorAll('.period-btn').forEach(btn => btn.addEventListener('cl
   if (res.ok) drawHistory(await res.json());
 }));
 
+{# The app's language, not the browser's: a page that says "Nettovermögen"
+   over numbers punctuated the American way is a page nobody trusts.
+   Declared above the donut plugin, which draws with it. #}
+const FMT = new Intl.NumberFormat({{ lang | tojson }}, {
+  style: 'currency', currency: {{ s.base_currency | tojson }},
+  maximumFractionDigits: 0,
+});
+
 const PALETTE = ['#5b9dff','#a78bfa','#34d399','#f5d76e','#ff8c42',
                  '#f87171','#22d3ee','#fb7185','#84cc16','#c084fc'];
 
-function donut(id, rows) {
+// The hole in a donut is the one place a total can sit without
+// competing with anything. Drawn rather than overlaid in HTML so it
+// stays centred when the legend reflows on a narrow screen.
+const donutCentre = {
+  id: 'donutCentre',
+  afterDatasetsDraw(chart, _args, opts) {
+    if (!opts || !opts.total) return;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data || !meta.data.length) return;
+    const { x, y } = meta.data[0];
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#5e6a86';
+    ctx.font = '600 10px Inter, system-ui, sans-serif';
+    ctx.fillText(String(opts.label || '').toUpperCase(), x, y - 14);
+    ctx.fillStyle = '#f5d76e';
+    ctx.font = '700 19px Inter, system-ui, sans-serif';
+    ctx.fillText(FMT.format(opts.total), x, y + 6);
+    ctx.restore();
+  },
+};
+Chart.register(donutCentre);
+
+function donut(id, rows, centreLabel) {
   const el = document.getElementById(id);
   if (!el || !rows.length) return;
+  const total = rows.reduce((a, r) => a + Math.abs(r.value), 0);
   new Chart(el, {
     type: 'doughnut',
     data: {
@@ -378,8 +415,9 @@ function donut(id, rows) {
       }],
     },
     options: {
-      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
       plugins: {
+        donutCentre: { total, label: centreLabel },
         legend: {
           position: 'right',
           labels: { color: '#95a0b9', boxWidth: 12, padding: 12,
@@ -399,14 +437,7 @@ function donut(id, rows) {
   });
 }
 
-{# The app's language, not the browser's: a page that says "Nettovermögen"
-   over numbers punctuated the American way is a page nobody trusts. #}
-const FMT = new Intl.NumberFormat({{ lang | tojson }}, {
-  style: 'currency', currency: {{ s.base_currency | tojson }},
-  maximumFractionDigits: 0,
-});
-
-donut('chart-class', {{ s.by_class | tojson }});
-donut('chart-account', {{ s.by_account | tojson }});
+donut('chart-class', {{ by_class | tojson }}, {{ _("Total") | tojson }});
+donut('chart-account', {{ s.by_account | tojson }}, {{ _("Assets") | tojson }});
 </script>
 {% endblock %}

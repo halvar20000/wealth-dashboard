@@ -171,6 +171,12 @@ def _money(amount, currency=None) -> str:
     return i18n.money(amount, currency, current_language())
 
 
+def _big(amount, currency=None) -> str:
+    """A headline figure — see i18n.money0()."""
+    currency = (currency or settings.get("base_currency", "EUR"))
+    return i18n.money0(amount, currency, current_language())
+
+
 def _qty(value) -> str:
     return i18n.qty(value, current_language())
 
@@ -244,7 +250,7 @@ def _update_how(version: str) -> str:
 def _globals():
     return {"user": auth.current_user(),
             "base_currency": settings.get("base_currency", "EUR"),
-            "money": _money, "qty": _qty, "d": _date, "mon": _month,
+            "money": _money, "big": _big, "qty": _qty, "d": _date, "mon": _month,
             "_": _t, "_n": _n, "_f": _f, "lang": current_language(),
             "languages": i18n.LANGUAGES,
             "categories": categories,
@@ -336,12 +342,21 @@ def logout():
 @auth.login_required
 def index():
     base = settings.get("base_currency", "EUR")
+    s = overview.summary(base, account_ids=people.scope())
+    # The left donut: asset classes — equity, bonds, real estate, cash,
+    # crypto — not "cash against securities", which is one cut of the
+    # same money and the less telling one. The classes are the
+    # allocation page's, guessed where nobody has said.
+    classes = allocation.breakdown(s)["dimensions"]["asset_class"]["rows"] if s["accounts"] else []
+    by_class = [{"name": allocation.class_label(r["key"]), "value": r["value"]}
+                for r in classes if r["value"] > 0]
+    fmt = i18n.FORMATS.get(current_language(), i18n.FORMATS[i18n.DEFAULT])
     return render_template(
-        "overview.html", active_page="overview",
-        s=overview.summary(base, account_ids=people.scope()),
+        "overview.html", active_page="overview", s=s, by_class=by_class,
         history=history.series(base, people.scope(), "ytd"),
-        seps={"group": i18n.FORMATS.get(current_language(), i18n.FORMATS[i18n.DEFAULT])["group"],
-              "decimal": i18n.FORMATS.get(current_language(), i18n.FORMATS[i18n.DEFAULT])["decimal"]},
+        changes=history.changes(s["net_worth"], base, people.scope()),
+        seps={"group": fmt["group"], "decimal": fmt["decimal"],
+              "symbol": i18n.SYMBOLS.get(base.upper())},
         health=banksync.health())
 
 
