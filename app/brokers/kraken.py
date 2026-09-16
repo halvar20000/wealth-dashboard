@@ -420,6 +420,51 @@ def sync_link(link: dict, api: Client | None = None) -> int:
     return report["inserted"]
 
 
+def book_past_moves(account_id: int, wallet_account_id: int) -> dict:
+    """The coins that left this exchange before a wallet was named.
+
+    The sync books a withdrawal as units leaving, and once stored never
+    looks at it again — so naming the wallet later would leave every
+    earlier withdrawal as a coin that vanished. This is the one-off
+    that catches up: every withdrawal of a coin on the exchange account
+    without its counterpart in the wallet gets one, at the cost the
+    units carry here. Withdrawals only: the field says where coins
+    withdrawn go, and that is known; where an earlier deposit came
+    from is not, and booking it as having left this wallet could take
+    from it coins it never held. Idempotent: a counterpart that exists
+    is not made twice.
+
+    Returns {rows, units: {code: quantity}} — what was booked, so the
+    page can say it.
+    """
+    with get_conn() as conn:
+        moves = [dict(r) for r in conn.execute(
+            "SELECT txn_date, description, currency, external_id, isin, security_name, quantity "
+            "FROM transactions WHERE account_id = ? AND kind = 'transfer' AND quantity IS NOT NULL "
+            "AND external_id LIKE 'kraken:ledger:%' AND isin LIKE ? "
+            "AND description LIKE 'withdrawal %' AND quantity < 0 "
+            "AND NOT EXISTS (SELECT 1 FROM transactions w WHERE w.account_id = ? "
+            "                AND w.external_id = transactions.external_id || ':wallet') "
+            "ORDER BY txn_date, id",
+            (account_id, f"{CRYPTO_PREFIX}%", wallet_account_id))]
+    rows, units = [], {}
+    cost_cache: dict[str, float | None] = {}
+    for m in moves:
+        code = m["isin"].split(":")[-1]
+        if m["isin"] not in cost_cache:
+            cost_cache[m["isin"]] = _carried_cost(account_id, m["isin"])
+        rows.append(ParsedTxn(
+            txn_date=m["txn_date"],
+            description=f"{'From' if m['quantity'] < 0 else 'To'} Kraken: {abs(m['quantity']):g} {code}",
+            amount=0.0, currency=m["currency"], kind="transfer", external_id=f"{m['external_id']}:wallet",
+            isin=m["isin"], security_name=m["security_name"], quantity=-m["quantity"],
+            price=cost_cache[m["isin"]] if m["quantity"] < 0 else None))
+        units[code] = units.get(code, 0.0) - m["quantity"]
+    if rows:
+        store(wallet_account_id, ParseResult(rows=rows), "kraken")
+    return {"rows": len(rows), "units": units}
+
+
 def _carried_cost(account_id: int, key: str) -> float | None:
     """What a unit of the coin cost, on average, over the lots still
     open here — the price a transfer to the wallet carries with it."""

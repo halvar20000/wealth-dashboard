@@ -2359,4 +2359,5 @@ STRINGS: dict[str, str] = {
     # ─── Crypto cost basis ───────────────────────────────────────────
     'what the coins still held cost, fees included': 'lo que costaron las monedas que aún se tienen, comisiones incluidas',
     'net invested {amount}': 'neto invertido {amount}',
+    'Saved. {n} earlier moves are booked into the wallet too: {units}. A coin withdrawn from now on arrives there as well, at the cost it carried.': 'Guardado. {n} movimientos anteriores quedan también registrados en el monedero: {units}. Una moneda retirada a partir de ahora llega allí también, al coste que llevaba.',
 }

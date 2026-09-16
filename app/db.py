@@ -607,6 +607,22 @@ _ONCE = [
     ("refiled_capital_income",
      "UPDATE transactions SET category = 'capital_income' "
      "WHERE kind IN ('dividend', 'interest') AND category = 'income'"),
+    # Up to 0.46 the move from Financial Planner kept a Kraken trade's
+    # id bare — TUT7MA-K67YX-X6Z4TJ — where the Kraken sync writes
+    # kraken:trade:TUT7MA-K67YX-X6Z4TJ, so the same fill arrived twice:
+    # once from the old app, once from Kraken, and the cost basis of a
+    # coin counted every such buy double. Where both copies exist the
+    # old app's goes — Kraken's carries the fee the way this app books
+    # a buy — and a copy on its own takes the id the sync would give
+    # it, so the next sync recognises it.
+    ("fp_kraken_trade_ids",
+     ["DELETE FROM transactions WHERE source LIKE 'financial_planner%' AND edited_at IS NULL "
+      "AND external_id GLOB '[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]-[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]-[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]' "
+      "AND EXISTS (SELECT 1 FROM transactions k WHERE k.account_id = transactions.account_id "
+      "            AND k.external_id = 'kraken:trade:' || transactions.external_id)",
+      "UPDATE OR IGNORE transactions SET external_id = 'kraken:trade:' || external_id "
+      "WHERE source LIKE 'financial_planner%' "
+      "AND external_id GLOB '[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]-[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]-[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]'"]),
 ]
 
 
@@ -617,7 +633,8 @@ def _repair_rows(conn: sqlite3.Connection) -> None:
     for key, sql in _ONCE:
         if key in done:
             continue
-        conn.execute(sql)
+        for stmt in ([sql] if isinstance(sql, str) else sql):
+            conn.execute(stmt)
         conn.execute("INSERT INTO app_state (key, value, updated_at) "
                      "VALUES (?, 'done', datetime('now'))", (key,))
 

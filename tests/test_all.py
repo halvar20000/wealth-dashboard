@@ -4422,7 +4422,25 @@ r = c.post(f"/accounts/{kr_id}/sync", follow_redirects=True)
 check("a second sync adds nothing on either side", b"Imported 0 new" in r.data, True)
 c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": ""})
 check("the wallet can be unnamed again", brokers.link_for(kr_id)["wallet_account_id"], None)
-del LEDGER["L7"]; BALANCE["XXBT"] = "0.106"
+# A withdrawal synced while no wallet was named is a coin that left.
+# Naming the wallet afterwards books the past too — once — so the coin
+# is back where it is, and the household total is whole again.
+LEDGER["L8"] = {"type": "withdrawal", "asset": "XXBT", "amount": "-0.002", "fee": "0", "time": 1789100000}
+BALANCE["XXBT"] = "0.00395"
+c.post(f"/accounts/{kr_id}/sync", follow_redirects=True)
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM transactions WHERE external_id = 'kraken:ledger:L7:wallet'")
+check("without a wallet the coin simply left",
+      round(sum(h["quantity"] for h in ov.summary("EUR")["holdings"] if h["isin"] == "CRYPTO:BTC"), 6), 0.00395)
+r = c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": str(wallet_id)}, follow_redirects=True)
+check("naming the wallet books the earlier moves into it",
+      (b"2 earlier moves are booked" in r.data, b"+0.10205 BTC" in r.data), (True, True))
+check("...and the household holds every unit again",
+      round(sum(h["quantity"] for h in ov.summary("EUR")["holdings"] if h["isin"] == "CRYPTO:BTC"), 6), 0.106)
+r = c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": str(wallet_id)}, follow_redirects=True)
+check("...once: naming it again books nothing twice", b"earlier moves" in r.data, False)
+c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": ""})
+del LEDGER["L7"]; del LEDGER["L8"]; BALANCE["XXBT"] = "0.106"
 c.post(f"/accounts/{wallet_id}/delete", data={"confirm": "Ledger"})
 r = c.post("/settings", data={"form": "kraken_forget"}, follow_redirects=True)
 check("forgetting the key removes it and the link, keeps the account",
@@ -4723,6 +4741,27 @@ check("the coin is held with its cost basis and gain",
       (held_coins[0]["code"], held_coins[0]["quantity"], held_coins[0]["net_invested"], round(held_coins[0]["gain"], 2)),
       ("BTC", 0.05, 3005.0, round(0.05 * 66000 - 3005, 2)))
 check("...and with no sale the cost basis is what went in", held_coins[0]["cost_basis"], 3005.0)
+# The move from Financial Planner (up to 0.46) kept a Kraken trade id
+# bare, and the Kraken sync wrote the same fill under kraken:trade:…
+# — one buy, twice the cost. The start-up repair drops the old app's
+# copy where Kraken's exists and gives a lone one the sync's id.
+with db.get_conn() as conn:
+    for ext, src, amt in (("TUT7MA-K67YX-X6Z4TJ", "financial_planner:crypto_csv", -922.35),
+                          ("kraken:trade:TUT7MA-K67YX-X6Z4TJ", "kraken", -924.66),
+                          ("TQJFTV-IVV7T-QOKG2Q", "financial_planner:crypto_csv", -1000.0)):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, isin, security_name, quantity, price, external_id, source) "
+                     "VALUES (?, '2026-05-19', 'Buy BTC on Kraken', ?, 'EUR', 'buy', 'CRYPTO:BTC', 'Bitcoin', 0.0139, 66254.5, ?, ?)",
+                     (broker_id, amt, ext, src))
+    conn.execute("DELETE FROM app_state WHERE key = 'fp_kraken_trade_ids'")
+    db._repair_rows(conn)
+    ids = sorted(r_[0] for r_ in conn.execute("SELECT external_id FROM transactions WHERE account_id = ? AND isin = 'CRYPTO:BTC' AND external_id LIKE '%T%-%-%'", (broker_id,)))
+check("the duplicate from the old app is gone and the lone one carries the sync's id",
+      ids, ["kraken:trade:TQJFTV-IVV7T-QOKG2Q", "kraken:trade:TUT7MA-K67YX-X6Z4TJ"])
+with db.get_conn() as conn:
+    check("...and only Kraken's copy of the fill is left, fee included",
+          conn.execute("SELECT amount, source FROM transactions WHERE external_id = 'kraken:trade:TUT7MA-K67YX-X6Z4TJ'").fetchone()[:], (-924.66, "kraken"))
+    conn.execute("DELETE FROM transactions WHERE external_id LIKE 'kraken:trade:T%'")
+held_coins = crypto.coins("EUR")
 # Half the coins move to a hardware wallet — an account here — at the
 # cost they carry. Nothing was sold, so the cost basis of what is held
 # must not move; "net invested" cannot tell, the lots can.

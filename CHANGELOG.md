@@ -11,6 +11,28 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.53.0] — 2026-09-16
+
+### Fixed
+- **A Kraken fill moved in from Financial Planner is no longer counted
+  twice.** Up to 0.46 the move-in kept a Kraken trade's id bare —
+  `TUT7MA-K67YX-X6Z4TJ` — where the Kraken sync writes
+  `kraken:trade:TUT7MA-K67YX-X6Z4TJ`, so the same buy arrived once
+  from each and the coin's cost basis counted it double: €3,201 too
+  much on one wallet. On the first start after this update the old
+  app's copy goes wherever Kraken's exists (Kraken's carries the fee
+  the way this app books a buy), and a copy on its own takes the id
+  the sync would give it. Rows edited by hand are left alone.
+
+### Added
+- **Naming a wallet books the coins that already left.** A withdrawal
+  synced before a wallet was named was a coin that simply left; naming
+  the wallet later did not bring it back. It does now, once: every
+  earlier withdrawal without a counterpart is booked into the wallet
+  at the cost it carried, and the page says how many and how much.
+  Withdrawals only — where a coin withdrawn went is what the field
+  says; where an earlier deposit came from is not known.
+
 ## [0.52.1] — 2026-09-16
 
 ### Fixed

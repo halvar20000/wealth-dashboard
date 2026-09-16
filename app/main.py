@@ -1368,8 +1368,20 @@ def account_wallet(account_id: int):
     raw = (request.form.get("wallet_account_id") or "").strip()
     wallet = int(raw) if raw.isdigit() and int(raw) != account_id and _load_account(int(raw)) else None
     brokers.set_wallet(link["id"], wallet)
-    flash(_t("Saved. A coin withdrawn from now on arrives there, at the cost it carried.") if wallet
-          else _t("Saved. A coin withdrawn simply leaves."), "ok")
+    if wallet:
+        # And the coins that already left, before there was anywhere for
+        # them to go: booked into the wallet now, once. Withdrawals only
+        # — see kraken.book_past_moves.
+        past = kraken.book_past_moves(account_id, wallet)
+        if past["rows"]:
+            moved = ", ".join(f"{q:+g} {code}" for code, q in past["units"].items())
+            flash(_f("Saved. {n} earlier moves are booked into the wallet too: {units}. "
+                     "A coin withdrawn from now on arrives there as well, at the cost it carried.",
+                     n=past["rows"], units=moved), "ok")
+        else:
+            flash(_t("Saved. A coin withdrawn from now on arrives there, at the cost it carried."), "ok")
+    else:
+        flash(_t("Saved. A coin withdrawn simply leaves."), "ok")
     return redirect(url_for("account_detail", account_id=account_id))
 
 
