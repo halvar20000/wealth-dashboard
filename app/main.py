@@ -43,7 +43,7 @@ from flask import (Flask, flash, g, jsonify, redirect, render_template,
 from . import __version__, auth, changelog, fx, i18n, migrate, prices, settings, updates
 from .banks import enablebanking as eb
 from .banks import sync as banksync
-from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, loans, retirement, webhooks,
+from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, income, loans, retirement, webhooks,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, splits, stages, subscriptions)
 from . import brokers
@@ -1204,6 +1204,22 @@ def loans_page():
                            total_debt=total, per_month=per_month, base_currency=base,
                            periods=loans.PERIODS, today=date.today().isoformat(),
                            viewing=people.current())
+
+
+@app.route("/income", methods=["GET", "POST"])
+@auth.login_required
+def income_page():
+    """Every payslip on record, per earner — the gross the bank never
+    saw, the tax taken at source, the pension on both sides."""
+    if request.method == "POST" and request.form.get("form") == "payslip_delete":
+        n = income.delete(int(request.form.get("id", "0")))
+        flash(_t("Payslip removed, with the rows it had booked.") if n else _t("That payslip is not there."), "ok" if n else "error")
+        return redirect(url_for("income_page"))
+    with get_conn() as conn:
+        landing = [dict(r) for r in conn.execute(
+            "SELECT id, name FROM accounts WHERE type IN ('bank', 'savings') ORDER BY name")]
+    return render_template("income.html", active_page="income",
+                           earners=income.earners(people.scope()), landing=landing)
 
 
 @app.route("/loans/<int:loan_id>")

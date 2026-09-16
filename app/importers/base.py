@@ -42,6 +42,10 @@ class ParsedTxn:
     price: float | None = None
     fee: float | None = None
     tax: float | None = None
+    # Set only where the parser knows better than any rule could — a
+    # payslip's tax leg is tax whatever the description says. None
+    # leaves it to the kind and the user's rules, as for every row.
+    category: str | None = None
 
     def __post_init__(self):
         if self.kind not in KINDS:
@@ -60,6 +64,9 @@ class ParseResult:
     # Lines the parser could not read. Kept and shown rather than
     # counted: "3 rows skipped" tells the user nothing they can act on.
     problems: list[str] = field(default_factory=list)
+    # A payslip, whole — see importers/payslip.py. The rows above are
+    # what it books; this is what it says, kept for the Income page.
+    payslip: dict | None = None
 
 
 def parse_decimal(raw: str | None) -> float | None:

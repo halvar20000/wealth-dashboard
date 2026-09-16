@@ -18,13 +18,13 @@ import io
 
 from .. import categories
 from ..db import get_conn
-from . import (ca_switzerland, degiro, dkb, dkb_pdf, finary, generic, swissquote_beleg_pdf,
+from . import (ca_switzerland, degiro, dkb, dkb_pdf, finary, generic, payslip, swissquote_beleg_pdf,
                swissquote_pdf, trade_republic)
 from .base import (ParsedTxn, ParseResult,  # noqa: F401  (re-exported)
                    normalise_csv_text)
 
 IMPORTERS = [degiro, trade_republic, dkb, ca_switzerland, finary]
-PDF_IMPORTERS = [dkb_pdf, swissquote_pdf, swissquote_beleg_pdf]
+PDF_IMPORTERS = [dkb_pdf, swissquote_pdf, swissquote_beleg_pdf, payslip]
 
 
 def sniff(content: bytes | str):
@@ -71,6 +71,30 @@ def begin_import(account_id: int, filename: str | None, source: str) -> int:
         return int(cur.lastrowid)
 
 
+def _save_payslip(conn, account_id: int, slip: dict, import_id: int | None) -> None:
+    """The statement, whole. The same sheet again — same employer,
+    earner and month — replaces the earlier reading of it."""
+    import json
+    conn.execute(
+        "INSERT INTO payslips (account_id, import_id, employer, employee, period, paid_on, currency, "
+        " gross, base_salary, bonus, allowances, employee_social, employee_pension, tax, other_deductions, "
+        " net_paid, employer_pension, employer_social, employer_side_known, layout, lines) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+        "ON CONFLICT(employer, employee, period) DO UPDATE SET account_id = excluded.account_id, "
+        " import_id = excluded.import_id, paid_on = excluded.paid_on, currency = excluded.currency, "
+        " gross = excluded.gross, base_salary = excluded.base_salary, bonus = excluded.bonus, "
+        " allowances = excluded.allowances, employee_social = excluded.employee_social, "
+        " employee_pension = excluded.employee_pension, tax = excluded.tax, "
+        " other_deductions = excluded.other_deductions, net_paid = excluded.net_paid, "
+        " employer_pension = excluded.employer_pension, employer_social = excluded.employer_social, "
+        " employer_side_known = excluded.employer_side_known, layout = excluded.layout, lines = excluded.lines",
+        (account_id, import_id, slip["employer"], slip["employee"], slip["period"], slip["paid_on"],
+         slip["currency"], slip["gross"], slip["base_salary"], slip["bonus"], slip["allowances"],
+         slip["employee_social"], slip["employee_pension"], slip["tax"], slip["other_deductions"],
+         slip["net_paid"], slip["employer_pension"], slip["employer_social"],
+         1 if slip["employer_side_known"] else 0, slip["layout"], json.dumps(slip["lines"])))
+
+
 def undo_import(account_id: int, import_id: int) -> int:
     """Remove every row this import brought — and only those: a row a
     re-import found already there belongs to the import that first
@@ -78,6 +102,7 @@ def undo_import(account_id: int, import_id: int) -> int:
     with get_conn() as conn:
         cur = conn.execute("DELETE FROM transactions WHERE account_id = ? AND import_id = ?",
                            (account_id, import_id))
+        conn.execute("DELETE FROM payslips WHERE account_id = ? AND import_id = ?", (account_id, import_id))
         conn.execute("DELETE FROM imports WHERE id = ? AND account_id = ?", (import_id, account_id))
         return cur.rowcount
 
@@ -167,8 +192,13 @@ def store(account_id: int, parsed: ParseResult, source: str, import_id: int | No
                  source, import_id))
             if cur.rowcount:
                 inserted += 1
+                if row.category:
+                    conn.execute("UPDATE transactions SET category = ? WHERE id = ?",
+                                 (row.category, cur.lastrowid))
             else:
                 duplicates += 1
+        if parsed.payslip:
+            _save_payslip(conn, account_id, parsed.payslip, import_id)
         if parsed.closing_balance:
             cb = parsed.closing_balance
             # Only if it is newer than what is already recorded. Importing

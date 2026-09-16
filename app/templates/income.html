@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Income") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Income") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("The household's payslips: gross pay, what was taken at source, the pension on both sides, the bonuses — per earner. The bank saw the net arrive; the sheet saw the rest, and that is what a tax return and a retirement forecast ask for.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% for e in earners %}
+{% set t = e.totals %}
+<section class="card" id="earner-{{ loop.index }}">
+  <div class="card-header">
+    <h2>{{ e.name }} <span class="sub">· {{ e.employer }}</span></h2>
+    <span class="card-subtitle">{{ _n(t.months, "{n} month", "{n} months") }} · {{ _f("gross {amount}", amount=money(t.gross, e.currency)) }} · {{ _f("tax {pct} %", pct='%.1f' | format(100 * t.tax_rate)) }} · {{ _f("pension inflow {amount}", amount=money(t.pension_inflow, e.currency)) }}{% if t.bonus %} · {{ _f("bonus {amount}", amount=money(t.bonus, e.currency)) }}{% endif %}</span>
+  </div>
+  <section class="stat-strip">
+    <div class="stat-card stat-green">
+      <div class="stat-label">{{ _("Net paid") }}</div>
+      <div class="stat-value">{{ big(t.net, e.currency) }}</div>
+      <div class="stat-sub">{{ _f("of {gross} gross", gross=big(t.gross, e.currency)) }}</div>
+    </div>
+    <div class="stat-card stat-gold">
+      <div class="stat-label">{{ _("Tax at source") }}</div>
+      <div class="stat-value">{{ big(t.tax | abs, e.currency) }}</div>
+      <div class="stat-sub">{{ _f("{pct} % of gross", pct='%.1f' | format(100 * t.tax_rate)) }}</div>
+    </div>
+    <div class="stat-card stat-purple">
+      <div class="stat-label">{{ _("Pension, both sides") }}</div>
+      <div class="stat-value">{{ big(t.pension_inflow, e.currency) }}</div>
+      <div class="stat-sub">{{ _f("{mine} yours, {theirs} the employer's", mine=money(t.employee_pension | abs, e.currency), theirs=money(t.employer_pension, e.currency)) }}</div>
+    </div>
+    <div class="stat-card stat-blue">
+      <div class="stat-label">{{ _("Employer's cost") }}</div>
+      <div class="stat-value">{{ big(t.employer_cost, e.currency) }}</div>
+      <div class="stat-sub">{% if e.employer_side_known %}{{ _("gross plus the employer's contributions") }}{% else %}{{ _("the statutory floor — the sheet prints no employer block") }}{% endif %}</div>
+    </div>
+  </section>
+  <div class="chart-wrap" style="height:300px"><canvas id="chart-earner-{{ loop.index }}"></canvas></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Month") }}</th><th class="num">{{ _("Gross") }}</th><th class="num">{{ _("Tax") }}</th><th class="num">{{ _("Social") }}</th><th class="num">{{ _("Pension") }}</th><th class="num">{{ _("Net paid") }}</th><th class="num">{{ _("Employer pension") }}</th><th class="num">{{ _("Employer's cost") }}</th><th class="num">{{ _("Bonus") }}</th><th></th></tr></thead>
+      <tbody>
+      {% for yr in e.years %}{% set y = yr.year %}{% set yt = yr.totals %}
+        <tr class="acct-group"><th>{{ y }} <span class="sub">· {{ _n(yt.months, "{n} month", "{n} months") }}</span></th>
+          <th class="num">{{ money(yt.gross, e.currency) }}</th><th class="num">{{ money(yt.tax, e.currency) }}</th><th class="num">{{ money(yt.employee_social, e.currency) }}</th><th class="num">{{ money(yt.employee_pension, e.currency) }}</th>
+          <th class="num">{{ money(yt.net, e.currency) }}</th><th class="num">{{ money(yt.employer_pension, e.currency) }}</th><th class="num">{{ money(yt.employer_cost, e.currency) }}</th><th class="num">{{ money(yt.bonus, e.currency) if yt.bonus else '—' }}</th><th></th></tr>
+        {% for m in yr.months %}
+        <tr>
+          <td class="nowrap">{{ mon(m.period ~ "-01") }}<span class="sub">{{ _f("paid {date}", date=d(m.paid_on)) if m.paid_on }}</span></td>
+          <td class="num">{{ money(m.gross, m.currency) }}</td>
+          <td class="num {{ 'loss' if m.tax }}">{{ money(m.tax, m.currency) if m.tax else '—' }}</td>
+          <td class="num">{{ money(m.employee_social, m.currency) }}</td>
+          <td class="num">{{ money(m.employee_pension, m.currency) }}</td>
+          <td class="num gain">{{ money(m.net_paid, m.currency) }}</td>
+          <td class="num">{{ money(m.employer_pension, m.currency) }}</td>
+          <td class="num sub">{{ money(m.gross + m.employer_pension + m.employer_social, m.currency) }}</td>
+          <td class="num">{{ money(m.bonus, m.currency) if m.bonus else '—' }}</td>
+          <td class="num"><form method="post" style="display:inline" onsubmit="return confirm({{ _('Remove this payslip and the rows it booked?') | tojson }})"><input type="hidden" name="form" value="payslip_delete"><input type="hidden" name="id" value="{{ m.id }}"><button type="submit" class="btn-ghost">{{ _("Remove") }}</button></form></td>
+        </tr>
+        {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endfor %}
+
+<section class="card {{ 'empty' if not earners }}">
+  <div class="card-header"><h2>{{ _("Adding a payslip") }}</h2></div>
+  <p class="sub">{{ _("A payslip is imported into the account the net salary lands in: open that account, Import a file, choose the PDF — several at once is fine. The sheet is kept whole here, and what the bank never sees is booked onto the account, zero-sum: the tax at source and each side's pension contribution, grossed up and then paid or invested. The net itself is left to the bank.") }}</p>
+  {% if landing %}
+  <p class="sub">{{ _("Your accounts a salary could land in:") }}
+    {% for a in landing %}<a href="{{ url_for('account_import', account_id=a.id) }}">{{ a.name }}</a>{{ ", " if not loop.last }}{% endfor %}</p>
+  {% endif %}
+  <p class="sub">{{ _("Two layouts are read: the SAP Lohnabrechnung of a large employer, with wage codes, and the small employer's sheet with Bruttolohn, AHV, ALV, BVG and Nettolohn. The earner's name is taken from the sheet, so one household's payslips sort themselves.") }}</p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const LANG = {{ lang | tojson }};
+{% for e in earners %}
+(() => {
+  const months = {{ e.months | map(attribute='period') | list | tojson }};
+  const M = {{ e.months | tojson }};
+  const ccy = {{ e.currency | tojson }};
+  const fmt = v => new Intl.NumberFormat(LANG, { style: 'currency', currency: ccy, maximumFractionDigits: 0 }).format(v);
+  new Chart(document.getElementById('chart-earner-{{ loop.index }}'), {
+    data: { labels: months, datasets: [
+      { type: 'bar', label: {{ _("Net paid") | tojson }}, data: M.map(m => m.net_paid), backgroundColor: css('--gain'), stack: 'g' },
+      { type: 'bar', label: {{ _("Pension") | tojson }}, data: M.map(m => Math.abs(m.employee_pension)), backgroundColor: css('--accent-purple'), stack: 'g' },
+      { type: 'bar', label: {{ _("Social") | tojson }}, data: M.map(m => Math.abs(m.employee_social) + Math.abs(m.other_deductions)), backgroundColor: css('--accent-blue'), stack: 'g' },
+      { type: 'bar', label: {{ _("Tax") | tojson }}, data: M.map(m => Math.abs(m.tax)), backgroundColor: css('--loss'), stack: 'g' },
+      { type: 'line', label: {{ _("Employer pension") | tojson }}, data: M.map(m => m.employer_pension), borderColor: css('--accent-gold'), backgroundColor: 'rgba(245,215,110,0.15)', fill: false, tension: 0.2, pointRadius: 2 },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: css('--text-secondary') } }, tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + fmt(c.parsed.y) } } },
+      scales: { x: { stacked: true, ticks: { color: css('--text-tertiary'), maxRotation: 0 }, grid: { display: false } },
+                y: { stacked: true, beginAtZero: true, ticks: { color: css('--text-tertiary'), callback: fmt }, grid: { color: css('--border') } } } },
+  });
+})();
+{% endfor %}
+</script>
+{% endblock %}

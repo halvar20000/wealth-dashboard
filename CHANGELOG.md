@@ -11,6 +11,24 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.56.0] — 2026-09-16
+
+### Added
+- **Payslips, and an Income page.** A Swiss Lohnabrechnung as a PDF
+  imports into the account the net salary lands in — two layouts are
+  read: the SAP sheet of a large employer, with its wage codes and
+  employer block, and the small employer's sheet with Bruttolohn,
+  AHV, ALV, BVG and Nettolohn, even when its text arrives with the
+  spaces gone and an O where a zero was printed. The sheet is kept
+  whole, and what the bank never sees is booked onto the account,
+  zero-sum: the tax at source and each side's pension contribution,
+  grossed up as salary and then paid as tax or moved as investment.
+  The Income page shows every earner the sheets name — the earner
+  comes from the sheet, not from a setting — with net, tax at source,
+  the pension on both sides and the employer's cost, a bar per month
+  and a table per year, and says where the employer's side is only
+  the statutory floor because the sheet prints none.
+
 ## [0.55.0] — 2026-09-16
 
 ### Added

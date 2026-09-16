@@ -475,6 +475,36 @@ CREATE TABLE IF NOT EXISTS imports (
     at         TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- A payslip, whole — see importers/payslip.py. One per employer, earner
+-- and month; the same sheet imported again replaces its reading. The
+-- rows it books sit in transactions under the import like any other.
+CREATE TABLE IF NOT EXISTS payslips (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id          INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+    import_id           INTEGER,
+    employer            TEXT NOT NULL,
+    employee            TEXT NOT NULL,
+    period              TEXT NOT NULL,             -- YYYY-MM
+    paid_on             TEXT,
+    currency            TEXT NOT NULL,
+    gross               REAL NOT NULL,
+    base_salary         REAL,
+    bonus               REAL NOT NULL DEFAULT 0,
+    allowances          REAL NOT NULL DEFAULT 0,
+    employee_social     REAL NOT NULL DEFAULT 0,   -- negative: AHV, ALV, accident
+    employee_pension    REAL NOT NULL DEFAULT 0,   -- negative
+    tax                 REAL NOT NULL DEFAULT 0,   -- negative: tax at source
+    other_deductions    REAL NOT NULL DEFAULT 0,   -- negative: the canteen, and such
+    net_paid            REAL NOT NULL,
+    employer_pension    REAL NOT NULL DEFAULT 0,
+    employer_social     REAL NOT NULL DEFAULT 0,
+    employer_side_known INTEGER NOT NULL DEFAULT 1, -- 0: the sheet prints no employer block; the floor is shown
+    layout              TEXT,
+    lines               TEXT,                      -- JSON, every line the sheet printed
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (employer, employee, period)
+);
+
 -- A column mapping the user drew for a CSV no built-in importer knows,
 -- keyed on the file's header so the next export from the same bank is
 -- recognised without asking again. See importers/generic.py.

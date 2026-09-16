@@ -30,6 +30,7 @@
      ('ideas', url_for('screener_page'), _("Share Ideas"), 'screener')]},
   {'key': 'money', 'label': _("Money"), 'items': [
      ('cashflow', url_for('cashflow_page'), _("Cash Flow"), 'cashflow'),
+     ('income', url_for('income_page'), _("Income"), 'income'),
      ('budget', url_for('budget_page'), _("Budget"), 'budget'),
      ('subscriptions', url_for('subscriptions_page'), _("Subscriptions"), 'subscriptions'),
      ('bills', url_for('bills_page'), _("Bills"), 'bills'),
@@ -115,7 +116,7 @@
       <h1>{% block heading %}{% endblock %}</h1>
       {% endif %}
     {% endblock %}
-    {% if view_person and active_page in ('overview', 'portfolio', 'crypto', 'allocation', 'dividends', 'loans', 'bills', 'cashflow', 'budget', 'forecast', 'stages', 'subscriptions', 'transactions', 'categorize', 'accounts') %}
+    {% if view_person and active_page in ('overview', 'portfolio', 'crypto', 'allocation', 'dividends', 'loans', 'bills', 'cashflow', 'income', 'budget', 'forecast', 'stages', 'subscriptions', 'transactions', 'categorize', 'accounts') %}
     <p class="view-note">{{ _f("Only {name}'s accounts are counted on this page.", name=view_person.name) }}</p>
     {% endif %}
     {% block lede %}{% endblock %}

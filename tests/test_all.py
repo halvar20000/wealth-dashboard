@@ -1272,6 +1272,79 @@ check("a sale is money in with a negative quantity",
       (sell.kind, sell.amount, sell.quantity), ("sell", 1013.23, -28.0))
 check("...and the glued column header is taken off the name",
       sell.security_name, "Ambitious Portfolio Index")
+# Payslips: the sheet whole, and the legs the bank never sees.
+from app import importers, income                             # noqa: E402
+from app.importers import payslip                             # noqa: E402
+
+check("an SAP payslip is recognised by its wage codes", payslip.matches([], fixtures.PAYSLIP_SAP), True)
+sap = payslip.parse(fixtures.PAYSLIP_SAP)
+sl = sap.payslip
+check("...read: who, where, which month, paid when",
+      (sl["employee"], sl["employer"], sl["period"], sl["paid_on"], sl["currency"]),
+      ("Max Muster", "Muster Chemie AG", "2026-03", "2026-03-25", "CHF"))
+check("...the gross, the tax at source, the social deductions, the pension, the rest, the net",
+      (sl["gross"], sl["tax"], sl["employee_social"], sl["employee_pension"], sl["other_deductions"], sl["net_paid"]),
+      (10250.0, -1230.0, -656.0, -500.0, -40.0, 7824.0))
+check("...the base salary and the allowance apart", (sl["base_salary"], sl["allowances"], sl["bonus"]), (10000.0, 250.0, 0.0))
+check("...and the employer's side from its own block",
+      (sl["employer_pension"], sl["employer_social"], sl["employer_side_known"]), (1180.0, 766.0, True))
+check("...every printed line kept", len(sl["lines"]), 19)
+check("the sheet adds up: gross less every deduction is the net",
+      round(sl["gross"] + sl["tax"] + sl["employee_social"] + sl["employee_pension"] + sl["other_deductions"], 2), sl["net_paid"])
+legs = sap.rows
+check("it books three zero-sum pairs: tax, the employee's pension, the employer's",
+      (len(legs), round(sum(r.amount for r in legs), 2)), (6, 0.0))
+check("...each grossed up as salary and then paid as tax or moved as investment",
+      [(r.kind, r.category, r.amount) for r in legs],
+      [("deposit", "salary", 1230.0), ("tax", "tax", -1230.0), ("deposit", "salary", 500.0), ("transfer", "investment", -500.0),
+       ("deposit", "salary", 1180.0), ("transfer", "investment", -1180.0)])
+check("...under ids that are the sheet's identity", legs[1].external_id, "payslip:Muster_Chemie_AG:Max_Muster:2026-03:tax")
+
+check("a small employer's Lohnabrechnung is recognised too", payslip.matches([], fixtures.PAYSLIP_LOHNABRECHNUNG), True)
+lo = payslip.parse(fixtures.PAYSLIP_LOHNABRECHNUNG).payslip
+check("...with the spaces put back into the names",
+      (lo["employee"], lo["employer"], lo["period"], lo["paid_on"]),
+      ("Erika Muster", "Musterstiftung für Forschung", "2025-12", "2025-12-15"))
+check("...and a printed O read as the zero it is",
+      (lo["gross"], lo["base_salary"], lo["bonus"], lo["net_paid"]), (7000.0, 4000.0, 3000.0, 5421.5))
+check("...AHV and ALV as social, BVG as pension, no tax at source for a frontalier",
+      (lo["employee_social"], lo["employee_pension"], lo["tax"]), (-448.0, -130.5, 0.0))
+check("...the employer's side as the statutory floor, and flagged as such",
+      (lo["employer_social"], lo["employer_pension"], lo["employer_side_known"]), (448.0, 130.5, False))
+check("a sheet with no month is a problem, not a statement",
+      payslip.parse("Lohnabrechnung Bruttolohn Nettolohn nothing else").problems, ["the payslip's month or gross could not be read"])
+
+# Through the app: imported into the account the net lands in, shown
+# per earner on the Income page, undone with the import.
+r = c.get("/income")
+check("the income page renders with nothing on it", (r.status_code, b"Adding a payslip" in r.data), (200, True))
+with db.get_conn() as conn:
+    slip_acct = conn.execute("SELECT id FROM accounts WHERE type = 'bank' ORDER BY id LIMIT 1").fetchone()[0]
+imp = importers.begin_import(slip_acct, "PAYSLIP_2026_03.pdf", "payslip")
+rep = importers.store(slip_acct, payslip.parse(fixtures.PAYSLIP_SAP), "payslip", imp)
+importers.store(slip_acct, payslip.parse(fixtures.PAYSLIP_LOHNABRECHNUNG), "payslip", imp)
+check("storing a payslip books its legs and keeps the sheet", (rep["inserted"], rep["duplicates"]), (6, 0))
+with db.get_conn() as conn:
+    check("...with the categories the parser set, not the kind's default",
+          [r_[0] for r_ in conn.execute("SELECT category FROM transactions WHERE import_id = ? ORDER BY id LIMIT 2", (imp,))], ["salary", "tax"])
+    check("...and two statements on record", conn.execute("SELECT COUNT(*) FROM payslips").fetchone()[0], 2)
+rep = importers.store(slip_acct, payslip.parse(fixtures.PAYSLIP_SAP), "payslip", imp)
+check("the same sheet again is nothing new", (rep["inserted"], rep["duplicates"]), (0, 6))
+r = c.get("/income")
+body = r.data.decode()
+check("the income page shows each earner with their employer",
+      ("Max Muster" in body, "Muster Chemie AG" in body, "Erika Muster" in body, "Musterstiftung" in body), (True, True, True, True))
+check("...the year's totals and the months under them", ("2026" in body and "2025" in body, "statutory floor" in body), (True, True))
+ers = {e_["name"]: e_ for e_ in income.earners()}
+check("the earner's totals: gross, tax rate, pension inflow, employer's cost",
+      (ers["Max Muster"]["totals"]["gross"], round(ers["Max Muster"]["totals"]["tax_rate"], 3), ers["Max Muster"]["totals"]["pension_inflow"], ers["Max Muster"]["totals"]["employer_cost"]),
+      (10250.0, 0.12, 1680.0, 12196.0))
+check("...and the small employer's floor is flagged", ers["Erika Muster"]["employer_side_known"], False)
+n = importers.undo_import(slip_acct, imp)
+with db.get_conn() as conn:
+    check("undoing the import removes the legs and the sheets alike",
+          (n, conn.execute("SELECT COUNT(*) FROM payslips").fetchone()[0]), (10, 0))
+
 check("a receipt that is not one says so",
       "not a Swissquote" in swissquote_beleg_pdf.parse("Hello there").problems[0], True)
 check("a statement that is not one says so",

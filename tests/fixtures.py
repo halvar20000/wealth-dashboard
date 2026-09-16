@@ -791,3 +791,82 @@ Trade,2026-01-31T11:00:36.810215685Z,GMT,0.011072,ETH,24.75,EUR,0.25,EUR,Buy,,,0
 Trade,2026-05-19T12:38:59.608092187Z,GMT,0.03500598,BTC,0.011072,ETH,0.00035006,BTC,Swap,,,019e403f-004b-7541-a2ee-9c51ef7a6851,2338.83
 Withdrawal,2026-05-22T13:20:01.621331956Z,GMT,,,0.03535916,BTC,0.25,EUR,Withdrawal through Bitcoin network,3NxV7W9e7wnMgMJ2URMA8iRhhuttmEfHha,802b51a9,019e4fc1-7872-7f70-b422-a5d680e74433,
 """
+
+
+# ─── Payslips ────────────────────────────────────────────────────────
+# Two Swiss payslip layouts, as pypdf reads them. Every name and figure
+# is invented; the shapes are the real ones — the SAP sheet with its
+# wage codes and employer block, and the small employer's sheet whose
+# text arrives with the spaces gone and an O where a zero was printed.
+
+PAYSLIP_SAP = """Bei Fragen wählen Sie bitte die Nr 00800 12388 888.
+Herr Max Muster               
+1 Musterweg                   
+CH-4000 BASEL                 
+Muster Chemie AGFirma
+Personal-Nr. 40099999
+SV Nummer
+Besch.grad
+756.0000.0000.00
+100,00
+Monat März 2026
+Valuta 25.03.2026
+Seiten Nr. 1 /  1
+Lohn
+Einkommen
+Retro Beschreibung Basis Ansatz Betrag
+0110 Monatsgehalt (12)              10.000,00 
+5035 Familienzulage                    250,00 
+/101 BRUTTO        10.250,00 
+/411 AHV-Beitrag                    10.250,00 5,300 %     543,25-
+/420 ALV-Beitrag                    10.250,00  1,10  %     112,75-
+6801 PF1 Beitrag AN                    300,00-
+6805 PF1 Risiko Beitrag AN              80,00-
+6819 KSP Beitrag AN                    120,00-
+/260 Sozialabzüge         1.156,00-
+/550 NETTO         9.094,00 
+/310 Quellensteuer                 10.250,00  12,00 %    1.230,00-
+6001 Kantine                            40,00-
+/110 Bezüge/Abzüge               1.270,00-
+Auszahlung             7.824,00 
+Sonderzahlungen / Abzüge
+Beschreibung Betrag
+Arbeitgeberbeiträge
+Beschreibung Betrag
+FAK-Beitrag AG Kassenreg.     110,00 
+AHV-Prämie AG-Anteil              543,25 
+ALV / AG-Anteil                   112,75 
+PF1 Beitrag AG                    900,00 
+PF1 Risiko Beitrag AG            160,00 
+KSP Beitrag AG                    120,00 
+Bankverbindung
+Bankschlüssel Bankname Konto Banküberweisung
+8243 Musterbank AG CH0000000000000000000            7.824,00  CHF
+Mitteilung
+"""
+
+PAYSLIP_LOHNABRECHNUNG = """MusterstiftungfürForschung
+Musterstrasse1
+4000Basel
+Personalnummer:7
+Soz.Vers.Nr.:756.0000.0000.00
+Datum:11.Dezember2025
+LohnabrechnungDezember2025
+ErikaMuster
+1Musterweg
+4000Basel
+Bezeichnung
+Auszahlung
+MengeAnsatzBetrag
+Auszahlungam15.12.2025
+Fr.5’421.50aufIBANCH0000000000000000000-CHF,Musterbank
+Monatslohn4’000.00
+13.Monatslohn2’000.00
+Gratifikation1’OOO.OO
+Bruttolohn7’000.OO
+AHV-Beitrag7’000.005.30%-371.00
+ALV-Beitrag7’000.001.10%-77.00
+BVG-Beitrag-130.50
+Nettolohn6’421.50
+6’421.50
+"""
