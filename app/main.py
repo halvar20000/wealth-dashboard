@@ -454,6 +454,8 @@ def account_detail(account_id: int):
                            kraken_ready=kraken.credentials_present(),
                            positions=importers.positions(account_id),
                            imports=importers.recent_imports(account_id),
+                           sources=importers.sources(account_id),
+                           other_accounts=_other_accounts(account_id),
                            balance=dict(balance) if balance else None,
                            readings=readings,
                            transactions=[dict(t) for t in txns],
@@ -461,6 +463,12 @@ def account_detail(account_id: int):
                            configured=banksync.credentials_present(),
                            owners=people.for_account(account_id),
                            today=date.today().isoformat())
+
+
+def _other_accounts(account_id: int) -> list[dict]:
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT id, name FROM accounts WHERE id != ? ORDER BY name", (account_id,))]
 
 
 def _wallet_choices(account_id: int) -> list[dict]:
@@ -1383,6 +1391,40 @@ def account_wallet(account_id: int):
     else:
         flash(_t("Saved. A coin withdrawn simply leaves."), "ok")
     return redirect(url_for("account_detail", account_id=account_id))
+
+
+@app.route("/accounts/<int:account_id>/wallet/book", methods=["POST"])
+@auth.login_required
+def account_wallet_book(account_id: int):
+    """Book the moves that predate the wallet — again, after rows have
+    moved between accounts; nothing is booked twice."""
+    link = brokers.link_for(account_id)
+    if link is None or link["provider"] != "kraken" or not link.get("wallet_account_id"):
+        flash(_t("Name a wallet first."), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+    past = kraken.book_past_moves(account_id, int(link["wallet_account_id"]))
+    if past["rows"]:
+        moved = ", ".join(f"{q:+g} {code}" for code, q in past["units"].items())
+        flash(_f("{n} earlier moves booked into the wallet: {units}.", n=past["rows"], units=moved), "ok")
+    else:
+        flash(_t("Nothing to book: every earlier move already has its counterpart."), "ok")
+    return redirect(url_for("account_detail", account_id=account_id))
+
+
+@app.route("/accounts/<int:account_id>/move-rows", methods=["POST"])
+@auth.login_required
+def account_move_rows(account_id: int):
+    """Every row one source brought here goes to another account —
+    for the account that held two things at once."""
+    source = request.form.get("source") or ""
+    raw = (request.form.get("to_account_id") or "").strip()
+    target = _load_account(int(raw)) if raw.isdigit() else None
+    if target is None or int(raw) == account_id:
+        flash(_t("Pick another account to move them to."), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+    n = importers.move_rows(account_id, source, int(raw))
+    flash(_n(n, "{n} row moved to {name}.", "{n} rows moved to {name}.", name=target["name"]), "ok")
+    return redirect(url_for("account_detail", account_id=int(raw)))
 
 
 # ─── MCP ─────────────────────────────────────────────────────────────

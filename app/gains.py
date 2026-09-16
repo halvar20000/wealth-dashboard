@@ -43,11 +43,14 @@ def method() -> str:
 def _run(rows: list[dict], how: str) -> dict:
     """Walk one account's rows for one security, in date order.
 
-    Returns {sales, open_cost, open_quantity}. `sales` is one entry per
-    sale with quantity, proceeds, cost, gain.
+    Returns {sales, moves, open_cost, open_quantity}. `sales` is one
+    entry per sale with quantity, proceeds, cost, gain; `moves` one per
+    transfer out, with the cost that left with the units — what the
+    receiving account books them at.
     """
     lots: list[list[float]] = []            # [quantity, cost] per lot, oldest first
     sales = []
+    moves = []
     for r in rows:
         qty = r["quantity"] or 0.0
         if abs(qty) < 1e-12:
@@ -101,29 +104,36 @@ def _run(rows: list[dict], how: str) -> dict:
                           "proceeds": proceeds, "cost": round(cost_out, 2),
                           "gain": round(proceeds - cost_out, 2), "currency": r["currency"],
                           "price": r["price"]})
-    return {"sales": sales,
+        else:
+            moves.append({"id": r["id"], "external_id": r.get("external_id"), "date": r["txn_date"],
+                          "quantity": leaving, "cost": round(cost_out, 2)})
+    return {"sales": sales, "moves": moves,
             "open_quantity": sum(l[0] for l in lots),
             "open_cost": round(sum(l[1] for l in lots), 2),
             "lots": [{"quantity": l[0], "cost": round(l[1], 2)} for l in lots]}
 
 
-def realised(isin: str, account_ids: list[int] | None = None, how: str | None = None) -> dict:
+def realised(isin: str, account_ids: list[int] | None = None, how: str | None = None,
+             until: str | None = None) -> dict:
     """Every sale of one security and what it made, plus what is still
-    held and what it cost — under one method."""
+    held and what it cost — under one method. `until` stops at a day,
+    for what the lots were on it."""
     how = how or method()
     only, params = people.sql_in(account_ids, "t.account_id")
     with get_conn() as conn:
         rows = [dict(r) for r in conn.execute(
             f"SELECT t.*, a.name AS account_name FROM transactions t JOIN accounts a ON a.id = t.account_id "
-            f"WHERE t.isin = ? AND t.quantity IS NOT NULL{only} ORDER BY t.txn_date, t.id",
-            [isin, *params]).fetchall()]
+            f"WHERE t.isin = ? AND t.quantity IS NOT NULL{only}"
+            + (" AND t.txn_date <= ?" if until else "") + " ORDER BY t.txn_date, t.id",
+            [isin, *params] + ([until] if until else [])).fetchall()]
     by_account: dict[int, list[dict]] = defaultdict(list)
     for r in rows:
         by_account[r["account_id"]].append(r)
-    sales, open_cost, open_qty, lots = [], 0.0, 0.0, []
+    sales, moves, open_cost, open_qty, lots = [], [], 0.0, 0.0, []
     for acct_rows in by_account.values():
         res = _run(acct_rows, how)
         sales.extend(res["sales"])
+        moves.extend(res["moves"])
         open_cost += res["open_cost"]
         open_qty += res["open_quantity"]
         lots.extend(res["lots"])
@@ -131,7 +141,7 @@ def realised(isin: str, account_ids: list[int] | None = None, how: str | None = 
     by_year: dict[str, float] = defaultdict(float)
     for s_ in sales:
         by_year[s_["date"][:4]] += s_["gain"]
-    return {"method": how, "sales": sales, "total": round(sum(s_["gain"] for s_ in sales), 2),
+    return {"method": how, "sales": sales, "moves": moves, "total": round(sum(s_["gain"] for s_ in sales), 2),
             "by_year": {y: round(v, 2) for y, v in sorted(by_year.items())},
             "open_quantity": open_qty, "open_cost": round(open_cost, 2), "lots": lots,
             "avg_cost": (open_cost / open_qty) if open_qty > 1e-12 else None}

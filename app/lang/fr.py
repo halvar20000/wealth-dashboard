@@ -2364,4 +2364,20 @@ STRINGS: dict[str, str] = {
     'what the coins still held cost, fees included': "ce qu'ont coûté les coins encore détenus, frais compris",
     'net invested {amount}': 'net investi {amount}',
     'Saved. {n} earlier moves are booked into the wallet too: {units}. A coin withdrawn from now on arrives there as well, at the cost it carried.': "Enregistré. {n} mouvements antérieurs sont aussi comptabilisés dans le portefeuille : {units}. Un coin retiré à partir de maintenant y arrive également, au coût qu'il portait.",
+
+    # ─── Rows between accounts, wallet catch-up ─────────────────────
+    "An account that holds two things at once — the rows of a wallet moved in from another app beside the ones an exchange syncs — can hand one source's rows to the account they belong to. The rows keep their ids, so nothing is imported twice afterwards.": "Un compte qui est deux choses à la fois — les lignes d'un portefeuille reprises d'une autre application à côté de celles qu'une plateforme synchronise — peut confier les lignes d'une source au compte auquel elles appartiennent. Les lignes gardent leurs identifiants : rien n'est importé deux fois ensuite.",
+    'Book earlier moves into the wallet': 'Comptabiliser les mouvements antérieurs dans le portefeuille',
+    'For the withdrawals synced before the wallet was named, and the deposits the wallet held the coins for. Nothing is booked twice, so it can be pressed again after rows have moved.': "Pour les retraits synchronisés avant que le portefeuille soit nommé, et les dépôts dont le portefeuille détenait les coins. Rien n'est comptabilisé deux fois : on peut donc appuyer à nouveau après avoir déplacé des lignes.",
+    'From': 'Du',
+    'Move': 'Déplacer',
+    'To': 'Au',
+    'Move every row from this source to the chosen account?': 'Déplacer toutes les lignes de cette source vers le compte choisi ?',
+    'Name a wallet first.': "Nommez d'abord un portefeuille.",
+    'Nothing to book: every earlier move already has its counterpart.': 'Rien à comptabiliser : chaque mouvement antérieur a déjà sa contrepartie.',
+    'Pick another account to move them to.': 'Choisissez un autre compte vers lequel les déplacer.',
+    'Where the rows came from': "D'où viennent les lignes",
+    '{n} earlier moves booked into the wallet: {units}.': '{n} mouvements antérieurs comptabilisés dans le portefeuille : {units}.',
+    '{n} row moved to {name}.': '{n} ligne déplacée vers {name}.',
+    '{n} rows moved to {name}.': '{n} lignes déplacées vers {name}.',
 }

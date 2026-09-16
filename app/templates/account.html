@@ -81,6 +81,12 @@
       <button type="submit" class="btn-ghost">{{ _("Save") }}</button>
     </form>
     <p class="sub">{{ _("A coin sent to a wallet of your own is still yours. Name the wallet — an account of type Broker, created under Accounts — and a withdrawal becomes a move between the two, at the cost the units carried; a coin sent back in is the same the other way round.") }}</p>
+    {% if broker.wallet_account_id %}
+    <form method="post" action="{{ url_for('account_wallet_book', account_id=account.id) }}" style="display:inline">
+      <button type="submit" class="btn-ghost">{{ _("Book earlier moves into the wallet") }}</button>
+    </form>
+    <p class="sub">{{ _("For the withdrawals synced before the wallet was named, and the deposits the wallet held the coins for. Nothing is booked twice, so it can be pressed again after rows have moved.") }}</p>
+    {% endif %}
     {% endif %}
   {% else %}
     {% if saxo_state.configured %}
@@ -172,6 +178,33 @@
 <p class="sub">{{ _("A negative quantity is not a short position: it is a sale whose purchase is older than the file you imported. Export a period that starts when you opened the account and re-import — overlap is free.") }}</p>
 {% endif %}
 <p class="sub">{{ _("Quantities are the running sum of every buy and sell, imported or typed in. The last two columns use the price of your most recent trade, not a market price — this app has no price feed yet, and a stale number presented as a valuation is worse than none.") }} {{ _("Click a security to see, and correct, every row behind it.") }}</p>
+{% endif %}
+
+{% if sources | length > 1 and other_accounts %}
+<h2>{{ _("Where the rows came from") }}</h2>
+<p class="sub">{{ _("An account that holds two things at once — the rows of a wallet moved in from another app beside the ones an exchange syncs — can hand one source's rows to the account they belong to. The rows keep their ids, so nothing is imported twice afterwards.") }}</p>
+<div class="table-wrap">
+  <table class="grid">
+    <thead><tr><th>{{ _("Through") }}</th><th class="num">{{ _("Rows") }}</th><th>{{ _("From") }}</th><th>{{ _("To") }}</th><th></th></tr></thead>
+    <tbody>
+    {% for src in sources %}
+      <tr>
+        <td class="sub">{{ src.source or '—' }}</td>
+        <td class="num">{{ src.rows }}</td>
+        <td class="sub nowrap">{{ d(src.first) }}</td>
+        <td class="sub nowrap">{{ d(src.last) }}</td>
+        <td class="num">
+          <form method="post" action="{{ url_for('account_move_rows', account_id=account.id) }}" class="form inline" style="display:inline-flex;gap:6px;align-items:center" onsubmit="return confirm({{ _('Move every row from this source to the chosen account?') | tojson }})">
+            <input type="hidden" name="source" value="{{ src.source }}">
+            <select name="to_account_id" style="width:auto">{% for a in other_accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}</select>
+            <button type="submit" class="btn-ghost">{{ _("Move") }}</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endif %}
 
 {% if imports %}

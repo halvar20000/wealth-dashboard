@@ -2360,4 +2360,20 @@ STRINGS: dict[str, str] = {
     'what the coins still held cost, fees included': 'lo que costaron las monedas que aún se tienen, comisiones incluidas',
     'net invested {amount}': 'neto invertido {amount}',
     'Saved. {n} earlier moves are booked into the wallet too: {units}. A coin withdrawn from now on arrives there as well, at the cost it carried.': 'Guardado. {n} movimientos anteriores quedan también registrados en el monedero: {units}. Una moneda retirada a partir de ahora llega allí también, al coste que llevaba.',
+
+    # ─── Rows between accounts, wallet catch-up ─────────────────────
+    "An account that holds two things at once — the rows of a wallet moved in from another app beside the ones an exchange syncs — can hand one source's rows to the account they belong to. The rows keep their ids, so nothing is imported twice afterwards.": 'Una cuenta que es dos cosas a la vez — las filas de un monedero traídas de otra aplicación junto a las que sincroniza un exchange — puede entregar las filas de una fuente a la cuenta a la que pertenecen. Las filas conservan sus identificadores, así que nada se importa dos veces después.',
+    'Book earlier moves into the wallet': 'Registrar los movimientos anteriores en el monedero',
+    'For the withdrawals synced before the wallet was named, and the deposits the wallet held the coins for. Nothing is booked twice, so it can be pressed again after rows have moved.': 'Para las retiradas sincronizadas antes de nombrar el monedero, y los depósitos para los que el monedero tenía las monedas. Nada se registra dos veces, así que se puede pulsar de nuevo tras mover filas.',
+    'From': 'Desde',
+    'Move': 'Mover',
+    'To': 'Hasta',
+    'Move every row from this source to the chosen account?': '¿Mover todas las filas de esta fuente a la cuenta elegida?',
+    'Name a wallet first.': 'Nombra primero un monedero.',
+    'Nothing to book: every earlier move already has its counterpart.': 'Nada que registrar: cada movimiento anterior ya tiene su contrapartida.',
+    'Pick another account to move them to.': 'Elige otra cuenta a la que moverlas.',
+    'Where the rows came from': 'De dónde vienen las filas',
+    '{n} earlier moves booked into the wallet: {units}.': '{n} movimientos anteriores registrados en el monedero: {units}.',
+    '{n} row moved to {name}.': '{n} fila movida a {name}.',
+    '{n} rows moved to {name}.': '{n} filas movidas a {name}.',
 }

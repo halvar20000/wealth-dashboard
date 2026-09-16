@@ -89,6 +89,38 @@ def recent_imports(account_id: int, limit: int = 8) -> list[dict]:
             "FROM imports i WHERE i.account_id = ? ORDER BY i.id DESC LIMIT ?", (account_id, limit))]
 
 
+def sources(account_id: int) -> list[dict]:
+    """Where an account's rows came from: one line per source, with the
+    count and the span. What the account page shows beside the offer
+    to move a source's rows elsewhere."""
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT COALESCE(source, '') AS source, COUNT(*) AS rows, MIN(txn_date) AS first, MAX(txn_date) AS last "
+            "FROM transactions WHERE account_id = ? GROUP BY COALESCE(source, '') ORDER BY MIN(txn_date)",
+            (account_id,))]
+
+
+def move_rows(account_id: int, source: str, to_account_id: int) -> int:
+    """Every row a source brought into this account goes to another.
+
+    For the account that was two things at once — the rows of a wallet
+    moved in from another app landing in the account an exchange is
+    linked to — so that each account holds what it physically holds
+    and a sync's balance check can mean something. The rows keep their
+    ids, so nothing is imported twice afterwards. Returns how many
+    moved.
+    """
+    if to_account_id == account_id:
+        return 0
+    with get_conn() as conn:
+        if conn.execute("SELECT 1 FROM accounts WHERE id = ?", (to_account_id,)).fetchone() is None:
+            return 0
+        cur = conn.execute(
+            "UPDATE transactions SET account_id = ? WHERE account_id = ? AND COALESCE(source, '') = ?",
+            (to_account_id, account_id, source))
+        return cur.rowcount
+
+
 def store(account_id: int, parsed: ParseResult, source: str, import_id: int | None = None) -> dict:
     """Write the parsed rows. Returns what actually happened.
 

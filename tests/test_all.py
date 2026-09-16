@@ -36,7 +36,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from app import auth, db, settings                      # noqa: E402
+from app import auth, db, gains, settings               # noqa: E402
 from app.banks import enablebanking as eb               # noqa: E402
 from app.banks import sync as banksync                  # noqa: E402
 import fake_bank                                        # noqa: E402
@@ -4402,6 +4402,7 @@ r = c.get(f"/accounts/{kr_id}")
 check("the Kraken account asks where withdrawn coins go", (b"Coins withdrawn go to" in r.data, b"Ledger" in r.data), (True, True))
 c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": str(wallet_id)})
 check("...and remembers the answer", brokers.link_for(kr_id)["wallet_account_id"], wallet_id)
+cost_all_on_kraken = gains.realised("CRYPTO:BTC", [kr_id])["open_cost"]
 LEDGER["L7"] = {"type": "withdrawal", "asset": "XXBT", "amount": "-0.1", "fee": "0.00005", "time": 1789000000}
 BALANCE["XXBT"] = "0.00595"
 r = c.post(f"/accounts/{kr_id}/sync", follow_redirects=True)
@@ -4437,10 +4438,37 @@ check("naming the wallet books the earlier moves into it",
       (b"2 earlier moves are booked" in r.data, b"+0.10205 BTC" in r.data), (True, True))
 check("...and the household holds every unit again",
       round(sum(h["quantity"] for h in ov.summary("EUR")["holdings"] if h["isin"] == "CRYPTO:BTC"), 6), 0.106)
+check("...at the cost they carried: nothing bought or sold, so the two accounts' lots add up to what one held",
+      round(gains.realised("CRYPTO:BTC", [kr_id])["open_cost"] + gains.realised("CRYPTO:BTC", [wallet_id])["open_cost"], 2),
+      round(cost_all_on_kraken, 2))
 r = c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": str(wallet_id)}, follow_redirects=True)
-check("...once: naming it again books nothing twice", b"earlier moves" in r.data, False)
+check("...once: naming it again books nothing twice", b"earlier moves are booked" in r.data, False)
+# A deposit is taken from the wallet only where the wallet held the
+# coins: 0.05 back to Kraken from a wallet holding 0.10205 is a move;
+# 0.5 is not, and stays a coin that arrived from somewhere else.
+LEDGER["L9"] = {"type": "deposit", "asset": "XXBT", "amount": "0.05", "fee": "0", "time": 1789200000}
+LEDGER["L10"] = {"type": "deposit", "asset": "XXBT", "amount": "0.5", "fee": "0", "time": 1789300000}
+BALANCE["XXBT"] = "0.55395"
 c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": ""})
-del LEDGER["L7"]; del LEDGER["L8"]; BALANCE["XXBT"] = "0.106"
+c.post(f"/accounts/{kr_id}/sync", follow_redirects=True)
+r = c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": str(wallet_id)}, follow_redirects=True)
+check("naming takes the covered deposit from the wallet and leaves the other",
+      (b"1 earlier moves are booked" in r.data, b"-0.05 BTC" in r.data), (True, True))
+wq = sum(p_["quantity"] for p_ in importers.positions(wallet_id) if p_["isin"] == "CRYPTO:BTC")
+check("...so the wallet holds what it had less what went back", round(wq, 6), 0.05205)
+with db.get_conn() as conn:
+    dep = conn.execute("SELECT price FROM transactions WHERE external_id = 'kraken:ledger:L9'").fetchone()[0]
+check("...and the deposit row on Kraken took the wallet's cost per unit, so the cost came back with the coins",
+      dep is not None and dep > 0, True)
+check("...the lots still adding up across both accounts",
+      round(gains.realised("CRYPTO:BTC", [kr_id])["open_cost"] + gains.realised("CRYPTO:BTC", [wallet_id])["open_cost"], 2),
+      round(cost_all_on_kraken, 2))
+r = c.post(f"/accounts/{kr_id}/wallet/book", follow_redirects=True)
+check("...and pressing it again books nothing", b"Nothing to book" in r.data, True)
+c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": ""})
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM transactions WHERE external_id IN ('kraken:ledger:L9', 'kraken:ledger:L10', 'kraken:ledger:L9:wallet')")
+del LEDGER["L7"]; del LEDGER["L8"]; del LEDGER["L9"]; del LEDGER["L10"]; BALANCE["XXBT"] = "0.106"
 c.post(f"/accounts/{wallet_id}/delete", data={"confirm": "Ledger"})
 r = c.post("/settings", data={"form": "kraken_forget"}, follow_redirects=True)
 check("forgetting the key removes it and the link, keeps the account",
@@ -4755,6 +4783,22 @@ with db.get_conn() as conn:
     conn.execute("DELETE FROM app_state WHERE key = 'fp_kraken_trade_ids'")
     db._repair_rows(conn)
     ids = sorted(r_[0] for r_ in conn.execute("SELECT external_id FROM transactions WHERE account_id = ? AND isin = 'CRYPTO:BTC' AND external_id LIKE '%T%-%-%'", (broker_id,)))
+# The account that was two things at once: the rows a source brought
+# can be handed to the account they belong to, ids and all.
+r = c.post("/accounts/new", data={"name": "Exodus", "type": "broker", "currency": "EUR"})
+exodus_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+r = c.get(f"/accounts/{broker_id}")
+check("the account page lists where its rows came from, with a way to move a source",
+      (b"Where the rows came from" in r.data, b"financial_planner:crypto_csv" in r.data, b"Exodus" in r.data), (True, True, True))
+r = c.post(f"/accounts/{broker_id}/move-rows", data={"source": "financial_planner:crypto_csv", "to_account_id": str(exodus_id)}, follow_redirects=True)
+check("moving a source's rows says how many", b"1 row moved to Exodus" in r.data, True)
+with db.get_conn() as conn:
+    check("...and they are there under the same id",
+          conn.execute("SELECT account_id FROM transactions WHERE external_id = 'kraken:trade:TQJFTV-IVV7T-QOKG2Q'").fetchone()[0], exodus_id)
+    conn.execute("UPDATE transactions SET account_id = ? WHERE external_id = 'kraken:trade:TQJFTV-IVV7T-QOKG2Q'", (broker_id,))
+r = c.post(f"/accounts/{broker_id}/move-rows", data={"source": "kraken", "to_account_id": str(broker_id)}, follow_redirects=True)
+check("...not to itself", b"Pick another account" in r.data, True)
+c.post(f"/accounts/{exodus_id}/delete", data={"confirm": "Exodus"})
 check("the duplicate from the old app is gone and the lone one carries the sync's id",
       ids, ["kraken:trade:TQJFTV-IVV7T-QOKG2Q", "kraken:trade:TUT7MA-K67YX-X6Z4TJ"])
 with db.get_conn() as conn:

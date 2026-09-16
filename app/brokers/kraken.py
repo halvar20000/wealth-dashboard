@@ -421,48 +421,78 @@ def sync_link(link: dict, api: Client | None = None) -> int:
 
 
 def book_past_moves(account_id: int, wallet_account_id: int) -> dict:
-    """The coins that left this exchange before a wallet was named.
+    """The coins that moved between this exchange and the wallet before
+    the wallet was named.
 
     The sync books a withdrawal as units leaving, and once stored never
     looks at it again — so naming the wallet later would leave every
-    earlier withdrawal as a coin that vanished. This is the one-off
-    that catches up: every withdrawal of a coin on the exchange account
-    without its counterpart in the wallet gets one, at the cost the
-    units carry here. Withdrawals only: the field says where coins
-    withdrawn go, and that is known; where an earlier deposit came
-    from is not, and booking it as having left this wallet could take
-    from it coins it never held. Idempotent: a counterpart that exists
-    is not made twice.
+    earlier withdrawal as a coin that vanished. This is the catch-up:
+    every withdrawal of a coin without its counterpart in the wallet
+    gets one, at the cost that left with the units — the lots say
+    exactly what that was. A deposit is booked as having come from the
+    wallet only where the wallet held that many units on that day, and
+    then the deposit row here takes the wallet's cost per unit, so the
+    cost travels in with the coins as it travels out with them: the
+    field says where coins withdrawn go, and that is known; where a
+    deposit came from is not, and taking from the wallet coins it never
+    held would say something false about both accounts. Idempotent: a
+    counterpart that exists is not made twice, so it can be run again
+    after rows have moved.
 
     Returns {rows, units: {code: quantity}} — what was booked, so the
     page can say it.
     """
+    from .. import gains
     with get_conn() as conn:
         moves = [dict(r) for r in conn.execute(
-            "SELECT txn_date, description, currency, external_id, isin, security_name, quantity "
+            "SELECT id, txn_date, description, currency, external_id, isin, security_name, quantity, price "
             "FROM transactions WHERE account_id = ? AND kind = 'transfer' AND quantity IS NOT NULL "
             "AND external_id LIKE 'kraken:ledger:%' AND isin LIKE ? "
-            "AND description LIKE 'withdrawal %' AND quantity < 0 "
+            "AND (description LIKE 'withdrawal %' OR description LIKE 'deposit %') "
             "AND NOT EXISTS (SELECT 1 FROM transactions w WHERE w.account_id = ? "
             "                AND w.external_id = transactions.external_id || ':wallet') "
             "ORDER BY txn_date, id",
             (account_id, f"{CRYPTO_PREFIX}%", wallet_account_id))]
-    rows, units = [], {}
-    cost_cache: dict[str, float | None] = {}
+    booked, units = 0, {}
+    # One at a time, each stored before the next is looked at: a
+    # deposit's cost depends on what the wallet held, which the
+    # withdrawal booked just before it may have changed.
     for m in moves:
         code = m["isin"].split(":")[-1]
-        if m["isin"] not in cost_cache:
-            cost_cache[m["isin"]] = _carried_cost(account_id, m["isin"])
-        rows.append(ParsedTxn(
-            txn_date=m["txn_date"],
+        day = m["txn_date"]
+        counterpart = f"{m['external_id']}:wallet"
+        if m["quantity"] > 0:
+            wallet = gains.realised(m["isin"], [wallet_account_id], until=day)
+            if wallet["open_quantity"] + 1e-9 < m["quantity"]:
+                continue                                 # the wallet never held them
+            price = None
+        else:
+            price = _cost_left_with(gains.realised(m["isin"], [account_id]), m["external_id"])
+        store(wallet_account_id, ParseResult(rows=[ParsedTxn(
+            txn_date=day,
             description=f"{'From' if m['quantity'] < 0 else 'To'} Kraken: {abs(m['quantity']):g} {code}",
-            amount=0.0, currency=m["currency"], kind="transfer", external_id=f"{m['external_id']}:wallet",
-            isin=m["isin"], security_name=m["security_name"], quantity=-m["quantity"],
-            price=cost_cache[m["isin"]] if m["quantity"] < 0 else None))
+            amount=0.0, currency=m["currency"], kind="transfer", external_id=counterpart,
+            isin=m["isin"], security_name=m["security_name"], quantity=-m["quantity"], price=price)]), "kraken")
+        if m["quantity"] > 0 and m["price"] is None:
+            # What the wallet's lots gave up for these units — under
+            # whichever method — is what they cost on arrival here.
+            arrived = _cost_left_with(gains.realised(m["isin"], [wallet_account_id]), counterpart)
+            if arrived:
+                with get_conn() as conn:
+                    conn.execute("UPDATE transactions SET price = ? WHERE id = ? AND price IS NULL",
+                                 (arrived, m["id"]))
+        booked += 1
         units[code] = units.get(code, 0.0) - m["quantity"]
-    if rows:
-        store(wallet_account_id, ParseResult(rows=rows), "kraken")
-    return {"rows": len(rows), "units": units}
+    return {"rows": booked, "units": units}
+
+
+def _cost_left_with(lots: dict, external_id: str) -> float | None:
+    """The cost per unit that a transfer out took with it, from the
+    lot engine's account of that transfer."""
+    out = next((x for x in lots["moves"] if x["external_id"] == external_id), None)
+    if out and out["quantity"] > 1e-12 and out["cost"]:
+        return out["cost"] / out["quantity"]
+    return None
 
 
 def _carried_cost(account_id: int, key: str) -> float | None:

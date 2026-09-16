@@ -2358,4 +2358,20 @@ STRINGS: dict[str, str] = {
     'what the coins still held cost, fees included': 'was die noch gehaltenen Coins gekostet haben, samt Gebühren',
     'net invested {amount}': 'netto investiert {amount}',
     'Saved. {n} earlier moves are booked into the wallet too: {units}. A coin withdrawn from now on arrives there as well, at the cost it carried.': 'Gespeichert. {n} frühere Bewegungen sind nun ebenfalls in der Wallet verbucht: {units}. Ein ab jetzt abgehobener Coin kommt auch dort an, zu den Kosten, die er trug.',
+
+    # ─── Rows between accounts, wallet catch-up ─────────────────────
+    "An account that holds two things at once — the rows of a wallet moved in from another app beside the ones an exchange syncs — can hand one source's rows to the account they belong to. The rows keep their ids, so nothing is imported twice afterwards.": 'Ein Konto, das zwei Dinge zugleich ist — die aus einer anderen App übernommenen Zeilen einer Wallet neben denen, die eine Börse abgleicht — kann die Zeilen einer Quelle an das Konto abgeben, zu dem sie gehören. Die Zeilen behalten ihre Ids, danach wird nichts doppelt importiert.',
+    'Book earlier moves into the wallet': 'Frühere Bewegungen in die Wallet buchen',
+    'For the withdrawals synced before the wallet was named, and the deposits the wallet held the coins for. Nothing is booked twice, so it can be pressed again after rows have moved.': 'Für die Abhebungen, die vor dem Benennen der Wallet abgeglichen wurden, und die Einzahlungen, für die die Wallet die Coins hatte. Nichts wird doppelt gebucht — nach dem Verschieben von Zeilen kann man es also erneut drücken.',
+    'From': 'Von',
+    'Move': 'Verschieben',
+    'To': 'Bis',
+    'Move every row from this source to the chosen account?': 'Alle Zeilen dieser Quelle auf das gewählte Konto verschieben?',
+    'Name a wallet first.': 'Benenne zuerst eine Wallet.',
+    'Nothing to book: every earlier move already has its counterpart.': 'Nichts zu buchen: jede frühere Bewegung hat schon ihr Gegenstück.',
+    'Pick another account to move them to.': 'Wähle ein anderes Konto, auf das sie verschoben werden.',
+    'Where the rows came from': 'Woher die Zeilen stammen',
+    '{n} earlier moves booked into the wallet: {units}.': '{n} frühere Bewegungen in die Wallet gebucht: {units}.',
+    '{n} row moved to {name}.': '{n} Zeile nach {name} verschoben.',
+    '{n} rows moved to {name}.': '{n} Zeilen nach {name} verschoben.',
 }

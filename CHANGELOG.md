@@ -11,6 +11,27 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.54.0] — 2026-09-16
+
+### Added
+- **An account's rows can move to the account they belong to.** The
+  account page lists where its rows came from — the move-in from
+  another app, an exchange's sync, a file — and each source can be
+  handed to another account whole. For the account that was two
+  things at once: a wallet's history moved in from the old app,
+  landing in the account an exchange is linked to, so the exchange's
+  balance check could never agree. The rows keep their ids, so
+  nothing is imported twice afterwards.
+- **"Book earlier moves into the wallet"**, a button on the exchange
+  account, and deposits now count too where the wallet held the
+  coins: a deposit is taken from the wallet only if the wallet had
+  that many units on that day, so it can never take coins it never
+  held. The cost travels with the units in both directions — exactly
+  what the lots gave up, under FIFO or average cost — so the two
+  accounts' cost bases add up to what one would have held. Nothing
+  is booked twice, so the button can be pressed again after rows
+  have moved.
+
 ## [0.53.0] — 2026-09-16
 
 ### Fixed
