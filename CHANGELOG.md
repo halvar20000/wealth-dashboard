@@ -11,6 +11,24 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.54.2] — 2026-09-16
+
+### Fixed
+- **A coin's move to the wallet is priced from the lots as they are
+  now, not as they were when it was first booked.** The counterpart
+  of a withdrawal used to keep the cost it was given the day it was
+  created — and rows moved between accounts since, or a deposit
+  priced since, had changed what the lots say, leaving a cost basis
+  of €5,980 on coins that cost €12,580. The catch-up now re-prices
+  every move in date order on every run — the button, and every
+  sync — and a second run changes nothing.
+- **The network fee of a withdrawal leaves with the coins.** An
+  earlier parser booked a withdrawal without the fee Kraken took with
+  it, a few satoshi a time — the reason a balance that should agree
+  to the satoshi did not. Every sync now re-reads its stored ledger
+  rows against Kraken and puts the quantity and the fee right, and
+  the wallet receives what was sent: the fee's units are gone.
+
 ## [0.54.1] — 2026-09-16
 
 ### Fixed

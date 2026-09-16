@@ -4426,16 +4426,28 @@ r = c.post(f"/accounts/{kr_id}/sync", follow_redirects=True)
 check("the withdrawal syncs without drift: Kraken's balance and the rows agree", b"Imported 1 new" in r.data, True)
 kpos = {p_["isin"]: p_ for p_ in importers.positions(kr_id)}
 wpos = {p_["isin"]: p_ for p_ in importers.positions(wallet_id)}
-check("the units left Kraken and arrived in the wallet",
-      (round(kpos["CRYPTO:BTC"]["quantity"], 6), round(wpos["CRYPTO:BTC"]["quantity"], 6)), (0.00595, 0.10005))
+check("the units left Kraken, fee included, and the wallet received what was sent",
+      (round(kpos["CRYPTO:BTC"]["quantity"], 6), round(wpos["CRYPTO:BTC"]["quantity"], 6)), (0.00595, 0.1))
 with db.get_conn() as conn:
     wrow = dict(conn.execute("SELECT * FROM transactions WHERE account_id = ? AND isin = 'CRYPTO:BTC'", (wallet_id,)).fetchone())
 check("...as a transfer that carries the cost of the units, under the ledger entry's id",
       (wrow["kind"], wrow["external_id"], wrow["amount"], wrow["price"] is not None and wrow["price"] > 0, wrow["description"]),
-      ("transfer", "kraken:ledger:L7:wallet", 0.0, True, "From Kraken: 0.10005 BTC"))
+      ("transfer", "kraken:ledger:L7:wallet", 0.0, True, "From Kraken: 0.1 BTC"))
 ov_ = ov.summary("EUR")
 btc = next(h for h in ov_["holdings"] if h["isin"] == "CRYPTO:BTC")
-check("...and the household still holds every unit", round(btc["quantity"], 6), 0.106)
+check("...and the household holds every unit but the network fee's", round(btc["quantity"], 6), 0.10595)
+# An earlier parser booked a withdrawal without the fee taken with it.
+# Every sync re-reads the stored rows against the ledger and heals
+# them — and the wallet's counterpart with them.
+with db.get_conn() as conn:
+    conn.execute("UPDATE transactions SET quantity = -0.1, fee = NULL WHERE external_id = 'kraken:ledger:L7'")
+    conn.execute("UPDATE transactions SET quantity = 0.10005 WHERE external_id = 'kraken:ledger:L7:wallet'")
+c.post(f"/accounts/{kr_id}/sync", follow_redirects=True)
+with db.get_conn() as conn:
+    healed = conn.execute("SELECT quantity, fee FROM transactions WHERE external_id = 'kraken:ledger:L7'").fetchone()[:]
+    healed_w = conn.execute("SELECT quantity FROM transactions WHERE external_id = 'kraken:ledger:L7:wallet'").fetchone()[0]
+check("a row an older parser stored without the fee is put right by the next sync",
+      (round(healed[0], 6), healed[1], round(healed_w, 6)), (-0.10005, 0.00005, 0.1))
 r = c.post(f"/accounts/{kr_id}/sync", follow_redirects=True)
 check("a second sync adds nothing on either side", b"Imported 0 new" in r.data, True)
 c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": ""})
@@ -4452,12 +4464,12 @@ check("without a wallet the coin simply left",
       round(sum(h["quantity"] for h in ov.summary("EUR")["holdings"] if h["isin"] == "CRYPTO:BTC"), 6), 0.00395)
 r = c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": str(wallet_id)}, follow_redirects=True)
 check("naming the wallet books the earlier moves into it",
-      (b"2 earlier moves are booked" in r.data, b"+0.10205 BTC" in r.data), (True, True))
-check("...and the household holds every unit again",
-      round(sum(h["quantity"] for h in ov.summary("EUR")["holdings"] if h["isin"] == "CRYPTO:BTC"), 6), 0.106)
-check("...at the cost they carried: nothing bought or sold, so the two accounts' lots add up to what one held",
-      round(gains.realised("CRYPTO:BTC", [kr_id])["open_cost"] + gains.realised("CRYPTO:BTC", [wallet_id])["open_cost"], 2),
-      round(cost_all_on_kraken, 2))
+      (b"2 earlier moves are booked" in r.data, b"+0.102 BTC" in r.data), (True, True))
+check("...and the household holds every unit again, but the fee's",
+      round(sum(h["quantity"] for h in ov.summary("EUR")["holdings"] if h["isin"] == "CRYPTO:BTC"), 6), 0.10595)
+_after = gains.realised("CRYPTO:BTC", [kr_id])["open_cost"] + gains.realised("CRYPTO:BTC", [wallet_id])["open_cost"]
+check("...at the cost they carried: the two accounts' lots add up to what one held, less the fee's units",
+      0 <= cost_all_on_kraken - _after <= cost_all_on_kraken * 0.001, True)
 r = c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": str(wallet_id)}, follow_redirects=True)
 check("...once: naming it again books nothing twice", b"earlier moves are booked" in r.data, False)
 # A deposit is taken from the wallet only where the wallet held the
@@ -4472,14 +4484,13 @@ r = c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": str(wallet_id
 check("naming takes the covered deposit from the wallet and leaves the other",
       (b"1 earlier moves are booked" in r.data, b"-0.05 BTC" in r.data), (True, True))
 wq = sum(p_["quantity"] for p_ in importers.positions(wallet_id) if p_["isin"] == "CRYPTO:BTC")
-check("...so the wallet holds what it had less what went back", round(wq, 6), 0.05205)
+check("...so the wallet holds what it had less what went back", round(wq, 6), 0.052)
 with db.get_conn() as conn:
     dep = conn.execute("SELECT price FROM transactions WHERE external_id = 'kraken:ledger:L9'").fetchone()[0]
 check("...and the deposit row on Kraken took the wallet's cost per unit, so the cost came back with the coins",
       dep is not None and dep > 0, True)
-check("...the lots still adding up across both accounts",
-      round(gains.realised("CRYPTO:BTC", [kr_id])["open_cost"] + gains.realised("CRYPTO:BTC", [wallet_id])["open_cost"], 2),
-      round(cost_all_on_kraken, 2))
+_after2 = gains.realised("CRYPTO:BTC", [kr_id])["open_cost"] + gains.realised("CRYPTO:BTC", [wallet_id])["open_cost"]
+check("...the lots still adding up across both accounts, to the cent", abs(_after2 - _after) <= 0.011, True)
 r = c.post(f"/accounts/{kr_id}/wallet/book", follow_redirects=True)
 check("...and pressing it again books nothing", b"Nothing to book" in r.data, True)
 c.post(f"/accounts/{kr_id}/wallet", data={"wallet_account_id": ""})
