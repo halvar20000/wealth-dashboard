@@ -176,11 +176,15 @@ def clean(form) -> dict:
         except ValueError:
             raise ValueError(i18n.f("Extra repayment {line}: write the date and the amount, like 2027-04-10 20000.", line=line)) from None
         extras.append({"date": when, "amount": amount})
+    drawn = parse_decimal(form.get("drawn_amount"))
+    drawn_ccy = (form.get("drawn_currency") or "").strip().upper()[:3]
     return {"name": name, "principal": principal, "rate_pct": rate, "first_payment": first.isoformat(),
             "period_months": months, "payment": payment if payment and payment > 0 else None,
             "term_months": int(term) if term and term > 0 else None,
             "extras": json.dumps(extras), "notes": " ".join((form.get("notes") or "").split())[:500] or None,
-            "currency": (form.get("currency") or "EUR").upper()[:3]}
+            "currency": (form.get("currency") or "EUR").upper()[:3],
+            "drawn_amount": drawn if drawn and drawn > 0 and drawn_ccy else None,
+            "drawn_currency": drawn_ccy if drawn and drawn > 0 and drawn_ccy else None}
 
 
 def add(form, person_ids=None) -> int:
@@ -191,17 +195,74 @@ def add(form, person_ids=None) -> int:
         cur = conn.execute("INSERT INTO accounts (name, type, currency) VALUES (?, 'loan', ?)",
                            (terms["name"], terms["currency"]))
         account_id = int(cur.lastrowid)
-        cur = conn.execute(
-            "INSERT INTO loans (account_id, principal, rate_pct, first_payment, period_months, "
-            "payment, term_months, extras, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (account_id, terms["principal"], terms["rate_pct"], terms["first_payment"],
-             terms["period_months"], terms["payment"], terms["term_months"], terms["extras"], terms["notes"]))
-        loan_id = int(cur.lastrowid)
+        loan_id = _insert(conn, account_id, terms)
     if person_ids:
         people.set_for_account(account_id, person_ids)
     write_balance(loan_id)
     write_history(loan_id)
     return loan_id
+
+
+def _insert(conn, account_id: int, terms: dict) -> int:
+    cur = conn.execute(
+        "INSERT INTO loans (account_id, principal, rate_pct, first_payment, period_months, "
+        "payment, term_months, extras, notes, drawn_amount, drawn_currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (account_id, terms["principal"], terms["rate_pct"], terms["first_payment"],
+         terms["period_months"], terms["payment"], terms["term_months"], terms["extras"], terms["notes"],
+         terms["drawn_amount"], terms["drawn_currency"]))
+    return int(cur.lastrowid)
+
+
+def attach(account_id: int, form) -> int:
+    """The terms for a loan account that exists already — one moved in
+    from another app with its balance readings, say — so its schedule
+    can be drawn. The account keeps its name; the form's name is
+    ignored, the currency follows the account."""
+    with get_conn() as conn:
+        account = conn.execute("SELECT id, name, type, currency FROM accounts WHERE id = ?", (account_id,)).fetchone()
+        if account is None or account["type"] != "loan":
+            raise ValueError(i18n.t("That account is not a loan."))
+        if conn.execute("SELECT 1 FROM loans WHERE account_id = ?", (account_id,)).fetchone():
+            raise ValueError(i18n.t("That account already has its terms."))
+    form = {**{k: form.get(k) for k in form.keys()}, "name": account["name"], "currency": account["currency"]}
+    terms = clean(form)
+    with get_conn() as conn:
+        loan_id = _insert(conn, account_id, terms)
+    write_balance(loan_id)
+    write_history(loan_id)
+    return loan_id
+
+
+def for_account(account_id: int) -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute("SELECT l.*, a.name, a.currency FROM loans l JOIN accounts a "
+                           "ON a.id = l.account_id WHERE l.account_id = ?", (account_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def detail(loan: dict, base_currency: str, today: date | None = None) -> dict:
+    """Everything the loan's own page shows: the schedule, where it
+    stands today, the split of every instalment, and — where the loan
+    is not in the base currency — today's rate to show it at, and what
+    it was drawn as."""
+    from . import fx
+    today = today or date.today()
+    rows = schedule(loan)
+    st = status(loan, today)
+    rate = None
+    if loan["currency"].upper() != base_currency.upper():
+        one, _ = fx.convert(1.0, loan["currency"], base_currency)
+        rate = one
+    return {
+        "schedule": rows, "status": st, "today": today.isoformat(),
+        "rate": rate,                                   # base per unit of the loan's currency
+        "paid_interest_total": st["total_interest"],
+        "capital_total": round(sum(r["capital"] + r["extra"] for r in rows), 2),
+        "first_year": loan["first_payment"][:4],
+        "drawn": ({"amount": loan["drawn_amount"], "currency": loan["drawn_currency"],
+                   "rate": round(float(loan["principal"]) / float(loan["drawn_amount"]), 5)}
+                  if loan.get("drawn_amount") else None),
+    }
 
 
 def update(loan_id: int, form) -> None:
@@ -214,9 +275,10 @@ def update(loan_id: int, form) -> None:
                      (terms["name"], terms["currency"], loan["account_id"]))
         conn.execute(
             "UPDATE loans SET principal = ?, rate_pct = ?, first_payment = ?, period_months = ?, "
-            "payment = ?, term_months = ?, extras = ?, notes = ? WHERE id = ?",
+            "payment = ?, term_months = ?, extras = ?, notes = ?, drawn_amount = ?, drawn_currency = ? WHERE id = ?",
             (terms["principal"], terms["rate_pct"], terms["first_payment"], terms["period_months"],
-             terms["payment"], terms["term_months"], terms["extras"], terms["notes"], loan_id))
+             terms["payment"], terms["term_months"], terms["extras"], terms["notes"],
+             terms["drawn_amount"], terms["drawn_currency"], loan_id))
     write_balance(loan_id)
     write_history(loan_id)
 

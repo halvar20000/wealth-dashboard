@@ -24,7 +24,7 @@
 {% for l in loans %}
 <div class="card" id="loan-{{ l.id }}">
   <div class="card-header">
-    <h2>{{ l.name }}</h2>
+    <h2><a href="{{ url_for('loan_detail', loan_id=l.id) }}">{{ l.name }}</a></h2>
     <span class="card-subtitle">{{ periods[l.period_months] | replace('-', ' ') }} · {{ '%g' | format(l.rate_pct) }} % · <a href="{{ url_for('account_detail', account_id=l.account_id) }}">{{ _("the account") }}</a>{% if l.owners %} · {{ l.owners | map(attribute='name') | join(', ') }}{% endif %}</span>
   </div>
   <div class="loan-grid">

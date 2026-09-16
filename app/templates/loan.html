@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}{{ loan.name }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _f("{name} — loan over time", name=loan.name) }}{% endblock %}
+{% block lede %}
+<p class="lede">
+  {{ _f("A {currency} loan on its fixed {rhythm} schedule from the first instalment of {first} until it is paid off. Every figure is computed from the terms — a constant annuity, interest rounded to the cent each period, the way a bank does it — and reproduces the bank's own breakdown.",
+        currency=loan.currency, rhythm=_(periods[loan.period_months] ~ " [rhythm]"), first=d(loan.first_payment)) }}
+  {% if d_.rate %}{{ _f("The loan is in {currency}; {base} is shown for reference only, at today's rate.", currency=loan.currency, base=base_currency) }}{% endif %}
+  · <a href="{{ url_for('account_detail', account_id=loan.account_id) }}">{{ _("the account") }}</a>
+  · <a href="{{ url_for('loans_page') }}#loan-{{ loan.id }}">{{ _("change the terms") }}</a>
+</p>
+{% endblock %}
+{% block content %}
+{% set st = d_.status %}
+{% set ccy = loan.currency %}
+
+<section class="stat-strip">
+  <div class="stat-card stat-blue">
+    <div class="stat-label">{{ _("Outstanding today") }}</div>
+    <div class="stat-value" data-amount="{{ st.balance }}">{{ big(st.balance, ccy) }}</div>
+    <div class="stat-sub">{{ _f("as of {date}", date=d(d_.today)) }}{% if st.next %} · {{ _f("next {date}", date=d(st.next.date)) }}{% endif %}</div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-label">{{ _("Repaid so far") }}</div>
+    <div class="stat-value" data-amount="{{ st.paid_capital }}">{{ big(st.paid_capital, ccy) }}</div>
+    <div class="stat-sub">{{ _f("{pct} % of the original", pct=(100 * st.progress) | round(1)) }}</div>
+  </div>
+  <div class="stat-card stat-purple">
+    <div class="stat-label">{{ _f("Original loan ({year})", year=d_.first_year) }}</div>
+    <div class="stat-value" data-amount="{{ loan.principal }}">{{ big(loan.principal, ccy) }}</div>
+    <div class="stat-sub">
+      {% if d_.drawn %}{{ _f("{amount} @ {rate} on drawdown", amount=big(d_.drawn.amount, d_.drawn.currency), rate=d_.drawn.rate) }}
+      {% else %}{{ _f("{rate} % per year", rate='%g' | format(loan.rate_pct)) }}{% endif %}
+    </div>
+  </div>
+  <div class="stat-card stat-gold">
+    <div class="stat-label">{{ _("Payoff date") }}</div>
+    <div class="stat-value">{% if st.endless %}{{ _("never at this payment") }}{% else %}{{ d(st.payoff) }}{% endif %}</div>
+    <div class="stat-sub">{{ _n(d_.schedule | length, "{n} instalment", "{n} instalments") }}, {{ _(periods[loan.period_months] ~ " [rhythm]") }}{% if st.payments_left %} · {{ _n(st.payments_left, "{n} left", "{n} left") }}{% endif %}</div>
+  </div>
+</section>
+
+{% if d_.rate %}
+<p class="sub" style="margin:-6px 0 16px">
+  <label>{{ _("Show amounts in:") }}
+    <select id="loan-ccy" style="width:auto;margin-left:6px">
+      <option value="{{ ccy }}">{{ _f("{currency} (loan currency)", currency=ccy) }}</option>
+      <option value="{{ base_currency }}">{{ _f("{currency} (today's rate)", currency=base_currency) }}</option>
+    </select>
+  </label>
+  <span id="loan-ccy-hint">{{ _f("the loan is denominated in {currency}", currency=ccy) }}</span>
+</p>
+{% endif %}
+
+<section class="card">
+  <div class="card-header">
+    <h2>{{ _("Outstanding balance over time") }}</h2>
+    <span class="card-subtitle">{{ _f("From {amount} at drawdown to zero on {date}.", amount=big(loan.principal, ccy), date=d(st.payoff)) }}</span>
+  </div>
+  <div class="chart-wrap" style="height:380px"><canvas id="loan-balance"></canvas></div>
+  <p class="sub">{{ _("The dashed markers show today and the final payoff. The balance steps down on each payment date; because the interest share shrinks as the balance falls, the curve gently accelerates toward zero.") }}</p>
+</section>
+
+<section class="card">
+  <div class="card-header">
+    <h2>{{ _("Where each instalment goes") }}</h2>
+    <span class="card-subtitle">{{ _("Every payment is a fixed annuity: interest, shrinking, against capital repaid.") }}</span>
+  </div>
+  <div class="chart-wrap" style="height:300px"><canvas id="loan-split"></canvas></div>
+  <p class="sub">{{ _f("Total interest over the whole life of the loan: {amount}.", amount=money(st.total_interest, ccy)) }}
+    {% if st.total_interest < 0.05 * loan.principal %}{{ _("At this rate the loan is overwhelmingly principal from day one — the interest bars are barely visible, which is exactly why the balance falls almost linearly.") }}{% endif %}</p>
+</section>
+
+<section class="card">
+  <div class="card-header">
+    <h2>{{ _("Amortisation schedule") }}</h2>
+    <span class="card-subtitle">{{ _n(d_.schedule | length, "{n} instalment", "{n} instalments") }} · {{ _("faded rows are still in the future") }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>#</th><th>{{ _("Date") }}</th><th class="num">{{ _("Payment") }}</th><th class="num">{{ _("Interest") }}</th><th class="num">{{ _("Capital") }}</th>{% if d_.schedule | selectattr('extra') | list %}<th class="num">{{ _("Extra") }}</th>{% endif %}<th class="num">{{ _("Balance") }}</th></tr></thead>
+      <tbody>
+      {% for r in d_.schedule %}
+        <tr class="{{ 'future' if r.date > d_.today }}">
+          <td>{{ r.n }}</td><td class="nowrap">{{ d(r.date) }}</td>
+          <td class="num" data-amount="{{ r.payment }}">{{ money(r.payment, ccy) }}</td>
+          <td class="num" data-amount="{{ r.interest }}">{{ money(r.interest, ccy) }}</td>
+          <td class="num" data-amount="{{ r.capital }}">{{ money(r.capital, ccy) }}</td>
+          {% if d_.schedule | selectattr('extra') | list %}<td class="num" data-amount="{{ r.extra }}">{{ money(r.extra, ccy) if r.extra else '—' }}</td>{% endif %}
+          <td class="num" data-amount="{{ r.balance }}">{{ money(r.balance, ccy) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const LANG = {{ lang | tojson }}, LOAN_CCY = {{ loan.currency | tojson }}, BASE = {{ base_currency | tojson }};
+const RATE = {{ d_.rate | tojson }};            // base per unit of the loan's currency, or null
+const ROWS = {{ d_.schedule | tojson }};
+const TODAY = {{ d_.today | tojson }}, PAYOFF = {{ d_.status.payoff | tojson }};
+const DRAWDOWN = {{ loan.first_payment | tojson }}, PRINCIPAL = {{ loan.principal | tojson }};
+let ccy = LOAN_CCY;
+const factor = () => (ccy === LOAN_CCY || !RATE) ? 1 : RATE;
+const fmt = (v, digits = 0) => new Intl.NumberFormat(LANG, { style: 'currency', currency: ccy, maximumFractionDigits: digits, minimumFractionDigits: digits }).format(v * factor());
+
+// The balance line starts at the drawdown, one period before the first
+// instalment, and steps down on each payment date.
+const labels = [DRAWDOWN, ...ROWS.map(r => r.date)];
+const balances = [PRINCIPAL, ...ROWS.map(r => r.balance)];
+
+// Vertical dashed markers — today, and the day it is paid off — drawn
+// by hand: the annotation plugin is one more file to load for two lines.
+const markers = {
+  id: 'markers',
+  afterDatasetsDraw(chart) {
+    const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+    const mark = (label, px, colour) => {
+      ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = colour; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
+      ctx.setLineDash([]); ctx.font = '600 11px Inter, system-ui, sans-serif';
+      const w = ctx.measureText(label).width + 10;
+      ctx.fillStyle = css('--bg-elevated'); ctx.strokeStyle = colour;
+      ctx.beginPath(); ctx.roundRect(px - w / 2, top + 2, w, 18, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = colour; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, px, top + 11); ctx.restore();
+    };
+    // Today sits between two payment dates: interpolate its position.
+    let i = labels.findIndex(d => d > TODAY);
+    if (i === -1) i = labels.length - 1;
+    const prev = Math.max(0, i - 1);
+    const span = (new Date(labels[i]) - new Date(labels[prev])) || 1;
+    const frac = Math.min(1, Math.max(0, (new Date(TODAY) - new Date(labels[prev])) / span));
+    const pxToday = x.getPixelForValue(prev) + frac * (x.getPixelForValue(i) - x.getPixelForValue(prev));
+    mark({{ _("Today") | tojson }}, pxToday, css('--accent-blue'));
+    const end = labels.indexOf(PAYOFF);
+    if (end >= 0) mark({{ _("Paid off") | tojson }}, x.getPixelForValue(end), css('--gain'));
+  },
+};
+
+const short = (d) => new Intl.DateTimeFormat(LANG, { month: 'short', year: 'numeric' }).format(new Date(d));
+const balanceChart = new Chart(document.getElementById('loan-balance'), {
+  type: 'line',
+  data: { labels, datasets: [{ label: {{ _("Outstanding") | tojson }}, data: balances,
+    borderColor: css('--accent-blue'), backgroundColor: 'rgba(91,157,255,0.12)', fill: true, pointRadius: 0, borderWidth: 2, stepped: false }] },
+  options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { display: false }, tooltip: { callbacks: { title: items => labels[items[0].dataIndex], label: c => ' ' + fmt(c.parsed.y) } } },
+    scales: { x: { ticks: { color: css('--text-tertiary'), maxTicksLimit: 10, maxRotation: 0, callback: (v, i) => short(labels[i]) }, grid: { color: css('--border') } },
+              y: { beginAtZero: true, ticks: { color: css('--text-tertiary'), callback: v => fmt(v) }, grid: { color: css('--border') } } } },
+  plugins: [markers],
+});
+
+const splitChart = new Chart(document.getElementById('loan-split'), {
+  type: 'bar',
+  data: { labels: ROWS.map(r => r.date), datasets: [
+    { label: {{ _("Interest") | tojson }}, data: ROWS.map(r => r.interest), backgroundColor: css('--accent-gold'), stack: 'p' },
+    { label: {{ _("Capital") | tojson }}, data: ROWS.map(r => r.capital + r.extra), backgroundColor: css('--accent-blue'), stack: 'p' }] },
+  options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { labels: { color: css('--text-secondary') } }, tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + fmt(c.parsed.y, 2) } } },
+    scales: { x: { stacked: true, ticks: { color: css('--text-tertiary'), maxTicksLimit: 12, maxRotation: 0, callback: (v, i) => short(ROWS[i].date) }, grid: { display: false } },
+              y: { stacked: true, beginAtZero: true, ticks: { color: css('--text-tertiary'), callback: v => fmt(v) }, grid: { color: css('--border') } } } },
+});
+
+// The currency switch re-labels every figure on the page from the
+// data-amount it carries; the numbers themselves never change.
+const sel = document.getElementById('loan-ccy');
+if (sel) sel.addEventListener('change', () => {
+  ccy = sel.value;
+  document.querySelectorAll('[data-amount]').forEach(el => {
+    const v = parseFloat(el.dataset.amount);
+    el.textContent = el.classList.contains('stat-value') ? fmt(v) : fmt(v, 2);
+  });
+  document.getElementById('loan-ccy-hint').textContent = ccy === LOAN_CCY
+    ? {{ _f("the loan is denominated in {currency}", currency=loan.currency) | tojson }}
+    : {{ _f("at today's rate of {rate} {base} per {currency}", rate=((d_.rate or 0) | round(5)), base=base_currency, currency=loan.currency) | tojson }};
+  balanceChart.update(); splitChart.update();
+});
+</script>
+{% endblock %}

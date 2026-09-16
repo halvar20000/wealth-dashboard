@@ -677,6 +677,14 @@ _ADDED_COLUMNS = {
     "securities": [
         ("quote_type", "TEXT"),
     ],
+    # 0.55.0: what the loan was drawn as, when it was drawn in another
+    # currency — €150 000 at 1.12166 for a CHF mortgage — so the page
+    # can say what it cost the day it began, not only what it is worth
+    # at today's rate.
+    "loans": [
+        ("drawn_amount", "REAL"),
+        ("drawn_currency", "TEXT"),
+    ],
     # 0.47.0: where a coin goes when it leaves the exchange — the
     # user's own wallet, an account here — so a withdrawal is a move
     # between two of their accounts, not units vanishing. See

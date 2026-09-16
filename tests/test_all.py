@@ -4927,6 +4927,46 @@ check("the overview subtracts the debt from the net worth",
 r = c.get("/")
 check("...and shows it", b"Debt" in r.data, True)
 check("the schedule is on the page", b"instalment by instalment" in r.data or b"Balance after" in c.get("/loans").data, True)
+
+# The loan's own page: where it stands, the balance over its life,
+# what each instalment is made of, the schedule — the bank's own
+# figures, as of a day in the middle of it.
+r = c.get(f"/loans/{loan['id']}")
+body = r.data.decode()
+check("the loan has a page of its own",
+      (r.status_code, "Outstanding today" in body, "Repaid so far" in body, "Original loan (2019)" in body, "Payoff date" in body), (200, True, True, True, True))
+check("...with the balance chart, the split and the schedule",
+      ("Outstanding balance over time" in body, "Where each instalment goes" in body, "Amortisation schedule" in body, body.count('class="future"') > 0), (True, True, True, True))
+check("...paid off in autumn 2029 after 41 instalments", ("2029-10-10" in body, "41 instalments" in body), (True, True))
+check("...and the loans list links to it", f'href="/loans/{loan["id"]}"' in c.get("/loans").data.decode(), True)
+check("a loan that does not exist is a 404", c.get("/loans/9999").status_code, 404)
+dl = loans.detail(loan, "EUR", date(2026, 9, 16))
+check("the detail says what is owed on a day and what has been repaid",
+      (round(dl["status"]["balance"]), round(dl["status"]["paid_capital"]), round(100 * dl["status"]["progress"], 1)), (51051, 117198, 69.7))
+
+# A loan account that exists already — moved in from another app with
+# its readings — gets its terms on its own page, and keeps its name.
+r = c.post("/accounts/new", data={"name": "Hypothek", "type": "loan", "currency": "CHF"})
+hyp_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+r = c.get(f"/accounts/{hyp_id}")
+check("a loan account without terms asks for them", b"Give it its terms" in r.data, True)
+r = c.post(f"/accounts/{hyp_id}/loan", data={"principal": "168249", "rate_pct": f"{MORTGAGE['rate_pct']:.6f}", "first_payment": "2019-10-10",
+                                             "period_months": "3", "payment": "4271.21", "drawn_amount": "150000", "drawn_currency": "EUR"},
+           follow_redirects=True)
+body = r.data.decode()
+check("giving them lands on the loan's page, with what it was drawn as",
+      ("The terms are on record" in body, "150,000" in body, "1.12166" in body, "Hypothek" in body), (True, True, True, True))
+hyp = loans.for_account(hyp_id)
+check("...the account keeps its name and currency and now carries the terms",
+      (hyp["name"], hyp["currency"], hyp["drawn_amount"], hyp["drawn_currency"]), ("Hypothek", "CHF", 150000.0, "EUR"))
+r = c.get(f"/accounts/{hyp_id}")
+check("...and its account page says so and links across", (b"A loan on its schedule" in r.data, b"The loan over time" in r.data), (True, True))
+r = c.post(f"/accounts/{hyp_id}/loan", data={"principal": "1", "rate_pct": "1", "first_payment": "2020-01-01", "period_months": "1", "payment": "1"}, follow_redirects=True)
+check("terms cannot be given twice", b"already has its terms" in r.data, True)
+r = c.post(f"/accounts/{broker_id}/loan", data={"principal": "1", "rate_pct": "1", "first_payment": "2020-01-01", "period_months": "1", "payment": "1"}, follow_redirects=True)
+check("...nor to an account that is not a loan", b"not a loan" in r.data, True)
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM accounts WHERE id = ?", (hyp_id,))
 r = c.post("/loans", data={"form": "loan_add", "name": "Bad", "principal": "1000", "currency": "EUR", "rate_pct": "60",
                            "first_payment": "2026-01-01", "period_months": "1", "payment": "10"}, follow_redirects=True)
 check("a payment that cannot cover the interest is refused", b"never end" in r.data, True)

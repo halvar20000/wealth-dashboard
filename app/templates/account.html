@@ -10,6 +10,37 @@
 </p>
 {% endif %}
 
+{% if account.type == 'loan' %}
+{% if loan %}
+<div class="flash flash-ok">{{ _f("A loan on its schedule: {balance} still owed, paid off {date}.", balance=money(loan_status.balance, account.currency), date=d(loan_status.payoff)) }}
+  <a href="{{ url_for('loan_detail', loan_id=loan.id) }}">{{ _("The loan over time →") }}</a></div>
+{% else %}
+<div class="card">
+  <div class="card-header"><h2>{{ _("This is a loan. Give it its terms") }}</h2>
+    <span class="card-subtitle">{{ _("and its balance follows the schedule, with the page a mortgage deserves") }}</span></div>
+  <form method="post" action="{{ url_for('account_loan_attach', account_id=account.id) }}" class="form">
+    <div class="form inline" style="max-width:none">
+      <div><label>{{ _("Principal") }}</label><input name="principal" inputmode="decimal" style="width:140px"> <span class="sub">{{ account.currency }}</span></div>
+      <div><label>{{ _("Rate, % per year") }}</label><input name="rate_pct" inputmode="decimal" style="width:100px"></div>
+      <div><label>{{ _("First instalment") }}</label><input name="first_payment" type="date" style="width:auto"></div>
+      <div><label>{{ _("Every") }}</label>
+        <select name="period_months" style="width:auto">
+          {% for m, label in periods.items() %}<option value="{{ m }}">{{ _(label ~ " [rhythm]") if label in ('monthly', 'quarterly', 'half-yearly', 'yearly') else label }}</option>{% endfor %}
+        </select></div>
+      <div><label>{{ _("Instalment") }}</label><input name="payment" inputmode="decimal" placeholder="{{ _('or leave blank') }}" style="width:120px"></div>
+      <div><label>{{ _("Term, months") }}</label><input name="term_months" inputmode="number" placeholder="240" style="width:90px"></div>
+    </div>
+    <div class="form inline" style="max-width:none">
+      <div><label>{{ _("Drawn as") }} <span class="sub">{{ _("optional") }}</span></label><input name="drawn_amount" inputmode="decimal" placeholder="150000" style="width:120px"></div>
+      <div><label>{{ _("in") }}</label><input name="drawn_currency" placeholder="{{ base_currency }}" maxlength="3" style="width:70px"></div>
+    </div>
+    <p class="sub">{{ _("The instalment is the figure on the contract; the rate the nominal one per year. “Drawn as” is what the loan was worth in another currency the day it began — a CHF mortgage taken out as €150 000 — and stays on the page as the reference it is.") }}</p>
+    <div><button type="submit">{{ _("Save the terms") }}</button></div>
+  </form>
+</div>
+{% endif %}
+{% endif %}
+
 <div class="cards">
   <div class="card stat">
     <div class="stat-label">{{ _("Balance") }}</div>

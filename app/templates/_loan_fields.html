@@ -12,6 +12,10 @@
   <div><label>{{ _("Instalment") }}</label><input name="payment" inputmode="decimal" value="{{ '%g' | format(loan.payment) if loan and loan.payment else '' }}" placeholder="{{ _('or leave blank') }}" style="width:120px"></div>
   <div><label>{{ _("Term, months") }}</label><input name="term_months" inputmode="number" value="{{ loan.term_months or '' if loan else '' }}" placeholder="240" style="width:90px"></div>
 </div>
+<div class="form inline" style="max-width:none">
+  <div><label>{{ _("Drawn as") }} <span class="sub">{{ _("optional") }}</span></label><input name="drawn_amount" inputmode="decimal" value="{{ '%g' | format(loan.drawn_amount) if loan and loan.drawn_amount else '' }}" placeholder="150000" style="width:120px"></div>
+  <div><label>{{ _("in") }}</label><input name="drawn_currency" value="{{ loan.drawn_currency or '' if loan else '' }}" placeholder="{{ base_currency }}" maxlength="3" style="width:70px"></div>
+</div>
 <label>{{ _("Extra repayments") }} <span class="sub">{{ _("one per line: date and amount") }}</span></label>
 <textarea name="extras" rows="2" placeholder="2027-04-10 20000">{{ loan.extras_text if loan else '' }}</textarea>
 <label>{{ _("Notes") }} <span class="sub">{{ _("optional") }}</span></label>

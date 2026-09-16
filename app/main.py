@@ -456,6 +456,9 @@ def account_detail(account_id: int):
                            imports=importers.recent_imports(account_id),
                            sources=importers.sources(account_id),
                            other_accounts=_other_accounts(account_id),
+                           loan=(loan := loans.for_account(account_id) if account["type"] == "loan" else None),
+                           loan_status=loans.status(loan) if loan else None,
+                           periods=loans.PERIODS,
                            balance=dict(balance) if balance else None,
                            readings=readings,
                            transactions=[dict(t) for t in txns],
@@ -1201,6 +1204,34 @@ def loans_page():
                            total_debt=total, per_month=per_month, base_currency=base,
                            periods=loans.PERIODS, today=date.today().isoformat(),
                            viewing=people.current())
+
+
+@app.route("/loans/<int:loan_id>")
+@auth.login_required
+def loan_detail(loan_id: int):
+    """One loan, in full: where it stands, the balance over its life,
+    what each instalment is made of, and the schedule."""
+    loan = loans.get(loan_id)
+    if loan is None:
+        return render_template("missing.html", what=_t("That loan does not exist.")), 404
+    base = settings.get("base_currency", "EUR")
+    return render_template("loan.html", active_page="loans", loan=loan, base_currency=base,
+                           periods=loans.PERIODS, d_=loans.detail(loan, base),
+                           extras_text="\n".join(f"{e['date']} {e['amount']:g}" for e in loans._extras(loan)),
+                           owners=people.for_account(loan["account_id"]))
+
+
+@app.route("/accounts/<int:account_id>/loan", methods=["POST"])
+@auth.login_required
+def account_loan_attach(account_id: int):
+    """The terms for a loan account that already exists."""
+    try:
+        loan_id = loans.attach(account_id, request.form)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+    flash(_t("The terms are on record: the balance follows the schedule from here, and its history runs from the first instalment."), "ok")
+    return redirect(url_for("loan_detail", loan_id=loan_id))
 
 
 @app.route("/api/securities/<path:isin>/history")

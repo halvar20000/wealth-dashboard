@@ -11,6 +11,24 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.55.0] — 2026-09-16
+
+### Added
+- **A loan has a page of its own.** Where it stands today — outstanding,
+  repaid so far as a share of the original, the original loan and what
+  it was drawn as, the payoff date and the instalments left — over the
+  balance across its whole life with *today* and *paid off* marked on
+  it, a bar per instalment split into interest and capital, and the
+  full amortisation schedule with the future faded. A loan in another
+  currency than the base one has a switch to see every figure at
+  today's rate. The loans list links each loan to its page.
+- **A loan account that already exists can be given its terms.** An
+  account moved in from another app arrives as a loan with its
+  readings and nothing else; its page now asks for the principal,
+  rate, first instalment, rhythm and payment — and, optionally, what
+  the loan was drawn as in another currency (€150 000 for a CHF
+  mortgage) — and from then on the balance follows the schedule.
+
 ## [0.54.2] — 2026-09-16
 
 ### Fixed

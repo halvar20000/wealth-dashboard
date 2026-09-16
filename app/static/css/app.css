@@ -902,3 +902,6 @@ a.period-btn:hover { text-decoration: none; }
 .acct-sheet tr.acct-group th.num { font-family: var(--font-mono); font-size: 13px; text-transform: none; letter-spacing: 0; }
 .acct-sheet tr.acct-total th { border-top: 2px solid var(--border-strong); font-size: 14px; color: var(--text-primary); padding-top: 12px; }
 .acct-sheet tr.acct-total th.num { font-family: var(--font-mono); color: var(--accent-gold); }
+
+/* The schedule: what is still to come, faded. */
+tr.future td { color: var(--text-tertiary); }
