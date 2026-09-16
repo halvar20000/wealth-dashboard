@@ -71,7 +71,7 @@ _QUANTITY_KINDS = ("buy", "sell", "transfer", "split")
 # Id prefixes this app's own importers produce in exactly the old app's
 # shape. An account whose rows all carry one of these needs no
 # ledger_until: a re-import recognises every row by its id.
-SHARED_ID_PREFIXES = ("tr:", "saxo:", "kraken:", "ca-ch:")
+SHARED_ID_PREFIXES = tuple(p for p in importers.SHARED_ID_PREFIXES if p != "fp:")
 _KRAKEN_TXID = re.compile(r"^[A-Z0-9]{6}-[A-Z0-9]{5}-[A-Z0-9]{6}$")
 
 

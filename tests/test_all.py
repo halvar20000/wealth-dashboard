@@ -4389,7 +4389,24 @@ BALANCE["XXBT"] = "0.5"
 r = c.post(f"/accounts/{kr_id}/sync", follow_redirects=True)
 check("a balance the rows do not explain is reported, not patched",
       b"do not add up" in r.data and b"Kraken says 0.5" in r.data, True)
+check("...and the sync still counts as having run: the rows were stored, only the check failed",
+      brokers.link_for(kr_id)["last_sync_at"] is not None, True)
 BALANCE["XXBT"] = "0.106"
+# The move from another app leaves a date up to which the account's
+# ledger is on record, so a file covering the same days is not booked
+# twice. A row Kraken names by id is not a file: the withdrawal made
+# the afternoon of the move-in has to get through.
+with db.get_conn() as conn:
+    conn.execute("UPDATE accounts SET ledger_until = '2099-12-31' WHERE id = ?", (kr_id,))
+LEDGER["L6b"] = {"type": "withdrawal", "asset": "XXBT", "amount": "-0.001", "fee": "0", "time": 1788900000}
+BALANCE["XXBT"] = "0.105"
+r = c.post(f"/accounts/{kr_id}/sync", follow_redirects=True)
+check("a Kraken row dated before the ledger cut-off is still booked, being known by its id",
+      b"Imported 1 new" in r.data, True)
+with db.get_conn() as conn:
+    conn.execute("UPDATE accounts SET ledger_until = NULL WHERE id = ?", (kr_id,))
+    conn.execute("DELETE FROM transactions WHERE external_id = 'kraken:ledger:L6b'")
+del LEDGER["L6b"]; BALANCE["XXBT"] = "0.106"
 
 # The coins go to a hardware wallet. Without a wallet named, a
 # withdrawal is units leaving — which is what Kraken's balance says.

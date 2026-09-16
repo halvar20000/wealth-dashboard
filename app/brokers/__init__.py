@@ -68,12 +68,19 @@ def remove_links(provider: str) -> int:
         return conn.execute("DELETE FROM broker_links WHERE provider = ?", (provider,)).rowcount
 
 
-def record(link_id: int, error: str | None) -> None:
+def record(link_id: int, error: str | None, synced: bool = False) -> None:
+    """When it last ran, and what went wrong. `synced` says the rows
+    were fetched and stored even though something after that failed —
+    a balance that does not add up is a finding, not a failed sync,
+    and "last sync: never" over a page of synced rows is a lie."""
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     with get_conn() as conn:
         if error is None:
             conn.execute("UPDATE broker_links SET last_sync_at = ?, last_error = NULL "
                          "WHERE id = ?", (now, link_id))
+        elif synced:
+            conn.execute("UPDATE broker_links SET last_sync_at = ?, last_error = ? WHERE id = ?",
+                         (now, error[:400], link_id))
         else:
             conn.execute("UPDATE broker_links SET last_error = ? WHERE id = ?",
                          (error[:400], link_id))
@@ -89,7 +96,7 @@ def sync_link(link: dict) -> dict:
         result = {"account": link["account"], "provider": link["provider"],
                   "inserted": inserted, "error": None}
     except Exception as exc:                          # noqa: BLE001
-        record(link["id"], str(exc))
+        record(link["id"], str(exc), synced=isinstance(exc, getattr(kraken, "HoldingsDrift", ())))
         result = {"account": link["account"], "provider": link["provider"],
                   "inserted": 0, "error": str(exc)}
     try:

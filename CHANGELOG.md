@@ -11,6 +11,23 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.54.1] — 2026-09-16
+
+### Fixed
+- **A Kraken withdrawal made on the day of the move-in was never
+  booked.** The move from Financial Planner leaves an account a date
+  up to which its ledger is on record, so a file covering the same
+  days is not booked twice — and that cut-off also stopped the rows
+  Kraken names by id, which are never booked twice anyway. A wallet
+  read 0.024 BTC where Kraken had 0.0015, and the sync said so every
+  day. Rows under this app's own ids — Kraken, Saxo, Trade Republic,
+  Crédit Agricole — now pass the cut-off; the next sync books the
+  missing withdrawal, and into the wallet if one is named.
+- **"Last sync: never" over a page of synced rows.** A balance that
+  does not add up is a finding, not a failed sync: the rows were
+  fetched and stored. The sync's time is recorded, and the finding
+  shown beside it.
+
 ## [0.54.0] — 2026-09-16
 
 ### Added

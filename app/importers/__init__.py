@@ -89,6 +89,16 @@ def recent_imports(account_id: int, limit: int = 8) -> list[dict]:
             "FROM imports i WHERE i.account_id = ? ORDER BY i.id DESC LIMIT ?", (account_id, limit))]
 
 
+# Id prefixes under which a row is recognised by its id wherever it
+# comes from — this app's own shape for Trade Republic, Saxo, Kraken
+# and Crédit Agricole rows, which the move from Financial Planner
+# reproduces exactly. A row so marked needs no date cut-off to be
+# told from a duplicate, and a cut-off must not stop it: the account
+# a wallet's history moved into on the 14th still has to receive the
+# withdrawal Kraken made that afternoon.
+SHARED_ID_PREFIXES = ("fp:", "tr:", "saxo:", "kraken:", "ca-ch:")
+
+
 def sources(account_id: int) -> list[dict]:
     """Where an account's rows came from: one line per source, with the
     count and the span. What the account page shows beside the offer
@@ -139,7 +149,7 @@ def store(account_id: int, parsed: ParseResult, source: str, import_id: int | No
         until = until["ledger_until"] if until else None
         removed = {r["external_id"] for r in conn.execute("SELECT external_id FROM removed_rows")}
         for row in parsed.rows:
-            if until and row.txn_date <= until and not (row.external_id or "").startswith("fp:"):
+            if until and row.txn_date <= until and not (row.external_id or "").startswith(SHARED_ID_PREFIXES):
                 duplicates += 1
                 continue
             if row.external_id in removed:

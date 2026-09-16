@@ -81,6 +81,11 @@ class KrakenError(RuntimeError):
     """Kraken's own `error` list, or a transport failure — in a sentence."""
 
 
+class HoldingsDrift(KrakenError):
+    """The rows were fetched and stored; only the balance check failed.
+    A finding to show, not a sync that did not happen."""
+
+
 def asset_code(raw: str) -> str:
     """`XXBT` → `BTC`, `ZEUR` → `EUR`, `ETH2.S` → `ETH`, `DOT.S` → `DOT`."""
     code = (raw or "").upper().split(".")[0]
@@ -415,8 +420,8 @@ def sync_link(link: dict, api: Client | None = None) -> int:
         if abs(have - amount) > max(1e-8, abs(amount) * 1e-6):
             drift.append(f"{code}: Kraken says {amount:g}, the rows add up to {have:g}")
     if drift:
-        raise KrakenError("Synced, but the holdings do not add up — " + "; ".join(drift)
-                          + ". A key without 'Query Ledger Entries' cannot see transfers.")
+        raise HoldingsDrift("Synced, but the holdings do not add up — " + "; ".join(drift)
+                            + ". A key without 'Query Ledger Entries' cannot see transfers.")
     return report["inserted"]
 
 
