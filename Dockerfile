@@ -36,6 +36,10 @@ COPY docker/entrypoint.sh /entrypoint.sh
 # dashboard that cannot say what changed in the version you are
 # running is asking you to go and find out on GitHub.
 COPY CHANGELOG.md ./
+# app/static/icon.png is a link to ../../icon.png, so the favicon needs
+# the file at /app/icon.png — without it every page names an icon that
+# is a 404, which is what the smoke test in the workflow first found.
+COPY icon.png ./
 
 # The image holds no data. Everything the user owns is in the volume,
 # which is what makes "back up /data" a complete instruction — the bank

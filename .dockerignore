@@ -11,12 +11,12 @@ secrets
 docs
 templates
 ca_profile.xml
-icon.png
 homeassistant
 repository.yaml
 *.md
 # …except this one: the app reads it to render its own history.
 !CHANGELOG.md
+# …and icon.png stays in for the same reason: the favicon is a link to it.
 LICENSE
 tests
 docker-compose.yml

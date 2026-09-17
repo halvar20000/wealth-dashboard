@@ -18,7 +18,6 @@ on:
       - 'docs/**'
       - 'templates/**'
       - 'ca_profile.xml'
-      - 'icon.png'
       # The Home Assistant add-on is metadata around the same image.
       - 'homeassistant/**'
       - 'repository.yaml'
