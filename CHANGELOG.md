@@ -11,6 +11,15 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.58.1] — 2026-09-17
+
+### Fixed
+- **The favicon in the container.** `app/static/icon.png` is a link
+  to the icon at the repository root, which the image never carried —
+  so every page in every container so far named an icon that was a
+  404. The first run of the smoke test found it and refused to
+  publish 0.58.0; the image now ships the file.
+
 ## [0.58.0] — 2026-09-17
 
 ### Added
