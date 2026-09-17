@@ -11,6 +11,13 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.58.2] — 2026-09-17
+
+### Fixed
+- **The versions agree again.** 0.58.1 reached PyPI without its
+  changelog entry, and its image was refused for the same reason.
+  Nothing else changed.
+
 ## [0.58.1] — 2026-09-17
 
 ### Fixed
