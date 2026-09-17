@@ -2973,6 +2973,33 @@ dockerignore = (REPO / ".dockerignore").read_text()
 check("the build context keeps CHANGELOG.md", "!CHANGELOG.md" in dockerignore, True)
 check("...and the Dockerfile copies it",
       "COPY CHANGELOG.md" in (REPO / "Dockerfile").read_text(), True)
+check("the image drops root through the entrypoint",
+      ("/entrypoint.sh" in (REPO / "Dockerfile").read_text(), "setpriv" in (REPO / "docker" / "entrypoint.sh").read_text(),
+       "PUID" in (REPO / "templates" / "wealth-dashboard.xml").read_text()), (True, True, True))
+# The first start of a different version copies the database aside
+# before touching it, so a rollback has something to go back to.
+import sqlite3 as _sq
+_bk = TMP / "bk"; _bk.mkdir()
+_dbp = db.init_db(_bk / "wealth.db")
+check("a fresh database is not backed up", (_bk / "backups").exists(), False)
+db.init_db(_dbp)
+check("...nor is one the same version opened before", (_bk / "backups").exists(), False)
+with _sq.connect(_dbp) as _c:
+    _c.execute("UPDATE app_state SET value = '0.50.0' WHERE key = 'last_version'")
+db.init_db(_dbp)
+_copies = sorted((_bk / "backups").glob("*.db"))
+check("a database last opened by another version is copied aside first, named after that version",
+      (len(_copies), _copies[0].name.startswith("wealth-0.50.0-")), (1, True))
+with _sq.connect(_copies[0]) as _c:
+    check("...and the copy is a database", _c.execute("SELECT value FROM app_state WHERE key = 'last_version'").fetchone()[0], "0.50.0")
+with _sq.connect(_dbp) as _c:
+    check("...after which the version on record is this one",
+          _c.execute("SELECT value FROM app_state WHERE key = 'last_version'").fetchone()[0], __version__)
+for _i in range(db.KEEP_BACKUPS + 2):
+    with _sq.connect(_dbp) as _c:
+        _c.execute("UPDATE app_state SET value = ? WHERE key = 'last_version'", (f"0.4{_i}.0",))
+    db.init_db(_dbp)
+check("only the newest few are kept", len(list((_bk / "backups").glob("*.db"))), db.KEEP_BACKUPS)
 workflow = (REPO / ".github" / "workflows" / "docker-image.yml").read_text()
 check("...and editing it rebuilds the image",
       "'**.md'" in workflow, False)
@@ -5127,6 +5154,24 @@ with db.get_conn() as conn:
     newest = conn.execute("SELECT amount, balance_type FROM balances WHERE account_id = ? ORDER BY as_of DESC, id DESC LIMIT 1",
                           (loan["account_id"],)).fetchone()
 check("a reading typed in today is not overwritten by the schedule", (newest["amount"], newest["balance_type"]), (-55000.0, "manual"))
+# ...and from there the schedule runs from the lender's figure, not the sum's.
+loan = loans.get(loan["id"])
+st = loans.status(loan)
+check("the reading anchors the schedule", (loan["anchor"]["amount"], loan["anchor"]["date"], st["balance"], st["paid_capital"]),
+      (55000.0, date.today().isoformat(), 55000.0, round(168249 - 55000, 2)))
+anchored = loans.schedule(loan)
+first_after = next(r_ for r_ in anchored if r_["date"] > date.today().isoformat())
+check("...and the first instalment after it starts from that figure",
+      (first_after["anchored"], round(first_after["balance"] + first_after["capital"], 2)), (True, 55000.0))
+check("...while the instalments before it stay as computed", anchored[0]["balance"], 164106.40)
+check("...and the page says so", b"from the reading of" in c.get(f"/loans/{loan['id']}").data, True)
+# A reading that says more is owed than the sum thought — the sum had
+# the loan paid off by then — still gets a schedule from that day on.
+late = {**MORTGAGE, "anchor": {"date": "2030-06-01", "amount": 5000.0}}
+late_rows = loans.schedule(late)
+check("a reading after the computed payoff restarts the schedule from it",
+      (late_rows[-2]["date"] < "2030-06-01" or late_rows[-2]["anchored"], late_rows[-1]["balance"], any(r_["anchored"] for r_ in late_rows)), (True, 0.0, True))
+check("a schedule with no reading has no anchored row", any(r_["anchored"] for r_ in loans.schedule(MORTGAGE)), False)
 c.post("/loans", data={"form": "loan_delete", "id": loan["id"], "confirm": "Mortgage, house"})
 
 # ---------------------------------------------------------------------------

@@ -18,6 +18,11 @@ services:
     environment:
       WD_DATA_DIR: /data
       WD_SECRETS_DIR: /secrets
+      # The app runs as this user, not root, and ./data and ./secrets
+      # are given to it on start. Set it to your own uid/gid (`id -u`,
+      # `id -g`) so the files stay yours on the host.
+      PUID: 1000
+      PGID: 1000
       # Which day it is, and therefore where a month ends on the cash
       # flow and budget pages.
       TZ: Europe/Berlin

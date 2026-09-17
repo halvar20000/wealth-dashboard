@@ -28,6 +28,14 @@
           Description="Your timezone, e.g. Europe/Berlin, Europe/London, America/New_York. It decides when a month rolls over for the cash flow and budget pages. Leave it wrong and 'this month' changes at UTC midnight."
           Type="Variable" Display="always" Required="false" Mask="false">Europe/Berlin</Config>
 
+  <Config Name="PUID" Target="PUID" Default="99" Mode=""
+          Description="The user the app runs as. It is given the Data folder on every start, so files there are yours (nobody:users, like the other containers) and the process holding your finances is not root."
+          Type="Variable" Display="advanced" Required="true" Mask="false">99</Config>
+
+  <Config Name="PGID" Target="PGID" Default="100" Mode=""
+          Description="The group the app runs as."
+          Type="Variable" Display="advanced" Required="true" Mask="false">100</Config>
+
   <Config Name="Base currency (optional)" Target="WD_BASE_CURRENCY" Default="" Mode=""
           Description="Leave BLANK &#8212; set the base currency in the app under Settings. Filling this in pins the value: the Settings page will accept a change and the container will overwrite it again on the next restart."
           Type="Variable" Display="advanced" Required="false" Mask="false"></Config>

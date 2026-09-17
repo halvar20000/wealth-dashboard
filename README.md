@@ -369,12 +369,13 @@ pipx install git+https://github.com/halvar20000/wealth-dashboard
 ```bash
 docker run -d --name wealth-dashboard -p 8000:8000 --restart unless-stopped \
   -v /srv/wealth-dashboard:/data \
-  -e TZ=Europe/Berlin \
+  -e TZ=Europe/Berlin -e PUID=$(id -u) -e PGID=$(id -g) \
   ghcr.io/halvar20000/wealth-dashboard:latest
 ```
 
 One volume holds everything, credentials included — see *Where your data
-lives* for keeping those separate.
+lives* for keeping those separate. The app runs as `PUID:PGID` (`1000:1000`
+when unset), never as root, and the volume is given to that user on start.
 
 ### From source
 
@@ -530,11 +531,15 @@ data/
   wealth.db              your database — this is the thing to back up
   settings.json
   screener*.json         your additions and corrections to the Share Ideas lists
+  backups/               wealth.db as it was before each upgrade, the last five
   secrets/               bank, Saxo and Kraken credentials, session key, MCP token (0600)
 ```
 
 **Back up `data/`.** RAID and snapshots protect against a disk dying, not
-against a bad import or a mistaken delete.
+against a bad import or a mistaken delete. The copies in `backups/` are for
+one thing only: the first start of a new version makes one before it
+migrates the database, so if the new version turns out wrong you can pin
+the old one and put the copy back.
 
 **Do not put `wealth.db` in a folder a sync client watches.** Dropbox,
 Nextcloud and iCloud will replace a SQLite journal mid-write, and the
@@ -593,6 +598,7 @@ breaking the page.
 | `WD_BASE_CURRENCY` | `EUR` | Reporting currency |
 | `WD_REDIRECT_URL` | `http://localhost:8000/connect/callback` | Where the bank sends you back |
 | `TZ` | `UTC` in the image | Which day it is, for the monthly pages |
+| `PUID`, `PGID` | `1000` in the image | The user the container runs as; `/data` is given to it on start |
 
 Language is a Settings-page choice only, deliberately: it has no environment
 variable to be pinned by, so the picker in the app always wins.

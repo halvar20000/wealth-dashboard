@@ -19,10 +19,16 @@ from __future__ import annotations
 
 import sqlite3
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Iterator
 
-from . import settings
+from . import __version__, settings
+
+# How many pre-upgrade copies of the database to keep, newest first. A
+# rollback wants the last one; the rest are for the bug that only shows
+# a week later.
+KEEP_BACKUPS = 5
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -565,9 +571,53 @@ CREATE INDEX IF NOT EXISTS idx_fx_as_of ON fx_rates(as_of DESC);
 """
 
 
+def backup_before_upgrade(conn: sqlite3.Connection, path: Path) -> Path | None:
+    """A copy of the database as the previous version left it, made
+    the first time a different version opens it — before a single
+    column is added.
+
+    The migrations here only go forward: a column, once added, is not
+    taken away, and a repair, once run, is not undone. That is fine
+    until an upgrade goes wrong, at which point "install the old
+    version" is only half an answer — the old code and the new file
+    may not agree. The other half is this copy, next to the live file,
+    named after the version that wrote it, so the instruction becomes:
+    pin the old tag, put the copy back, start. Made through SQLite's
+    own backup call, not a file copy, so a write-ahead log with pages
+    not yet in the main file is included. The newest KEEP_BACKUPS are
+    kept; a database that was never opened by another version has no
+    copy, because there is nothing to go back to.
+    """
+    try:
+        row = conn.execute("SELECT value FROM app_state WHERE key = 'last_version'").fetchone()
+        previous = row[0] if row else None
+    except sqlite3.OperationalError:            # a database from before app_state
+        previous = None
+    if previous == __version__:
+        return None
+    folder = path.parent / "backups"
+    folder.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    target = folder / f"{path.stem}-{previous or 'pre-' + __version__}-{stamp}{path.suffix}"
+    for i in range(2, 100):                     # two starts in one second: keep both
+        if not target.exists():
+            break
+        target = target.with_name(f"{path.stem}-{previous or 'pre-' + __version__}-{stamp}-{i}{path.suffix}")
+    copy = sqlite3.connect(target)
+    try:
+        conn.backup(copy)
+    finally:
+        copy.close()
+    for old in sorted(folder.glob(f"{path.stem}-*{path.suffix}"), key=lambda f: (f.stat().st_mtime, f.name),
+                      reverse=True)[KEEP_BACKUPS:]:
+        old.unlink(missing_ok=True)
+    return target
+
+
 def init_db(path: Path | None = None) -> Path:
     settings.ensure_dirs()
     path = path or settings.DB_PATH
+    existed = path.is_file() and path.stat().st_size > 0
     conn = sqlite3.connect(path, timeout=5)
     try:
         # WAL: a read (the dashboard) and a write (a sync) happen at the
@@ -590,10 +640,17 @@ def init_db(path: Path | None = None) -> Path:
                 ) from exc
             raise
         conn.execute("PRAGMA foreign_keys=ON")
+        if existed:
+            saved = backup_before_upgrade(conn, path)
+            if saved:
+                print(f"  backup:  {saved}", flush=True)
         conn.executescript(SCHEMA)          # tables
         _add_missing_columns(conn)          # columns an older version lacks
         conn.executescript(INDEXES)         # only now can they be indexed
         _repair_rows(conn)                  # what an older parser got wrong
+        conn.execute("INSERT INTO app_state (key, value, updated_at) VALUES ('last_version', ?, datetime('now')) "
+                     "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+                     (__version__,))
         conn.commit()
     finally:
         conn.close()

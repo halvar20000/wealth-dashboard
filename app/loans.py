@@ -18,6 +18,16 @@ interest from 4 142.60 of capital.
 The payment can be given (the figure on the contract) or left blank
 and worked out from a term in months; extra repayments are dated
 lump sums applied after the regular capital of that period.
+
+The arithmetic runs from the terms until something better comes
+along: a reading of the balance that is not the schedule's own — a
+bank sync, a statement, a figure typed in from the lender's letter.
+From the first instalment after that reading the schedule restarts
+from what the lender said, not from what the sum said, because a
+rate change, a fee, a rounding rule nobody wrote down all show up in
+that one number and in nothing else. The rows before it stay as
+computed, so the history still has a line; the rows after it are the
+lender's figure carried forward by the same arithmetic.
 """
 
 from __future__ import annotations
@@ -49,7 +59,12 @@ def annuity(principal: float, period_rate: float, periods: int) -> float:
 
 
 def schedule(loan: dict) -> list[dict]:
-    """One row per payment: {n, date, payment, interest, capital, extra, balance}."""
+    """One row per payment: {n, date, payment, interest, capital, extra, balance}.
+
+    `loan["anchor"]`, when the loader found one, is {date, amount}: the
+    newest reading of the balance that did not come from this schedule.
+    The first row dated after it starts from that amount instead of the
+    computed balance and carries `anchored: True`."""
     principal = float(loan["principal"])
     months = int(loan.get("period_months") or 1)
     rate = float(loan.get("rate_pct") or 0) / 100 / (12 / months)
@@ -61,9 +76,20 @@ def schedule(loan: dict) -> list[dict]:
     extras: dict[str, float] = {}
     for e in _extras(loan):
         extras[e["date"]] = extras.get(e["date"], 0.0) + float(e["amount"])
+    anchor = loan.get("anchor") or None
+    anchor_date = anchor["date"] if anchor else None
+    anchored = False
     rows, balance, n = [], round(principal, 2), 0
-    while balance > 0.005 and n < MAX_PERIODS:
+    while n < MAX_PERIODS:
         when = _add_months(first, n * months)
+        rebased = False
+        if anchor_date and not anchored and when.isoformat() > anchor_date:
+            balance, anchored, rebased = round(abs(float(anchor["amount"])), 2), True, True
+        if balance <= 0.005:
+            if anchor_date and not anchored:
+                n += 1                             # the sum says paid off; the lender has not said so yet
+                continue
+            break
         interest = round(balance * rate, 2)
         capital = round(payment - interest, 2)
         if capital <= 0 and n > 0 and rate > 0:
@@ -77,7 +103,7 @@ def schedule(loan: dict) -> list[dict]:
         if extra:
             balance = round(balance - extra, 2)
         rows.append({"n": n + 1, "date": when.isoformat(), "payment": pay, "interest": interest,
-                     "capital": capital, "extra": round(extra, 2), "balance": balance})
+                     "capital": capital, "extra": round(extra, 2), "balance": balance, "anchored": rebased})
         n += 1
     return rows
 
@@ -89,9 +115,17 @@ def status(loan: dict, today: date | None = None) -> dict:
     done = [r for r in rows if r["date"] <= today]
     left = [r for r in rows if r["date"] > today]
     balance = done[-1]["balance"] if done else round(float(loan["principal"]), 2)
+    anchor = loan.get("anchor") or None
+    if anchor and anchor["date"] <= today and (not done or anchor["date"] >= done[-1]["date"]):
+        # A reading since the last instalment: that is the balance,
+        # today, and the page must agree with the account that holds it.
+        balance = round(abs(float(anchor["amount"])), 2)
     return {
         "balance": balance,
-        "paid_capital": round(sum(r["capital"] + r["extra"] for r in done), 2),
+        "anchor": anchor,
+        # What the lender has been paid off, not what the sum expected
+        # to have been — the two differ from the first reading on.
+        "paid_capital": round(float(loan["principal"]) - balance, 2),
         "paid_interest": round(sum(r["interest"] for r in done), 2),
         "paid_total": round(sum(r["payment"] + r["extra"] for r in done), 2),
         "payments_done": len(done), "payments_left": len(left),
@@ -115,6 +149,25 @@ def _extras(loan: dict) -> list[dict]:
 
 # ─── Storage ─────────────────────────────────────────────────────────
 
+def anchor_for(conn, loan: dict, today: date | None = None) -> dict | None:
+    """The newest reading of the loan's balance that is not the
+    schedule's own — typed in, synced, or moved in — on or after the
+    first instalment and not in the future. None when the arithmetic
+    is all there is."""
+    today = (today or date.today()).isoformat()
+    row = conn.execute(
+        "SELECT as_of, amount FROM balances WHERE account_id = ? AND balance_type != 'schedule' "
+        "AND as_of >= ? AND as_of <= ? ORDER BY as_of DESC, id DESC LIMIT 1",
+        (loan["account_id"], loan["first_payment"], today)).fetchone()
+    return {"date": row["as_of"], "amount": abs(float(row["amount"]))} if row else None
+
+
+def _with_anchor(conn, row) -> dict:
+    loan = dict(row)
+    loan["anchor"] = anchor_for(conn, loan)
+    return loan
+
+
 def all_loans(account_ids: list[int] | None = None) -> list[dict]:
     from . import people
     only, params = people.sql_in(account_ids, "l.account_id")
@@ -122,14 +175,14 @@ def all_loans(account_ids: list[int] | None = None) -> list[dict]:
         rows = conn.execute(
             f"SELECT l.*, a.name, a.currency FROM loans l JOIN accounts a ON a.id = l.account_id "
             f"WHERE 1=1{only} ORDER BY a.name", params).fetchall()
-    return [dict(r) for r in rows]
+        return [_with_anchor(conn, r) for r in rows]
 
 
 def get(loan_id: int) -> dict | None:
     with get_conn() as conn:
         row = conn.execute("SELECT l.*, a.name, a.currency FROM loans l JOIN accounts a "
                            "ON a.id = l.account_id WHERE l.id = ?", (loan_id,)).fetchone()
-    return dict(row) if row else None
+        return _with_anchor(conn, row) if row else None
 
 
 def clean(form) -> dict:
@@ -237,7 +290,7 @@ def for_account(account_id: int) -> dict | None:
     with get_conn() as conn:
         row = conn.execute("SELECT l.*, a.name, a.currency FROM loans l JOIN accounts a "
                            "ON a.id = l.account_id WHERE l.account_id = ?", (account_id,)).fetchone()
-    return dict(row) if row else None
+        return _with_anchor(conn, row) if row else None
 
 
 def detail(loan: dict, base_currency: str, today: date | None = None) -> dict:

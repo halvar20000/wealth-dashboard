@@ -6,6 +6,7 @@
   {{ _f("A {currency} loan on its fixed {rhythm} schedule from the first instalment of {first} until it is paid off. Every figure is computed from the terms — a constant annuity, interest rounded to the cent each period, the way a bank does it — and reproduces the bank's own breakdown.",
         currency=loan.currency, rhythm=_(periods[loan.period_months] ~ " [rhythm]"), first=d(loan.first_payment)) }}
   {% if d_.rate %}{{ _f("The loan is in {currency}; {base} is shown for reference only, at today's rate.", currency=loan.currency, base=base_currency) }}{% endif %}
+  {% if d_.status.anchor %}{{ _f("From the reading of {date} the schedule runs from {amount}, the lender's figure, not the sum's — a rate change, a fee, a rounding rule all live in that number. Record a newer balance on the account and it takes over from there.", date=d(d_.status.anchor.date), amount=money(d_.status.anchor.amount, loan.currency)) }}{% endif %}
   · <a href="{{ url_for('account_detail', account_id=loan.account_id) }}">{{ _("the account") }}</a>
   · <a href="{{ url_for('loans_page') }}#loan-{{ loan.id }}">{{ _("change the terms") }}</a>
 </p>
@@ -18,7 +19,7 @@
   <div class="stat-card stat-blue">
     <div class="stat-label">{{ _("Outstanding today") }}</div>
     <div class="stat-value" data-amount="{{ st.balance }}">{{ big(st.balance, ccy) }}</div>
-    <div class="stat-sub">{{ _f("as of {date}", date=d(d_.today)) }}{% if st.next %} · {{ _f("next {date}", date=d(st.next.date)) }}{% endif %}</div>
+    <div class="stat-sub">{{ _f("as of {date}", date=d(d_.today)) }}{% if st.anchor %} · {{ _f("from the reading of {date}", date=d(st.anchor.date)) }}{% endif %}{% if st.next %} · {{ _f("next {date}", date=d(st.next.date)) }}{% endif %}</div>
   </div>
   <div class="stat-card stat-green">
     <div class="stat-label">{{ _("Repaid so far") }}</div>
@@ -81,8 +82,8 @@
       <thead><tr><th>#</th><th>{{ _("Date") }}</th><th class="num">{{ _("Payment") }}</th><th class="num">{{ _("Interest") }}</th><th class="num">{{ _("Capital") }}</th>{% if d_.schedule | selectattr('extra') | list %}<th class="num">{{ _("Extra") }}</th>{% endif %}<th class="num">{{ _("Balance") }}</th></tr></thead>
       <tbody>
       {% for r in d_.schedule %}
-        <tr class="{{ 'future' if r.date > d_.today }}">
-          <td>{{ r.n }}</td><td class="nowrap">{{ d(r.date) }}</td>
+        <tr class="{{ 'future' if r.date > d_.today }}"{% if r.anchored %} title="{{ _f("From here the schedule runs from the reading of {date}.", date=d(st.anchor.date)) }}"{% endif %}>
+          <td>{{ r.n }}{% if r.anchored %} <span class="tag tag-muted">{{ _("reading") }}</span>{% endif %}</td><td class="nowrap">{{ d(r.date) }}</td>
           <td class="num" data-amount="{{ r.payment }}">{{ money(r.payment, ccy) }}</td>
           <td class="num" data-amount="{{ r.interest }}">{{ money(r.interest, ccy) }}</td>
           <td class="num" data-amount="{{ r.capital }}">{{ money(r.capital, ccy) }}</td>

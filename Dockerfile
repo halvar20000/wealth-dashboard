@@ -18,15 +18,20 @@ ENV PYTHONUNBUFFERED=1 \
 # tzdata alone, and only because the app asks the operating system what
 # month it is. Without it TZ is ignored, and a cash flow "this month"
 # rolls over at UTC midnight for somebody who is not on UTC.
+# setpriv comes with util-linux, which Debian cannot do without; the
+# check is there so a base image that one day drops it fails the build
+# rather than every container start.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends tzdata \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && command -v setpriv
 
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
+COPY docker/entrypoint.sh /entrypoint.sh
 # Read at runtime by the changelog page. In the image because a
 # dashboard that cannot say what changed in the version you are
 # running is asking you to go and find out on GitHub.
@@ -42,4 +47,10 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=3).status==200 else 1)"
 
+# The entrypoint starts as root, gives /data to PUID:PGID (1000 unless
+# told otherwise; Unraid says 99:100) and drops to that user before the
+# app runs — so the process that holds your finances is not root, and a
+# folder Docker made as root on the first start still works. See
+# docker/entrypoint.sh; `--user` skips all of it.
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["python", "-m", "app"]

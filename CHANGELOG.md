@@ -11,6 +11,43 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.58.0] — 2026-09-17
+
+### Added
+- **A loan follows the lender's figure.** A balance on a loan account
+  that did not come from the schedule — typed in from the bank's
+  letter, synced, or moved in with the account — now anchors the
+  schedule from that day on: the first instalment after the reading
+  starts from what the lender said, not from what the sum said, and
+  the arithmetic carries it forward from there. A rate change, a fee,
+  a rounding rule nobody wrote down all show up in that one number
+  and in nothing else, and until now the schedule overwrote it the
+  next morning. The rows before the reading stay as computed, so the
+  history keeps its line; the loan's page says which reading it runs
+  from and marks the row where it takes over, and "repaid so far" is
+  what the lender has been paid off, not what the sum expected.
+- **A copy before an upgrade.** The first start of a new version
+  copies the database aside — `backups/wealth-<old version>-<date>.db`
+  next to the live file, made through SQLite's own backup call so the
+  write-ahead log is in it — before a single column is added. The
+  last five are kept. Migrations here only go forward, so "install
+  the old version" was only half a rollback; the other half is now on
+  disk, and the install guide says how to use it.
+- **The container is not root.** The image now starts through an
+  entrypoint that gives `/data` to `PUID:PGID` (`1000` unless told;
+  the Unraid template says `99:100`, like the other containers) and
+  drops to that user before the app runs — so a folder Docker made as
+  root on the first start works without a chown step, and the process
+  holding your finances is not root. `--user` skips all of it;
+  `PUID=0` keeps root for a mount that will not take a chown.
+- **The image is run before it is published.** The build now starts
+  the container four ways — Unraid's, the defaults, `--user`, and
+  root — waits for it to answer, checks the first-run page and every
+  stylesheet and script it names, the version it reports, the user it
+  runs as and who owns the database it wrote, and reads its log for
+  tracebacks. A `latest` that fails any of that no longer reaches
+  every Unraid install by lunchtime.
+
 ## [0.57.0] — 2026-09-17
 
 ### Added

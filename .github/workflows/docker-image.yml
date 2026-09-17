@@ -102,6 +102,66 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
+      # Run the image before it is published, the ways people run it.
+      # The unit suite proves the code; only this proves the container
+      # — that it comes up, answers, serves its stylesheet, writes its
+      # database as the right user, and does not run as root. A `latest`
+      # that fails any of that reaches every Unraid install by lunchtime.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: wealth-dashboard:smoke
+          cache-from: type=gha
+
+      - name: Smoke test the image
+        run: |
+          set -eu
+          expect=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' app/__init__.py)
+          smoke() {
+            name=$1 expected_uid=$2; shift 2
+            echo "::group::$name"
+            docker run -d --name "$name" -p 8000:8000 -v "$PWD/$name:/data" "$@" wealth-dashboard:smoke
+            ok=""
+            for i in $(seq 1 60); do
+              if curl -fsS http://localhost:8000/healthz >/dev/null 2>&1; then ok=1; break; fi
+              sleep 1
+            done
+            docker logs "$name"
+            [ -n "$ok" ] || { echo "$name: never became healthy"; exit 1; }
+            got=$(curl -fsS http://localhost:8000/healthz | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
+            [ "$got" = "$expect" ] || { echo "$name: /healthz reports $got, expected $expect"; exit 1; }
+            curl -fsSL http://localhost:8000/ > page.html
+            grep -q "Create your account" page.html || { echo "$name: first-run page missing"; exit 1; }
+            # Every stylesheet and script the page names must load.
+            for asset in $(grep -oE '(src|href)="/static/[^"]+' page.html | sed -E 's/^(src|href)="//'); do
+              curl -fsS -o /dev/null "http://localhost:8000$asset" || { echo "$name: $asset failed to load"; exit 1; }
+            done
+            uid=$(docker exec "$name" awk '/^Uid:/ {print $2}' /proc/1/status)
+            [ "$uid" = "$expected_uid" ] || { echo "$name: app runs as uid $uid, expected $expected_uid"; exit 1; }
+            owner=$(sudo stat -c %u "$name/wealth.db")
+            [ "$owner" = "$expected_uid" ] || { echo "$name: wealth.db owned by $owner, expected $expected_uid"; exit 1; }
+            if docker logs "$name" 2>&1 | grep -E "Traceback|unexpected:|Cannot start|could not give"; then echo "$name: errors in the log"; exit 1; fi
+            docker rm -f "$name" >/dev/null
+            echo "::endgroup::"
+          }
+
+          # Unraid: a folder Docker created as root, PUID/PGID from the template.
+          sudo mkdir -p unraid
+          smoke unraid 99 -e PUID=99 -e PGID=100
+
+          # docker run with nothing said: the default user, folder made on the fly.
+          smoke defaults 1000
+
+          # An engine that starts it as a user of its own choosing.
+          sudo mkdir -p nonroot && sudo chown 99:100 nonroot
+          smoke nonroot 99 --user 99:100
+
+          # The escape hatch for a mount that will not take a chown.
+          sudo mkdir -p asroot
+          smoke asroot 0 -e PUID=0
+
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io

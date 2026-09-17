@@ -39,15 +39,23 @@ it lives in your database, and there is no password reset — see
 | Port | container `8000` → host `8000` |
 | Path | container `/data` → host `/mnt/user/appdata/wealth-dashboard` |
 | Variable | `TZ` → e.g. `Europe/Berlin` |
+| Variable | `PUID` → `99`, `PGID` → `100` |
 
 Or from the command line:
 
 ```bash
 docker run -d --name wealth-dashboard -p 8000:8000 --restart unless-stopped \
   -v /mnt/user/appdata/wealth-dashboard:/data \
-  -e TZ=Europe/Berlin \
+  -e TZ=Europe/Berlin -e PUID=99 -e PGID=100 \
   ghcr.io/halvar20000/wealth-dashboard:latest
 ```
+
+`PUID`/`PGID` are the user the app runs as — `99`/`100` is `nobody:users`,
+the same as the other containers on the server. The folder is given to that
+user on every start, so a folder Docker created as root on the first start
+works too, and the process holding your finances is not root. Leave them out
+and it runs as `1000:1000`; set `PUID=0` only for a mount that will not take
+a chown.
 
 ---
 
@@ -59,6 +67,7 @@ Everything you own is in the mapped folder:
 /mnt/user/appdata/wealth-dashboard/
 ├── wealth.db          your accounts, transactions, holdings, categories
 ├── settings.json      base currency, redirect URL, consent length
+├── backups/           a copy of wealth.db from before each upgrade (the last five)
 └── secrets/
     ├── flask_secret                 signs your login session
     ├── enablebanking_app_id         your Enable Banking application, if
@@ -142,11 +151,20 @@ published as a plain Docker manifest for exactly that reason.
 
 Your data is in the mapped folder, so an update never touches it. The database
 upgrades itself on start: an older schema is migrated in place rather than
-refused.
+refused — and before it is, the first start of a new version copies the file
+aside to `backups/wealth-<old version>-<date>.db`. The last five copies are
+kept.
 
 To stay on a known version, pin a tag (`:0.8.0`) instead of `latest` in the
 container's **Repository** field. Which version you are running is shown in
 the app's header, and clicking it lists what changed in each one.
+
+**Going back.** Migrations only go forward, so the old version may not open
+a file the new one has changed. Stop the container, pin the previous tag in
+**Repository**, copy the matching file from `backups/` over `wealth.db`
+(delete `wealth.db-wal` and `wealth.db-shm` beside it if they exist), and
+start. Anything entered since that copy was made is gone with it — the copy
+is from the moment the new version first started.
 
 ---
 

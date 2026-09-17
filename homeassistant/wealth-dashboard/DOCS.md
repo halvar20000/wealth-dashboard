@@ -47,6 +47,7 @@ Assistant **backup** of the add-on includes it:
 /data/
 ├── wealth.db          your accounts, transactions, holdings, categories
 ├── settings.json      base currency, redirect URL, consent length
+├── backups/           wealth.db as it was before each upgrade, the last five
 ├── options.json       written by Home Assistant; empty, and not yours
 └── secrets/
     ├── flask_secret                 signs your login session
