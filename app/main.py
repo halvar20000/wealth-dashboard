@@ -673,6 +673,17 @@ def account_import(account_id: int):
             if csvs:
                 token = _stash_upload(account_id, *csvs[0])
                 return redirect(url_for("import_map", account_id=account_id, token=token))
+            # Nor is a PDF that reads like a payslip: labelled amounts
+            # and a month. The user says which line is which, once.
+            for n, c in files:
+                if c.startswith(b"%PDF"):
+                    try:
+                        text = importers.dkb_pdf.pdf_text(c)
+                    except Exception:                    # noqa: BLE001
+                        continue
+                    if importers.payslip_map.looks_like_payslip(text):
+                        token = _stash_upload(account_id, n, c)
+                        return redirect(url_for("payslip_map_page", account_id=account_id, token=token))
             flash(_f("None of those files match an importer here. "
                      "Supported: {list}",
                      list=", ".join(m.LABEL for m in importers.IMPORTERS
@@ -817,6 +828,109 @@ def import_map(account_id: int, token: str):
                            mapping=mapping, fields=generic.FIELDS, preview=preview,
                            problems=problems, wrong=wrong, saved=saved, suspicious=suspicious,
                            kind_words=sorted(w for ws in generic.KIND_WORDS.values() for w in ws))
+
+
+@app.route("/accounts/<int:account_id>/import/payslip/<token>", methods=["GET", "POST"])
+@auth.login_required
+def payslip_map_page(account_id: int, token: str):
+    """Say which line of a payslip is which, once. The mapping is kept
+    under the sheet's markers — the employer and the earner — so next
+    month's sheet from the same employer is recognised by itself."""
+    from .importers import payslip_map as pm
+    account = _load_account(account_id)
+    if account is None:
+        return render_template("missing.html", what=_t("That account does not exist.")), 404
+    pending = _PENDING.get(token)
+    if pending is None or pending["account_id"] != account_id or time.time() - pending["at"] > PENDING_TTL:
+        flash(_t("That upload has expired — choose the file again."), "error")
+        return redirect(url_for("account_import", account_id=account_id))
+    text = pending.get("text")
+    if text is None:
+        text = pending["text"] = importers.dkb_pdf.pdf_text(pending["content"])
+    fmt = pm.number_format(text)
+    ls = pm.lines(text, fmt)
+    saved = pm.find(text)
+    employer, employee = pm.guess_names(text)
+    name = saved["name"] if saved else employer
+    if saved:
+        employer, employee = saved["employer"], saved["employee"]
+        picks = _picks_from(saved["mapping"], ls)
+    else:
+        picks = pm.suggest(ls)
+    problems: list[str] = []
+    preview = None
+    if request.method == "POST":
+        picks = {}
+        for i in range(len(ls)):
+            b = request.form.get(f"line_{i}") or ""
+            if b in pm.BUCKETS:
+                picks[i] = b
+        employer = " ".join((request.form.get("employer") or "").split())[:80] or employer
+        employee = " ".join((request.form.get("employee") or "").split())[:80] or employee
+        name = " ".join((request.form.get("name") or "").split())[:80] or employer
+        currency = (request.form.get("currency") or account["currency"]).strip().upper()[:3]
+        mapping = _mapping_from(picks, ls, fmt, currency)
+        wrong = pm.check(mapping)
+        if wrong or not employer or not employee:
+            flash(_t("The gross and the net paid, the employer and the earner — that is the least a payslip mapping needs."), "error")
+        else:
+            parsed = pm.read({**mapping, "employer": employer, "employee": employee}, text)
+            if parsed.problems:
+                flash(parsed.problems[0], "error")
+            elif request.form.get("action") == "import":
+                pm.save(name, employer, employee, mapping)
+                report = _import_files(account_id, account["currency"], [(pending["name"], pending["content"])])
+                _PENDING.pop(token, None)
+                if report and report["parsed"]:
+                    flash(_f("{importer}: {new} new, {had} already had.", importer=report["label"],
+                             new=report["inserted"], had=report["duplicates"]), "ok")
+                    flash(_f("The mapping is saved as {name}; the next sheet from this employer is recognised by itself.", name=name), "ok")
+                    return redirect(url_for("income_page"))
+                flash((report["problems"][0] if report and report["problems"] else _t("Not one row could be read through that mapping.")), "error")
+                return redirect(url_for("account_import", account_id=account_id))
+            else:
+                preview = parsed.payslip
+    else:
+        mapping = _mapping_from(picks, ls, fmt, account["currency"])
+        if employer and employee and not pm.check(mapping):
+            parsed = pm.read({**mapping, "employer": employer, "employee": employee}, text)
+            preview = parsed.payslip
+    gap = pm.adds_up(preview) if preview else None
+    return render_template("payslip_map.html", account=account, token=token, name=name, employer=employer,
+                           employee=employee, lines=ls, picks=picks, buckets=pm.BUCKETS, amount_buckets=pm.AMOUNT_BUCKETS,
+                           preview=preview, gap=gap, fmt=fmt, saved=saved, filename=pending["name"],
+                           currency=(request.form.get("currency") or account["currency"]).upper()[:3])
+
+
+def _mapping_from(picks: dict[int, str], ls: list[dict], fmt: str, currency: str) -> dict:
+    buckets: dict[str, list[str]] = {}
+    period_label = paid_label = None
+    for i, b in picks.items():
+        label = ls[i]["label"]
+        if b == "period":
+            period_label = period_label or label
+        elif b == "paid":
+            paid_label = paid_label or label
+        elif b in ("employer", "employee"):
+            continue
+        elif label not in buckets.setdefault(b, []):
+            buckets[b].append(label)
+    return {"format": fmt, "buckets": buckets, "period_label": period_label, "paid_label": paid_label,
+            "currency": currency}
+
+
+def _picks_from(mapping: dict, ls: list[dict]) -> dict[int, str]:
+    """A saved mapping shown back on this sheet's lines."""
+    from .importers import payslip_map as pm
+    wanted: dict[str, str] = {}
+    for b, labels in (mapping.get("buckets") or {}).items():
+        for lab in labels:
+            wanted[pm.label_key(lab)] = b
+    if mapping.get("period_label"):
+        wanted[pm.label_key(mapping["period_label"])] = "period"
+    if mapping.get("paid_label"):
+        wanted[pm.label_key(mapping["paid_label"])] = "paid"
+    return {i: wanted[pm.label_key(l["label"])] for i, l in enumerate(ls) if pm.label_key(l["label"]) in wanted}
 
 
 def _unpack(name: str, content: bytes) -> list[tuple[str, bytes]]:
@@ -2502,6 +2616,14 @@ def settings_page(section: str = "general"):
             n = webhooks.fire("sync.completed", {"test": True, "account": "Test", "inserted": 0}, wait=True)
             flash(_n(n, "Test event sent to {n} webhook.", "Test event sent to {n} webhooks."), "ok")
             return redirect(_settings_url("webhooks"))
+        elif request.form.get("form") == "payslip_mapping_delete":
+            from .importers import payslip_map
+            try:
+                payslip_map.delete(int(request.form.get("mapping_id") or 0))
+            except ValueError:
+                pass
+            flash(_t("Mapping forgotten. The next sheet from that employer asks again."), "ok")
+            return redirect(_settings_url("mappings"))
         elif request.form.get("form") == "csv_mapping_delete":
             from .importers import generic
             try:
@@ -2580,6 +2702,7 @@ def settings_page(section: str = "general"):
                            api_url=request.url_root.rstrip("/") + "/api/v1/tools",
                            hooks=webhooks.all_hooks(), hook_events=webhooks.EVENTS,
                            csv_mappings=importers.generic.all_mappings(),
+                           payslip_mappings=importers.payslip_map.all_mappings(),
                            check=check)
 
 

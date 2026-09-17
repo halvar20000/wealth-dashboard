@@ -870,3 +870,22 @@ BVG-Beitrag-130.50
 Nettolohn6’421.50
 6’421.50
 """
+
+# A third layout no parser here was written for — a French bulletin
+# with its retenues printed positive and French numbers — for the
+# mapper: the user says which line is which, once.
+PAYSLIP_BULLETIN = """BULLETIN DE PAIE
+Période : Mars 2026        Date de paiement : 31/03/2026
+Employeur : Exemple SAS            Salarié : Jean Dupont
+Salaire de base                     3 500,00
+Prime d'ancienneté                    120,00
+Salaire brut                        3 620,00
+Sécurité sociale maladie   3 620,00   0,75 %     27,15
+Assurance chômage          3 620,00   2,40 %     86,88
+Retraite complémentaire AGIRC-ARRCO  3 620,00  3,15 %   114,03
+CSG déductible                                   248,00
+Prélèvement à la source    12,00 %               350,00
+Mutuelle                                          40,00
+Net à payer                         2 753,94
+Retraite part patronale                          250,00
+"""

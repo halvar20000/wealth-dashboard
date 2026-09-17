@@ -1345,6 +1345,66 @@ with db.get_conn() as conn:
     check("undoing the import removes the legs and the sheets alike",
           (n, conn.execute("SELECT COUNT(*) FROM payslips").fetchone()[0]), (10, 0))
 
+# The mapper: a sheet no parser was written for, read through what the
+# user confirms — suggested from a catalogue, remembered by the sheet's
+# own markers, so next month's sheet is recognised by itself.
+from app.importers import payslip_map as pm                  # noqa: E402
+
+bul = fixtures.PAYSLIP_BULLETIN
+check("a French bulletin is not one of the built-in layouts", payslip.matches([], bul), False)
+check("...but it reads like a payslip: labelled amounts and a month", pm.looks_like_payslip(bul), True)
+check("its numbers are read the French way", pm.number_format(bul), "fr")
+check("...an SAP sheet the German way, a Swiss sheet with apostrophes",
+      (pm.number_format(fixtures.PAYSLIP_SAP), pm.number_format(fixtures.PAYSLIP_LOHNABRECHNUNG)), ("de", "ch"))
+bl = pm.lines(bul)
+check("every line with an amount, a month or a date is offered", len(bl), 12)
+by_label = {l["label"]: l for l in bl}
+check("...the label is what stands before the first amount; a rate is not an amount",
+      (by_label["Sécurité sociale maladie"]["amounts"], by_label["Sécurité sociale maladie"]["rates"]), ([3620.0, 27.15], [0.75]))
+check("...and a glued Swiss line still splits into basis, rate and amount",
+      next(l for l in pm.lines(fixtures.PAYSLIP_LOHNABRECHNUNG) if l["label"] == "AHV-Beitrag")["amounts"], [7000.0, -371.0])
+check("...a printed O reads as a zero there too",
+      next(l for l in pm.lines(fixtures.PAYSLIP_LOHNABRECHNUNG) if l["label"] == "Gratifikation")["amounts"], [1000.0])
+sug = {bl[i]["label"]: b for i, b in pm.suggest(bl).items()}
+check("the catalogue suggests what each line means, in French too",
+      (sug.get("Salaire brut"), sug.get("Net à payer"), sug.get("Prélèvement à la source"), sug.get("Retraite complémentaire AGIRC-ARRCO"),
+       sug.get("Assurance chômage"), sug.get("Retraite part patronale"), sug.get("Mutuelle"), sug.get("Période Mars 2026 Date de paiement")),
+      ("gross", "net", "tax", "pension", "social", "employer_pension", "other", "period"))
+check("...and 'payer' is not 'paye'", sug.get("Net à payer"), "net")
+check("...and the employer's AG lines on an SAP sheet go to the employer's side, the AN lines to the earner's",
+      {fixtures.PAYSLIP_SAP and l["label"]: b for l, b in ((pm.lines(fixtures.PAYSLIP_SAP)[i], b) for i, b in pm.suggest(pm.lines(fixtures.PAYSLIP_SAP)).items())
+       if l["label"] in ("PF1 Beitrag AG", "6801 PF1 Beitrag AN", "AHV-Prämie AG-Anteil", "/411 AHV-Beitrag")},
+      {"PF1 Beitrag AG": "employer_pension", "6801 PF1 Beitrag AN": "pension", "AHV-Prämie AG-Anteil": "employer_social", "/411 AHV-Beitrag": "social"})
+check("the names are guessed from the sheet", pm.guess_names(bul), ("Exemple SAS", "Jean Dupont"))
+check("...on a glued sheet from the line under the title", pm.guess_names(fixtures.PAYSLIP_LOHNABRECHNUNG)[1], "Erika Muster")
+buckets: dict = {}
+period_label = None
+for lab, b in sug.items():
+    if b == "period":
+        period_label = lab
+    elif b in pm.AMOUNT_BUCKETS:
+        buckets.setdefault(b, []).append(lab)
+mapping = {"format": "fr", "buckets": buckets, "period_label": period_label, "paid_label": None, "currency": "EUR",
+           "employer": "Exemple SAS", "employee": "Jean Dupont"}
+rd = pm.read(mapping, bul)
+bs = rd.payslip
+check("read through the mapping: the sheet's figures, deductions negative whichever way they were printed",
+      (bs["period"], bs["paid_on"], bs["gross"], bs["tax"], bs["employee_social"], bs["employee_pension"], bs["other_deductions"], bs["net_paid"], bs["employer_pension"]),
+      ("2026-03", "2026-03-31", 3620.0, -350.0, -362.03, -114.03, -40.0, 2753.94, 250.0))
+check("...and it adds up: gross less every deduction is the net", pm.adds_up(bs), 0.0)
+check("...with the legs a built-in parser would book", [(r_.kind, r_.amount) for r_ in rd.rows],
+      [("deposit", 350.0), ("tax", -350.0), ("deposit", 114.03), ("transfer", -114.03), ("deposit", 250.0), ("transfer", -250.0)])
+check("a mapping without gross and net is not enough", pm.check({"buckets": {"tax": ["x"]}}), ["gross", "net"])
+pm.save("Exemple SAS bulletin", "Exemple SAS", "Jean Dupont", mapping)
+check("saved, next month's sheet is recognised by its markers",
+      pm.sniff(bul.replace("Mars 2026", "Avril 2026")).LABEL, "Exemple SAS bulletin")
+check("...spaces and case notwithstanding", pm.find(bul.upper().replace(" ", "")) is not None, True)
+check("...and another employer's sheet is not", pm.find(bul.replace("Exemple SAS", "Autre SARL")), None)
+mp = pm.sniff(bul.replace("Mars 2026", "Avril 2026")).parse(bul.replace("Mars 2026", "Avril 2026"))
+check("...and reads through the saved mapping", (mp.payslip["period"], mp.payslip["gross"]), ("2026-04", 3620.0))
+r = c.post("/settings", data={"form": "payslip_mapping_delete", "mapping_id": str(pm.all_mappings()[0]["id"])}, follow_redirects=True)
+check("a mapping can be forgotten under Settings", (b"Mapping forgotten" in r.data, pm.all_mappings()), (True, []))
+
 check("a receipt that is not one says so",
       "not a Swissquote" in swissquote_beleg_pdf.parse("Hello there").problems[0], True)
 check("a statement that is not one says so",

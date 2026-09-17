@@ -11,6 +11,26 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.57.0] — 2026-09-17
+
+### Added
+- **Any payslip, mapped once.** A payslip PDF no parser here was
+  written for is no longer a dead end: the app lists every line that
+  carries an amount, a month or a date, suggests what each one means
+  from a catalogue of what payslips call things — Bruttolohn, salaire
+  brut, gross pay; Quellensteuer, prélèvement à la source, PAYE; AHV,
+  URSSAF, National Insurance; BVG, LPP, pension — in the languages
+  they are printed in, and you confirm, once. The mapping is kept
+  under the sheet's own markers, the employer and the earner, so next
+  month's sheet is recognised by itself, the way a Degiro file is.
+  Deductions are stored as money out whichever way the sheet prints
+  them, the numbers are read the German, Swiss, French or English
+  way from the sheet itself, and a glued sheet with a printed O for a
+  zero still splits into basis, rate and amount. The preview says
+  whether gross less every deduction is the net — the one check that
+  catches a missed line. Mappings are listed under Settings › Banks,
+  beside the CSV ones, and can be forgotten there.
+
 ## [0.56.0] — 2026-09-16
 
 ### Added

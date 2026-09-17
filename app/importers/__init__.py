@@ -18,8 +18,8 @@ import io
 
 from .. import categories
 from ..db import get_conn
-from . import (ca_switzerland, degiro, dkb, dkb_pdf, finary, generic, payslip, swissquote_beleg_pdf,
-               swissquote_pdf, trade_republic)
+from . import (ca_switzerland, degiro, dkb, dkb_pdf, finary, generic, payslip, payslip_map,
+               swissquote_beleg_pdf, swissquote_pdf, trade_republic)
 from .base import (ParsedTxn, ParseResult,  # noqa: F401  (re-exported)
                    normalise_csv_text)
 
@@ -42,7 +42,9 @@ def sniff(content: bytes | str):
                     return module
             except Exception:                        # noqa: BLE001
                 continue
-        return None
+        # Then the payslip layouts the user mapped — after the built-ins,
+        # as with the CSV mappings.
+        return payslip_map.sniff(text)
 
     text = content.decode("utf-8-sig", "replace") if isinstance(content, bytes) else content
     text = normalise_csv_text(text)

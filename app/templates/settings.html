@@ -95,6 +95,30 @@
 </div>
 {% endif %}
 
+{% if section == 'banks' and payslip_mappings %}
+<div class="card" id="payslip-mappings">
+  <div class="card-header">
+    <h2>{{ _("Payslip mappings") }}</h2>
+    <span class="card-subtitle">{{ _n(payslip_mappings | length, "{n} payslip layout you mapped yourself", "{n} payslip layouts you mapped yourself") }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Employer") }}</th><th>{{ _("Earner") }}</th><th>{{ _("Lines") }}</th><th>{{ _("Since") }}</th><th></th></tr></thead>
+      <tbody>
+      {% for m in payslip_mappings %}
+        <tr>
+          <td>{{ m.name }}</td><td class="sub">{{ m.employer }}</td><td class="sub">{{ m.employee }}</td>
+          <td class="sub">{% for b, labels in m.mapping.buckets.items() %}{{ b }} ← {{ labels | join(' + ') }}{% if not loop.last %} · {% endif %}{% endfor %}</td>
+          <td class="sub nowrap">{{ d(m.created_at[:10]) }}</td>
+          <td class="num"><form method="post" style="display:inline"><input type="hidden" name="form" value="payslip_mapping_delete"><input type="hidden" name="mapping_id" value="{{ m.id }}"><button type="submit" class="btn-ghost">{{ _("Forget") }}</button></form></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="sub">{{ _("A sheet naming one of these employers and earners is read through its mapping without asking. Forget one and the next such sheet asks again — the payslips already imported stay.") }}</p>
+</div>
+{% endif %}
 {% if section == 'banks' and csv_mappings %}
 <div class="card" id="mappings">
   <div class="card-header">

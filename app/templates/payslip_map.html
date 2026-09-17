@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Map the payslip") }} · {{ account.name }}{% endblock %}
+{% block heading %}{{ _("Map the payslip") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("No importer here knows this sheet, and it does not need to: say which line is which, once. The mapping is kept under the sheet's own markers — the employer and the earner — so next month's sheet from the same employer is recognised by itself. The suggestions come from a catalogue of what payslips call things in the languages they are printed in; what is remembered is what you confirm.") }}</p>
+{% endblock %}
+{% block content %}
+
+{% set names = {
+  '': '—', 'gross': _("Gross"), 'base': _("Base salary"), 'bonus': _("Bonus"), 'allowance': _("Allowance"),
+  'tax': _("Tax at source"), 'social': _("Social deduction"), 'pension': _("Pension, yours"), 'other': _("Other deduction"),
+  'net': _("Net paid"), 'employer_pension': _("Pension, the employer's"), 'employer_social': _("Social, the employer's"),
+  'period': _("The month"), 'paid': _("Paid on") } %}
+
+<form method="post" class="form" style="max-width:none">
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("Whose sheet") }}</h2>
+    <span class="card-subtitle">{{ filename }} · {{ _f("amounts written the {fmt} way", fmt={'de': '1.234,56', 'ch': "1’234.56", 'en': '1,234.56', 'fr': '1 234,56'}[fmt]) }}</span>
+  </div>
+  <div class="form inline" style="max-width:none">
+    <div><label for="employer">{{ _("Employer") }}</label><input id="employer" name="employer" value="{{ employer }}" maxlength="80" style="width:260px"></div>
+    <div><label for="employee">{{ _("Earner") }}</label><input id="employee" name="employee" value="{{ employee }}" maxlength="80" style="width:200px"></div>
+    <div><label for="currency">{{ _("Currency") }}</label><input id="currency" name="currency" value="{{ currency }}" maxlength="3" style="width:70px"></div>
+    <div><label for="name">{{ _("Call this mapping") }}</label><input id="name" name="name" value="{{ name }}" maxlength="80" style="width:200px"></div>
+  </div>
+  <p class="sub">{{ _("Both names must appear on the sheet as written here — spaces and case do not matter — because that is how the next sheet is recognised. The earner's name is what the Income page groups by.") }}</p>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("The lines") }}</h2>
+    <span class="card-subtitle">{{ _n(lines | length, "{n} line with an amount, a month or a date", "{n} lines with an amount, a month or a date") }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Label") }}</th><th class="num">{{ _("Amounts") }}</th><th>{{ _("Rate") }}</th><th>{{ _("Means") }}</th></tr></thead>
+      <tbody>
+      {% for l in lines %}{% set i = loop.index0 %}
+        <tr>
+          <td>{{ l.label }}{% if l.month or l.date %}<span class="sub">{{ l.month or '' }} {{ l.date or '' }}</span>{% endif %}</td>
+          <td class="num">{% for a in l.amounts %}{{ '%.2f' | format(a) }}{% if not loop.last %} · {% endif %}{% endfor %}</td>
+          <td class="sub">{% for r in l.rates %}{{ '%g' | format(r) }} %{% if not loop.last %} · {% endif %}{% endfor %}</td>
+          <td>
+            <select name="line_{{ i }}" style="width:auto">
+              {% for b in ('',) + amount_buckets + ('period', 'paid') %}
+              {% if b in ('period', 'paid') and not (l.month or l.date) %}{% else %}
+              <option value="{{ b }}" {{ 'selected' if picks.get(i, '') == b }}>{{ names[b] }}</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="sub">{{ _("On a line with several amounts the last one is the amount; the ones before it are the basis and the rate. Deductions are stored as money out whichever way the sheet prints them — a French bulletin prints its retenues positive, an SAP sheet with a trailing minus — because what a line means settles the sign. Several lines may mean the same thing: AHV and ALV are both social deductions. Lines left at — are kept as detail and count for nothing.") }}</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+    <button type="submit" name="action" value="preview" class="btn-ghost">{{ _("Read it through this mapping") }}</button>
+    <button type="submit" name="action" value="import">{{ _("Save the mapping and import") }}</button>
+    <a class="btn btn-ghost" href="{{ url_for('account_import', account_id=account.id) }}">{{ _("This is not a payslip") }}</a>
+  </div>
+</div>
+</form>
+
+{% if preview %}
+<div class="card">
+  <div class="card-header">
+    <h2>{{ _("Read through the mapping") }}</h2>
+    <span class="card-subtitle">{{ preview.employee }} · {{ preview.employer }} · {{ preview.period }}{% if preview.paid_on %} · {{ _f("paid {date}", date=d(preview.paid_on)) }}{% endif %}</span>
+  </div>
+  <section class="stat-strip">
+    <div class="stat-card stat-blue"><div class="stat-label">{{ _("Gross") }}</div><div class="stat-value">{{ money(preview.gross, preview.currency) }}</div>
+      <div class="stat-sub">{% if preview.base_salary %}{{ _f("base {amount}", amount=money(preview.base_salary, preview.currency)) }}{% endif %}{% if preview.bonus %} · {{ _f("bonus {amount}", amount=money(preview.bonus, preview.currency)) }}{% endif %}</div></div>
+    <div class="stat-card stat-gold"><div class="stat-label">{{ _("Taken at source") }}</div><div class="stat-value">{{ money(preview.tax + preview.employee_social + preview.employee_pension + preview.other_deductions, preview.currency) }}</div>
+      <div class="stat-sub">{{ _f("tax {tax} · social {social} · pension {pension} · other {other}", tax=money(preview.tax, preview.currency), social=money(preview.employee_social, preview.currency), pension=money(preview.employee_pension, preview.currency), other=money(preview.other_deductions, preview.currency)) }}</div></div>
+    <div class="stat-card stat-green"><div class="stat-label">{{ _("Net paid") }}</div><div class="stat-value">{{ money(preview.net_paid, preview.currency) }}</div>
+      <div class="stat-sub {{ 'loss' if gap and (gap | abs) > 0.05 }}">{% if gap is not none and (gap | abs) <= 0.05 %}{{ _("gross less every deduction is the net: the mapping caught every line") }}{% else %}{{ _f("gross less the deductions differs from the net by {gap} — a line is missing or mapped twice", gap=money(gap, preview.currency)) }}{% endif %}</div></div>
+    <div class="stat-card stat-purple"><div class="stat-label">{{ _("Employer's side") }}</div><div class="stat-value">{{ money(preview.employer_pension + preview.employer_social, preview.currency) }}</div>
+      <div class="stat-sub">{% if preview.employer_side_known %}{{ _f("pension {pension} · social {social}", pension=money(preview.employer_pension, preview.currency), social=money(preview.employer_social, preview.currency)) }}{% else %}{{ _("nothing mapped as the employer's — the sheet may print none") }}{% endif %}</div></div>
+  </section>
+</div>
+{% endif %}
+{% endblock %}

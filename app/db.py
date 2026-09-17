@@ -505,6 +505,19 @@ CREATE TABLE IF NOT EXISTS payslips (
     UNIQUE (employer, employee, period)
 );
 
+-- A payslip layout the user mapped themselves — see importers/
+-- payslip_map.py. Keyed on the sheet's own markers, the employer and
+-- the earner, so next month's sheet is recognised by what is in it.
+CREATE TABLE IF NOT EXISTS payslip_mappings (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    employer   TEXT NOT NULL,
+    employee   TEXT NOT NULL,
+    mapping    TEXT NOT NULL,                 -- JSON {format, buckets, period_label, paid_label, currency}
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (employer, employee)
+);
+
 -- A column mapping the user drew for a CSV no built-in importer knows,
 -- keyed on the file's header so the next export from the same bank is
 -- recognised without asking again. See importers/generic.py.
