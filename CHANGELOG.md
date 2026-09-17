@@ -11,6 +11,24 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.59.0] — 2026-09-17
+
+### Added
+- **Upcoming.** Every other page looks back; this one carries today's
+  cash forward through what is known to be coming — the bills as
+  declared on the Bills page, the subscriptions the app has detected
+  and nobody declared, the salary as the newest payslip had it, on
+  the day it was paid — and says where that leaves the balance over
+  30, 60 or 90 days: the lowest it gets, and the day it would cross
+  zero, named with the bill that does it. Income lands before bills
+  on the same day, because that is what a paycheck is for; a balance
+  that starts below zero — an overdraft, a card — is not "going
+  negative", so the alert only fires when the line is crossed; a bill
+  without a fixed amount is carried at what it last cost and marked
+  as an estimate; a missed bill is expected today. Under Money, after
+  Bills. Loan instalments count only when declared as a bill: the app
+  knows what a loan costs, not which account pays it.
+
 ## [0.58.2] — 2026-09-17
 
 ### Fixed

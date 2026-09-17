@@ -45,7 +45,7 @@ from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, income, loans, retirement, webhooks,
                manual, mcp, overview, people, performance, screener, screener_etf,
-               screener_jobs, splits, stages, subscriptions)
+               screener_jobs, splits, stages, subscriptions, upcoming)
 from . import brokers
 from .brokers import kraken, saxo
 from . import db as db_state
@@ -2234,6 +2234,20 @@ def subscriptions_page():
         "subscriptions.html", active_page="subscriptions",
         data=subscriptions.detect(settings.get("base_currency", "EUR"),
                                   account_ids=people.scope()))
+
+
+@app.route("/upcoming")
+@auth.login_required
+def upcoming_page():
+    """The cash balance carried forward through the bills, the
+    subscriptions and the salary — where it gets lowest, and whether it
+    crosses zero. See upcoming.py."""
+    try:
+        days = int(request.args.get("days") or 0)
+    except ValueError:
+        days = 0
+    return render_template("upcoming.html", active_page="upcoming",
+                           data=upcoming.project(settings.get("base_currency", "EUR"), days, people.scope()))
 
 
 @app.route("/portfolio")

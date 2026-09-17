@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Upcoming") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Upcoming") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("Today's cash, carried forward through what is known to be coming: the bills as declared, the subscriptions the app has found, the salary as the newest payslip had it. Where the balance gets lowest, and the day it would cross zero — before it does, not after.") }}</p>
+{% endblock %}
+{% block content %}
+{% set ccy = data.base_currency %}
+{% set kind_labels = {'bill': _("bill"), 'subscription': _("subscription"), 'income': _("income")} %}
+
+<section class="stat-strip">
+  <div class="stat-card stat-blue">
+    <div class="stat-label">{{ _("Cash today") }}</div>
+    <div class="stat-value">{{ big(data.starting, ccy) }}</div>
+    <div class="stat-sub">{{ _n(data.accounts | length, "{n} cash account", "{n} cash accounts") }}, {{ _("newest reading each") }}</div>
+  </div>
+  <div class="stat-card {{ 'stat-green' if data.ending >= data.starting else 'stat-gold' }}">
+    <div class="stat-label">{{ _f("In {n} days", n=data.days) }}</div>
+    <div class="stat-value {{ 'loss' if data.ending < 0 }}">{{ big(data.ending, ccy) }}</div>
+    <div class="stat-sub">{{ _f("{inflow} in, {outflow} out", inflow=money(data.total_in, ccy), outflow=money(data.total_out, ccy)) }}</div>
+  </div>
+  <div class="stat-card {{ 'stat-gold' if data.below_zero else 'stat-purple' }}">
+    <div class="stat-label">{{ _("Lowest point") }}</div>
+    <div class="stat-value {{ 'loss' if data.lowest and data.lowest.running < 0 }}">{% if data.lowest %}{{ big(data.lowest.running, ccy) }}{% else %}{{ big(data.starting, ccy) }}{% endif %}</div>
+    <div class="stat-sub">
+      {% if data.below_zero %}{{ _f("below zero on {date}, after {name}", date=d(data.below_zero.date), name=data.below_zero.name) }}
+      {% elif data.lowest %}{{ _f("on {date}, after {name}", date=d(data.lowest.date), name=data.lowest.name) }}
+      {% elif data.starting < 0 %}{{ _("starts below zero — an overdraft or a card, not a crossing") }}
+      {% else %}{{ _("nothing scheduled") }}{% endif %}
+    </div>
+  </div>
+  <div class="stat-card stat-purple">
+    <div class="stat-label">{{ _("Scheduled") }}</div>
+    <div class="stat-value">{{ data.entries | length }}</div>
+    <div class="stat-sub">{{ _f("{bills} bills, {subs} subscriptions, {income} pay days", bills=data.counts.bill, subs=data.counts.subscription, income=data.counts.income) }}</div>
+  </div>
+</section>
+
+{% if data.unpriced %}
+<div class="flash flash-error">{{ _f("No exchange rate for {currencies}; what is in them is left out of the figures above.", currencies=data.unpriced | join(", ")) }}</div>
+{% endif %}
+
+<section class="card">
+  <div class="card-header">
+    <h2>{{ _("Balance ahead") }}</h2>
+    <div class="period-pills" role="tablist">
+      {% for n in data.horizons %}
+      <a class="period-btn {{ 'active' if n == data.days }}" href="{{ url_for('upcoming_page', days=n) }}">{{ _f("{n} days", n=n) }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% if data.entries %}
+  <div class="chart-wrap" style="height:260px"><canvas id="ahead-chart"></canvas></div>
+  {% else %}
+  <p class="sub">{{ _("Nothing is scheduled in this window. Declare a bill, or import a payslip, and the line starts moving.") }}
+    <a href="{{ url_for('bills_page') }}">{{ _("Bills →") }}</a></p>
+  {% endif %}
+</section>
+
+{% if data.entries %}
+<section class="card">
+  <div class="card-header"><h2>{{ _("Day by day") }}</h2>
+    <span class="card-subtitle">{{ _("income lands before bills on the same day · ~ an amount carried from what it last cost") }}</span></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Date") }}</th><th>{{ _("What") }}</th><th>{{ _("Account") }}</th><th class="num">{{ _("Amount") }}</th><th class="num">{{ _("Balance after") }}</th></tr></thead>
+      <tbody>
+      {% for i in data.entries %}
+        <tr>
+          <td class="nowrap">{{ d(i.date) }}</td>
+          <td><a href="{{ url_for(i.href ~ '_page') }}">{{ i.name }}</a> <span class="tag tag-muted">{{ kind_labels[i.kind] }}</span>
+              {% if i.overdue %}<span class="tag tag-warn">{{ _("missed — expected today") }}</span>{% endif %}</td>
+          <td>{{ i.account or '—' }}</td>
+          <td class="num {{ 'pos' if i.amount > 0 else 'neg' }}">{{ '~ ' if i.estimate }}{{ money(i.amount, ccy) }}</td>
+          <td class="num {{ 'loss' if i.running < 0 }}">{{ money(i.running, ccy) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <div class="card-header"><h2>{{ _("Starting from") }}</h2></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Account") }}</th><th class="num">{{ _("Balance") }}</th><th>{{ _("As of") }}</th></tr></thead>
+      <tbody>
+      {% for a in data.accounts %}
+        <tr><td><a href="{{ url_for('account_detail', account_id=a.id) }}">{{ a.name }}</a></td>
+            <td class="num">{{ money(a.balance, a.currency) }}</td>
+            <td>{{ d(a.as_of) if a.as_of else _("nothing reported yet") }}</td></tr>
+      {% else %}
+        <tr><td colspan="3">{{ _("No cash account yet.") }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="sub">{{ _("Loan instalments count only when declared as a bill: the app knows what a loan costs, not which account pays it.") }}</p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if data.entries %}
+<script>
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const LANG = {{ lang | tojson }}, CCY = {{ data.base_currency | tojson }};
+const SERIES = {{ data.series | tojson }};
+const fmt = (v) => new Intl.NumberFormat(LANG, { style: 'currency', currency: CCY, maximumFractionDigits: 0 }).format(v);
+const dfmt = (s) => new Intl.DateTimeFormat(LANG, { day: 'numeric', month: 'short' }).format(new Date(s));
+const below = SERIES.some(p => p.balance < 0);
+
+// A line that is red wherever the balance is below zero, and a dashed
+// line at zero so the crossing is a thing the eye lands on.
+const zero = {
+  id: 'zero',
+  afterDatasetsDraw(chart) {
+    const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+    if (y.min > 0) return;
+    const py = y.getPixelForValue(0);
+    ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = css('--loss'); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke(); ctx.restore();
+  },
+};
+
+new Chart(document.getElementById('ahead-chart'), {
+  type: 'line',
+  data: {
+    labels: SERIES.map(p => p.date),
+    datasets: [{
+      data: SERIES.map(p => p.balance),
+      stepped: true, pointRadius: 2, borderWidth: 2, fill: true,
+      borderColor: below ? css('--loss') : css('--accent-blue'),
+      backgroundColor: below ? 'rgba(248,113,113,0.12)' : 'rgba(91,157,255,0.12)',
+      segment: { borderColor: (c) => (c.p1.parsed.y < 0 || c.p0.parsed.y < 0) ? css('--loss') : css('--accent-blue') },
+    }],
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    scales: {
+      x: { grid: { color: '#232c44' }, ticks: { color: '#95a0b9', maxTicksLimit: 8, callback: (v, i) => dfmt(SERIES[i].date) } },
+      y: { grid: { color: '#232c44' }, ticks: { color: '#95a0b9', callback: (v) => fmt(v) } },
+    },
+    plugins: { legend: { display: false },
+               tooltip: { callbacks: { title: (it) => dfmt(SERIES[it[0].dataIndex].date), label: (it) => fmt(it.parsed.y) } } },
+  },
+  plugins: [zero],
+});
+</script>
+{% endif %}
+{% endblock %}

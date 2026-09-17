@@ -31,7 +31,9 @@ a PSD2 API it connects directly, with credentials that are yours.
   category, rename the counterparty, set the kind, add a tag. Budgets
   against the categories, cash flow by month, subscriptions detected,
   **bills** declared and marked paid, due or missed, **savings goals**
-  fed by an account or by hand.
+  fed by an account or by hand — and **Upcoming**: today's cash carried
+  forward through the bills, the subscriptions and the salary, with the
+  lowest point and the day it would cross zero, before it does.
 - **Retirement outlook** per person — from their birthday and their own
   accounts to a retire age, and what the sum supports a month — and a
   **retirement plan** with the retirement in it: spending and income

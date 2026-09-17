@@ -6103,6 +6103,46 @@ r = c.get("/goals")
 check("the page renders the goals with their bars", (r.status_code, b"Holiday" in r.data, b'class="goal-fill"' in r.data, b"Put towards it" in r.data), (200, True, True, True))
 r = c.post("/goals", data={"form": "goal_save", "goal_id": g1, "amount": "2500"}, follow_redirects=True)
 check("money noted from the page; the goal is reached", (b"Noted" in r.data, [g["done"] for g in goals.all_goals() if g["name"] == "Holiday"]), (True, [True]))
+# Upcoming: the cash carried forward through the bills, the subscriptions
+# and the salary. The giro holds 2 500 as of 1 September (the reading
+# above, though its type 'current' is not a cash type — so a bank
+# account carries it here).
+from app import upcoming                                    # noqa: E402
+with db.get_conn() as conn:
+    conn.execute("UPDATE accounts SET type = 'bank' WHERE id = ?", (bg,))
+    conn.execute("INSERT INTO payslips (account_id, employer, employee, period, paid_on, currency, gross, net_paid) "
+                 "VALUES (?, 'Muster AG', 'Alex', '2026-08', '2026-08-25', 'EUR', 6000, 4200)", (bg,))
+up = upcoming.project("EUR", 30, [bg], today=date(2026, 9, 2))
+names = [(i["date"], i["name"], i["amount"]) for i in up["entries"]]
+check("the projection starts from the giro's newest reading", (up["starting"], up["days"], up["until"]), (2500.0, 30, "2026-10-02"))
+check("the rent, due yesterday and unpaid, is expected today; the next one on the 1st",
+      [n for n in names if n[1] == "Rent"], [("2026-09-02", "Rent", -1100.0), ("2026-10-01", "Rent", -1100.0)])
+check("the electricity, any amount, is carried at what it last cost and marked an estimate",
+      [(n, next(i["estimate"] for i in up["entries"] if i["name"] == "Electricity")) for n in names if n[1] == "Electricity"], [(("2026-09-15", "Electricity", -92.0), True)])
+check("the insurance, due in January, is outside the window", any(n[1] == "Insurance" for n in names), False)
+check("the salary lands monthly on the day the newest payslip was paid", [n for n in names if n[2] > 0], [("2026-09-25", "Alex · Muster AG", 4200.0)])
+check("the running balance is carried entry by entry, and never crosses zero here",
+      ([i["running"] for i in up["entries"]], up["below_zero"], up["lowest"]["name"]), ([1400.0, 1308.0, 5508.0, 4408.0], None, "Electricity"))
+tight = {**up}
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO balances (account_id, amount, currency, balance_type, as_of) VALUES (?, 1000, 'EUR', 'manual', '2026-09-02')", (bg,))
+up2 = upcoming.project("EUR", 30, [bg], today=date(2026, 9, 2))
+check("with less to start from it crosses zero, and the page names the day and the bill",
+      (up2["below_zero"]["date"], up2["below_zero"]["name"], up2["lowest"]["running"]), ("2026-09-02", "Rent", -192.0))
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO balances (account_id, amount, currency, balance_type, as_of) VALUES (?, -300, 'EUR', 'manual', '2026-09-03')", (bg,))
+up3 = upcoming.project("EUR", 60, [bg], today=date(2026, 9, 3))
+check("a balance that starts below zero is not 'going negative'", (up3["starting"], up3["below_zero"]), (-300.0, None))
+check("a horizon the page does not offer falls back to the first", upcoming.project("EUR", 7, [bg])["days"], 30)
+check("the salary is not carried once the newest payslip is too old to be a job",
+      any(i["kind"] == "income" for i in upcoming.project("EUR", 90, [bg], today=date(2027, 3, 1))["entries"]), False)
+r = c.get("/upcoming?days=60")
+check("the page renders with its tiles, the chart and the table",
+      (r.status_code, b"Cash today" in r.data, b"Lowest point" in r.data, b'id="ahead-chart"' in r.data, b"Day by day" in r.data, b"Rent" in r.data), (200, True, True, True, True, True))
+check("...and the horizon picked is the one lit", b'class="period-btn active" href="/upcoming?days=60"' in r.data, True)
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM payslips WHERE employer = 'Muster AG'")
+    conn.execute("DELETE FROM balances WHERE account_id = ? AND as_of >= '2026-09-02'", (bg,))
 for bid in (rent, power, ins, never):
     bills.delete(bid)
 goals.delete(g1); goals.delete(g2)

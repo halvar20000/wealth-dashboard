@@ -66,6 +66,7 @@ assistant.
 | Budgets against spending | ✔ | — | — | ✔ |
 | Cash flow by month | ✔ | — | — | ✔ |
 | Subscriptions detected, and bills declared (paid, due, missed) | ✔ both | — | — | ◐ bills, declared by hand |
+| Cash carried forward: lowest point, the day it crosses zero | ✔ bills, detected subscriptions, the salary | — | — | — |
 | Loans and mortgages with a computed schedule | ✔ | — | — | ◐ liabilities, no schedule |
 | Savings goals | ✔ fed by an account or by hand | — | ✔ | ✔ piggy banks |
 | Several people in one household, each with a view | ✔ | — | — | ◐ user groups |
