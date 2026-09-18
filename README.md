@@ -640,6 +640,24 @@ JWT signing, pagination, normalisation, connect, sync, dedupe, consent
 expiry — runs against a fake, so it works on a NAS with an unhelpful
 Python and no internet.
 
+## Feedback and ideas
+
+This is used daily by its author, but one household is a narrow test. If your
+bank, your currency or your way of saving does not fit, that is exactly what
+is worth hearing.
+
+* **Wrong number, failed sync, broken page?**
+  [Open a bug report](https://github.com/halvar20000/wealth-dashboard/issues/new?template=bug_report.yml)
+  — version (click it in the header), which page, what you expected. Redact
+  anything personal from logs; the numbers are yours, not needed here.
+* **Want something?** Say so in
+  [Discussions → Ideas](https://github.com/halvar20000/wealth-dashboard/discussions/categories/ideas),
+  or 👍 an idea already there. The pinned **roadmap** thread lists what is
+  being considered, and the votes decide the order.
+* **A bank that will not connect, or a setup question?**
+  [Discussions → Q&A](https://github.com/halvar20000/wealth-dashboard/discussions/categories/q-a).
+  Name the bank and country; the thread helps the next person with the same one.
+
 ## Licence
 
 [AGPL-3.0-or-later](LICENSE). Run it, change it, share it. If you run a

@@ -1,0 +1,61 @@
+name: Bug report
+description: A wrong number, a crash, a page that does not load, a sync that fails.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Before you paste anything: this app holds your finances, so **redact account numbers, IBANs, balances and bank credentials** from logs and screenshots. Version, page and error message are what matter.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Click the version number in the app header, or check the container tag.
+      placeholder: "0.59.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How is it installed?
+      options:
+        - Docker (ghcr.io image, own server / Unraid)
+        - pip / source checkout (`python -m app`)
+        - Other (say which below)
+    validations:
+      required: true
+  - type: input
+    id: page
+    attributes:
+      label: Which page or action?
+      placeholder: "Upcoming page / clicking 'Sync everything' / adding a rule"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      placeholder: |
+        Net worth chart shows a drop of 12 000 on 3 Sept. No transaction that day; the account balance in the bank app did not change. Expected a flat line.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log output
+      description: "`docker logs wealth-dashboard` around the time it happened, or the terminal output. Redact anything personal. Pasted text is formatted as code."
+      render: text
+  - type: dropdown
+    id: bank
+    attributes:
+      label: Does it involve a bank connection?
+      options:
+        - "No"
+        - Yes — via Enable Banking
+        - Yes — manual account
+  - type: input
+    id: bankname
+    attributes:
+      label: If yes, which bank and country?
+      placeholder: "Raiffeisen (CH)"
