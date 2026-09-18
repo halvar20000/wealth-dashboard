@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Roadmap — vote on what comes next
+    url: https://github.com/halvar20000/wealth-dashboard/discussions/1
+    about: The one thread that decides the order. 👍 what you want; add what is missing.
   - name: Idea or feature request
     url: https://github.com/halvar20000/wealth-dashboard/discussions/categories/ideas
     about: Propose something new or vote on what others have proposed. Issues are for bugs.

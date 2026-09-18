@@ -652,7 +652,7 @@ is worth hearing.
   anything personal from logs; the numbers are yours, not needed here.
 * **Want something?** Say so in
   [Discussions → Ideas](https://github.com/halvar20000/wealth-dashboard/discussions/categories/ideas),
-  or 👍 an idea already there. The pinned **roadmap** thread lists what is
+  or 👍 an idea already there. The [**roadmap** thread](https://github.com/halvar20000/wealth-dashboard/discussions/1) lists what is
   being considered, and the votes decide the order.
 * **A bank that will not connect, or a setup question?**
   [Discussions → Q&A](https://github.com/halvar20000/wealth-dashboard/discussions/categories/q-a).
