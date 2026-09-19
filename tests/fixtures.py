@@ -1099,3 +1099,166 @@ Netto U SD 320.66
 Cha nge U SD /CH F 0.885050 CH F 283.80
 """
 
+CAMT053_KONTOAUSZUG = """<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08">
+<BkToCstmrStmt>
+<GrpHdr><MsgId>camt053-2026-03</MsgId><CreDtTm>2026-04-01T06:00:00</CreDtTm></GrpHdr>
+<Stmt>
+<Id>2026-03</Id>
+<Acct><Id><IBAN>DE89370400440532013000</IBAN></Id><Ccy>EUR</Ccy></Acct>
+<Bal><Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">1523.44</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-02-28</Dt></Dt></Bal>
+<Bal><Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp><Amt Ccy="EUR">4321.16</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-03-31</Dt></Dt></Bal>
+<Ntry>
+<Amt Ccy="EUR">49.90</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts>
+<BookgDt><Dt>2026-03-01</Dt></BookgDt><ValDt><Dt>2026-03-01</Dt></ValDt>
+<AcctSvcrRef>2026030100001</AcctSvcrRef>
+<BkTxCd><Domn><Cd>PMNT</Cd><Fmly><Cd>RDDT</Cd><SubFmlyCd>ESDD</SubFmlyCd></Fmly></Domn><Prtry><Cd>NDDT+005</Cd></Prtry></BkTxCd>
+<NtryDtls><TxDtls>
+<Refs><EndToEndId>INV-2026-0311</EndToEndId><MndtId>M0001</MndtId></Refs>
+<RltdPties><Cdtr><Pty><Nm>Stadtwerke Musterstadt GmbH</Nm></Pty></Cdtr><CdtrAcct><Id><IBAN>DE02100100100006820101</IBAN></Id></CdtrAcct></RltdPties>
+<RmtInf><Ustrd>Stromabschlag Maerz 2026</Ustrd></RmtInf>
+</TxDtls></NtryDtls>
+<AddtlNtryInf>SEPA-LASTSCHRIFT</AddtlNtryInf>
+</Ntry>
+<Ntry>
+<Amt Ccy="EUR">2850.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts>
+<BookgDt><Dt>2026-03-03</Dt></BookgDt><ValDt><Dt>2026-03-03</Dt></ValDt>
+<AcctSvcrRef>2026030300007</AcctSvcrRef>
+<NtryDtls><TxDtls>
+<Refs><EndToEndId>LOHN 03/2026</EndToEndId></Refs>
+<RltdPties><Dbtr><Pty><Nm>Muster AG</Nm></Pty></Dbtr><DbtrAcct><Id><IBAN>DE12500105170648489890</IBAN></Id></DbtrAcct></RltdPties>
+<RmtInf><Ustrd>Gehalt Maerz</Ustrd></RmtInf>
+</TxDtls></NtryDtls>
+<AddtlNtryInf>SEPA-GUTSCHRIFT</AddtlNtryInf>
+</Ntry>
+<Ntry>
+<Amt Ccy="EUR">2.50</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts>
+<BookgDt><Dt>2026-03-31</Dt></BookgDt><ValDt><Dt>2026-03-31</Dt></ValDt>
+<AcctSvcrRef>2026033100090</AcctSvcrRef>
+<BkTxCd><Domn><Cd>ACMT</Cd><Fmly><Cd>MDOP</Cd><SubFmlyCd>CHRG</SubFmlyCd></Fmly></Domn></BkTxCd>
+<AddtlNtryInf>Entgeltabschluss</AddtlNtryInf>
+</Ntry>
+<Ntry>
+<Amt Ccy="EUR">0.12</Amt><CdtDbtInd>CRDT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts>
+<BookgDt><Dt>2026-03-31</Dt></BookgDt><ValDt><Dt>2026-03-31</Dt></ValDt>
+<AcctSvcrRef>2026033100091</AcctSvcrRef>
+<BkTxCd><Domn><Cd>ACMT</Cd><Fmly><Cd>MCOP</Cd><SubFmlyCd>INTR</SubFmlyCd></Fmly></Domn></BkTxCd>
+<AddtlNtryInf>Abschluss Zinsen</AddtlNtryInf>
+</Ntry>
+<Ntry>
+<Amt Ccy="EUR">300.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts>
+<BookgDt><Dt>2026-03-15</Dt></BookgDt><ValDt><Dt>2026-03-15</Dt></ValDt>
+<AcctSvcrRef>2026031500042</AcctSvcrRef>
+<NtryDtls>
+<TxDtls><Amt Ccy="EUR">100.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><Refs><EndToEndId>A1</EndToEndId></Refs><RltdPties><Cdtr><Pty><Nm>Verein A</Nm></Pty></Cdtr></RltdPties><RmtInf><Ustrd>Beitrag A</Ustrd></RmtInf></TxDtls>
+<TxDtls><Amt Ccy="EUR">200.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><Refs><EndToEndId>B2</EndToEndId></Refs><RltdPties><Cdtr><Pty><Nm>Verein B</Nm></Pty></Cdtr></RltdPties><RmtInf><Ustrd>Beitrag B</Ustrd></RmtInf></TxDtls>
+</NtryDtls>
+<AddtlNtryInf>SAMMELUEBERWEISUNG</AddtlNtryInf>
+</Ntry>
+<Ntry>
+<Amt Ccy="EUR">19.99</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts><Cd>PDNG</Cd></Sts>
+<BookgDt><Dt>2026-04-01</Dt></BookgDt>
+<AddtlNtryInf>Kartenzahlung vorgemerkt</AddtlNtryInf>
+</Ntry>
+</Stmt>
+</BkToCstmrStmt>
+</Document>
+"""
+
+MT940_KONTOAUSZUG = """:20:STARTUMSE
+:25:12030000/1234567890
+:28C:00012/001
+:60F:C260228EUR1523,44
+:61:2603010301DR49,90NMSCNONREF//A1B2C3
+:86:005?00SEPA-LASTSCHRIFT?109251?20EREF+INV-2026-0311?21MREF+M0001
+?22CRED+DE98ZZZ09999999999?23SVWZ+Stromabschlag Maerz 2026?30COBADEFFXXX
+?31DE02100100100006820101?32Stadtwerke Musterstadt?33GmbH?34997
+:61:2603030303CR2850,00NTRFNONREF//D4E5F6
+:86:051?00SEPA-GUTSCHRIFT?109251?20EREF+LOHN 03/2026?21SVWZ+Gehalt Maerz
+?30GENODEF1XXX?31DE12500105170648489890?32Muster AG?34166
+:61:2603310331DR2,50NCHGNONREF//G7H8I9
+:86:808?00ENTGELTABSCHLUSS?109251?20Entgeltabrechnung?21siehe Anlage?34808
+:61:2603310331CR0,12NINTNONREF//J0K1L2
+:86:814?00ABSCHLUSS?109251?20Zinsen 01.01.-31.03.2026?34814
+:62F:C260331EUR4321,16
+-
+"""
+
+OFX_BROKERAGE = """OFXHEADER:100
+DATA:OFXSGML
+VERSION:102
+
+<OFX>
+<INVSTMTMSGSRSV1>
+<INVSTMTTRNRS>
+<INVSTMTRS>
+<DTASOF>20260331
+<CURDEF>USD
+<INVACCTFROM>
+<BROKERID>questrade.com
+<ACCTID>51234567
+</INVACCTFROM>
+<INVTRANLIST>
+<BUYSTOCK>
+<INVBUY>
+<INVTRAN>
+<FITID>T1001
+<DTTRADE>20260304120000
+<DTSETTLE>20260306
+<MEMO>Bought VTI
+</INVTRAN>
+<SECID>
+<UNIQUEID>US9229087690
+<UNIQUEIDTYPE>ISIN
+</SECID>
+<UNITS>10
+<UNITPRICE>250.10
+<COMMISSION>4.95
+<TOTAL>-2505.95
+</INVBUY>
+<BUYTYPE>BUY
+</BUYSTOCK>
+<INCOME>
+<INVTRAN>
+<FITID>T1002
+<DTTRADE>20260325
+<MEMO>Dividend VTI
+</INVTRAN>
+<SECID>
+<UNIQUEID>US9229087690
+<UNIQUEIDTYPE>ISIN
+</SECID>
+<INCOMETYPE>DIV
+<TOTAL>8.20
+<WITHHOLDING>1.23
+</INCOME>
+<INVBANKTRAN>
+<STMTTRN>
+<TRNTYPE>DEP
+<DTPOSTED>20260301
+<TRNAMT>3000.00
+<FITID>T1000
+<NAME>EFT deposit
+</STMTTRN>
+<SUBACCTFUND>CASH
+</INVBANKTRAN>
+</INVTRANLIST>
+</INVSTMTRS>
+</INVSTMTTRNRS>
+</INVSTMTMSGSRSV1>
+<SECLISTMSGSRSV1>
+<SECLIST>
+<STOCKINFO>
+<SECINFO>
+<SECID>
+<UNIQUEID>US9229087690
+<UNIQUEIDTYPE>ISIN
+</SECID>
+<SECNAME>Vanguard Total Stock Market ETF
+<TICKER>VTI
+</SECINFO>
+</STOCKINFO>
+</SECLIST>
+</SECLISTMSGSRSV1>
+</OFX>
+"""

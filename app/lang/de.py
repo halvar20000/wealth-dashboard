@@ -1841,6 +1841,8 @@ STRINGS: dict[str, str] = {
     'A date column and an amount column — or a debit and a credit column — are the least a mapping needs.': 'Eine Datumsspalte und eine Betragsspalte — oder eine Soll- und eine Haben-Spalte — sind das Mindeste, was eine Zuordnung braucht.',
     'A file with one of these headers is imported through its mapping without asking. Forget one and the next such file asks again — the rows already imported stay.': 'Eine Datei mit einer dieser Kopfzeilen wird ohne Nachfrage über ihre Zuordnung importiert. Vergiss eine, und die nächste solche Datei fragt wieder — die bereits importierten Zeilen bleiben.',
     'Amount, signed': 'Betrag, mit Vorzeichen',
+    'Statement formats': 'Kontoauszugsformate',
+    "CAMT.053 / CAMT.052 XML (the ISO 20022 export of every European online-banking portal), MT940 (.sta, SWIFT) and OFX / QFX (North American and British banks and brokers) are read as they are — no mapping, the bank's own reference as the id, the closing balance taken.": 'CAMT.053 / CAMT.052 XML (der ISO-20022-Export jedes europäischen Online-Bankings), MT940 (.sta, SWIFT) und OFX / QFX (nordamerikanische und britische Banken und Broker) werden gelesen, wie sie sind — keine Zuordnung, die bankeigene Referenz als Id, der Schlusssaldo übernommen.',
     'Any other bank': 'Jede andere Bank',
     'Blank means the ISIN is looked for in the description.': 'Leer heißt: die ISIN wird in der Beschreibung gesucht.',
     "Blank means the account's currency, or the one typed in below.": 'Leer heißt: die Währung des Kontos, oder die unten eingetragene.',

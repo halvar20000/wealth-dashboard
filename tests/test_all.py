@@ -6900,5 +6900,43 @@ check("Liberty's letter-spaced paper is glued back together: a sale in CHF off t
       ("sell", "2025-03-06", 283.80, "CHF", "IE00BHZRQZ17", 0.42))
 
 # ---------------------------------------------------------------------------
+print("\n52. Statement formats: CAMT.053, MT940, OFX")
+# ---------------------------------------------------------------------------
+c = importers.camt053.parse(fixtures.CAMT053_KONTOAUSZUG)
+check("a CAMT.053 statement is recognised by its root and read", (importers.sniff(fixtures.CAMT053_KONTOAUSZUG.encode()).SLUG, c.problems), ("camt053", []))
+rows = sorted((r.txn_date, r.kind, r.amount, r.counterparty) for r in c.rows)
+check("...every booked entry a row, the batch as one row per leg, the pending one left out and counted",
+      (rows, c.skipped),
+      ([("2026-03-01", "other", -49.9, "Stadtwerke Musterstadt GmbH"), ("2026-03-03", "other", 2850.0, "Muster AG"),
+        ("2026-03-15", "other", -200.0, "Verein B"), ("2026-03-15", "other", -100.0, "Verein A"),
+        ("2026-03-31", "fee", -2.5, None), ("2026-03-31", "interest", 0.12, None)], 1))
+check("...the purpose as description, the bank's reference as id, the closing balance taken",
+      (c.rows[0].description, c.rows[0].external_id, c.closing_balance),
+      ("Stromabschlag Maerz 2026", "camt:2026030100001", {"amount": 4321.16, "currency": "EUR", "as_of": "2026-03-31"}))
+check("...a batch leg's id carries the leg number", sorted(r.external_id for r in c.rows if r.amount in (-100.0, -200.0)),
+      ["camt:2026031500042#1", "camt:2026031500042#2"])
+
+m = importers.mt940.parse(fixtures.MT940_KONTOAUSZUG.encode("latin-1"))
+check("an MT940 statement is recognised and read", (importers.sniff(fixtures.MT940_KONTOAUSZUG.encode()).SLUG, m.problems), ("mt940", []))
+check("...the :61: lines with their :86: details: SEPA purpose, counterparty, kind from the GVC words",
+      [(r.txn_date, r.kind, r.amount, r.counterparty, r.description) for r in m.rows],
+      [("2026-03-01", "other", -49.9, "Stadtwerke Musterstadt GmbH", "Stromabschlag Maerz 2026 [SEPA-LASTSCHRIFT]"),
+       ("2026-03-03", "other", 2850.0, "Muster AG", "Gehalt Maerz [SEPA-GUTSCHRIFT]"),
+       ("2026-03-31", "fee", -2.5, None, "Entgeltabrechnungsiehe Anlage [ENTGELTABSCHLUSS]"),
+       ("2026-03-31", "interest", 0.12, None, "Zinsen 01.01.-31.03.2026 [ABSCHLUSS]")])
+check("...the :62F: closing balance", m.closing_balance, {"amount": 4321.16, "currency": "EUR", "as_of": "2026-03-31"})
+check("...ids are stable across two exports of the same period",
+      [r.external_id for r in importers.mt940.parse(fixtures.MT940_KONTOAUSZUG).rows] == [r.external_id for r in m.rows], True)
+
+o = importers.ofx.parse(fixtures.OFX_BROKERAGE)
+check("an OFX brokerage statement is recognised and read", (importers.sniff(fixtures.OFX_BROKERAGE.encode()).SLUG, o.problems), ("ofx", []))
+check("...a buy with units, price, commission and ISIN from the SECLIST; income as a dividend with its withholding; the cash deposit once",
+      [(r.txn_date, r.kind, r.amount, r.quantity, r.price, r.fee, r.tax, r.isin, r.security_name) for r in o.rows],
+      [("2026-03-04", "buy", -2505.95, 10.0, 250.1, 4.95, None, "US9229087690", "Vanguard Total Stock Market ETF"),
+       ("2026-03-25", "dividend", 8.2, None, None, None, 1.23, "US9229087690", "Vanguard Total Stock Market ETF"),
+       ("2026-03-01", "deposit", 3000.0, None, None, None, None, None, None)])
+check("...the FITID is the id, under the account", o.rows[0].external_id, "ofx:51234567:T1001")
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

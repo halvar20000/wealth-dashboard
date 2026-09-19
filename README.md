@@ -62,7 +62,12 @@ a PSD2 API it connects directly, with credentials that are yours.
   so there is nothing to choose, and re-importing what you already loaded
   is harmless. **Any other bank's CSV** is mapped once — which column is
   the date, the amount, the ISIN — and recognised by its header from then
-  on. Everything can be **exported as CSV** again, filtered as the page is.
+  on. The **statement formats every bank writes alike** need no mapping
+  at all: CAMT.053 / CAMT.052 (the ISO 20022 XML of every European
+  online-banking portal, with counterparty IBANs and SEPA references),
+  MT940 (the SWIFT `.sta` of the older portals and business banking) and
+  OFX / QFX (North American and British banks and brokers, cash and
+  securities). Everything can be **exported as CSV** again, filtered as the page is.
 - **Entries by hand**, for the account no bank and no export describes: a
   pension, a share plan, an exchange with no CSV. Purchases, sales,
   dividends, interest, fees and tax on a broker account; deposits,
@@ -177,6 +182,13 @@ a different, EU-licensed bank. Swiss accounts are file imports:
   yearly and monthly *Kontoauszug* PDFs import the same way.
 - **Crédit Agricole next bank (Suisse)**: the *Buchungsliste* CSV from the
   e-banking, for each account.
+- **CAMT.053 / MT940 / OFX**: what the banking portal offers under
+  "Export", "Kontoauszug als XML", "SWIFT MT940" or "Download to
+  Quicken". A CAMT or MT940 file carries the bank's own reference for
+  every booking and an OFX file its `FITID`, so overlapping exports
+  never double a row; the closing balance is taken as the account's. A
+  brokerage OFX brings buys, sells, income and the cash movements with
+  units, price, commission and withholding.
 
 ## Share Ideas
 

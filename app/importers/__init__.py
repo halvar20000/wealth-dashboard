@@ -2,8 +2,9 @@
 
 Adding a broker means adding one module with `SLUG`, `LABEL`,
 `matches(header, sample)` and `parse(content)` — and adding it to
-`IMPORTERS` (a CSV) or `PDF_IMPORTERS` (a statement PDF, where
-`matches` is handed the extracted text). Nothing else in the app changes.
+`IMPORTERS` (a CSV), `FORMAT_IMPORTERS` (a statement format: CAMT,
+MT940, OFX) or `PDF_IMPORTERS` (a statement PDF, where `matches` is
+handed the extracted text). Nothing else in the app changes.
 
 The file is recognised rather than declared. Asking the user to pick
 "Degiro" from a dropdown before uploading a file that says Degiro all
@@ -18,12 +19,16 @@ import io
 
 from .. import categories
 from ..db import get_conn
-from . import (ca_switzerland, degiro, dkb, dkb_pdf, finary, generic, payslip, payslip_map,
-               swissquote_beleg_pdf, swissquote_pdf, trade_republic)
+from . import (ca_switzerland, camt053, degiro, dkb, dkb_pdf, finary, generic, mt940, ofx, payslip,
+               payslip_map, swissquote_beleg_pdf, swissquote_pdf, trade_republic)
 from .base import (ParsedTxn, ParseResult,  # noqa: F401  (re-exported)
                    normalise_csv_text)
 
 IMPORTERS = [degiro, trade_republic, dkb, ca_switzerland, finary]
+# The statement formats — not one bank's file but a standard every bank
+# writes alike. Looked at before the CSVs: an XML or a SWIFT file is
+# unmistakable, a CSV is anyone's.
+FORMAT_IMPORTERS = [camt053, mt940, ofx]
 from . import pdf as _pdf_specs
 PDF_IMPORTERS = [dkb_pdf, swissquote_pdf, swissquote_beleg_pdf, payslip] + _pdf_specs.READERS
 
@@ -48,6 +53,9 @@ def sniff(content: bytes | str):
         return payslip_map.sniff(text)
 
     text = content.decode("utf-8-sig", "replace") if isinstance(content, bytes) else content
+    for module in FORMAT_IMPORTERS:
+        if module.matches([], text[:8192]):
+            return module
     text = normalise_csv_text(text)
     sample = text[:8192]
     try:

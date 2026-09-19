@@ -8,7 +8,7 @@
 
 <form method="post" enctype="multipart/form-data" class="card form">
   <label for="file">{{ _("CSV or PDF files") }}</label>
-  <input id="file" name="file" type="file" accept=".csv,text/csv,.pdf,application/pdf,.zip,application/zip" multiple required>
+  <input id="file" name="file" type="file" accept=".csv,text/csv,.pdf,application/pdf,.zip,application/zip,.xml,text/xml,application/xml,.sta,.mt940,.940,.ofx,.qfx" multiple required>
   <button type="submit">{{ _("Import") }}</button>
 </form>
 
@@ -53,6 +53,7 @@
     <li><strong>DKB Depot</strong> — {{ _("Postfach → filter by the Depot → download the Wertpapierabrechnungen as PDF and drop them all in here at once. The Depot's CSV says only what money moved; the PDFs say how many units, at what price, with what fee. Orders, fund purchases, dividends, interest, the Vorabpauschale and the half-year Sparplan overview are all read. A Storno is skipped and named.") }}</li>
     <li><strong>{{ _("Statement PDFs") }}</strong> — {{ _("The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of these banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP:") }}
       {% for r in importers if r.SLUG.endswith('_pdf') and r.SLUG not in ('dkb_pdf',) %}{{ r.LABEL.split(' — ')[0] }}{{ ", " if not loop.last }}{% endfor %}.</li>
+    <li><strong>{{ _("Statement formats") }}</strong> — {{ _("CAMT.053 / CAMT.052 XML (the ISO 20022 export of every European online-banking portal), MT940 (.sta, SWIFT) and OFX / QFX (North American and British banks and brokers) are read as they are — no mapping, the bank's own reference as the id, the closing balance taken.") }}</li>
     <li><strong>{{ _("Any other bank") }}</strong> — {{ _("Export the transactions as CSV and drop the file in. If no importer knows it you are asked, once, which column is the date, the amount and so on; the mapping is remembered under the file's header, so the next export from that bank goes straight in.") }}</li>
   </ul>
   <p class="sub">{{ _("Export a period that overlaps what you already imported. Overlap costs nothing and a gap costs you transactions.") }}</p>

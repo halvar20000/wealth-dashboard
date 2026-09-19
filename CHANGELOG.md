@@ -11,6 +11,29 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.66.0] — 2026-09-19
+
+### Added
+- **The statement formats every bank writes alike: CAMT.053, MT940 and
+  OFX.** Not one bank's file but a standard, so no mapping and no
+  bank-specific reader: drop in what the banking portal offers under
+  "Export", "Kontoauszug als XML", "SWIFT MT940" or "Download to
+  Quicken". CAMT.053 / CAMT.052 (ISO 20022, every European
+  online-banking portal) is read in all its versions, namespace or not,
+  with the counterparty's name and IBAN, the SEPA end-to-end and
+  mandate references, a batch booking as one row per leg, pending
+  entries left out and counted, the bank's own entry reference as the
+  id and the booked closing balance taken. MT940 (`.sta`, the older
+  portals and business banking) with the German `?`-structured `:86:`
+  details and the SEPA markers inside them, reversals with their sign,
+  the `:62F:` balance. OFX / QFX (North American and British banks and
+  brokers) in its SGML and XML dialects, bank statements by `FITID`, and
+  brokerage statements — buys, sells, income, reinvestments, cash
+  movements — with units, price, commission, withholding and the
+  security named through the SECLIST. Interest, fees and taxes are told
+  from the bank's own codes where the format carries them, from the
+  words otherwise.
+
 ## [0.65.0] — 2026-09-19
 
 ### Added
