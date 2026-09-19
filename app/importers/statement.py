@@ -429,6 +429,11 @@ class Reader:
         taxes, _ = _sum(piece, f.get("taxes", []), "tax", style, currency, fx)
         if "_taxes_override" in g:
             taxes = g["_taxes_override"]
+        elif kind in ("dividend", "interest") and gross is not None and amount is not None and not taxes \
+                and abs(gross) > abs(amount) + 0.004:
+            # A credit that prints its gross beside the net and nothing
+            # in between: the difference is what was withheld.
+            taxes = round(abs(gross) - abs(amount), 2)
 
         amount = abs(amount)
         sign_word = (g.get("sign") or "").strip()
