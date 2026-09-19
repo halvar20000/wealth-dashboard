@@ -75,7 +75,10 @@ it does not do yet.
       SMTP server.
 - [x] Statement PDFs read by spec, scored against Portfolio Performance's
       corpus: 37 banks in 0.63.0 (comdirect, ING, Consorsbank, Baader,
-      Scalable, flatex, DAB, onvista, and the dwpbank and DAB families).
+      Scalable, flatex, DAB, onvista, and the dwpbank and DAB families),
+      43 more in 0.64.0 (Trade Republic, DEGIRO, DekaBank, ebase, FFB,
+      Quirin, Tradegate, the Swiss and Liechtenstein banks, the neobanks'
+      cash statements) — 66 % of 2,529 corpus documents to the cent.
 - [x] CSV export of transactions and holdings, filtered as the page is.
 - [x] Allocation by asset class, region and bucket, with targets and a
       contribution spread.

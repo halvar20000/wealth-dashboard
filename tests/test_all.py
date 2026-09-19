@@ -6859,5 +6859,37 @@ check("dates: dotted, ISO, slashed and written out",
        statement.parse_date("12. März 2026")), ("2026-03-12",) * 4)
 
 # ---------------------------------------------------------------------------
+print("\n51. Statements read by spec: Trade Republic, DEGIRO")
+# ---------------------------------------------------------------------------
+tr = by_slug["traderepublic_pdf"]
+k = tr.parse(fixtures.TRADEREPUBLIC_KAUF)
+check("a Trade Republic purchase is read", (len(k.rows), k.problems), (1, []))
+check("...as a buy on the execution day, for the booked amount",
+      (k.rows[0].kind, k.rows[0].txn_date, k.rows[0].amount), ("buy", "2026-03-04", -1219.00))
+check("...with units, price, fee and ISIN", (k.rows[0].quantity, k.rows[0].price, k.rows[0].fee, k.rows[0].isin),
+      (12.0, 101.50, 1.00, "IE0000000001"))
+
+d = tr.parse(fixtures.TRADEREPUBLIC_DIVIDENDE)
+kinds = sorted((r.kind, r.amount) for r in d.rows)
+check("a dividend with an Optimierung under it is two rows", len(d.rows), 2)
+check("...the dividend without the credit, the credit as a tax refund of its own",
+      kinds, [("dividend", 63.31), ("tax", 5.43)])
+
+s = tr.parse(fixtures.TRADEREPUBLIC_KONTOAUSZUG)
+rows = sorted((r.txn_date, r.kind, r.amount) for r in s.rows)
+check("the 2024 Kontoauszug is put back together: interest, a card payment, a deposit — no trade",
+      rows, [("2026-01-02", "interest", 12.30), ("2026-01-05", "withdrawal", -60.00), ("2026-01-15", "deposit", 500.00)])
+
+g = by_slug["degiro_pdf"].parse(fixtures.DEGIRO_KONTOAUSZUG)
+rows = sorted((r.kind, r.amount, r.tax) for r in g.rows)
+check("a DEGIRO statement folds the tax row into the dividend and keeps the deposit",
+      rows, [("deposit", 1000.00, None), ("dividend", 3.88, 0.68)])
+check("...the trade fee row is not a transaction", any(r.kind == "fee" for r in g.rows), False)
+check("the sniffer hands a Trade Republic PDF to its reader",
+      importers.sniff(fixtures.pdf_from_text(fixtures.TRADEREPUBLIC_KAUF)).SLUG, "traderepublic_pdf")
+check("every spec has a corpus name, a label and at least one doc",
+      all(r.CORPUS is not None and r.LABEL and r.spec.docs for r in READERS), True)
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

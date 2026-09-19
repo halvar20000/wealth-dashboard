@@ -534,52 +534,57 @@ text gives both.
 
 ## Statement PDFs, bank by bank
 
-Beyond DKB and Swissquote, the statement PDFs of these banks and
-brokers are read — Wertpapierabrechnungen, Dividendengutschriften,
-Vorabpauschalen, and where the layout allows it the Kontoauszug too.
-Each reader is a *spec* — a few dozen anchors in `app/importers/pdf/` —
-run by one engine (`app/importers/statement.py`), and scored against
-[Portfolio Performance](https://github.com/portfolio-performance/portfolio)'s
-corpus of real, anonymised statements with `tools/statement_scoreboard.py`.
-The score is the share of that corpus read to the cent; what is missing
-is mostly old layouts, bank-statement pages and edge cases, which the
-scoreboard lists by name.
+Beyond DKB and Swissquote's own readers, the statement PDFs of some
+eighty banks and brokers are read — Wertpapierabrechnungen,
+Dividendengutschriften, Vorabpauschalen, and where the layout allows
+it the Kontoauszug too. Each reader is a *spec* — a few dozen anchors
+in `app/importers/pdf/` — run by one engine (`app/importers/statement.py`),
+and scored against [Portfolio Performance](https://github.com/portfolio-performance/portfolio)'s
+corpus of real, anonymised statements with `tools/statement_scoreboard.py`:
+2,529 documents, 66 % of them read to the cent, every asserted figure
+(units, amount, fees, taxes) matching. What is missing is mostly old
+layouts, corporate actions and edge cases, which the scoreboard lists
+by name.
 
 | Bank / broker | Corpus score |
 |---|---|
-| comdirect (incl. the letter-spaced Steuermitteilungen) | 71 % of 141 |
+| Trade Republic — German, English, French, Italian, Spanish paper; the Kontoauszug since 2024 | 95 % of 242 |
+| DEGIRO — Transaktionsübersicht and Kontoauszug in nine languages | 91 % of 66 |
+| comdirect (incl. the letter-spaced Steuermitteilungen) | 62 % of 141 |
 | ING (Germany) | 78 % of 88 |
-| Consorsbank / Cortal Consors | 76 % of 105 |
-| Baader Bank — Scalable Capital to 2024, finanzen.net zero, Smartbroker+ (German and English paper) | 71 % of 133 |
-| Scalable Capital (own bank, since 2024) | 72 % of 65 |
-| flatex / flatexDEGIRO / FinTech Group Bank | 62 % of 141 |
-| DAB BNP Paribas | 71 % of 65 |
-| onvista bank | 58 % of 86 |
-| S Broker / Sparkassen | 45 % of 95 (half of it Giro statements, not yet read) |
-| Postbank | 66 % of 29 |
-| Volksbanken / Raiffeisenbanken (DZ Bank) | 53 % of 36 |
-| VR Banken (Raiffeisen group) | 33 % of 46 |
-| 1822direkt | 88 % of 17 |
-| GenoBroker | 80 % of 15 |
-| Merkur Privatbank | 92 % of 12 |
-| MLP Banking | 42 % of 12 |
-| Santander Consumer Bank | 75 % of 12 |
-| Gladbacher Bank, Weberbank, UmweltBank, NORD/LB, NIBC, Sutor Bank | small corpora, 33–100 % |
-| Deutsche Bank | 66 % of 44 |
-| Commerzbank (letter-spaced throughout) | 69 % of 35 |
-| TARGOBANK | 65 % of 23 |
-| easybank (BAWAG), DADAT, Hello bank! — Austria | 42 % of 78, 30 % of 37, 54 % of 13 |
-| Erste Bank / Brokerjet — Austria | 40 % of 57 |
-| PostFinance E-Trading, Zürcher Kantonalbank, UBS — Switzerland | 31 % of 32, 50 % of 12, 25 % of 12 |
-| Keytrade Bank, KBC — Belgium/Luxembourg; Arkéa / Fortuneo — France | 48 % of 21, 33 % of 15, 12 % of 17 |
+| Consorsbank / Cortal Consors | 72 % of 105 |
+| Baader Bank — Scalable Capital to 2024, finanzen.net zero, Smartbroker+ | 64 % of 133 |
+| Scalable Capital (own bank, since 2024) | 63 % of 65 |
+| flatex / flatexDEGIRO / FinTech Group Bank | 54 % of 141 |
+| DAB BNP Paribas · onvista bank | 62 % of 65 · 52 % of 86 |
+| Raisin (WeltSparen) · Upvest | 100 % of 6 · 100 % of 2 |
+| DekaBank — Depot-Tagesauszug and Quartalsbericht | 81 % of 53 |
+| ebase / FNZ Bank — Umsatzabrechnung | 88 % of 40 |
+| FIL Fondsbank (FFB) | 95 % of 20 |
+| Quirin Privatbank / quirion | 90 % of 29 |
+| Tradegate (tradegate.direct) | 94 % of 18 |
+| Oldenburgische Landesbank (OLB) | 100 % of 21 |
+| Vanguard Invest · Sunrise · UniCredit / HypoVereinsbank | 100 % of 6 · 100 % of 7 · 88 % of 8 |
+| S Broker / Sparkassen | 37 % of 95 (half of it Giro statements) |
+| Postbank · 1822direkt · GenoBroker · Merkur Privatbank | 62 % of 29 · 76 % of 17 · 80 % of 15 · 75 % of 12 |
+| Volksbanken (DZ Bank) · VR Banken (Raiffeisen) · MLP · Santander | 53 % of 36 · 22 % of 46 · 42 % of 12 · 50 % of 12 |
+| Gladbacher Bank, Weberbank, UmweltBank, NORD/LB, NIBC, Sutor Bank | small corpora, 10–100 % |
+| Deutsche Bank · Commerzbank · TARGOBANK | 55 % of 44 · 69 % of 35 · 65 % of 23 |
+| N26 · C24 · Renault Bank direkt · J&T Direktbank · akf bank · Barclays — cash and card statements | 100 · 100 · 77 · 100 · 92 · 50 % |
+| BISON (crypto) · Bondora Go & Grow · Estateguru | 33 % of 6 · 89 % of 18 · 57 % of 7 |
+| easybank (BAWAG), DADAT, Hello bank!, Erste Bank, 3 Banken, Schelhammer — Austria | 42, 19, 54, 39, 100, 83 % |
+| Swissquote / Yuh (own readers plus a spec) · PostFinance · ZKB · UBS · Credit Suisse — Switzerland | 78, 19, 50, 25, 83 % |
+| WIR Bank / VIAC · findependent · neon · Hypothekarbank Lenzburg · Bank SLM · Saxo Bank CH | 100, 100, 100, 96, 86, 81 % |
+| LGT · Liechtensteinische Landesbank / wiLLBe · Pictet | 100 % of 13 · 100 % of 11 · 100 % of 6 |
+| Keytrade Bank, KBC — Belgium; Arkéa / Fortuneo, BoursoBank, Bourse Direct — France | 48, 7, 12, 100, 100 % |
+| BBVA — Spain; Sydbank — Denmark; Questrade — Canada; SelfWealth — Australia; Tiger Brokers — Singapore | 57, 100, 100, 100, 36 % |
 
-The last twelve share one layout — dwpbank's, which also prints DKB's
-and any Sparkasse's securities statements — so a bank not in the list
-that prints the same paper is read by the catch-all spec at the end.
-The DAB layout is likewise shared by Raisin and Upvest. The corpus is
-EPL-licensed and stays out of this repository; the specs are this
-project's own. A bank not read: send a redacted statement, or the text
-layer of one, and it becomes a spec.
+Many of the German ones share one layout — dwpbank's, which also
+prints DKB's and any Sparkasse's securities statements — so a bank not
+in the list that prints the same paper is read by the catch-all spec at
+the end. The corpus is EPL-licensed and stays out of this repository;
+the specs are this project's own. A bank not read: send a redacted
+statement, or the text layer of one, and it becomes a spec.
 
 ## The weekly e-mail
 

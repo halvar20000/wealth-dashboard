@@ -11,6 +11,46 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.64.0] — 2026-09-19
+
+### Added
+- **Statement PDFs of forty-three more banks and brokers**, which with
+  0.63.0 makes some eighty. Trade Republic in all five of its languages —
+  Wertpapierabrechnung, Sparplan, Dividende, Zinsabrechnung,
+  Vorabpauschale, Steuerabrechnung, and both Kontoauszug layouts, the
+  2024 one put back on one line per row from a table that breaks its
+  dates over three lines and its sign into two columns. DEGIRO's
+  Transaktionsübersicht and Kontoauszug in nine languages, the
+  withholding tax and the currency exchange folded into the dividend they
+  belong to. DekaBank (Depot-Tagesauszug and Quartalsbericht), ebase / FNZ,
+  FIL Fondsbank, Quirin Privatbank / quirion, Tradegate, OLB, Vanguard
+  Invest, Sunrise, UniCredit / HypoVereinsbank, Raisin and Upvest in their
+  own layout; the cash and card statements of N26, C24, Renault Bank
+  direkt, J&T Direktbank, akf bank and Barclays; BISON, Bondora and
+  Estateguru; in Austria 3 Banken and Schelhammer; in Switzerland and
+  Liechtenstein WIR Bank / VIAC, findependent, neon, Hypothekarbank
+  Lenzburg, Bank SLM, Saxo Bank, Credit Suisse, LGT, Liechtensteinische
+  Landesbank / wiLLBe, Pictet, and a spec for the Swissquote paper the
+  hand-written readers do not know; BoursoBank and Bourse Direct in
+  France, BBVA in Spain, Sydbank in Denmark, Questrade in Canada,
+  SelfWealth in Australia, Tiger Brokers in Singapore.
+- The engine learned what these needed: a `refund` group for banks that
+  print charges with a minus and credits bare; `split` rows for a tax
+  credit or fee rebate the booked total already held; a `transfer` regex
+  and `skip` kind; a tax page without an after-tax figure taking its
+  taxes off the gross; a credit printing gross beside net getting the
+  difference as tax; Spanish, Italian and French month abbreviations and
+  `05-Dez-2024` dates; Swiss apostrophes in any notation.
+
+### Changed
+- The scoreboard reads Portfolio Performance's assertions in both of
+  their spellings — a quarter of them had been skipped — so the corpus
+  is 2,529 documents now and the honest score of the 0.63.0 readers is
+  53 %, not the 60 % claimed; with this batch the whole corpus reads at
+  66 %. It also prefers the row of the asserted kind and units when a day
+  has several, counts a repeated assertion once, and runs every reader a
+  bank has.
+
 ## [0.63.0] — 2026-09-19
 
 ### Added

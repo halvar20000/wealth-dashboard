@@ -982,3 +982,93 @@ zulasten Konto-Nr. 1234567890 200,49 EUR
 Valuta 09.03.2026
 Die Order wurde an folgender Börse gehandelt: SPARPLAN TRADEGATE
 """
+
+
+# ── Trade Republic: a purchase, a dividend with a tax refund, and the 2024 Kontoauszug ──
+TRADEREPUBLIC_KAUF = """TRADE REPUBLIC BANK GMBH  BRUNNENSTRASSE 19-21  10119 BERLIN
+Max Mustermann SEITE 1 von 1
+Musterweg 1 DATUM 04.03.2026
+12345 Musterstadt AUFTRAG 1a2b-3c4d
+AUSFÜHRUNG 5e6f-7a8b
+DEPOT 0001234567
+WERTPAPIERABRECHNUNG
+ÜBERSICHT
+Market-Order Kauf am 04.03.2026 um 09:15 (Europe/Berlin).
+Der Kontrahent der Transaktion ist Lang & Schwarz TradeCenter AG & Co. KG.
+POSITION ANZAHL PREIS BETRAG
+Example World ETF 12 Stk. 101,50 EUR 1.218,00 EUR
+Registered Shares o.N.
+ISIN: IE0000000001
+GESAMT 1.218,00 EUR
+ABRECHNUNG
+POSITION BETRAG
+Fremdkostenzuschlag -1,00 EUR
+GESAMT -1.219,00 EUR
+BUCHUNG
+VERRECHNUNGSKONTO WERTSTELLUNG BETRAG
+DE00100000000001234567 2026-03-06 -1.219,00 EUR
+Trade Republic Bank GmbH www.traderepublic.com Sitz der Gesellschaft: Berlin
+"""
+
+TRADEREPUBLIC_DIVIDENDE = """TRADE REPUBLIC BANK GMBH  BRUNNENSTRASSE 19-21  10119 BERLIN
+Max Mustermann SEITE 1 von 1
+Musterweg 1 DATUM 10.01.2026
+12345 Musterstadt DEPOT 0001234567
+DIVIDENDE
+ÜBERSICHT
+Dividende mit dem Ex-Tag 20.12.2025.
+POSITION ANZAHL ERTRAG BETRAG
+Example Tobacco Inc. 55 Stk. 1,261 USD 69,36 USD
+Registered Shares o.N.
+ISIN: US0000000001
+GESAMT 69,36 USD
+ABRECHNUNG
+POSITION BETRAG
+Zwischensumme 69,36 USD
+Zwischensumme 1,095514 EUR/USD 63,31 EUR
+Kapitalertragsteuer Optimierung 5,15 EUR
+Solidaritätszuschlag Optimierung 0,28 EUR
+GESAMT 68,74 EUR
+BUCHUNG
+VERRECHNUNGSKONTO WERTSTELLUNG BETRAG
+DE00100000000001234567 10.01.2026 68,74 EUR
+Trade Republic Bank GmbH www.traderepublic.com Sitz der Gesellschaft: Berlin
+"""
+
+TRADEREPUBLIC_KONTOAUSZUG = """TRADE REPUBLIC BANK GMBH  BRUNNENSTRASSE 19-21  10119 BERLIN
+Max Mustermann DATUM 01 Jan. 2026 - 31 Jan. 2026
+Musterweg 1, 12345 IBAN DE00100000000001234567
+Musterstadt, DE BIC TRBKDEBBXXX
+KONTOÜBERSICHT
+PRODUKT ANFANGSSALDO ZAHLUNGSEINGANG ZAHLUNGSAUSGANG ENDSALDO
+Cashkonto 1.000,00 € 512,30 € 60,00 € 1.452,30 €
+UMSATZÜBERSICHT
+DATUM TYP BESCHREIBUNG ZAHLUNGSEINGANG ZAHLUNGSAUSGANG SALDO
+02 Jan.
+Zinszahlung Your interest payment 12,30 € 1.012,30 €
+2026
+05 Jan.
+Kartentransaktion Supermarkt 60,00 € 952,30 €
+2026
+12 Jan. Handel Savings plan execution IE0000000001 Example World ETF, quantity: 0.5
+2026
+15 Jan.
+Überweisung Einzahlung akzeptiert: DE00000000000000000000 auf DE00100000000001234567 500,00 € 1.452,30 €
+2026
+Trade Republic Bank GmbH www.traderepublic.com Sitz der Gesellschaft: Berlin
+"""
+
+# ── DEGIRO: a statement with a dividend, its tax on the next line, and a deposit ──
+DEGIRO_KONTOAUSZUG = """DEGIRO B.V.
+Rembrandt Tower - 9th floor
+Amstelplein 1
+1096 HA Amsterdam
+Kontoauszug von 01-02-2026 bis 28-02-2026
+Datum Uhrzeit Valutadatum Produkt ISIN Beschreibung FX Änderung Saldo
+20-02-2026 08:39 20-02-2026 EXAMPLE GROEP NV NL0000000001 Dividende EUR 4,56 EUR 1.206,26
+20-02-2026 08:39 20-02-2026 EXAMPLE GROEP NV NL0000000001 Dividendensteuer EUR -0,68 EUR 1.201,70
+20-02-2026 08:39 20-02-2026 EXAMPLE GROEP NV NL0000000001 Transaktionsgebühr EUR -0,50 EUR 1.201,20
+03-02-2026 10:00 03-02-2026 flatex Einzahlung EUR 1.000,00 EUR 1.201,70
+Kontoauszug - www.degiro.de
+"""
+
