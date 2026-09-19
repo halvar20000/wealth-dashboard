@@ -41,3 +41,16 @@ SPEC = Spec(
         Doc(kind="dividend", when=r"^Ertragsabrechnung", fields=CREDIT_FIELDS),
     ],
 )
+
+
+# The private account's statement: a table with Debit and Credit
+# columns, read by its layout.
+from .layout import Table, fields, rows  # noqa: E402
+
+ACCOUNT = Table(row=r"^\s*(?P<date>\d{2}\.\d{2}\.\d{4})\s+", date="%d.%m.%Y", currency="CHF",
+                header=r"^\s*Date\s+Booking text\s+Debit", debit=r"Debit [A-Z]{3}", credit=r"Credit [A-Z]{3}",
+                stop=r"^\s*Balance as of|^\s*Available amount")
+SPECS = [SPEC, Spec(slug="zkb_account_pdf", label="Zürcher Kantonalbank — Kontoauszug PDF", corpus="mono:zkb_debit",
+                    marks=[r"Z.rcher Kantonalbank", r"CH\d{2} ?0070 ?0", r"CH\d{2}00700", r"zkb\.ch"], number="ch", layout=True,
+                    preprocess=lambda t: rows(t, ACCOUNT),
+                    docs=[Doc(kind="rows", when=r"Account statement|Kontoauszug", block=r"^ROW ", fields=fields(), kinds=ACCOUNT.kinds)])]

@@ -597,6 +597,15 @@ by name.
 | AJ Bell · Hargreaves Lansdown · Aviva · Fidelity — UK; Openbank · Directa · MeDirect · vdk bank · Crédit Mutuel / Suravenir | 100 % each |
 | Firstrade · Alpaca · E*TRADE · Score Priority · Lime Trading · Computershare — US; Wealthsimple · Stake · CommSec | 100 % each |
 | KFintech / CAMS (India, Consolidated Account Statement) · cetesdirecto (Mexico) | 67 % of 3 · 0 % of 1 (PP's test reads the balance column as tax; the reader follows the document) |
+| DBS / POSB · OCBC · UOB · Standard Chartered · Trust · HSBC · Citibank · American Express — Singapore; Maybank — Malaysia; Bank of America; ZKB's Kontoauszug — cash and card statements read by their columns | 117 of 117 rows of the [monopoly](https://github.com/benjamin-awd/monopoly) layout samples |
+
+The last row is a different kind of paper: a cash or card statement
+whose meaning sits in the column a figure is printed in — withdrawal
+or deposit, charge or payment. Those are read with the PDF's layout
+kept (`app/importers/pdf/layout.py`), scored against the synthetic
+statements of the monopoly project rather than Portfolio Performance's
+corpus, and have not yet met a real statement of their banks: one
+would be welcome.
 
 Many of the German ones share one layout — dwpbank's, which also
 prints DKB's and any Sparkasse's securities statements — so a bank not

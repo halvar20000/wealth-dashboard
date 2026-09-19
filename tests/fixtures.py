@@ -426,12 +426,13 @@ Bu.Tag Wert Wir haben für Sie gebucht Belastung in EUR Gutschrift in EUR
 """
 
 
-def pdf_from_text(text: str) -> bytes:
+def pdf_from_text(text: str, font: str = "Helvetica") -> bytes:
     """A real, if plain, PDF that prints the text one line at a time.
 
     Enough to prove the whole path — upload, `%PDF` sniff, text
     extraction, parse — without a bank's own file in the repository.
-    Helvetica in WinAnsi, so the umlauts survive the round trip.
+    Helvetica in WinAnsi, so the umlauts survive the round trip;
+    Courier for a statement whose columns must stay where they are.
     """
     def esc(line: str) -> bytes:
         raw = line.encode("cp1252", "replace")
@@ -442,7 +443,7 @@ def pdf_from_text(text: str) -> bytes:
     objects: list[bytes] = []                    # 1-based ids = index + 1
     objects.append(b"<< /Type /Catalog /Pages 2 0 R >>")
     objects.append(b"")                          # pages, filled in below
-    objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica "
+    objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /" + font.encode() + b" "
                    b"/Encoding /WinAnsiEncoding >>")
     page_ids = []
     for page in pages:
@@ -1287,5 +1288,26 @@ MT940_DIALECTS = """{1:F01INGBNL2AXXXX00001}\r
 :86:805?00ENTGELTABSCHLUSS?20Pauschalen\r
 :62F:C100722EUR0,00\r
 -}\r
+"""
+
+# A Singapore savings-account statement of the kind read by its
+# columns: withdrawal and deposit are told apart by where the figure
+# sits under the header.
+DBS_KONTOAUSZUG = """DBS Bank Ltd
+12 Marina Boulevard, Singapore 018982
+                MAX MUSTERMANN
+                                                                                    As at 31 Jan 2026
+ Details of Your DBS Savings Plus Account                                   Account No.: 012-3-456789
+ DATE           DETAILS OF TRANSACTIONS                    WITHDRAWAL($)       DEPOSIT($)      BALANCE($)
+                Balance Brought Forward                                                         2,000.00
+ 05 Jan         Salary Credit                                                  3,100.00         5,100.00
+                  GIRO SALARY REF SLR1234
+ 12 Jan         Cash Withdrawal                                 200.00                          4,900.00
+                  ATM CASH ORCHARD
+ 28 Dec         Late Fee                                          5.00                          4,895.00
+ 31 Jan         Interest Earned                                                    2.15         4,897.15
+                  Credit Interest
+                Total                                           205.00         3,102.15
+                Balance Carried Forward                                                         4,897.15
 """
 

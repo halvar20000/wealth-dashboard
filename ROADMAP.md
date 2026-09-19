@@ -81,7 +81,8 @@ it does not do yet.
       cash statements), the remaining 52 in 0.65.0 — every corpus bank
       has a reader; 68 % of 2,679 corpus documents to the cent.
 - [x] The statement formats — CAMT.053 / CAMT.052, MT940, OFX / QFX —
-      read without a mapping (0.66.0).
+      read without a mapping (0.66.0); the column-laid cash and card
+      statements of the Singaporean, Malaysian and US banks (0.67.0).
 - [x] CSV export of transactions and holdings, filtered as the page is.
 - [x] Allocation by asset class, region and bucket, with targets and a
       contribution spread.

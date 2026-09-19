@@ -112,15 +112,19 @@ def matches(header: list[str], sample: str) -> bool:
         _lines(sample)) is not None
 
 
-def pdf_text(content: bytes) -> str:
+def pdf_text(content: bytes, layout: bool = False) -> str:
     """The text of every page, in reading order, one line per printed
-    line. pypdf is pure Python and the only dependency this needs."""
+    line. pypdf is pure Python and the only dependency this needs.
+    `layout` keeps the columns where they were printed, padded with
+    blanks, for a statement whose meaning sits in the column."""
     try:
         from pypdf import PdfReader
     except ImportError as exc:                       # pragma: no cover
         raise RuntimeError(
             "Reading PDFs needs the pypdf package: pip install pypdf") from exc
     reader = PdfReader(io.BytesIO(content))
+    if layout:
+        return "\n".join((page.extract_text(extraction_mode="layout") or "") for page in reader.pages)
     return "\n".join((page.extract_text() or "") for page in reader.pages)
 
 

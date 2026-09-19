@@ -11,6 +11,24 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.67.0] — 2026-09-19
+
+### Added
+- **Cash and card statements read by their columns**: DBS / POSB, OCBC,
+  UOB, Standard Chartered, Trust, HSBC, Citibank and American Express in
+  Singapore, Maybank in Malaysia, Bank of America, and Zürcher
+  Kantonalbank's Kontoauszug. These statements say withdrawal or
+  deposit, charge or payment, by the column a figure sits in, which the
+  word-by-word reading of every other spec throws away — so a spec can
+  now ask for the PDF with its layout kept (`Spec.layout`), and a table
+  description (`app/importers/pdf/layout.py`) turns the columns into
+  rows: two money columns placed by their headers, or one amount column
+  with CR, brackets or a sign marking the credits; the statement's own
+  date lending its year to rows without one, December before a January
+  statement; a booking's further lines joined to its description;
+  balance and total lines left out. Scored against the synthetic
+  statements of the monopoly project: 117 of 117 rows.
+
 ## [0.66.1] — 2026-09-19
 
 ### Fixed

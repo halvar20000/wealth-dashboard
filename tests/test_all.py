@@ -6946,5 +6946,26 @@ check("...a buy with units, price, commission and ISIN from the SECLIST; income 
 check("...the FITID is the id, under the account", o.rows[0].external_id, "ofx:51234567:T1001")
 
 # ---------------------------------------------------------------------------
+print("\n53. Statements read by their columns (layout specs)")
+# ---------------------------------------------------------------------------
+pdf = fixtures.pdf_from_text(fixtures.DBS_KONTOAUSZUG, font="Courier")
+mod = importers.sniff(pdf)
+check("a DBS statement PDF is handed to its reader", mod.SLUG if mod else None, "dbs_pdf")
+lr = mod.parse(pdf)
+check("...read by the column a figure sits in: deposits positive, withdrawals negative, the year from 'As at', December before it",
+      ([(r.txn_date, r.kind, r.amount, r.currency) for r in lr.rows], lr.problems),
+      ([("2026-01-05", "deposit", 3100.0, "SGD"), ("2026-01-12", "withdrawal", -200.0, "SGD"),
+        ("2025-12-28", "fee", -5.0, "SGD"), ("2026-01-31", "interest", 2.15, "SGD")], []))
+check("...a booking's second line joins its description; the balance lines are not rows",
+      (lr.rows[0].description, len(lr.rows)), ("Einzahlung Salary Credit GIRO SALARY REF SLR1234", 4))
+from app.importers.pdf.layout import Table, rows as layout_rows
+card = Table(row=r"^\s*(?P<date>\d{2} [A-Z]{3})\s{2,}", date="%d %b", currency="SGD",
+             stmt=r"STATEMENT DATE (?P<date>\d{2} [A-Z][a-z]{2} \d{4})", card=True)
+made = layout_rows("STATEMENT DATE 20 Nov 2023\n05 NOV     PAYMENT - THANK YOU        1,200.00 CR\n14 OCT     BOOKSHOP                     12.50\n20 NOV     REFUND                     (15.00)\n", card)
+check("a card table: a bare figure is a charge, CR or brackets a credit",
+      [l for l in made.splitlines() if l.startswith("ROW ")],
+      ["ROW 2023-11-05 | PAYMENT - THANK YOU | 1200.00 SGD", "ROW 2023-10-14 | BOOKSHOP | -12.50 SGD", "ROW 2023-11-20 | REFUND | 15.00 SGD"])
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

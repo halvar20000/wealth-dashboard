@@ -96,6 +96,9 @@ class Spec:
     docs: list
     number: str = "de"              # de 1.234,56 · en 1,234.56 · ch 1'234.56 · auto (per document)
     preprocess: object = None       # callable(text) -> text, for a bank's quirks
+    layout: bool = False            # the PDF read with its columns kept, and `preprocess`
+                                    # run on that raw text — for a statement whose debit
+                                    # and credit are told apart by the column they sit in
 
 
 NUMBER_RE = r"[\d.,'’\s]+"
@@ -237,11 +240,15 @@ class Reader:
     def _text(self, content) -> str:
         if isinstance(content, bytes):
             from .dkb_pdf import pdf_text
-            text = pdf_text(content)
+            text = pdf_text(content, layout=self.spec.layout)
         else:
             text = content
+        if self.spec.layout and self.spec.preprocess:
+            text = self.spec.preprocess(text)
         text = "\n".join(" ".join(line.split()) for line in text.splitlines())
-        return self.spec.preprocess(text) if self.spec.preprocess else text
+        if self.spec.preprocess and not self.spec.layout:
+            text = self.spec.preprocess(text)
+        return text
 
     def matches(self, header, sample: str) -> bool:
         text = self._text(sample)
