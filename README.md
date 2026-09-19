@@ -532,6 +532,55 @@ The screenshots are of the English interface in every version, because that is
 what a screenshot is a picture of. Where the app has a translated label, the
 text gives both.
 
+## Statement PDFs, bank by bank
+
+Beyond DKB and Swissquote, the statement PDFs of these banks and
+brokers are read — Wertpapierabrechnungen, Dividendengutschriften,
+Vorabpauschalen, and where the layout allows it the Kontoauszug too.
+Each reader is a *spec* — a few dozen anchors in `app/importers/pdf/` —
+run by one engine (`app/importers/statement.py`), and scored against
+[Portfolio Performance](https://github.com/portfolio-performance/portfolio)'s
+corpus of real, anonymised statements with `tools/statement_scoreboard.py`.
+The score is the share of that corpus read to the cent; what is missing
+is mostly old layouts, bank-statement pages and edge cases, which the
+scoreboard lists by name.
+
+| Bank / broker | Corpus score |
+|---|---|
+| comdirect (incl. the letter-spaced Steuermitteilungen) | 71 % of 141 |
+| ING (Germany) | 78 % of 88 |
+| Consorsbank / Cortal Consors | 76 % of 105 |
+| Baader Bank — Scalable Capital to 2024, finanzen.net zero, Smartbroker+ (German and English paper) | 71 % of 133 |
+| Scalable Capital (own bank, since 2024) | 72 % of 65 |
+| flatex / flatexDEGIRO / FinTech Group Bank | 62 % of 141 |
+| DAB BNP Paribas | 71 % of 65 |
+| onvista bank | 58 % of 86 |
+| S Broker / Sparkassen | 45 % of 95 (half of it Giro statements, not yet read) |
+| Postbank | 66 % of 29 |
+| Volksbanken / Raiffeisenbanken (DZ Bank) | 53 % of 36 |
+| VR Banken (Raiffeisen group) | 33 % of 46 |
+| 1822direkt | 88 % of 17 |
+| GenoBroker | 80 % of 15 |
+| Merkur Privatbank | 92 % of 12 |
+| MLP Banking | 42 % of 12 |
+| Santander Consumer Bank | 75 % of 12 |
+| Gladbacher Bank, Weberbank, UmweltBank, NORD/LB, NIBC, Sutor Bank | small corpora, 33–100 % |
+| Deutsche Bank | 66 % of 44 |
+| Commerzbank (letter-spaced throughout) | 69 % of 35 |
+| TARGOBANK | 65 % of 23 |
+| easybank (BAWAG), DADAT, Hello bank! — Austria | 42 % of 78, 30 % of 37, 54 % of 13 |
+| Erste Bank / Brokerjet — Austria | 40 % of 57 |
+| PostFinance E-Trading, Zürcher Kantonalbank, UBS — Switzerland | 31 % of 32, 50 % of 12, 25 % of 12 |
+| Keytrade Bank, KBC — Belgium/Luxembourg; Arkéa / Fortuneo — France | 48 % of 21, 33 % of 15, 12 % of 17 |
+
+The last twelve share one layout — dwpbank's, which also prints DKB's
+and any Sparkasse's securities statements — so a bank not in the list
+that prints the same paper is read by the catch-all spec at the end.
+The DAB layout is likewise shared by Raisin and Upvest. The corpus is
+EPL-licensed and stays out of this repository; the specs are this
+project's own. A bank not read: send a redacted statement, or the text
+layer of one, and it becomes a spec.
+
 ## The weekly e-mail
 
 Once a week, a mail with the week: net worth and its seven-day change,

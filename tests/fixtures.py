@@ -889,3 +889,96 @@ Mutuelle                                          40,00
 Net à payer                         2 753,94
 Retraite part patronale                          250,00
 """
+
+
+# ─── Statement PDFs read by spec (importers/statement.py) ──────────────
+# Invented statements in the shape of each bank's paper. The real
+# corpus this engine is scored against is Portfolio Performance's and
+# stays out of the repository; these are the shapes, with made-up
+# names and numbers.
+
+COMDIRECT_KAUF = """comdirect bank
+GESCHÄFTSABRECHNUNG VOM 12.03.2026
+*
+Wertpapierkauf
+Geschäftsnummer : 91 000123
+Ordernummer : 000000000001-001 Rechnungsnummer : 000000000000ABCD
+Geschäftstag : 12.03.2026 Ausführungsplatz : XETRA
+Handelszeit : 09:04 Uhr (MEZ/MESZ) (Kommissionsgeschäft)
+Wertpapier-Bezeichnung WPKNR/ISIN
+Example Holdings Inc. EXMPL1
+Registered Shares DL -,01 US0000000001
+Nennwert Zum Kurs von
+St. 2.000 EUR 1,75
+Kurswert : EUR 3.500,00
+Eigene Entgelte
+Provision : EUR 9,90
+Börsenplatzabhäng. Entgelt : EUR 2,50
+Summe Entgelte : EUR 12,40
+IBAN Valuta Zu Ihren Lasten vor Steuern
+DE00 0000 0000 0000 0000 00 EUR 16.03.2026 EUR 3.512,40
+Verwahrungs-Art: GIROSAMMELDEPOT
+comdirect bank AG
+"""
+
+COMDIRECT_DIVIDENDE = """comdirect bank
+25449 Quickborn
+Depotnr.: 100000000
+12.05.2026
+G u t s c h r i f t f ä l l i g e r W e r t p a p i e r - E r t r ä g e
+Dividendengutschrift
+Depotbestand Wertpapier-Bezeichnung WKN/ISIN
+p e r 0 1 . 0 5 . 2 0 2 6 E x a m p l e H o l d i n g s I n c . E X M P L 1
+S T K 1 . 5 0 0 R e g i s t e r e d S h a r e s D L - , 0 1 U S 0 0 0 0 0 0 0 0 0 1
+Emissionsland: VEREINIGTE STAATEN
+USD 0,10 Dividende pro Stück für Geschäftsjahr 01.01.26 bis 31.12.26
+zahlbar ab 12.05.2026 Quartalsdividende
+Abrechnung Dividendengutschrift
+Bruttobetrag: USD 150,00
+15,000 % Quellensteuer USD 22,50 -
+Ausmachender Betrag USD 127,50
+zum Devisenkurs: EUR/USD 1,080000 EUR 118,06
+Verrechnung über Konto (IBAN) Valuta Zu Ihren Gunsten vor Steuern
+DE00 0000 0000 0000 0000 00 EUR 14.05.2026 EUR 118,06
+comdirect bank AG
+"""
+
+ING_VERKAUF = """ING-DiBa AG 60628 Frankfurt am Main
+Depotinhaber: Jane Roe
+Direkt-Depot Nr.: 1234567890
+Datum: 20.04.2026
+Wertpapierabrechnung Verkauf
+Ordernummer 12345678.001
+ISIN (WKN) US0000000001 (EXMPL1)
+Wertpapierbezeichnung Example Holdings Inc.
+Registered Shares DL -,01
+Nominale Stück 500,00
+Kurs EUR 2,40
+Handelsplatz Xetra
+Ausführungstag / -zeit 20.04.2026 um 09:05:10 Uhr
+Kurswert EUR 1.200,00
+Provision EUR 4,90
+Handelsplatzgebühr EUR 1,90
+Kapitalertragsteuer 25,00 % EUR 78,75
+Solidaritätszuschlag 5,50 % EUR 4,33
+Endbetrag zu Ihren Gunsten EUR 1.110,12
+Valuta 22.04.2026
+"""
+
+CONSORSBANK_KAUF = """Consorsbank • 90318 Nürnberg
+Depotnummer: 1234 567 899
+Datum: 05.03.2026 Seite: 1 von 1
+Ordernummer 700111.001
+ORDERABRECHNUNG
+KAUF AM 05.03.2026 UM 09:32:16 SPARPLAN NR. 700111.001
+Bezeichnung WKN ISIN
+Example MSCI World U.ETF EXMPL2 IE0000000002
+Einheit Umsatz
+ST 2,0921
+Preis pro Anteil 95,600000 EUR NETTO
+Kurswert 200,00 EUR
+Provision 0,49 EUR
+zulasten Konto-Nr. 1234567890 200,49 EUR
+Valuta 09.03.2026
+Die Order wurde an folgender Börse gehandelt: SPARPLAN TRADEGATE
+"""

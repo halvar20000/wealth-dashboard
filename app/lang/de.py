@@ -2683,4 +2683,8 @@ STRINGS: dict[str, str] = {
         "mehrere, durch Kommas getrennt",
     "{since} to {date}":
         "{since} bis {date}",
+    "Statement PDFs":
+        "Abrechnungs-PDFs",
+    "The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of these banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP:":
+        "Die Wertpapierabrechnungen, Dividendengutschriften und Kontoauszüge dieser Banken und Broker werden aus den PDFs ihres Postfachs gelesen, viele auf einmal oder als ZIP:",
 }

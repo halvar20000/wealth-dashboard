@@ -2685,4 +2685,8 @@ STRINGS: dict[str, str] = {
         "varios, separados por comas",
     "{since} to {date}":
         "del {since} al {date}",
+    "Statement PDFs":
+        "PDF de liquidación",
+    "The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of these banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP:":
+        "Las liquidaciones de valores, abonos de dividendos y extractos de estos bancos y brókeres se leen de los PDF de su buzón, muchos a la vez o en ZIP:",
 }

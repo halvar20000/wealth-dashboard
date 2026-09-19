@@ -2689,4 +2689,8 @@ STRINGS: dict[str, str] = {
         "plusieurs, séparés par des virgules",
     "{since} to {date}":
         "du {since} au {date}",
+    "Statement PDFs":
+        "PDF d'avis d'opéré",
+    "The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of these banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP:":
+        "Les avis d'opéré, avis de dividende et relevés de ces banques et courtiers sont lus depuis les PDF de leur messagerie, en nombre ou en ZIP :",
 }

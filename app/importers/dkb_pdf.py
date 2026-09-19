@@ -63,6 +63,7 @@ import re
 from .base import ParsedTxn, ParseResult, find_isin, parse_date
 
 SLUG = "dkb_pdf"
+CORPUS = "dkb"                  # the folder of Portfolio Performance's corpus this is scored on
 LABEL = "DKB — Wertpapierabrechnung PDF"
 
 _BANK_MARKS = ("10919 Berlin", "Deutsche Kreditbank", "BYLADEM1001")

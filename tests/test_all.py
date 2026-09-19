@@ -6805,5 +6805,59 @@ check("forgetting clears the settings and the password",
 c.post(f"/accounts/{mb}/delete", data={"confirm": "Mail broker"})
 
 # ---------------------------------------------------------------------------
+print("\n50. Statements read by spec: comdirect, ING, Consorsbank")
+# ---------------------------------------------------------------------------
+from app.importers import statement                                   # noqa: E402
+from app.importers.pdf import READERS                                 # noqa: E402
+
+by_slug = {r.SLUG: r for r in READERS}
+check("the spec readers are importers like any other",
+      all(hasattr(r, "matches") and hasattr(r, "parse") and r.LABEL for r in READERS), True)
+check("...listed among the PDF importers", all(r in importers.PDF_IMPORTERS for r in READERS), True)
+
+k = by_slug["comdirect_pdf"].parse(fixtures.COMDIRECT_KAUF)
+check("a comdirect purchase is read", (len(k.rows), k.problems), (1, []))
+r = k.rows[0]
+check("...as a buy on the Geschäftstag", (r.kind, r.txn_date), ("buy", "2026-03-12"))
+check("...for what left the account", r.amount, -3512.40)
+check("...`St. 2.000` is two thousand units", r.quantity, 2000.0)
+check("...at the price on the paper", r.price, 1.75)
+check("...with every fee line summed and the Summe not counted twice", r.fee, 12.40)
+check("...and the ISIN and name from their two lines",
+      (r.isin, r.security_name), ("US0000000001", "Example Holdings Inc. Registered Shares DL -,01"))
+
+d = by_slug["comdirect_pdf"].parse(fixtures.COMDIRECT_DIVIDENDE)
+check("a comdirect dividend with letter-spaced lines is read", (len(d.rows), d.problems), (1, []))
+check("...as a dividend for what was credited, on the Valuta", (d.rows[0].kind, d.rows[0].amount, d.rows[0].txn_date),
+      ("dividend", 118.06, "2026-05-14"))
+check("...with the ISIN squeezed back together", d.rows[0].isin, "US0000000001")
+check("...and the dollar withholding turned into euros at the paper's rate", d.rows[0].tax, round(22.50 / 1.08, 4))
+
+v = by_slug["ing_pdf"].parse(fixtures.ING_VERKAUF)
+check("an ING sale is read", (len(v.rows), v.problems), (1, []))
+check("...as a sell with negative units", (v.rows[0].kind, v.rows[0].quantity), ("sell", -500.0))
+check("...for the Endbetrag", v.rows[0].amount, 1110.12)
+check("...fees and taxes each summed", (v.rows[0].fee, v.rows[0].tax), (6.80, 83.08))
+
+c = by_slug["consorsbank_pdf"].parse(fixtures.CONSORSBANK_KAUF)
+check("a Consorsbank savings-plan purchase is read", (len(c.rows), c.problems), (1, []))
+check("...with units, price and the fee", (c.rows[0].quantity, c.rows[0].price, c.rows[0].fee), (2.0921, 95.6, 0.49))
+check("...for the amount charged", c.rows[0].amount, -200.49)
+
+check("a statement from another bank is not claimed",
+      by_slug["ing_pdf"].matches([], fixtures.COMDIRECT_KAUF), False)
+check("the sniffer hands a comdirect PDF to the comdirect reader",
+      importers.sniff(fixtures.pdf_from_text(fixtures.COMDIRECT_KAUF)).SLUG, "comdirect_pdf")
+check("a Storno is refused by name",
+      "Storno" in by_slug["comdirect_pdf"].parse("comdirect bank AG\nStorno\nWertpapierkauf\n").problems[0], True)
+check("numbers: German, English and Swiss",
+      (statement.parse_number("1.234,56", "de"), statement.parse_number("1,234.56", "en"),
+       statement.parse_number("1'234.56", "ch"), statement.parse_number("73,16-", "de")),
+      (1234.56, 1234.56, 1234.56, -73.16))
+check("dates: dotted, ISO, slashed and written out",
+      (statement.parse_date("12.03.2026"), statement.parse_date("2026-03-12"), statement.parse_date("12/03/2026"),
+       statement.parse_date("12. März 2026")), ("2026-03-12",) * 4)
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

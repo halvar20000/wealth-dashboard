@@ -24,7 +24,8 @@ from .base import (ParsedTxn, ParseResult,  # noqa: F401  (re-exported)
                    normalise_csv_text)
 
 IMPORTERS = [degiro, trade_republic, dkb, ca_switzerland, finary]
-PDF_IMPORTERS = [dkb_pdf, swissquote_pdf, swissquote_beleg_pdf, payslip]
+from . import pdf as _pdf_specs
+PDF_IMPORTERS = [dkb_pdf, swissquote_pdf, swissquote_beleg_pdf, payslip] + _pdf_specs.READERS
 
 
 def sniff(content: bytes | str):

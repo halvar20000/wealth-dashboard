@@ -73,6 +73,9 @@ it does not do yet.
       on the daily sync, through the same readers as an upload.
 - [x] A weekly e-mail with the week's figures, through the user's own
       SMTP server.
+- [x] Statement PDFs read by spec, scored against Portfolio Performance's
+      corpus: 37 banks in 0.63.0 (comdirect, ING, Consorsbank, Baader,
+      Scalable, flatex, DAB, onvista, and the dwpbank and DAB families).
 - [x] CSV export of transactions and holdings, filtered as the page is.
 - [x] Allocation by asset class, region and bucket, with targets and a
       contribution spread.

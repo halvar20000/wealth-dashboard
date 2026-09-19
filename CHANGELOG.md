@@ -11,6 +11,33 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.63.0] — 2026-09-19
+
+### Added
+- **Statement PDFs of thirty-seven more banks and brokers.** comdirect
+  (even the letter-spaced Steuermitteilungen), Commerzbank (letter-spaced
+  throughout), Deutsche Bank, TARGOBANK, ING, Consorsbank, Baader
+  Bank (Scalable Capital to 2024, finanzen.net zero, Smartbroker+ — German
+  and English paper), Scalable Capital's own, flatex / FinTech Group Bank,
+  DAB BNP Paribas, onvista, S Broker and the Sparkassen, Postbank, the
+  Volksbanken and Raiffeisenbanken, 1822direkt, GenoBroker, MLP, Merkur
+  Privatbank, Santander, UmweltBank, Weberbank, NORD/LB, NIBC and Sutor
+  Bank; in Austria easybank, DADAT, Hello bank! and Erste Bank / Brokerjet;
+  in Switzerland PostFinance E-Trading, Zürcher Kantonalbank and UBS; in
+  Belgium and France Keytrade, KBC and Arkéa/Fortuneo (first passes).
+  Purchases, sales, dividends, interest, Vorabpauschalen,
+  Sammelabrechnungen, and the Giro or Verrechnungskonto statements where
+  the layout allows. Under the hood a new engine reads any bank from a
+  spec — a few dozen anchors per bank in `app/importers/pdf/` — and two
+  shared layouts (dwpbank's, which most German banks print, and DAB's)
+  cover a dozen banks each with one spec, plus a catch-all for any bank on
+  the same paper. Every spec is scored against Portfolio Performance's
+  corpus of some 2,700 real, anonymised statements with
+  `tools/statement_scoreboard.py`; this batch reads 60 % of 1,635 such
+  documents to the cent, the rest being old layouts, bank-statement pages
+  and edge cases the scoreboard lists by name. The corpus stays out of the
+  repository; the specs are this project's own.
+
 ## [0.62.1] — 2026-09-19
 
 ### Fixed
