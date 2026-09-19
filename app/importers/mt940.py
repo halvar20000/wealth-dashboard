@@ -17,7 +17,7 @@ carry `EREF+`, `MREF+`, `SVWZ+` markers inside. `:62F:` closes.
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .base import ParsedTxn, ParseResult
 from .formats import decode, kind_of, row_id
@@ -26,9 +26,12 @@ SLUG = "mt940"
 LABEL = "MT940 — SWIFT Kontoauszug (.sta)"
 
 _TAG = re.compile(r"^:(\d{2}[A-Z]?):", re.M)
+# The dialects: an entry date of four blanks instead of four digits, a
+# blank between the amount and the type, a type of "NOV " or "S   ",
+# a first letter other than N/F/S.
 _61 = re.compile(
-    r"^(?P<vdate>\d{6})(?P<bdate>\d{4})?(?P<sign>RC|RD|C|D)(?P<fund>[A-Z])?(?P<amount>[\d,]+)"
-    r"(?P<type>[NFS][A-Z0-9]{3})(?P<ref>.*?)(?://(?P<bankref>[^\n]*))?$", re.S)
+    r"^(?P<vdate>\d{6})(?:(?P<bdate>\d{4})| {4})?(?P<sign>RC|RD|C|D)(?P<fund>[A-Z])?(?P<amount>[\d,]+) ?"
+    r"(?P<type>[A-Z][A-Z0-9 ]{3})(?P<ref>.*?)(?://(?P<bankref>[^\n]*))?$", re.S)
 _SEPA = re.compile(r"(EREF|MREF|CRED|DEBT|SVWZ|ABWA|ABWE|KREF|BREF|RREF|COAM|OAMT|IBAN|BIC|PURP)\+")
 
 
@@ -39,8 +42,8 @@ def matches(header: list[str], sample: str) -> bool:
 def _blocks(text: str) -> list[list[tuple[str, str]]]:
     """The file as statements, each a list of (tag, value) in order."""
     # A SWIFT envelope ({1:...}{4: ... -}) around the fields is stripped.
-    text = re.sub(r"^\{[^{}]*\}", "", text.strip(), flags=re.M)
     text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"^\{\d:[^{}\n]*\}?\s*$", "", text.strip(), flags=re.M)
     fields: list[tuple[str, str]] = []
     pos = [(m.start(), m.end(), m.group(1)) for m in _TAG.finditer(text)]
     for i, (start, end, tag) in enumerate(pos):
@@ -62,7 +65,12 @@ def _date(yymmdd: str, bdate: str | None = None) -> tuple[str | None, str | None
     try:
         v = datetime.strptime(yymmdd, "%y%m%d").date()
     except ValueError:
-        return None, None
+        # "160230": a bank that books the 30th of February. The day
+        # after the month's last is what it means.
+        try:
+            v = datetime.strptime(yymmdd[:4] + "01", "%y%m%d").date() + timedelta(days=int(yymmdd[4:]) - 1)
+        except ValueError:
+            return None, None
     if not bdate:
         return v.isoformat(), None
     year = v.year
@@ -88,8 +96,10 @@ def _balance(value: str) -> tuple[float | None, str, str | None]:
 
 
 def _details(raw: str) -> dict:
-    """The :86: line, structured or not."""
-    text = " ".join(raw.split())
+    """The :86: line, structured or not. Its continuation lines are
+    cut at a fixed width, so they are joined without a blank — a "?"
+    field marker or a word may be split across two."""
+    text = " ".join("".join(line.strip() for line in raw.split("\n")).split())
     out = {"booking_text": "", "purpose": "", "name": "", "iban": "", "gvc": "", "e2e": "", "mandate": "", "text": text}
     if "?" not in text:
         out["purpose"] = text
@@ -155,6 +165,13 @@ def parse(content: bytes | str, account_currency: str = "EUR") -> ParseResult:
 def _emit(result: ParseResult, line61: str, d: dict, account: str, currency: str, counts: dict) -> None:
     first, _, extra = line61.partition("\n")
     m = _61.match(first.strip())
+    if not m and extra:
+        # A Sparkasse that wraps the line after the sign: the amount
+        # and the rest on the next one.
+        second, _, rest = extra.partition("\n")
+        m = _61.match((first.strip() + second.strip()))
+        if m:
+            extra = rest
     if not m:
         result.problems.append(f"a :61: line could not be read: {first.strip()[:60]}")
         return

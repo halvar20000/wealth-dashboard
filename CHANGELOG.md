@@ -11,6 +11,22 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.66.1] — 2026-09-19
+
+### Fixed
+- MT940 in its dialects. Run against some eighty real statements from
+  the wolph/mt940 and jejik-mt940 test corpora (ABN AMRO, ING, Rabobank,
+  Knab, SNS, Triodos, PostFinance, Sparkassen, Volksbanken, Commerzbank,
+  Deutsche Bank, LBBW, OLB, mBank, Citi, Sberbank, Raiffeisen), the
+  importer had five things to learn: the SWIFT envelope's `{4:` opener
+  on a line of its own, an entry date left as four blanks, a blank
+  between the amount and the type, a type such as `NOV ` or `MCI0`, a
+  Sparkasse wrapping the amount onto the next line — and the 30th of
+  February, which one bank books. `:86:` continuation lines are joined
+  without a blank, as the fixed width means them to be, so a `?` field
+  marker split across two lines is whole again. Every one of the eighty
+  now reads.
+
 ## [0.66.0] — 2026-09-19
 
 ### Added

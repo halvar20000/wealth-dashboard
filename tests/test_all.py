@@ -6928,6 +6928,14 @@ check("...the :62F: closing balance", m.closing_balance, {"amount": 4321.16, "cu
 check("...ids are stable across two exports of the same period",
       [r.external_id for r in importers.mt940.parse(fixtures.MT940_KONTOAUSZUG).rows] == [r.external_id for r in m.rows], True)
 
+dm = importers.mt940.parse(fixtures.MT940_DIALECTS)
+check("the MT940 dialects all read: the envelope, 'NOV ' types, blank entry dates, a blank before the type, a wrapped amount, February 30th",
+      ([(r.txn_date, r.amount, r.description[:22]) for r in dm.rows], dm.problems),
+      ([("2010-07-22", -25.03, "RC AFREKENING BETALING"), ("2010-07-22", -212.39, "/PT/FT/PY/SOMETHING FO"),
+        ("2010-07-22", 50.0, "Miete Juli [GUTSCHR. U"), ("2010-07-22", 30.0, "Nachzahlung [GUTSCHR. "),
+        ("2010-03-01", -6.0, "Pauschalen [ENTGELTABS")], []))
+check("...the wrapped Sparkasse line keeps its counterparty", dm.rows[2].counterparty, "Max Mustermann")
+
 o = importers.ofx.parse(fixtures.OFX_BROKERAGE)
 check("an OFX brokerage statement is recognised and read", (importers.sniff(fixtures.OFX_BROKERAGE.encode()).SLUG, o.problems), ("ofx", []))
 check("...a buy with units, price, commission and ISIN from the SECLIST; income as a dividend with its withholding; the cash deposit once",

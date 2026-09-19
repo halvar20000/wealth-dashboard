@@ -1262,3 +1262,30 @@ VERSION:102
 </SECLISTMSGSRSV1>
 </OFX>
 """
+
+# The dialects: a SWIFT envelope with the block-4 opener on its own
+# line, a type of "NOV " with a blank, an entry date left as four
+# blanks, a blank before the type, an amount wrapped onto the next
+# line, and the 30th of February.
+MT940_DIALECTS = """{1:F01INGBNL2AXXXX00001}\r
+{2:I940INGBNL2AXXXN}\r
+{4:\r
+:20:MPBZ\r
+:25:0001234567\r
+:28C:000\r
+:60F:C100722EUR0,00\r
+:61:100722D25,03NOV NONREF\r
+:86:RC AFREKENING BETALINGSVERKEER\r
+:61:100722    DD212,39NMSCNONREF//\r
+:86:/PT/FT/PY/SOMETHING FOO BAR\r
+:61:1007220722C50,00 NTRFNONREF//2109025460313532\r
+:86:166?00GUTSCHR. UEBERWEISUNG?20SVWZ+Miete Juli?32Max Mustermann\r
+:61:1007220722CR\r
+30,00N062NONREF\r
+:86:166?00GUTSCHR. UEBERWEISUNG?20SVWZ+Nachzahlung\r
+:61:1002300301DR6,00N024NONREF\r
+:86:805?00ENTGELTABSCHLUSS?20Pauschalen\r
+:62F:C100722EUR0,00\r
+-}\r
+"""
+
