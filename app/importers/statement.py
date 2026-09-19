@@ -381,12 +381,12 @@ class Reader:
                 negative = amount_probe < 0 or sign in ("-", "S")
                 kind = "withdrawal" if negative else "deposit"
         date = parse_date(g.get("date"))
-        if not date and g.get("date") and re.fullmatch(r"\d{1,2}\.\d{1,2}\.?", g["date"].strip()):
-            # "07.07." on a statement whose year is printed once, in the
-            # header: the doc's `year` field says where.
+        if not date and g.get("date") and re.fullmatch(r"\d{1,2}[.\-/]\d{1,2}\.?", g["date"].strip()):
+            # "07.07." (or "07-07") on a statement whose year is printed
+            # once, in the header: the doc's `year` field says where.
             year = _first(whole or piece, f.get("year", [])).get("year")
             if year:
-                date = parse_date(g["date"].strip().rstrip(".") + "." + year)
+                date = parse_date(re.sub(r"[.\-/]", ".", g["date"].strip().rstrip(".")) + "." + year)
         if not date:
             if d.block is None:
                 result.problems.append(f"{self.LABEL}: no date found.")
