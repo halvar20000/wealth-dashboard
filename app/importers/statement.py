@@ -56,7 +56,7 @@ from .base import ParsedTxn, ParseResult, find_isin
 MONTHS = {
     "januar": 1, "jan": 1, "january": 1, "janvier": 1, "janv": 1, "gennaio": 1, "gen": 1, "enero": 1, "ene": 1,
     "februar": 2, "feb": 2, "february": 2, "février": 2, "fevrier": 2, "févr": 2, "fevr": 2, "febbraio": 2, "febrero": 2,
-    "märz": 3, "maerz": 3, "mär": 3, "mar": 3, "march": 3, "mars": 3, "marzo": 3,
+    "märz": 3, "maerz": 3, "mär": 3, "mrz": 3, "mar": 3, "march": 3, "mars": 3, "marzo": 3,
     "april": 4, "apr": 4, "avril": 4, "avr": 4, "aprile": 4, "abril": 4, "abr": 4,
     "mai": 5, "may": 5, "maggio": 5, "mag": 5, "mayo": 5,
     "juni": 6, "jun": 6, "june": 6, "juin": 6, "giugno": 6, "giu": 6, "junio": 6,
@@ -133,6 +133,7 @@ def parse_date(raw: str | None) -> str | None:
     if not raw:
         return None
     s = " ".join(str(raw).replace(",", " ").split()).strip(". ")
+    s = re.sub(r"^(\d{1,2})-([A-Za-zÀ-ÿ]+)-(\d{4})$", r"\1 \2 \3", s)        # 05-Dez-2024
     for fmt in ("%d.%m.%Y", "%d.%m.%y", "%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y", "%d-%m-%Y", "%Y/%m/%d"):
         try:
             return datetime.strptime(s, fmt).date().isoformat()
@@ -328,6 +329,10 @@ class Reader:
                 row.tax = round((row.tax or 0.0) + taxes, 2)
             if after is not None:
                 row.amount = abs(after) * (-1 if row.amount < 0 else 1)
+            elif seen and taxes and not d.fields.get("amount"):
+                # No after-tax figure on the page: the primary was the
+                # gross, and the tax comes off it.
+                row.amount = round((abs(row.amount) - taxes) * (-1 if row.amount < 0 else 1), 2)
         if not result.rows and not result.problems:
             result.problems.append(f"{self.LABEL}: the document was recognised but nothing could be read from it.")
         return result

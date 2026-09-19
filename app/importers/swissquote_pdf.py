@@ -58,6 +58,7 @@ import re
 from .base import ParsedTxn, ParseResult, find_isin, parse_date
 
 SLUG = "swissquote_pdf"
+CORPUS = "swissquote"
 LABEL = "Swissquote / Yuh — Kontoauszug PDF"
 
 _DATE = r"\d{2}\.\d{2}\.\d{4}"

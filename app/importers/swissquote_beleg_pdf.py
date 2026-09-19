@@ -33,6 +33,7 @@ import re
 from .base import ParsedTxn, ParseResult, find_isin, parse_date
 
 SLUG = "swissquote_beleg_pdf"
+CORPUS = "swissquote"
 LABEL = "Swissquote — Transaktionsbeleg PDF"
 
 _AMT = r"-?[\d']*\d(?:\.\d+)?"

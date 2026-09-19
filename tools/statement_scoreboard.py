@@ -192,8 +192,15 @@ def _close(a, b, tol) -> bool:
 
 
 def score_fixture(module, text: str, expected: list[dict]) -> tuple[list[dict], list[str]]:
-    """(rows we produced, list of misses) for one document."""
-    result = module.parse(text)
+    """(rows we produced, list of misses) for one document. A bank
+    with several readers — one per kind of paper — is read by the
+    first that gets rows out of it."""
+    modules = module if isinstance(module, list) else [module]
+    result = None
+    for m in modules:
+        result = m.parse(text)
+        if result.rows:
+            break
     rows = [{"kind": r.kind, "date": r.txn_date, "amount": abs(r.amount), "currency": r.currency,
              "shares": abs(r.quantity) if r.quantity is not None else None,
              "fees": r.fee, "taxes": r.tax} for r in result.rows]
@@ -254,7 +261,10 @@ def main(argv: list[str]) -> int:
     verbose = "-v" in argv
     args = [a for a in argv if a != "-v"]
     base = pdf_dir()
-    readers = {m.CORPUS: m for m in importers.PDF_IMPORTERS if getattr(m, "CORPUS", None)}
+    readers: dict[str, list] = {}
+    for m in importers.PDF_IMPORTERS:
+        if getattr(m, "CORPUS", None):
+            readers.setdefault(m.CORPUS, []).append(m)
     banks = [args[0]] if args else sorted(readers)
     total_docs = total_ok = 0
     for bank in banks:
