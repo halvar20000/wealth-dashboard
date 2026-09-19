@@ -42,7 +42,7 @@ SPEC = Spec(
     corpus="quirinbankag",
     marks=[r"quirin ?bank", r"Quirin Privatbank", r"quirinprivatbank\.de", r"quirion"],
     docs=[
-        Doc(kind="trade", when=r"^(?:Wertpapierabrechnung\n)?(?:Kauf|Verkauf)\n", sell=r"^(?:Wertpapierabrechnung\n)?Verkauf\n", fields=TRADE_FIELDS),
+        Doc(kind="trade", when=r"^(?:Wertpapierabrechnung\n)?(?:Kauf|Verkauf)(?: \([^)]*\))?\n", sell=r"^(?:Wertpapierabrechnung\n)?Verkauf(?: \([^)]*\))?\n", fields=TRADE_FIELDS),
         Doc(kind="tax", when=r"^Vorabpauschale \(nicht gebucht\)", fields=TRADE_FIELDS),
         Doc(kind="dividend", when=r"^(?:Ertr.gnisabrechnung|Ertrag aus Investments|Dividende)", fields=TRADE_FIELDS),
         # The 2010–2014 paper: the gross, and the tax on a line of its own.
@@ -54,3 +54,8 @@ SPEC = Spec(
                    r"gutschrift|Kontoübertrag|Interne Buchung|Aufstockung": "deposit", r"überweisung|.berweisungsauftrag": "withdrawal"}),
     ],
 )
+
+# V-Bank prints the same paper with its own letterhead.
+VBANK = Spec(slug="vbank_pdf", label="V-Bank — Abrechnung PDF", corpus="vbankag",
+             marks=[r"V-Bank", r"VBANDEMM"], docs=SPEC.docs)
+SPECS = [SPEC, VBANK]
