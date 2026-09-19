@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Banks & formats") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Banks & formats") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("What the import page can read, by name: the statement PDFs of banks and brokers, the CSV exports it knows outright, and the statement formats every bank writes alike. Drop the file on an account's import page — it is recognised by what is in it.") }}</p>
+{% endblock %}
+{% block content %}
+<div class="card" id="readers">
+  <p class="sub">{{ _f("{n} banks, brokers and formats. Type a name to find yours; a bank not here is read through a CSV mapping you draw once, or send a redacted statement and it becomes a reader.", n=catalogue | length) }}</p>
+  <input type="search" id="reader-filter" placeholder="{{ _('Bank, broker or format') }}" autocomplete="off" style="max-width:320px">
+  <table class="grid" id="reader-list">
+    <tbody>
+      {% for r in catalogue %}
+      <tr data-name="{{ (r.name ~ ' ' ~ r.what) | lower }}">
+        <td><strong>{{ r.name }}</strong></td>
+        <td class="sub">{{ r.what }}</td>
+        <td>{% for k in r.kinds %}<span class="tag tag-muted">{{ k }}</span> {% endfor %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="sub" id="reader-none" hidden>{{ _("Nothing by that name — a CSV of it can still be mapped once, below the file field.") }}</p>
+</div>
+<script>
+(function () {
+  const box = document.getElementById("reader-filter"), rows = document.querySelectorAll("#reader-list tr"),
+        none = document.getElementById("reader-none");
+  box.addEventListener("input", function () {
+    const q = box.value.trim().toLowerCase();
+    let shown = 0;
+    rows.forEach(function (tr) { const hit = !q || tr.dataset.name.indexOf(q) !== -1; tr.hidden = !hit; if (hit) shown++; });
+    none.hidden = shown > 0;
+  });
+})();
+</script>
+{% endblock %}

@@ -2687,9 +2687,12 @@ STRINGS: dict[str, str] = {
         "{since} bis {date}",
     "Statement PDFs":
         "Abrechnungs-PDFs",
-    'The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of some 150 banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP — the list is below.': 'Die Wertpapierabrechnungen, Dividendengutschriften und Kontoauszüge von rund 150 Banken und Brokern werden aus den PDFs in deren Postfach gelesen, viele auf einmal oder als ZIP — die Liste steht unten.',
-    'Which banks and formats are read': 'Welche Banken und Formate gelesen werden',
     '{n} banks, brokers and formats. Type a name to find yours; a bank not here is read through a CSV mapping you draw once, or send a redacted statement and it becomes a reader.': '{n} Banken, Broker und Formate. Tipp einen Namen, um deine zu finden; eine Bank, die fehlt, wird über eine einmal gezeichnete CSV-Zuordnung gelesen — oder schick eine geschwärzte Abrechnung, und sie wird ein Leser.',
+    'Banks & formats': 'Banken & Formate',
+    'Is your bank in there?': 'Ist deine Bank dabei?',
+    'Every bank, broker and format the app reads, with a search box.': 'Jede Bank, jeder Broker und jedes Format, das die App liest, mit Suchfeld.',
+    "What the import page can read, by name: the statement PDFs of banks and brokers, the CSV exports it knows outright, and the statement formats every bank writes alike. Drop the file on an account's import page — it is recognised by what is in it.": 'Was die Importseite lesen kann, beim Namen: die Abrechnungs-PDFs von Banken und Brokern, die CSV-Exporte, die sie von sich aus kennt, und die Kontoauszugsformate, die jede Bank gleich schreibt. Leg die Datei auf der Importseite eines Kontos ab — sie wird an ihrem Inhalt erkannt.',
+    'The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of some 150 banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP — see Banks & formats in the menu.': 'Die Wertpapierabrechnungen, Dividendengutschriften und Kontoauszüge von rund 150 Banken und Brokern werden aus den PDFs in deren Postfach gelesen, viele auf einmal oder als ZIP — siehe Banken & Formate im Menü.',
     'Bank, broker or format': 'Bank, Broker oder Format',
     'Nothing by that name — a CSV of it can still be mapped once, below the file field.': 'Nichts unter diesem Namen — eine CSV davon lässt sich trotzdem einmal zuordnen, unter dem Dateifeld.',
 }

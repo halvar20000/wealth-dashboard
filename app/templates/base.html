@@ -69,6 +69,7 @@
     </div>
     {% endfor %}
     <a class="navlink {{ 'active' if active_page == 'accounts' }}" href="{{ url_for('accounts') }}" title="{{ _('Accounts') }}">{{ icon('accounts') }}<span class="nav-text">{{ _("Accounts") }}</span></a>
+    <a class="navlink {{ 'active' if active_page == 'banks' }}" href="{{ url_for('banks_page') }}" title="{{ _('Banks & formats') }}">{{ icon('banks') }}<span class="nav-text">{{ _("Banks & formats") }}</span></a>
     <a class="navlink {{ 'active' if active_page == 'settings' }}" href="{{ url_for('settings_page') }}" title="{{ _('Settings') }}">{{ icon('settings') }}<span class="nav-text">{{ _("Settings") }}</span></a>
   </nav>
   <div class="sidenav-bottom">

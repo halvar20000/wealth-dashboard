@@ -11,6 +11,15 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.67.2] — 2026-09-19
+
+### Changed
+- **Banks & formats** is a page of its own now, in the menu next to
+  Accounts and a button on the Accounts page: every bank, broker and
+  format the app reads, sorted, with a search box. 0.67.1 had put the
+  list at the foot of an account's import page, which is not where
+  anyone looks before they have an account to import into.
+
 ## [0.67.1] — 2026-09-19
 
 ### Changed

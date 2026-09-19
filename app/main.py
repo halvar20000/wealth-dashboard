@@ -390,6 +390,15 @@ def accounts():
                            account_ids=people.scope()))
 
 
+@app.route("/banks")
+@auth.login_required
+def banks_page():
+    """Every bank, broker and format the app reads — the answer to "is
+    mine in there?", which used to hide at the foot of an account's
+    import page."""
+    return render_template("banks.html", active_page="banks", catalogue=importers.catalogue())
+
+
 @app.route("/accounts/new", methods=["GET", "POST"])
 @auth.login_required
 def account_new():

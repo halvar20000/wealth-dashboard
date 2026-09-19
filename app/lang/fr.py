@@ -2693,9 +2693,12 @@ STRINGS: dict[str, str] = {
         "du {since} au {date}",
     "Statement PDFs":
         "PDF d'avis d'opéré",
-    'The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of some 150 banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP — the list is below.': "Les avis d'opération, avis de dividende et relevés de quelque 150 banques et courtiers sont lus depuis les PDF de leur messagerie, plusieurs à la fois ou en ZIP — la liste est ci-dessous.",
-    'Which banks and formats are read': 'Quelles banques et quels formats sont lus',
     '{n} banks, brokers and formats. Type a name to find yours; a bank not here is read through a CSV mapping you draw once, or send a redacted statement and it becomes a reader.': '{n} banques, courtiers et formats. Tapez un nom pour trouver le vôtre ; une banque absente se lit par un mappage CSV dessiné une fois, ou envoyez un relevé anonymisé et elle devient un lecteur.',
+    'Banks & formats': 'Banques et formats',
+    'Is your bank in there?': 'Votre banque y est-elle ?',
+    'Every bank, broker and format the app reads, with a search box.': "Toutes les banques, tous les courtiers et formats que l'app lit, avec une recherche.",
+    "What the import page can read, by name: the statement PDFs of banks and brokers, the CSV exports it knows outright, and the statement formats every bank writes alike. Drop the file on an account's import page — it is recognised by what is in it.": "Ce que la page d'import sait lire, par nom : les PDF de relevés des banques et courtiers, les exports CSV qu'elle connaît d'emblée et les formats de relevé que toutes les banques écrivent pareil. Déposez le fichier sur la page d'import d'un compte : il est reconnu à son contenu.",
+    'The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of some 150 banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP — see Banks & formats in the menu.': "Les avis d'opération, avis de dividende et relevés de quelque 150 banques et courtiers sont lus depuis les PDF de leur messagerie, plusieurs à la fois ou en ZIP — voir Banques et formats dans le menu.",
     'Bank, broker or format': 'Banque, courtier ou format',
     'Nothing by that name — a CSV of it can still be mapped once, below the file field.': 'Rien sous ce nom — un CSV peut tout de même être mappé une fois, sous le champ de fichier.',
 }
