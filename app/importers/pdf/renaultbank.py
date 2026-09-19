@@ -40,6 +40,19 @@ FIELDS3 = {
     "type": [r"^\d{2}\.\d{2}\.\d{4} (?P<type>.+?) -?" + NUM + r" \d{2}\.\d{2}\.\d{4} -?" + NUM + r"$"],
 }
 
+# J&T Direktbank's Tagesgeld statement comes from the same printer in Gladbeck.
+JT = Spec(
+    slug="jtdirekt_pdf",
+    label="J&T Direktbank — Kontoauszug PDF",
+    corpus="jtdirektbank",
+    marks=[r"J&T Direktbank", r"JTBPDEFF"],
+    preprocess=tidy,
+    docs=[
+        Doc(kind="rows", when=r"^Bu-Tag Wert Vorgang", block=ROW2, fields=FIELDS2,
+            kinds={r"Abschluss|Zinsen": "interest", r"Geb.hr|Entgelt": "fee", r"Kontostand": "skip"}),
+    ],
+)
+
 SPEC = Spec(
     slug="renaultbank_pdf",
     label="Renault Bank direkt — Kontoauszug PDF",
@@ -55,3 +68,5 @@ SPEC = Spec(
             kinds={r"Abschluss|Zinsen": "interest", r"Geb.hr|Entgelt": "fee", r"Kontostand": "skip"}),
     ],
 )
+
+SPECS = [SPEC, JT]
