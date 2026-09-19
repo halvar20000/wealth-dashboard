@@ -2693,6 +2693,9 @@ STRINGS: dict[str, str] = {
         "du {since} au {date}",
     "Statement PDFs":
         "PDF d'avis d'opéré",
-    "The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of these banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP:":
-        "Les avis d'opéré, avis de dividende et relevés de ces banques et courtiers sont lus depuis les PDF de leur messagerie, en nombre ou en ZIP :",
+    'The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of some 150 banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP — the list is below.': "Les avis d'opération, avis de dividende et relevés de quelque 150 banques et courtiers sont lus depuis les PDF de leur messagerie, plusieurs à la fois ou en ZIP — la liste est ci-dessous.",
+    'Which banks and formats are read': 'Quelles banques et quels formats sont lus',
+    '{n} banks, brokers and formats. Type a name to find yours; a bank not here is read through a CSV mapping you draw once, or send a redacted statement and it becomes a reader.': '{n} banques, courtiers et formats. Tapez un nom pour trouver le vôtre ; une banque absente se lit par un mappage CSV dessiné une fois, ou envoyez un relevé anonymisé et elle devient un lecteur.',
+    'Bank, broker or format': 'Banque, courtier ou format',
+    'Nothing by that name — a CSV of it can still be mapped once, below the file field.': 'Rien sous ce nom — un CSV peut tout de même être mappé une fois, sous le champ de fichier.',
 }

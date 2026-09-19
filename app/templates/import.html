@@ -51,11 +51,40 @@
     <li><strong>Trade Republic</strong> — {{ _("Profile → Transactions → export.") }}</li>
     <li><strong>DKB</strong> — {{ _("Open the account or the Visa card → Umsätze → choose the period → CSV-Export. Girokonto, Tagesgeld and Visa all work, and so do files from the old portal. Pending (vorgemerkt) rows are left out until they are booked.") }}</li>
     <li><strong>DKB Depot</strong> — {{ _("Postfach → filter by the Depot → download the Wertpapierabrechnungen as PDF and drop them all in here at once. The Depot's CSV says only what money moved; the PDFs say how many units, at what price, with what fee. Orders, fund purchases, dividends, interest, the Vorabpauschale and the half-year Sparplan overview are all read. A Storno is skipped and named.") }}</li>
-    <li><strong>{{ _("Statement PDFs") }}</strong> — {{ _("The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of these banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP:") }}
-      {% for r in importers if r.SLUG.endswith('_pdf') and r.SLUG not in ('dkb_pdf',) %}{{ r.LABEL.split(' — ')[0] }}{{ ", " if not loop.last }}{% endfor %}.</li>
+    <li><strong>{{ _("Statement PDFs") }}</strong> — {{ _("The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of some 150 banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP — the list is below.") }}</li>
     <li><strong>{{ _("Statement formats") }}</strong> — {{ _("CAMT.053 / CAMT.052 XML (the ISO 20022 export of every European online-banking portal), MT940 (.sta, SWIFT) and OFX / QFX (North American and British banks and brokers) are read as they are — no mapping, the bank's own reference as the id, the closing balance taken.") }}</li>
     <li><strong>{{ _("Any other bank") }}</strong> — {{ _("Export the transactions as CSV and drop the file in. If no importer knows it you are asked, once, which column is the date, the amount and so on; the mapping is remembered under the file's header, so the next export from that bank goes straight in.") }}</li>
   </ul>
   <p class="sub">{{ _("Export a period that overlaps what you already imported. Overlap costs nothing and a gap costs you transactions.") }}</p>
 </div>
+
+<div class="card" id="readers">
+  <h2>{{ _("Which banks and formats are read") }}</h2>
+  <p class="sub">{{ _f("{n} banks, brokers and formats. Type a name to find yours; a bank not here is read through a CSV mapping you draw once, or send a redacted statement and it becomes a reader.", n=catalogue | length) }}</p>
+  <input type="search" id="reader-filter" placeholder="{{ _('Bank, broker or format') }}" autocomplete="off" style="max-width:320px">
+  <table class="grid" id="reader-list">
+    <tbody>
+      {% for r in catalogue %}
+      <tr data-name="{{ (r.name ~ ' ' ~ r.what) | lower }}">
+        <td><strong>{{ r.name }}</strong></td>
+        <td class="sub">{{ r.what }}</td>
+        <td>{% for k in r.kinds %}<span class="tag tag-muted">{{ k }}</span> {% endfor %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="sub" id="reader-none" hidden>{{ _("Nothing by that name — a CSV of it can still be mapped once, below the file field.") }}</p>
+</div>
+<script>
+(function () {
+  const box = document.getElementById("reader-filter"), rows = document.querySelectorAll("#reader-list tr"),
+        none = document.getElementById("reader-none");
+  box.addEventListener("input", function () {
+    const q = box.value.trim().toLowerCase();
+    let shown = 0;
+    rows.forEach(function (tr) { const hit = !q || tr.dataset.name.indexOf(q) !== -1; tr.hidden = !hit; if (hit) shown++; });
+    none.hidden = shown > 0;
+  });
+})();
+</script>
 {% endblock %}

@@ -2687,6 +2687,9 @@ STRINGS: dict[str, str] = {
         "{since} bis {date}",
     "Statement PDFs":
         "Abrechnungs-PDFs",
-    "The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of these banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP:":
-        "Die Wertpapierabrechnungen, Dividendengutschriften und Kontoauszüge dieser Banken und Broker werden aus den PDFs ihres Postfachs gelesen, viele auf einmal oder als ZIP:",
+    'The Wertpapierabrechnungen, Dividendengutschriften and Kontoauszüge of some 150 banks and brokers are read from the PDFs in their mailbox, many at once or as a ZIP — the list is below.': 'Die Wertpapierabrechnungen, Dividendengutschriften und Kontoauszüge von rund 150 Banken und Brokern werden aus den PDFs in deren Postfach gelesen, viele auf einmal oder als ZIP — die Liste steht unten.',
+    'Which banks and formats are read': 'Welche Banken und Formate gelesen werden',
+    '{n} banks, brokers and formats. Type a name to find yours; a bank not here is read through a CSV mapping you draw once, or send a redacted statement and it becomes a reader.': '{n} Banken, Broker und Formate. Tipp einen Namen, um deine zu finden; eine Bank, die fehlt, wird über eine einmal gezeichnete CSV-Zuordnung gelesen — oder schick eine geschwärzte Abrechnung, und sie wird ein Leser.',
+    'Bank, broker or format': 'Bank, Broker oder Format',
+    'Nothing by that name — a CSV of it can still be mapped once, below the file field.': 'Nichts unter diesem Namen — eine CSV davon lässt sich trotzdem einmal zuordnen, unter dem Dateifeld.',
 }

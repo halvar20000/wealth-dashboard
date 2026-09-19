@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.67.1] — 2026-09-19
+
+### Changed
+- The import page now answers "is my bank read?": a card listing every
+  bank, broker and format the app reads — one line each, sorted, with
+  its papers (Wertpapierabrechnung PDF, transaction export, Kontoauszug)
+  and whether that is a PDF, a CSV or a statement format — with a search
+  box over it. It replaces the run of 150 names in a sentence that
+  nobody could find anything in.
+
 ## [0.67.0] — 2026-09-19
 
 ### Added

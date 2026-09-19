@@ -33,6 +33,28 @@ from . import pdf as _pdf_specs
 PDF_IMPORTERS = [dkb_pdf, swissquote_pdf, swissquote_beleg_pdf, payslip] + _pdf_specs.READERS
 
 
+def catalogue() -> list[dict]:
+    """Every reader, for the import page's list: {name, what, kinds}
+    — one line per bank or format, its readers' papers joined, sorted
+    by name. "kinds" is which of PDF, CSV and format the name has."""
+    by_name: dict[str, dict] = {}
+    for kind, modules in (("PDF", PDF_IMPORTERS), ("CSV", IMPORTERS), ("format", FORMAT_IMPORTERS)):
+        for m in modules:
+            if getattr(m, "SLUG", "") in ("payslip",):
+                continue
+            name, _, what = m.LABEL.partition(" — ")
+            name = name.strip()
+            entry = by_name.setdefault(name, {"name": name, "what": [], "kinds": []})
+            if what and what not in entry["what"]:
+                entry["what"].append(what)
+            if kind not in entry["kinds"]:
+                entry["kinds"].append(kind)
+    rows = sorted(by_name.values(), key=lambda e: e["name"].lower())
+    for e in rows:
+        e["what"] = " · ".join(e["what"])
+    return rows
+
+
 def sniff(content: bytes | str):
     """Which importer, if any, recognises this file."""
     if isinstance(content, bytes) and content.startswith(b"%PDF"):

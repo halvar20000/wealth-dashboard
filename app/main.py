@@ -705,7 +705,7 @@ def account_import(account_id: int):
                  had=report["duplicates"]), "ok")
 
     return render_template("import.html", account=dict(account), report=report,
-                           importers=importers.IMPORTERS + importers.PDF_IMPORTERS)
+                           catalogue=importers.catalogue())
 
 
 # A ZIP is opened, but not blindly: a few hundred statements is a big
