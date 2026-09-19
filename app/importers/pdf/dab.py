@@ -84,5 +84,34 @@ SPECS = [
     Spec(slug="dab_pdf", label="DAB BNP Paribas — Wertpapierabrechnung PDF", corpus="dab",
          marks=[r"DAB BNP Paribas", r"DAB Bank", r"\bDAB\b", r"BNP Paribas"], docs=docs() + _consors.docs()),
     spec("onvista_pdf", "onvista bank — Wertpapierabrechnung PDF", "onvista", [r"onvista", r"Frankfurt am Main, \d{2}\.\d{2}\.\d{4}"]),
-    spec("dabfamily_pdf", "DAB-layout statement (Raisin, Upvest and others)", "", [FAMILY]),
+    spec("dabfamily_pdf", "DAB-layout statement", "", [FAMILY]),
+]
+
+# Raisin (WeltSparen) and Upvest print a layout of their own: the
+# security on one line under "Wertpapier ISIN", units, price and value
+# on one line, the settlement under "Valuta Betrag zu Ihren …".
+_PLAIN = {
+    "security": [r"^Wertpapier ISIN\n(?P<name>.+?) " + ISIN + r"$", r"^Wertpapierbezeichnung (?P<name>.+)\nISIN " + ISIN],
+    "shares": [r"^(?P<shares>" + NUM + r") St.ck (?P<price>" + NUM + r") (?P<price_currency>[A-Z]{3}) " + NUM + r" [A-Z]{3}$",
+               r"^(?P<shares>" + NUM + r") St.ck ", r"^Bestand (?P<shares>" + NUM + r") St.ck"],
+    "date": [r"^Handelsdatum(?:, Uhrzeit)?: (?P<date>\d{2}\.\d{2}\.\d{4})", r"^Tag des steuerpflichtigen Zuflusses (?P<date>\d{2}\.\d{2}\.\d{4})",
+             r"^Valuta Betrag zu Ihren (?:Lasten|Gunsten)\n(?P<date>\d{2}\.\d{2}\.\d{4}) "],
+    "amount": [r"^Valuta Betrag zu Ihren (?:Lasten|Gunsten)\n\d{2}\.\d{2}\.\d{4} (?P<amount>" + NUM + r") (?P<currency>[A-Z]{3})",
+               r"^Betrag zu Ihren (?:Lasten|Gunsten) (?P<amount>-?" + NUM + r") (?P<currency>[A-Z]{3})"],
+    "ref": [r"^Dokument ID: (?P<ref>\S+)"],
+    "fees": [r"^(?:Provision|Geb.hr|Fremde Spesen|Handelsplatzgeb.hr)[^\n]*?: (?P<fee>" + NUM + r") (?P<currency>[A-Z]{3})"],
+    "taxes": [r"^Gesamtbetrag der einbehaltenen Steuern: (?P<tax>" + NUM + r") (?P<currency>[A-Z]{3})",
+              r"^Gezahlte ausl.ndische Quellensteuer: (?P<tax>" + NUM + r") (?P<currency>[A-Z]{3})"],
+}
+_PLAIN_DOCS = [
+    Doc(kind="skip", when=r"^Storno\b|^Stornierung", note="A Storno (cancellation) — not imported."),
+    Doc(kind="trade", when=r"^Wir haben f.r Sie (?:gekauft|verkauft)", sell=r"^Wir haben f.r Sie verkauft", fields=_PLAIN),
+    Doc(kind="dividend", when=r"^Sie haben eine (?:Dividende|Aussch.ttung) erhalten", fields=_PLAIN),
+    Doc(kind="tax", when=r"^Vorabpauschale|Steuervorauszahlung", fields=_PLAIN),
+]
+SPECS += [
+    Spec(slug="raisin_pdf", label="Raisin (WeltSparen) — Wertpapierabrechnung PDF", corpus="raisinbankag",
+         marks=[r"Raisin Bank", r"WeltSparen"], docs=_PLAIN_DOCS),
+    Spec(slug="upvest_pdf", label="Upvest — Wertpapierabrechnung PDF", corpus="upvest",
+         marks=[r"Upvest"], docs=_PLAIN_DOCS),
 ]
