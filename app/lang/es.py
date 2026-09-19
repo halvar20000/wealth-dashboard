@@ -2529,4 +2529,8 @@ STRINGS: dict[str, str] = {
     '{n} lines with an amount, a month or a date': '{n} líneas con un importe, un mes o una fecha',
     '{n} payslip layout you mapped yourself': '{n} formato de nómina que asignaste tú',
     '{n} payslip layouts you mapped yourself': '{n} formatos de nómina que asignaste tú',
+    "Row id":
+        "Id de fila",
+    "The bank's own id for the row, if it has one. With it, a row whose text changed between two exports is still the same row.":
+        "El id que el banco da a la fila, si lo tiene. Con él, una fila cuyo texto cambió entre dos exportaciones sigue siendo la misma fila.",
 }

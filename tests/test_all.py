@@ -5451,6 +5451,43 @@ r = c.post("/settings", data={"form": "csv_mapping_delete", "mapping_id": generi
 check("...and forgets it on request", (b"Mapping forgotten" in r.data, generic.find(hdr)), (True, None))
 check("an expired token is refused, not a crash",
       c.get(f"/accounts/{mid}/import/map/nonsense").status_code, 302)
+
+# The app's own template: a header of the field names needs no mapping.
+NATIVE_CSV = (
+    "date,amount,currency,description,counterparty,kind,isin,security_name,quantity,price,fee,tax,id\n"
+    "2026-03-01,-1250.00,EUR,Rent March,Landlord Ltd,,,,,,,,r-1\n"
+    "2026-03-02,-482.10,EUR,Bought 4 x World ETF,,buy,IE00BK5BQT80,Vanguard FTSE All-World,4,120.10,1.70,,r-2\n"
+    "2026-03-05,2900.00,EUR,Salary,Employer AG,deposit,,,,,,,r-3\n"
+    "2026-03-08,12.40,EUR,Dividend,,dividend,IE00BK5BQT80,Vanguard FTSE All-World,,,,1.85,r-4\n")
+check("the template header is recognised without a mapping",
+      importers.sniff(NATIVE_CSV.encode()).LABEL, "Wealth Dashboard CSV")
+check("...in any order and any subset with a date and an amount",
+      generic.native(["Amount", "Date"]) is not None, True)
+check("...but not without an amount", generic.native(["date", "description"]), None)
+check("...and not when a column is not one of ours", generic.native(["date", "amount", "vibes"]), None)
+r = c.post(f"/accounts/{mid}/import", data={"file": (io.BytesIO(NATIVE_CSV.encode()), "mine.csv")},
+           content_type="multipart/form-data", follow_redirects=True)
+check("a template file imports straight away", b"4 new" in r.data, True)
+with db.get_conn() as conn:
+    rows = {r["description"]: dict(r) for r in conn.execute(
+        "SELECT * FROM transactions WHERE account_id = ? AND source LIKE 'csv:%'", (mid,))}
+check("the buy carries units, price, fee and ISIN",
+      (rows["Bought 4 x World ETF"]["quantity"], rows["Bought 4 x World ETF"]["price"],
+       rows["Bought 4 x World ETF"]["fee"], rows["Bought 4 x World ETF"]["isin"]),
+      (4.0, 120.1, 1.7, "IE00BK5BQT80"))
+check("the dividend carries its tax", rows["Dividend"]["tax"], 1.85)
+check("a kind the file names is kept", rows["Salary"]["kind"], "deposit")
+check("a row with no kind is worked out", rows["Rent March"]["kind"], "withdrawal")
+check("the file's own id is the row's id",
+      rows["Rent March"]["external_id"] == rows["Rent March"]["external_id"] and
+      all(v["external_id"].startswith("csv:") for v in rows.values()), True)
+edited = NATIVE_CSV.replace("Rent March", "Rent March (corrected)")
+r = c.post(f"/accounts/{mid}/import", data={"file": (io.BytesIO(edited.encode()), "mine2.csv")},
+           content_type="multipart/form-data", follow_redirects=True)
+check("re-exporting after an edit adds nothing — the id says it is the same row",
+      b"0 new, 4 already had" in r.data, True)
+check("a saved mapping for a header that uses our words still wins over the template",
+      generic.find(["date", "amount"])["id"], 0)
 c.post(f"/accounts/{mid}/delete", data={"confirm": "Mapped bank"})
 
 # ---------------------------------------------------------------------------
@@ -6245,6 +6282,7 @@ check("an event the hook did not subscribe to is not sent", (n, len(got)), (0, 1
 hk = [h for h in webhooks.all_hooks() if h["id"] == hid][0]
 check("the delivery is noted on the hook, without error", (hk["last_at"] is not None, hk["last_error"]), (True, None))
 srv.shutdown()
+srv.server_close()          # shutdown stops the loop; the socket must go too, or the connect still lands
 webhooks.fire("sync.completed", {"account": "Test"}, wait=True)
 hk = [h for h in webhooks.all_hooks() if h["id"] == hid][0]
 check("...and a receiver that is down is noted as such", bool(hk["last_error"]), True)

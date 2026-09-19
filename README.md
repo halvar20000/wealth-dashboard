@@ -526,6 +526,41 @@ The screenshots are of the English interface in every version, because that is
 what a screenshot is a picture of. Where the app has a translated label, the
 text gives both.
 
+## Your own CSV — the template
+
+Any bank's CSV can be mapped once on the import page. But if you make
+the file yourself — from a spreadsheet, a script, a document archive —
+there is a header that needs no mapping at all. Name the columns like
+this, in any order, and the file is recognised as the app's own:
+
+```
+date,amount,currency,description,counterparty,kind,isin,security_name,quantity,price,fee,tax,id
+2026-03-01,-1250.00,EUR,Rent March,Landlord Ltd,,,,,,,,r-1
+2026-03-02,-482.10,EUR,Bought 4 x World ETF,,buy,IE00BK5BQT80,Vanguard FTSE All-World,4,120.10,1.70,,r-2
+2026-03-05,2900.00,EUR,Salary,Employer AG,deposit,,,,,,,r-3
+2026-03-08,12.40,EUR,Dividend,,dividend,IE00BK5BQT80,Vanguard FTSE All-World,,,,1.85,r-4
+```
+
+Only `date` and `amount` are required; leave out any column you have
+nothing for. What each one means:
+
+| Column | Meaning |
+|---|---|
+| `date` | `2026-03-01`, `01.03.2026` or `01/03/2026`. A US month-first date is not guessed. |
+| `amount` | Signed: money in positive, money out negative. Or two columns `debit` and `credit` instead. |
+| `currency` | ISO code. Blank means the account's currency. |
+| `description` | What the row says. |
+| `counterparty` | Who paid or was paid — what the category rules match on. |
+| `kind` | `buy`, `sell`, `dividend`, `interest`, `fee`, `tax`, `deposit`, `withdrawal` or `transfer` (also in German, French or Spanish). Blank: worked out from the row — an ISIN and units is a trade, an ISIN and money in is a dividend, plain money a deposit or a withdrawal. A kind you name also fixes the sign of the amount. |
+| `isin`, `security_name` | For anything that is a holding. The ISIN is the key that joins the same fund across brokers. |
+| `quantity`, `price` | Units and price per unit for a buy or a sale. Units are always written positive; the kind gives them their sign. |
+| `fee`, `tax` | Positive amounts, kept apart from the price. |
+| `id` | Your own id for the row, if you have one. With it, a row whose text you corrected between two exports is still the same row; without it, the row is identified by what it says. |
+
+Separator can be `,`, `;`, tab or `|`; decimals can be `1234.56` or
+`1.234,56`; a file that Excel wrapped in quotes is unwrapped. Re-importing
+a file you already loaded adds nothing twice.
+
 ## Where your data lives
 
 ```

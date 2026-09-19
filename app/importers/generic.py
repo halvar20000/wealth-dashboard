@@ -11,9 +11,13 @@ is recognised the way a Degiro file is: by what is in it.
 The mapping is a dict of field → column heading, plus a few options:
 
     txn_date, amount | debit + credit, description, counterparty,
-    currency, isin, security_name, quantity, price, fee, tax, kind
+    currency, isin, security_name, quantity, price, fee, tax, kind, id
     negate:  the export writes money out as positive
     currency_fixed: when there is no currency column
+
+A file whose header already uses those names needs no mapping at all:
+it is recognised as the app's own template — see NATIVE — which is
+the answer to "what should my spreadsheet export look like".
 
 Kinds come from a kind column if there is one and its words are
 known — Kauf, Buy, Achat, Verkauf, Sell, Vente, Dividende … — and are
@@ -37,8 +41,19 @@ from .base import (KINDS, ParsedTxn, ParseResult, find_isin, normalise_csv_text,
                    parse_date, parse_decimal)
 
 FIELDS = ("txn_date", "amount", "debit", "credit", "description", "counterparty",
-          "currency", "isin", "security_name", "quantity", "price", "fee", "tax", "kind")
+          "currency", "isin", "security_name", "quantity", "price", "fee", "tax", "kind",
+          "id")
 REQUIRED = ("txn_date",)
+
+# The app's own CSV: a header made of the field names above, in any
+# order and any subset with a date and an amount. Somebody exporting
+# from their own spreadsheet needs a target to aim at, and "name the
+# columns like this" is a target with no mapping page in the way.
+# `date` is accepted for `txn_date`, because nobody writes txn_date by
+# choice. A row with an `id` keeps it, so a re-export after editing a
+# description does not come back as a second row.
+NATIVE = {"id": 0, "name": "Wealth Dashboard CSV", "delimiter": None}
+_NATIVE_ALIASES = {"date": "txn_date"}
 
 # A kind column's words, lower-cased, in the languages the app speaks
 # and the ones the banks it targets write in.
@@ -93,11 +108,30 @@ def _row(r) -> dict:
     return d
 
 
+def native(header: list[str]) -> dict | None:
+    """The built-in mapping, when every column is one of ours."""
+    mapping: dict[str, str] = {}
+    for h in header:
+        key = " ".join(h.split()).lower()
+        key = _NATIVE_ALIASES.get(key, key)
+        if key not in FIELDS or key in mapping:
+            return None
+        mapping[key] = h
+    if check(mapping):
+        return None
+    return {**NATIVE, "mapping": mapping}
+
+
 def find(header: list[str]) -> dict | None:
+    """A saved mapping for this header — or the built-in one, when the
+    header is the template. Saved first: a mapping somebody drew for a
+    file that happens to use our words is still theirs."""
     with get_conn() as conn:
         r = conn.execute("SELECT * FROM csv_mappings WHERE header_key = ?",
                          (header_key(header),)).fetchone()
-    return _row(r) if r else None
+    if r:
+        return _row(r)
+    return native(header)
 
 
 def save(name: str, header: list[str], delimiter: str, mapping: dict) -> int:
@@ -191,10 +225,17 @@ def parse_with(mapping: dict, content: bytes | str, account_currency: str = "EUR
                 quantity = -abs(quantity)
             elif kind != "transfer":
                 quantity = None
-        seed = "|".join([date, f"{amount:.2f}", currency, description, isin or "",
-                         f"{quantity or 0:.6f}", cell(row, "counterparty")])
-        seen[seed] += 1
-        digest = hashlib.sha1(f"{seed}#{seen[seed]}".encode()).hexdigest()[:20]
+        own_id = " ".join(cell(row, "id").split())[:120]
+        if own_id:
+            # The file's own id, namespaced by the mapping so two banks'
+            # "1" never meet — and, for the template, by the account, so
+            # two people's spreadsheets never do either.
+            digest = hashlib.sha1(f"{mapping.get('_scope', '')}|{own_id}".encode()).hexdigest()[:20]
+        else:
+            seed = "|".join([date, f"{amount:.2f}", currency, description, isin or "",
+                             f"{quantity or 0:.6f}", cell(row, "counterparty")])
+            seen[seed] += 1
+            digest = hashlib.sha1(f"{seed}#{seen[seed]}".encode()).hexdigest()[:20]
         result.rows.append(ParsedTxn(
             txn_date=date, description=description[:500], amount=amount, currency=currency,
             kind=kind, external_id=f"csv:{digest}",
@@ -245,8 +286,11 @@ class Mapped:
         self.SLUG = f"csv:{saved['id']}"
         self.LABEL = saved["name"]
 
-    def parse(self, content, account_currency="EUR"):
-        return parse_with(self.saved["mapping"], content, account_currency, self.saved["delimiter"])
+    def parse(self, content, account_currency="EUR", account_id=None):
+        mapping = dict(self.saved["mapping"])
+        mapping["_scope"] = (f"account:{account_id}" if self.saved["id"] == 0 and account_id
+                             else f"mapping:{self.saved['id']}")
+        return parse_with(mapping, content, account_currency, self.saved["delimiter"])
 
 
 def sniff(content: bytes | str):

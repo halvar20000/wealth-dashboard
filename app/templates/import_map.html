@@ -10,7 +10,7 @@
   'txn_date': _("Date"), 'amount': _("Amount, signed"), 'debit': _("Debit (money out)"), 'credit': _("Credit (money in)"),
   'description': _("Description"), 'counterparty': _("Counterparty"), 'currency': _("Currency"),
   'isin': _("ISIN"), 'security_name': _("Security name"), 'quantity': _("Quantity"), 'price': _("Price"),
-  'fee': _("Fee"), 'tax': _("Tax"), 'kind': _("Kind") } %}
+  'fee': _("Fee"), 'tax': _("Tax"), 'kind': _("Kind"), 'id': _("Row id") } %}
 {% set hints = {
   'txn_date': _("Written year-month-day, day.month.year or day/month/year. A US month-first date is not guessed."),
   'amount': _("Money in positive, money out negative. If the file has one column for each, leave this blank and map the two below."),
@@ -22,7 +22,8 @@
   'isin': _("Blank means the ISIN is looked for in the description."),
   'security_name': "", 'quantity': _("The kind gives the sign: a buy's units come in, a sale's go out."),
   'price': "", 'fee': "", 'tax': "",
-  'kind': _("Buy, sell, dividend, interest, fee, tax, deposit, withdrawal or transfer — in English, German, French or Spanish. Left blank, the kind is worked out from the row: an ISIN and units is a trade, an ISIN and money in a dividend, plain money a deposit or a withdrawal.") } %}
+  'kind': _("Buy, sell, dividend, interest, fee, tax, deposit, withdrawal or transfer — in English, German, French or Spanish. Left blank, the kind is worked out from the row: an ISIN and units is a trade, an ISIN and money in a dividend, plain money a deposit or a withdrawal."),
+  'id': _("The bank's own id for the row, if it has one. With it, a row whose text changed between two exports is still the same row.") } %}
 
 <div class="card">
   <div class="card-header">

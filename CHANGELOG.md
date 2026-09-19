@@ -11,6 +11,21 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.60.0] — 2026-09-19
+
+### Added
+- **A CSV template of the app's own.** Anyone making a file themselves —
+  from a spreadsheet, a script, a document archive — now has a target to
+  aim at: name the columns `date, amount, currency, description,
+  counterparty, kind, isin, security_name, quantity, price, fee, tax, id`
+  (any order, any subset with a date and an amount) and the file is
+  recognised outright, with no mapping page in the way. Documented in the
+  README with an example. Asked for by the first person to write in.
+- **A row id column**, for the template and for any mapped CSV. A bank's
+  own reference — or yours — identifies the row, so a re-export after a
+  corrected description is still the same row rather than a second one.
+  Without it a row is identified by what it says, as before.
+
 ## [0.59.0] — 2026-09-17
 
 ### Added

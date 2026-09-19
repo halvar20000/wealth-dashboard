@@ -744,6 +744,8 @@ _HEADER_GUESSES = {
     "tax": ("tax", "steuer", "impôt", "impuesto", "withholding"),
     "kind": ("type", "typ", "art", "kind", "transaktion", "transaction type", "tipo", "opération",
              "umsatzart", "buchungsart", "transaktionsart", "geschäftsart", "vorgang", "nature"),
+    "id": ("id", "transaction id", "transaction_id", "reference", "referenz", "référence",
+           "referencia", "trade id", "order id"),
 }
 
 
@@ -968,7 +970,10 @@ def _import_files(account_id: int, currency: str, files: list[tuple[str, bytes]]
         if module is None:
             total["unrecognised"].append(name)
             continue
-        parsed = module.parse(content, account_currency=currency)
+        if isinstance(module, importers.generic.Mapped):
+            parsed = module.parse(content, account_currency=currency, account_id=account_id)
+        else:
+            parsed = module.parse(content, account_currency=currency)
         import_id = importers.begin_import(account_id, os.path.basename(name), module.SLUG)
         r = importers.store(account_id, parsed, module.SLUG, import_id)
         total.setdefault("imports", []).append(import_id)
