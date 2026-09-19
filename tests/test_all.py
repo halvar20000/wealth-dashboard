@@ -6621,6 +6621,10 @@ def fake_archive(method, full, headers, body, token="tok-1"):
     if m:
         d = ARCHIVE_DOCS[int(m.group(1))]
         if m.group(2):
+            # Paperless negotiates content on the download: anything but
+            # */* (or the file's own type) is a 406, as a real one showed.
+            if headers.get("Accept") not in ("*/*", "application/pdf"):
+                return 406, {}, b'{"detail":"Could not satisfy the request Accept header."}'
             return 200, {"Content-Disposition": f'attachment; filename="{d["file"][0]}"'}, d["file"][1]
         return js({"id": int(m.group(1)), "content": d["content"]})
     return 404, {}, b"{}"

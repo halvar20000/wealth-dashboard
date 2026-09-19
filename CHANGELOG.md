@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.62.1] — 2026-09-19
+
+### Fixed
+- Pulling from Paperless-ngx fetched the listing but every download
+  answered **406**: the file was asked for as `application/octet-stream`,
+  which Paperless's content negotiation refuses. Asked for as `*/*` now.
+  Documents recorded as failed by the first pull are fetched by the next
+  one after *Try the unread ones again*. Found by the first person to try
+  it, on Swissquote statements.
+
 ## [0.62.0] — 2026-09-19
 
 ### Added

@@ -126,8 +126,11 @@ class Client:
         full = self.base + path
         if params:
             full += ("&" if "?" in full else "?") + urllib.parse.urlencode(params)
+        # A file is asked for with */*: the download endpoint negotiates
+        # content the Django way and answers 406 to anything narrower —
+        # a PDF is not "application/octet-stream" to it.
         headers = {"Authorization": f"Token {self.token}", "User-Agent": USER_AGENT,
-                   "Accept": "application/octet-stream" if raw else "application/json"}
+                   "Accept": "*/*" if raw else "application/json"}
         status, resp_headers, body = self.transport("GET", full, headers, None)
         if status == 401 or status == 403:
             raise ArchiveError("The archive refused the token — make a new one under "
