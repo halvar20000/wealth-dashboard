@@ -302,11 +302,11 @@ class Reader:
                     seen_ids.add(row.external_id)
                     result.rows.append(row)
                     if d.split and len(primary_rows) == 1 and primary_rows[0].currency == row.currency:
-                        # The booked total held this credit: the sale
-                        # keeps its own proceeds, the credit its own row.
+                        # The booked total held this credit: the trade
+                        # keeps its own figure, the credit its own row —
+                        # more proceeds on a sale, more cost on a buy.
                         main = primary_rows[0]
-                        rest = round(abs(main.amount) - abs(row.amount), 2)
-                        main.amount = rest if main.amount >= 0 else -rest
+                        main.amount = round(main.amount - row.amount, 2)
         # A tax page printed under the statement it belongs to: its
         # taxes go onto that row, and its after-tax figure replaces the
         # amount, because that is what reached the account.
@@ -441,7 +441,7 @@ class Reader:
             amount = -amount
         elif kind == "transfer":
             amount = 0.0
-        if kind == "tax" and (refund or re.search(r"(?i)erstattung|refund|gutschrift|rückzahlung|optimierung", piece[:400] + sign_word)):
+        if kind in ("tax", "fee") and (refund or re.search(r"(?i)erstattung|refund|gutschrift|rückzahlung|optimierung|vergünstigung|rebate", piece[:400] + sign_word)):
             amount = abs(amount)
         quantity = None
         if shares is not None and kind in ("buy", "sell", "transfer"):

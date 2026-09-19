@@ -13,7 +13,7 @@ from importlib import import_module
 
 from ..statement import Reader
 
-BANKS = ["traderepublic", "degiro", "dekabank", "wirbank", "ebase", "swissquote", "quirin", "saxobank", "hbl", "findependent", "olb", "ffb", "tradegate", "bondora", "boursobank", "renaultbank", "akfbank", "lgt", "llb", "neon", "tigerbrokers", "questrade", "unicredit", "sunrise", "bankslm", "dreibanken", "n26", "c24", "estateguru", "boursedirect", "bbva", "vanguard", "sydbank", "selfwealth", "schelhammer", "pictet", "comdirect", "ingdiba", "consorsbank", "baaderbank", "scalablecapital", "flatex", "dwpbank", "dab", "deutschebank", "targobank", "commerzbank", "bawag", "erstebank", "postfinance", "zkb", "ubs", "keytrade", "kbc", "arkea"]
+BANKS = ["traderepublic", "degiro", "dekabank", "wirbank", "ebase", "swissquote", "quirin", "saxobank", "hbl", "findependent", "olb", "ffb", "tradegate", "bondora", "boursobank", "renaultbank", "akfbank", "lgt", "llb", "neon", "tigerbrokers", "questrade", "unicredit", "sunrise", "bankslm", "dreibanken", "n26", "c24", "estateguru", "boursedirect", "bbva", "vanguard", "sydbank", "selfwealth", "schelhammer", "pictet", "creditsuisse", "comdirect", "ingdiba", "consorsbank", "baaderbank", "scalablecapital", "flatex", "dwpbank", "dab", "deutschebank", "targobank", "commerzbank", "bawag", "erstebank", "postfinance", "zkb", "ubs", "keytrade", "kbc", "arkea"]
 
 
 def _specs(name: str) -> list:
