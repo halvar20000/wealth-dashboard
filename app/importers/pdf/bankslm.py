@@ -12,14 +12,14 @@ NUM = r"[\d.,'’]+"
 DATE = r"\d{2}\.\d{2}\.\d{4}"
 
 TRADE_FIELDS = {
-    "security": [r"^(?P<shares>" + NUM + r") (?:Anteile )?(?P<name>.+)\n(?P<name2>.+)\nValor: (?P<ref>\d+)",
-                 r"^(?P<shares>" + NUM + r") (?:Anteile )?(?P<name>.+)\n(?:[^\n]*\n)?[^\n]*\nValor: (?P<ref>\d+)", r"^ISIN: " + ISIN],
+    "security": [r"^(?P<shares>" + NUM + r") (?:Anteile )?(?P<name>.+)\n(?P<name2>.+)\nValor: (?P<ref>\d+)(?:\nISIN: " + ISIN + r")?",
+                 r"^(?P<shares>" + NUM + r") (?:Anteile )?(?P<name>.+)\n(?:[^\n]*\n)?[^\n]*\nValor: (?P<ref>\d+)(?:\nISIN: " + ISIN + r")?", r"^ISIN: " + ISIN],
     "price": [r"^Menge/Nominal Preis\n" + NUM + r" (?P<price>" + NUM + r")", r"^Menge Ausf.hrung Preis Wrg Betrag\n" + NUM + r" \S+ (?P<price>" + NUM + r") "],
     "date": [r"^Wir haben f.r Sie am (?P<date>" + DATE + r")", r"Valuta: (?P<date>" + DATE + r")"],
     "amount": [r"^Netto [A-Z]{3} -?" + NUM + r"\nChange [A-Z]{3}/[A-Z]{3} " + NUM + r" (?P<currency>[A-Z]{3}) (?P<amount>-?" + NUM + r")",
                r"^Netto (?P<currency>[A-Z]{3}) (?P<amount>-?" + NUM + r")"],
-    "fees": [r"^(?:Eigene Courtage|Courtage|B.rsengeb.hren?|Fremde Spesen)[^\n]*? (?P<currency>[A-Z]{3}) (?P<sign>-?)(?P<fee>" + NUM + r")$"],
-    "taxes": [r"^(?:Eidg\. Umsatzabgabe|Eidg\. Umsatz Stempel|\d+% Verrechnungssteuer|Verrechnungssteuer|Quellensteuer)[^\n]*? (?P<currency>[A-Z]{3}) (?P<sign>-?)(?P<tax>" + NUM + r")$"],
+    "fees": [r"^(?:Eigene Courtage|Courtage|B.rsengeb.hren?|Fremde Spesen|Andere Spesen)[^\n]*? (?P<currency>[A-Z]{3}) (?P<sign>-?)(?P<fee>" + NUM + r")$"],
+    "taxes": [r"^(?:Eidg\. Umsatzabgabe|Eidg\. Umsatz Stempel|Stempel|\d+% Verrechnungssteuer|Verrechnungssteuer|Quellensteuer)[^\n]*? (?P<currency>[A-Z]{3}) (?P<sign>-?)(?P<tax>" + NUM + r")$"],
     "fx": [r"^Change (?P<fx_pair>[A-Z]{3} ?/ ?[A-Z]{3}) (?P<fx_rate>" + NUM + r")"],
 }
 DIVIDEND_FIELDS = {

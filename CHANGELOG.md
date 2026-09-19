@@ -11,6 +11,31 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.65.0] — 2026-09-19
+
+### Added
+- **Statement PDFs of fifty-two more banks and brokers — every bank in
+  Portfolio Performance's corpus now has a reader**, 132 in all. apoBank,
+  Solaris, V-Bank, Bank11, Audi Bank and Volkswagen Bank, Ford Money,
+  Bigbank, Advanzia, Suresse, Ayvens, Sberbank Europe, ABN AMRO / MoneYou,
+  Orange Bank and Nordax (Raisin), Anadi Bank, Bundesschatz, Ginmon's fee
+  invoice, the BAWAG card statement, BSDEX and Debitum, Crowdestor,
+  Modena; Revolut, Trading 212, Whitebox; in Switzerland Liberty Vorsorge
+  (whose PDFs come out with blanks inside every word), St. Galler,
+  Thurgauer, Basellandschaftliche and Freiburger Kantonalbank, radicant,
+  VZ Depotbank, Simpel / own360; in the UK and Ireland AJ Bell, Hargreaves
+  Lansdown, Aviva, Fidelity; Openbank in Spain, Directa in Italy,
+  MeDirect and vdk bank in Belgium, Crédit Mutuel / Suravenir in France;
+  Firstrade, Alpaca, E*TRADE, Score Priority and Lime Trading,
+  Computershare in the US; Wealthsimple in Canada, Stake and CommSec in
+  Australia, cetesdirecto in Mexico, KFintech / CAMS's Indian Consolidated
+  Account Statement. The engine takes `$` and `£` as currencies and
+  completes `dd-mm` dates from a statement's year as it did `dd.mm.`.
+
+### Changed
+- The corpus scoreboard now covers 2,679 documents (every folder has a
+  reader to run) and reads 68 % of them to the cent.
+
 ## [0.64.0] — 2026-09-19
 
 ### Added

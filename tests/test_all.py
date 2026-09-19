@@ -6831,7 +6831,7 @@ check("a comdirect dividend with letter-spaced lines is read", (len(d.rows), d.p
 check("...as a dividend for what was credited, on the Valuta", (d.rows[0].kind, d.rows[0].amount, d.rows[0].txn_date),
       ("dividend", 118.06, "2026-05-14"))
 check("...with the ISIN squeezed back together", d.rows[0].isin, "US0000000001")
-check("...and the dollar withholding turned into euros at the paper's rate", d.rows[0].tax, round(22.50 / 1.08, 4))
+check("...and the dollar withholding turned into euros at the paper's rate", d.rows[0].tax, round(22.50 / 1.08, 2))
 
 v = by_slug["ing_pdf"].parse(fixtures.ING_VERKAUF)
 check("an ING sale is read", (len(v.rows), v.problems), (1, []))
@@ -6889,6 +6889,15 @@ check("the sniffer hands a Trade Republic PDF to its reader",
       importers.sniff(fixtures.pdf_from_text(fixtures.TRADEREPUBLIC_KAUF)).SLUG, "traderepublic_pdf")
 check("every spec has a corpus name, a label and at least one doc",
       all(r.CORPUS is not None and r.LABEL and r.spec.docs for r in READERS), True)
+
+f = by_slug["firstrade_pdf"].parse(fixtures.FIRSTRADE_BUY)
+check("an American confirmation: month-first dates turned round, the settlement day, $ read as USD",
+      (f.rows[0].kind, f.rows[0].txn_date, f.rows[0].amount, f.rows[0].currency, f.rows[0].quantity),
+      ("buy", "2022-07-01", -371.65, "USD", 5.0))
+lv = by_slug["liberty_pdf"].parse(fixtures.LIBERTY_VERKAUF)
+check("Liberty's letter-spaced paper is glued back together: a sale in CHF off the Change line, the stamp duty converted",
+      (lv.rows[0].kind, lv.rows[0].txn_date, lv.rows[0].amount, lv.rows[0].currency, lv.rows[0].isin, lv.rows[0].tax),
+      ("sell", "2025-03-06", 283.80, "CHF", "IE00BHZRQZ17", 0.42))
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

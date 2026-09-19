@@ -78,7 +78,8 @@ it does not do yet.
       Scalable, flatex, DAB, onvista, and the dwpbank and DAB families),
       43 more in 0.64.0 (Trade Republic, DEGIRO, DekaBank, ebase, FFB,
       Quirin, Tradegate, the Swiss and Liechtenstein banks, the neobanks'
-      cash statements) — 66 % of 2,529 corpus documents to the cent.
+      cash statements), the remaining 52 in 0.65.0 — every corpus bank
+      has a reader; 68 % of 2,679 corpus documents to the cent.
 - [x] CSV export of transactions and holdings, filtered as the page is.
 - [x] Allocation by asset class, region and bucket, with targets and a
       contribution spread.

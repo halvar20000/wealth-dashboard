@@ -190,9 +190,9 @@ def _sum(text: str, patterns, group: str, style: str, currency: str | None = Non
             if currency and ccy and ccy != currency:
                 base, quote, rate = fx
                 if rate and ccy == quote and base == currency:
-                    v = v / rate
+                    v = round(v / rate, 2)
                 elif rate and ccy == base and quote == currency:
-                    v = v * rate
+                    v = round(v * rate, 2)
                 else:
                     continue
             # A fee or tax line is a charge unless it says otherwise: a

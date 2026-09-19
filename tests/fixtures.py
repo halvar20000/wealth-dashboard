@@ -1072,3 +1072,30 @@ Datum Uhrzeit Valutadatum Produkt ISIN Beschreibung FX Änderung Saldo
 Kontoauszug - www.degiro.de
 """
 
+FIRSTRADE_BUY = """Apex Clearing Corporation
+FIRSTRADE HOUSE REP 1-1MAX MUSTERMANN
+ACCOUNT NUMBER: 123-12345
+TRADE SETTLEMENT ACCT
+ACTION SYMBOL CUSIP DATE DATE TYPE QUANTITY PRICE
+YOU BOUGHT XBI 78464A870 06/29/22 07/01/22 MARGIN 5 $74.33000
+SPDR SER TR S&P BIOTECH ETF PRINCIPAL $371.65
+UNSOLICITED NET AMOUNT $371.65
+"""
+
+LIBERTY_VERKAUF = """Liberty  V orsorge AG
+Schw y z ,12.03.2025 Au ftra gsda tu m 12.03.2025
+Börsena brechnu ng - V erk a u f
+W ir ha ben für Sie a m  06.03.2025 v erk a u ft
+8 Anla gefonds U SD
+Fra nk lin FTSE India  U CITS
+V a lor:46325074
+ISIN:IE00BH Z RQ Z 17
+M enge/Nom ina l Börsenpla tz Preis
+8 SIX  Sw iss Ex cha nge U SD 40.1483
+Tota lK u rsw ert U SD 321.19
+Andere Spesen U SD -0.05
+Stem pel U SD -0.48
+Netto U SD 320.66
+Cha nge U SD /CH F 0.885050 CH F 283.80
+"""
+

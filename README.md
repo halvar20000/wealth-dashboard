@@ -535,14 +535,15 @@ text gives both.
 ## Statement PDFs, bank by bank
 
 Beyond DKB and Swissquote's own readers, the statement PDFs of some
-eighty banks and brokers are read — Wertpapierabrechnungen,
+130 banks and brokers are read — Wertpapierabrechnungen,
 Dividendengutschriften, Vorabpauschalen, and where the layout allows
 it the Kontoauszug too. Each reader is a *spec* — a few dozen anchors
 in `app/importers/pdf/` — run by one engine (`app/importers/statement.py`),
 and scored against [Portfolio Performance](https://github.com/portfolio-performance/portfolio)'s
 corpus of real, anonymised statements with `tools/statement_scoreboard.py`:
-2,529 documents, 66 % of them read to the cent, every asserted figure
-(units, amount, fees, taxes) matching. What is missing is mostly old
+2,679 documents, 68 % of them read to the cent, every asserted figure
+(units, amount, fees, taxes) matching; every bank in the corpus has a
+reader. What is missing is mostly old
 layouts, corporate actions and edge cases, which the scoreboard lists
 by name.
 
@@ -578,6 +579,12 @@ by name.
 | LGT · Liechtensteinische Landesbank / wiLLBe · Pictet | 100 % of 13 · 100 % of 11 · 100 % of 6 |
 | Keytrade Bank, KBC — Belgium; Arkéa / Fortuneo, BoursoBank, Bourse Direct — France | 48, 7, 12, 100, 100 % |
 | BBVA — Spain; Sydbank — Denmark; Questrade — Canada; SelfWealth — Australia; Tiger Brokers — Singapore | 57, 100, 100, 100, 36 % |
+| apoBank · Solaris · V-Bank · Bank11 · Audi Bank · Volkswagen Bank · Ford Money · Bigbank · Advanzia · Suresse · Ayvens · Sberbank Europe · ABN AMRO / MoneYou · Orange Bank · Nordax · Ginmon · BAWAG card | 100 % each (1–5 docs) |
+| Anadi Bank · Bundesschatz — Austria; BSDEX · Debitum · Crowdestor · Modena · Revolut · Trading 212 · Whitebox | 100 % each |
+| Liberty Vorsorge · St. Galler, Thurgauer, Basellandschaftliche and Freiburger Kantonalbank · radicant · VZ Depotbank · Simpel / own360 — Switzerland | 100 % each |
+| AJ Bell · Hargreaves Lansdown · Aviva · Fidelity — UK; Openbank · Directa · MeDirect · vdk bank · Crédit Mutuel / Suravenir | 100 % each |
+| Firstrade · Alpaca · E*TRADE · Score Priority · Lime Trading · Computershare — US; Wealthsimple · Stake · CommSec | 100 % each |
+| KFintech / CAMS (India, Consolidated Account Statement) · cetesdirecto (Mexico) | 67 % of 3 · 0 % of 1 (PP's test reads the balance column as tax; the reader follows the document) |
 
 Many of the German ones share one layout — dwpbank's, which also
 prints DKB's and any Sparkasse's securities statements — so a bank not
