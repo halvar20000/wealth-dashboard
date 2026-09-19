@@ -48,6 +48,9 @@ a PSD2 API it connects directly, with credentials that are yours.
 - **People** — the household's members, each account ticked for one, several
   or none of them, and a switch in the header between everyone's picture and
   one person's. Every page adds up accordingly.
+- **Statements pulled from Paperless-ngx** — say on each account which
+  documents are its, by tag, correspondent or query; every new one arrives
+  on the daily sync through the same readers an upload gets.
 - **CSV and PDF import** — Degiro and Trade Republic exports, DKB's
   Girokonto, Tagesgeld and Visa CSVs, DKB's Wertpapierabrechnung PDFs
   for the Depot, Swissquote's and Yuh's statement PDFs and Swissquote's
@@ -525,6 +528,38 @@ to match exactly, and the linking step whose absence looks like a bug here.
 The screenshots are of the English interface in every version, because that is
 what a screenshot is a picture of. Where the app has a translated label, the
 text gives both.
+
+## Pulling statements from Paperless-ngx
+
+If your statements live in [Paperless-ngx](https://docs.paperless-ngx.com/),
+the app can fetch them itself instead of you uploading each one.
+
+1. **Settings → Banks & brokers → Document archive**: the archive's address
+   (the Paperless root, e.g. `http://paperless.lan:8000`) and an API token
+   (Paperless → *My Profile* → the circular arrow makes one). *Save and
+   check* confirms the token works and lists the tags it sees.
+2. **On each account's edit page**: which documents are its — tags the
+   document must all carry (`bank, statement, DKB`), a correspondent, a
+   search query, or any combination.
+3. **Pull now**, and from then on every daily sync fetches whatever is new.
+
+Each document goes through exactly the readers an upload goes through, so
+what can be read is what the import page can read: the built-in CSV and
+PDF importers, the column mappings you drew, the CSV template above. Every
+document is remembered — imported, not read, or failed to fetch — so a pull
+lists once and imports nothing twice, and a document no reader understood
+is listed under Settings with a link back into Paperless rather than skipped
+in silence. When a reader for its layout arrives, *Try the unread ones
+again* gives it another go.
+
+A scanned statement is only an image to the PDF readers, but Paperless has
+already OCR'd it: when the original is not recognised, Paperless's text is
+offered to the statement readers before the document is given up on. A
+clean scan of a known layout reads like its download would; a poor one
+does not, and is listed.
+
+The archive is read, never written. The token is kept beside the bank key,
+`0600`, and never leaves the machine.
 
 ## Your own CSV — the template
 

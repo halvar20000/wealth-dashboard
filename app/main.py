@@ -46,7 +46,7 @@ from .banks import sync as banksync
 from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, income, loans, retirement, webhooks,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, splits, stages, subscriptions, upcoming)
-from . import brokers
+from . import archive, brokers
 from .brokers import kraken, saxo
 from . import db as db_state
 from .db import get_conn, has_users, init_db
@@ -527,12 +527,18 @@ def account_edit(account_id: int):
                      (request.form.get("currency") or "EUR").upper()[:3],
                      until, account_id))
             people.set_for_account(account_id, request.form.getlist("people"))
+            if archive.configured():
+                archive.set_filter(account_id, request.form.get("archive_tags", ""),
+                                   request.form.get("archive_correspondent", ""),
+                                   request.form.get("archive_query", ""))
             flash(_t("Account updated."), "ok")
             return redirect(url_for("account_detail", account_id=account_id))
 
     return render_template("account_edit.html", account=dict(account),
                            counts=counts, error=error, active_page="accounts",
-                           owner_ids={p["id"] for p in people.for_account(account_id)})
+                           owner_ids={p["id"] for p in people.for_account(account_id)},
+                           archive_on=archive.configured(),
+                           archive_filter=archive.filter_for(account_id) or {})
 
 
 @app.route("/accounts/<int:account_id>/delete", methods=["POST"])
@@ -2465,6 +2471,24 @@ def _person_error(message: str) -> str:
     return _t("A person needs a name.")
 
 
+def _flash_archive(results: list[dict]) -> None:
+    """What a pull did, in one line, and the accounts it could not list."""
+    if not results:
+        flash(_t("No account says which documents are its yet — set that on the "
+                 "account's edit page."), "error")
+        return
+    for r in results:
+        if r["error"]:
+            flash(f"{r['account']}: {r['error']}", "error")
+    ok = [r for r in results if not r["error"]]
+    if ok:
+        flash(_f("{new} new documents: {imported} read ({rows} transactions), {unread} "
+                 "no reader could read, {failed} failed to fetch.",
+                 new=sum(r["new"] for r in ok), imported=sum(r["imported"] for r in ok),
+                 rows=sum(r["inserted"] for r in ok), unread=sum(r["unread"] for r in ok),
+                 failed=sum(r["failed"] for r in ok)), "ok")
+
+
 def _valid_hhmm(value: str) -> bool:
     parts = value.split(":")
     return (len(parts) == 2 and all(p.isdigit() for p in parts)
@@ -2494,6 +2518,7 @@ SETTINGS_SECTIONS = ("general", "banks", "market", "categories", "people", "assi
 _SETTINGS_ANCHORS = {
     "general": "general",
     "sync": "banks", "saxo": "banks", "kraken": "banks", "mappings": "banks", "enablebanking": "banks",
+    "archive": "banks",
     "rates": "market", "prices": "market", "ideas": "market",
     "categories": "categories", "people": "people", "mcp": "assistants", "webhooks": "assistants", "api": "assistants",
 }
@@ -2597,6 +2622,34 @@ def settings_page(section: str = "general"):
             brokers.remove_links("kraken")
             flash(_t("Kraken key forgotten. The account and its history stay."), "ok")
             return redirect(_settings_url("kraken"))
+        elif request.form.get("form") == "archive_save":
+            try:
+                archive.save(request.form.get("archive_url", ""), request.form.get("archive_token", ""))
+                info = archive.check()
+                flash(_f("The archive answers: {n} documents, tags {tags}. Now say on each "
+                         "account which documents are its.", n=info["documents"],
+                         tags=", ".join(info["tags"][:12]) + (" …" if len(info["tags"]) > 12 else "")),
+                      "ok")
+            except (ValueError, archive.ArchiveError) as exc:
+                flash(str(exc), "error")
+            return redirect(_settings_url("archive"))
+        elif request.form.get("form") == "archive_forget":
+            archive.forget()
+            flash(_t("Archive forgotten. What was imported from it stays."), "ok")
+            return redirect(_settings_url("archive"))
+        elif request.form.get("form") == "archive_pull":
+            try:
+                results = archive.pull()
+            except archive.ArchiveError as exc:
+                flash(str(exc), "error")
+                return redirect(_settings_url("archive"))
+            _flash_archive(results)
+            return redirect(_settings_url("archive"))
+        elif request.form.get("form") == "archive_retry":
+            n = archive.retry_unread()
+            flash(_n(n, "{n} document will be tried again on the next pull.",
+                     "{n} documents will be tried again on the next pull."), "ok")
+            return redirect(_settings_url("archive"))
         elif request.form.get("form") == "mcp_token":
             if request.form.get("action") == "revoke":
                 mcp.revoke()
@@ -2716,6 +2769,7 @@ def settings_page(section: str = "general"):
                            mcp_token=mcp.token(),
                            saxo_state=saxo.describe(),
                            kraken_state=kraken.describe(),
+                           archive_state=archive.describe(),
                            broker_links=brokers.links(),
                            mcp_url=request.url_root.rstrip("/") + "/mcp",
                            api_url=request.url_root.rstrip("/") + "/api/v1/tools",
@@ -2985,6 +3039,13 @@ def _start_rate_refresher() -> None:
                                        datetime.now().isoformat(timespec="seconds"))
                     loans.write_all_balances()
                     results = banksync.sync_all() + brokers.sync_all()
+                    if archive.configured():
+                        try:
+                            for r in archive.pull():
+                                what = r["error"] or f"{r['new']} new, {r['imported']} read, {r['unread']} unread"
+                                print(f"  archive: {r['account']}: {what}", flush=True)
+                        except Exception as exc:          # noqa: BLE001
+                            print(f"  archive: {exc}", flush=True)
                     # Once a day, after the sync: a bill past due with
                     # nothing seen is worth a message.
                     try:

@@ -6578,5 +6578,132 @@ with db.get_conn() as conn:
 cat.delete_category("simracing")
 
 # ---------------------------------------------------------------------------
+print("\n48. Pulling statements from a document archive")
+# ---------------------------------------------------------------------------
+from app import archive                                               # noqa: E402
+import urllib.parse as _up                                            # noqa: E402
+
+# A Paperless-ngx that answers from memory: four documents under two
+# tags. One is a statement the readers know, one a scan with no text
+# but Paperless's OCR of a known layout, one a letter, one a CSV in the
+# app's own template.
+BLANK_PDF = fixtures.pdf_from_text("")
+ARCHIVE_DOCS = {
+    11: {"title": "DKB Kauf", "created": "2026-03-12", "tags": ["bank", "depot"],
+         "file": ("kauf.pdf", fixtures.pdf_from_text(fixtures.DKB_PDF_KAUF.replace("611223/44.00", "999001/11.00"))), "content": "some ocr"},
+    12: {"title": "DKB Verkauf (scan)", "created": "2026-04-20", "tags": ["bank", "depot"],
+         "file": ("scan.pdf", BLANK_PDF), "content": fixtures.DKB_PDF_VERKAUF.replace("622334/55.00", "999002/22.00")},
+    13: {"title": "Letter", "created": "2026-05-01", "tags": ["bank", "depot"],
+         "file": ("letter.pdf", fixtures.pdf_from_text("Dear customer, hello.")), "content": "Dear customer"},
+    14: {"title": "Own CSV", "created": "2026-06-01", "tags": ["bank", "giro"],
+         "file": ("mine.csv", b"date,amount,description,id\n2026-06-01,-42.00,Groceries,g-1\n"), "content": ""},
+}
+ARCHIVE_TAGS = {1: "bank", 2: "depot", 3: "giro"}
+archive_calls = []
+
+
+def fake_archive(method, full, headers, body, token="tok-1"):
+    archive_calls.append(full)
+    if headers.get("Authorization") != f"Token {token}":
+        return 401, {}, b'{"detail":"Invalid token."}'
+    u = _up.urlparse(full); q = _up.parse_qs(u.query)
+    def js(obj): return 200, {"Content-Type": "application/json"}, json.dumps(obj).encode()
+    if u.path == "/api/tags/":
+        return js({"count": 3, "next": None, "results": [{"id": i, "name": n} for i, n in ARCHIVE_TAGS.items()]})
+    if u.path == "/api/correspondents/":
+        return js({"count": 1, "next": None, "results": [{"id": 7, "name": "DKB"}]})
+    if u.path == "/api/documents/":
+        want = {int(i) for i in q.get("tags__id__all", [""])[0].split(",") if i}
+        rows = [{"id": i, "title": d["title"], "created": d["created"]} for i, d in ARCHIVE_DOCS.items()
+                if all(ARCHIVE_TAGS[t] in d["tags"] for t in want)]
+        return js({"count": len(rows), "next": None, "results": rows})
+    m = re.match(r"^/api/documents/(\d+)/(download/)?$", u.path)
+    if m:
+        d = ARCHIVE_DOCS[int(m.group(1))]
+        if m.group(2):
+            return 200, {"Content-Disposition": f'attachment; filename="{d["file"][0]}"'}, d["file"][1]
+        return js({"id": int(m.group(1)), "content": d["content"]})
+    return 404, {}, b"{}"
+
+
+check("nothing is set up to begin with", archive.configured(), False)
+r = c.post("/settings", data={"form": "archive_save", "archive_url": "paperless.lan", "archive_token": "x"},
+           follow_redirects=True)
+check("an address without a scheme is refused", b"http://" in r.data, True)
+archive.save("http://paperless.lan:8000/", "tok-1")
+check("saved: the address in settings, the token beside the keys",
+      (settings.load()["archive_url"], (settings.SECRETS_DIR / archive.TOKEN_FILE).read_text()),
+      ("http://paperless.lan:8000", "tok-1"))
+check("...the token file is private",
+      oct((settings.SECRETS_DIR / archive.TOKEN_FILE).stat().st_mode & 0o777), "0o600")
+info = archive.check(transport=fake_archive)
+check("a check reports what is there", (info["documents"], info["tags"]), (4, ["bank", "depot", "giro"]))
+bad = lambda m, u, h, b: fake_archive(m, u, h, b, token="other")            # noqa: E731
+try:
+    archive.check(transport=bad); check("a refused token is an error", False, True)
+except archive.ArchiveError as exc:
+    check("a refused token says so", "refused the token" in str(exc), True)
+
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Archive depot', 'broker', 'EUR')")
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Archive giro', 'bank', 'EUR')")
+    dep = conn.execute("SELECT id FROM accounts WHERE name = 'Archive depot'").fetchone()["id"]
+    gir = conn.execute("SELECT id FROM accounts WHERE name = 'Archive giro'").fetchone()["id"]
+r = c.get(f"/accounts/{dep}/edit")
+check("the account form offers the archive fields once it is set up", b"archive_tags" in r.data, True)
+c.post(f"/accounts/{dep}/edit", data={"name": "Archive depot", "type": "broker", "currency": "EUR",
+                                      "archive_tags": " bank , depot "})
+c.post(f"/accounts/{gir}/edit", data={"name": "Archive giro", "type": "bank", "currency": "EUR",
+                                      "archive_tags": "bank, giro", "archive_correspondent": "DKB"})
+check("the filter is kept, tidied", archive.filter_for(dep)["tags"], "bank, depot")
+
+results = {r["account"]: r for r in archive.pull(transport=fake_archive)}
+d = results["Archive depot"]
+check("the depot lists the three documents under its tags", (d["listed"], d["new"], d["error"]), (3, 3, None))
+check("...a known statement is read", d["imported"] >= 1, True)
+check("...a scan is read through the archive's OCR text", d["imported"], 2)
+check("...and the letter is not", d["unread"], 1)
+check("the giro gets the CSV in the app's template", (results["Archive giro"]["imported"], results["Archive giro"]["inserted"]), (1, 1))
+with db.get_conn() as conn:
+    kinds = sorted(r["kind"] for r in conn.execute("SELECT kind FROM transactions WHERE account_id = ?", (dep,)))
+    recorded = {r["doc_id"]: r["result"] for r in conn.execute("SELECT doc_id, result FROM archive_documents")}
+check("the statements landed as trades", kinds, ["buy", "sell"])
+check("every document is on record with what became of it",
+      recorded, {11: "imported", 12: "imported", 13: "unread", 14: "imported"})
+with db.get_conn() as conn:
+    letter_note = conn.execute("SELECT note FROM archive_documents WHERE doc_id = 13").fetchone()["note"]
+check("...and the letter's note says why", letter_note, "not recognised")
+
+n_calls = len(archive_calls)
+again = {r["account"]: r for r in archive.pull(transport=fake_archive)}
+check("a second pull fetches nothing", (again["Archive depot"]["new"], again["Archive giro"]["new"]), (0, 0))
+check("...only the listings are asked for", len(archive_calls) - n_calls <= 6, True)
+check("retrying forgets the unread ones only", archive.retry_unread(), 1)
+check("...so the next pull tries the letter again, and only it",
+      {r["account"]: r["new"] for r in archive.pull(transport=fake_archive)}, {"Archive depot": 1, "Archive giro": 0})
+
+archive.set_filter(gir, "bank, nosuchtag", "", "")
+bad_tag = {r["account"]: r for r in archive.pull(transport=fake_archive)}
+check("a tag the archive does not have fails that account and names the tag",
+      "nosuchtag" in (bad_tag["Archive giro"]["error"] or ""), True)
+check("...while the other account is still pulled", bad_tag["Archive depot"]["error"], None)
+st = archive.describe()
+check("Settings sees the filters with their tallies",
+      [(f["account"], f.get("imported", 0), f.get("unread", 0)) for f in st["filters"]],
+      [("Archive depot", 2, 1), ("Archive giro", 1, 0)])
+check("...and the last pull", st["last"]["results"][0]["account"], "Archive depot")
+r = c.get("/settings/banks")
+check("the Settings card lists the document no reader understood", b"Letter" in r.data, True)
+check("...with a link back into the archive", b"/documents/13/details" in r.data, True)
+archive.set_filter(gir, "", "", "")
+check("all three blank means the account pulls nothing", archive.filter_for(gir), None)
+r = c.post("/settings", data={"form": "archive_forget"}, follow_redirects=True)
+with db.get_conn() as conn:
+    kept = conn.execute("SELECT COUNT(*) AS n FROM transactions WHERE account_id = ?", (dep,)).fetchone()["n"]
+check("forgetting the archive keeps what was imported", (archive.configured(), kept), (False, 2))
+c.post(f"/accounts/{dep}/delete", data={"confirm": "Archive depot"})
+c.post(f"/accounts/{gir}/delete", data={"confirm": "Archive giro"})
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

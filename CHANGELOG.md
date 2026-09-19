@@ -11,6 +11,23 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.61.0] — 2026-09-19
+
+### Added
+- **Statements pulled from Paperless-ngx.** Under Settings → Banks &
+  brokers → *Document archive*, give the app the archive's address and an
+  API token; on each account's edit page, say which documents are its — by
+  tag, correspondent or search query. Every new document is fetched on the
+  daily sync, or with *Pull now*, and run through exactly the readers an
+  upload goes through. Each one is remembered — imported, not read, or
+  failed to fetch — so a pull lists once and imports nothing twice, and a
+  document no reader understood is listed with a link back into Paperless
+  rather than skipped in silence; *Try the unread ones again* after a new
+  reader ships. A scanned statement, which is only an image to the PDF
+  readers, gets Paperless's own OCR text offered to them before it is given
+  up on. The archive is read, never written. Asked for in the first
+  feedback the app received.
+
 ## [0.60.0] — 2026-09-19
 
 ### Added

@@ -2533,4 +2533,64 @@ STRINGS: dict[str, str] = {
         "Id de fila",
     "The bank's own id for the row, if it has one. With it, a row whose text changed between two exports is still the same row.":
         "El id que el banco da a la fila, si lo tiene. Con él, una fila cuyo texto cambió entre dos exportaciones sigue siendo la misma fila.",
+
+    # ─── Archivo de documentos ───────────────────────────────────────
+    "API token":
+        "Token de API",
+    "Address":
+        "Dirección",
+    "Archive forgotten. What was imported from it stays.":
+        "Archivo olvidado. Lo que se importó de él se queda.",
+    "Correspondent":
+        "Remitente",
+    "Could not be read":
+        "No se pudo leer",
+    "Document archive":
+        "Archivo de documentos",
+    "Documents from the archive":
+        "Documentos del archivo",
+    "Every document matching all of these is pulled into this account on the daily sync. Leave all three blank and this account pulls nothing.":
+        "Cada documento que cumple todo esto se trae a esta cuenta en la sincronización diaria. Con los tres vacíos, esta cuenta no trae nada.",
+    "Failed":
+        "Fallido",
+    "Forget the archive":
+        "Olvidar el archivo",
+    "If your statements live in Paperless-ngx, the app can pull them itself. Give it the archive's address and an API token (Paperless → My Profile → the circular arrow makes one), then say on each account's edit page which documents are its — by tag, correspondent or query. Every new document is fetched on the daily sync and run through the same readers an upload gets; each one is remembered, so nothing comes in twice. The archive is read, never written.":
+        "Si tus extractos viven en Paperless-ngx, la app puede traerlos sola. Dale la dirección del archivo y un token de API (Paperless → Mi perfil → la flecha circular crea uno) y luego di en la página de edición de cada cuenta qué documentos son suyos — por etiqueta, remitente o búsqueda. Cada documento nuevo se trae en la sincronización diaria y pasa por los mismos lectores que una subida; cada uno se recuerda, así que nada llega dos veces. El archivo se lee, nunca se escribe.",
+    "Last pull {when}.":
+        "Última recogida {when}.",
+    "No account pulls anything yet — open an account's edit page and say which documents are its.":
+        "Ninguna cuenta trae nada todavía — abre la página de edición de una cuenta y di qué documentos son suyos.",
+    "No account says which documents are its yet — set that on the account's edit page.":
+        "Ninguna cuenta dice aún qué documentos son suyos — fíjalo en la página de edición de la cuenta.",
+    "Not read":
+        "No leído",
+    "Pull now":
+        "Traer ahora",
+    "Pulls":
+        "Trae",
+    "Read":
+        "Leído",
+    "Save and check":
+        "Guardar y comprobar",
+    "Search query":
+        "Búsqueda",
+    "Tags, all of which the document carries":
+        "Etiquetas, todas las cuales lleva el documento",
+    "The archive answers: {n} documents, tags {tags}. Now say on each account which documents are its.":
+        "El archivo responde: {n} documentos, etiquetas {tags}. Ahora di en cada cuenta qué documentos son suyos.",
+    "The pull is generic, the reading is not: a document becomes transactions only when there is a reader for its layout. One no reader understood is listed below with a link back, not skipped in silence.":
+        "Traer es genérico, leer no: un documento se convierte en transacciones solo si hay un lector para su formato. Uno que ningún lector entendió aparece abajo con un enlace de vuelta, no se salta en silencio.",
+    "Try the unread ones again":
+        "Intentar de nuevo los no leídos",
+    "leave blank to keep the saved one":
+        "déjalo vacío para conservar el guardado",
+    "tags":
+        "etiquetas",
+    "{new} new documents: {imported} read ({rows} transactions), {unread} no reader could read, {failed} failed to fetch.":
+        "{new} documentos nuevos: {imported} leídos ({rows} transacciones), {unread} que ningún lector pudo leer, {failed} que no se pudieron traer.",
+    "{n} document will be tried again on the next pull.":
+        "{n} documento se intentará de nuevo en la próxima recogida.",
+    "{n} documents will be tried again on the next pull.":
+        "{n} documentos se intentarán de nuevo en la próxima recogida.",
 }

@@ -2537,4 +2537,64 @@ STRINGS: dict[str, str] = {
         "Identifiant de ligne",
     "The bank's own id for the row, if it has one. With it, a row whose text changed between two exports is still the same row.":
         "L'identifiant que la banque donne à la ligne, s'il existe. Avec lui, une ligne dont le texte a changé entre deux exports reste la même ligne.",
+
+    # ─── Archive de documents ────────────────────────────────────────
+    "API token":
+        "Jeton API",
+    "Address":
+        "Adresse",
+    "Archive forgotten. What was imported from it stays.":
+        "Archive oubliée. Ce qui en a été importé reste.",
+    "Correspondent":
+        "Correspondant",
+    "Could not be read":
+        "N'a pas pu être lu",
+    "Document archive":
+        "Archive de documents",
+    "Documents from the archive":
+        "Documents de l'archive",
+    "Every document matching all of these is pulled into this account on the daily sync. Leave all three blank and this account pulls nothing.":
+        "Chaque document qui correspond à tout cela est récupéré dans ce compte à la synchronisation quotidienne. Les trois vides, ce compte ne récupère rien.",
+    "Failed":
+        "Échoué",
+    "Forget the archive":
+        "Oublier l'archive",
+    "If your statements live in Paperless-ngx, the app can pull them itself. Give it the archive's address and an API token (Paperless → My Profile → the circular arrow makes one), then say on each account's edit page which documents are its — by tag, correspondent or query. Every new document is fetched on the daily sync and run through the same readers an upload gets; each one is remembered, so nothing comes in twice. The archive is read, never written.":
+        "Si tes relevés sont dans Paperless-ngx, l'app peut aller les chercher elle-même. Donne-lui l'adresse de l'archive et un jeton API (Paperless → Mon profil → la flèche circulaire en crée un), puis dis sur la page de modification de chaque compte quels documents sont les siens — par tag, correspondant ou recherche. Chaque nouveau document est récupéré à la synchronisation quotidienne et passe par les mêmes lecteurs qu'un envoi ; chacun est mémorisé, rien n'arrive deux fois. L'archive est lue, jamais écrite.",
+    "Last pull {when}.":
+        "Dernière récupération {when}.",
+    "No account pulls anything yet — open an account's edit page and say which documents are its.":
+        "Aucun compte ne récupère encore rien — ouvre la page de modification d'un compte et dis quels documents sont les siens.",
+    "No account says which documents are its yet — set that on the account's edit page.":
+        "Aucun compte ne dit encore quels documents sont les siens — règle-le sur la page de modification du compte.",
+    "Not read":
+        "Non lu",
+    "Pull now":
+        "Récupérer maintenant",
+    "Pulls":
+        "Récupère",
+    "Read":
+        "Lu",
+    "Save and check":
+        "Enregistrer et vérifier",
+    "Search query":
+        "Recherche",
+    "Tags, all of which the document carries":
+        "Tags, que le document porte tous",
+    "The archive answers: {n} documents, tags {tags}. Now say on each account which documents are its.":
+        "L'archive répond : {n} documents, tags {tags}. Dis maintenant sur chaque compte quels documents sont les siens.",
+    "The pull is generic, the reading is not: a document becomes transactions only when there is a reader for its layout. One no reader understood is listed below with a link back, not skipped in silence.":
+        "La récupération est générique, la lecture ne l'est pas : un document ne devient des transactions que s'il existe un lecteur pour sa mise en page. Celui qu'aucun lecteur n'a compris est listé ci-dessous avec un lien retour, pas ignoré en silence.",
+    "Try the unread ones again":
+        "Réessayer les non lus",
+    "leave blank to keep the saved one":
+        "laisser vide pour garder celui enregistré",
+    "tags":
+        "tags",
+    "{new} new documents: {imported} read ({rows} transactions), {unread} no reader could read, {failed} failed to fetch.":
+        "{new} nouveaux documents : {imported} lus ({rows} transactions), {unread} qu'aucun lecteur n'a pu lire, {failed} impossibles à récupérer.",
+    "{n} document will be tried again on the next pull.":
+        "{n} document sera réessayé à la prochaine récupération.",
+    "{n} documents will be tried again on the next pull.":
+        "{n} documents seront réessayés à la prochaine récupération.",
 }

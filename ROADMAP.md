@@ -68,6 +68,9 @@ it does not do yet.
 - [x] The three stages of building wealth, on the plan and as it went.
 - [x] A generic CSV importer with a saved column mapping, recognised by
       the file's header.
+- [x] The app's own CSV template, recognised outright; a row id column.
+- [x] Statements pulled from Paperless-ngx by tag, correspondent or query,
+      on the daily sync, through the same readers as an upload.
 - [x] CSV export of transactions and holdings, filtered as the page is.
 - [x] Allocation by asset class, region and bucket, with targets and a
       contribution spread.

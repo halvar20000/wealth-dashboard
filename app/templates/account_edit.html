@@ -37,6 +37,18 @@
     <p class="sub">{{ _("No people yet. Add the household under Settings → People, and each account can be somebody's.") }}</p>
     {% endif %}
   </fieldset>
+  {% if archive_on %}
+  <fieldset class="owners">
+    <legend>{{ _("Documents from the archive") }}</legend>
+    <label for="archive_tags">{{ _("Tags, all of which the document carries") }}</label>
+    <input id="archive_tags" name="archive_tags" value="{{ archive_filter.tags or '' }}" placeholder="bank, statement, DKB">
+    <label for="archive_correspondent">{{ _("Correspondent") }} <span class="sub">{{ _("optional") }}</span></label>
+    <input id="archive_correspondent" name="archive_correspondent" value="{{ archive_filter.correspondent or '' }}" placeholder="DKB">
+    <label for="archive_query">{{ _("Search query") }} <span class="sub">{{ _("optional") }}</span></label>
+    <input id="archive_query" name="archive_query" value="{{ archive_filter.query or '' }}" placeholder="Wertpapierabrechnung">
+    <p class="sub">{{ _("Every document matching all of these is pulled into this account on the daily sync. Leave all three blank and this account pulls nothing.") }}</p>
+  </fieldset>
+  {% endif %}
   <button type="submit">{{ _("Save") }}</button>
 </form>
 

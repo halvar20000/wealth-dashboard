@@ -2531,4 +2531,64 @@ STRINGS: dict[str, str] = {
         "Zeilen-ID",
     "The bank's own id for the row, if it has one. With it, a row whose text changed between two exports is still the same row.":
         "Die eigene ID der Bank für die Zeile, falls es eine gibt. Mit ihr bleibt eine Zeile, deren Text sich zwischen zwei Exporten geändert hat, dieselbe Zeile.",
+
+    # ─── Dokumentenarchiv ────────────────────────────────────────────
+    "API token":
+        "API-Token",
+    "Address":
+        "Adresse",
+    "Archive forgotten. What was imported from it stays.":
+        "Archiv vergessen. Was daraus importiert wurde, bleibt.",
+    "Correspondent":
+        "Korrespondent",
+    "Could not be read":
+        "Konnte nicht gelesen werden",
+    "Document archive":
+        "Dokumentenarchiv",
+    "Documents from the archive":
+        "Dokumente aus dem Archiv",
+    "Every document matching all of these is pulled into this account on the daily sync. Leave all three blank and this account pulls nothing.":
+        "Jedes Dokument, auf das all das zutrifft, wird beim täglichen Abgleich in dieses Konto geholt. Bleiben alle drei leer, holt dieses Konto nichts.",
+    "Failed":
+        "Fehlgeschlagen",
+    "Forget the archive":
+        "Archiv vergessen",
+    "If your statements live in Paperless-ngx, the app can pull them itself. Give it the archive's address and an API token (Paperless → My Profile → the circular arrow makes one), then say on each account's edit page which documents are its — by tag, correspondent or query. Every new document is fetched on the daily sync and run through the same readers an upload gets; each one is remembered, so nothing comes in twice. The archive is read, never written.":
+        "Liegen deine Auszüge in Paperless-ngx, kann die App sie selbst holen. Gib ihr die Adresse des Archivs und ein API-Token (Paperless → Mein Profil → der runde Pfeil erzeugt eins) und sage dann auf der Bearbeiten-Seite jedes Kontos, welche Dokumente seine sind — nach Tag, Korrespondent oder Suche. Jedes neue Dokument wird beim täglichen Abgleich geholt und durch dieselben Leser geschickt wie ein Upload; jedes wird gemerkt, nichts kommt zweimal. Das Archiv wird gelesen, nie beschrieben.",
+    "Last pull {when}.":
+        "Zuletzt geholt {when}.",
+    "No account pulls anything yet — open an account's edit page and say which documents are its.":
+        "Noch holt kein Konto etwas — öffne die Bearbeiten-Seite eines Kontos und sage, welche Dokumente seine sind.",
+    "No account says which documents are its yet — set that on the account's edit page.":
+        "Noch sagt kein Konto, welche Dokumente seine sind — lege das auf der Bearbeiten-Seite des Kontos fest.",
+    "Not read":
+        "Nicht gelesen",
+    "Pull now":
+        "Jetzt holen",
+    "Pulls":
+        "Holt",
+    "Read":
+        "Gelesen",
+    "Save and check":
+        "Speichern und prüfen",
+    "Search query":
+        "Suchbegriff",
+    "Tags, all of which the document carries":
+        "Tags, die das Dokument alle trägt",
+    "The archive answers: {n} documents, tags {tags}. Now say on each account which documents are its.":
+        "Das Archiv antwortet: {n} Dokumente, Tags {tags}. Sage jetzt bei jedem Konto, welche Dokumente seine sind.",
+    "The pull is generic, the reading is not: a document becomes transactions only when there is a reader for its layout. One no reader understood is listed below with a link back, not skipped in silence.":
+        "Das Holen ist allgemein, das Lesen nicht: Ein Dokument wird nur dann zu Transaktionen, wenn es einen Leser für sein Layout gibt. Eines, das kein Leser verstanden hat, steht unten mit Link zurück — es wird nicht stillschweigend übersprungen.",
+    "Try the unread ones again":
+        "Die ungelesenen noch einmal versuchen",
+    "leave blank to keep the saved one":
+        "leer lassen, um das gespeicherte zu behalten",
+    "tags":
+        "Tags",
+    "{new} new documents: {imported} read ({rows} transactions), {unread} no reader could read, {failed} failed to fetch.":
+        "{new} neue Dokumente: {imported} gelesen ({rows} Transaktionen), {unread} konnte kein Leser lesen, {failed} ließen sich nicht holen.",
+    "{n} document will be tried again on the next pull.":
+        "{n} Dokument wird beim nächsten Holen erneut versucht.",
+    "{n} documents will be tried again on the next pull.":
+        "{n} Dokumente werden beim nächsten Holen erneut versucht.",
 }

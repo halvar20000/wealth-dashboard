@@ -256,6 +256,63 @@
 </div>
 
 {% endif %}
+{% if section == 'banks' %}
+<div class="card" id="archive">
+  <div class="card-header">
+    <h2>{{ _("Document archive") }}</h2>
+    <span class="card-subtitle">{% if archive_state.configured %}Paperless-ngx · {{ archive_state.url }}{% else %}{{ _("not set up") }}{% endif %}</span>
+  </div>
+  <p class="sub">{{ _("If your statements live in Paperless-ngx, the app can pull them itself. Give it the archive's address and an API token (Paperless → My Profile → the circular arrow makes one), then say on each account's edit page which documents are its — by tag, correspondent or query. Every new document is fetched on the daily sync and run through the same readers an upload gets; each one is remembered, so nothing comes in twice. The archive is read, never written.") }}
+  {{ _("The pull is generic, the reading is not: a document becomes transactions only when there is a reader for its layout. One no reader understood is listed below with a link back, not skipped in silence.") }}</p>
+  <form method="post" class="form">
+    <input type="hidden" name="form" value="archive_save">
+    <label for="archive_url">{{ _("Address") }}</label>
+    <input id="archive_url" name="archive_url" value="{{ archive_state.url }}" placeholder="http://paperless.lan:8000" autocomplete="off">
+    <label for="archive_token">{{ _("API token") }}{% if archive_state.configured %} <span class="sub">{{ _("leave blank to keep the saved one") }}</span>{% endif %}</label>
+    <input id="archive_token" name="archive_token" type="password" autocomplete="off">
+    <div><button type="submit">{{ _("Save and check") }}</button></div>
+  </form>
+  {% if archive_state.configured %}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+    <form method="post"><input type="hidden" name="form" value="archive_pull"><button type="submit">{{ _("Pull now") }}</button></form>
+    {% if archive_state.unread %}
+    <form method="post"><input type="hidden" name="form" value="archive_retry"><button type="submit" class="btn-ghost">{{ _("Try the unread ones again") }}</button></form>
+    {% endif %}
+    <form method="post"><input type="hidden" name="form" value="archive_forget"><button type="submit" class="btn-danger">{{ _("Forget the archive") }}</button></form>
+  </div>
+  {% if archive_state.last %}
+  <p class="sub" style="margin-top:10px">{{ _f("Last pull {when}.", when=archive_state.last.at[:16].replace('T', ' ')) }}</p>
+  {% endif %}
+  {% if archive_state.filters %}
+  <div class="table-wrap" style="margin-top:8px">
+    <table class="grid">
+      <thead><tr><th>{{ _("Account") }}</th><th>{{ _("Pulls") }}</th><th class="num">{{ _("Read") }}</th><th class="num">{{ _("Not read") }}</th><th class="num">{{ _("Failed") }}</th></tr></thead>
+      <tbody>
+      {% for f in archive_state.filters %}
+        <tr>
+          <td><a href="{{ url_for('account_edit', account_id=f.account_id) }}">{{ f.account }}</a></td>
+          <td class="sub">{% if f.tags %}{{ _("tags") }} {{ f.tags }}{% endif %}{% if f.correspondent %} · {{ _("from") }} {{ f.correspondent }}{% endif %}{% if f.query %} · “{{ f.query }}”{% endif %}</td>
+          <td class="num">{{ f.imported or 0 }}</td><td class="num">{{ f.unread or 0 }}</td><td class="num">{{ f.failed or 0 }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="sub" style="margin-top:10px">{{ _("No account pulls anything yet — open an account's edit page and say which documents are its.") }}</p>
+  {% endif %}
+  {% if archive_state.unread %}
+  <h3 style="font-size:13px;margin:16px 0 6px">{{ _("Could not be read") }}</h3>
+  <ul class="steps">
+    {% for d in archive_state.unread %}
+    <li><a href="{{ archive_state.url }}/documents/{{ d.doc_id }}/details" target="_blank" rel="noopener">{{ d.title or d.doc_id }}</a> <span class="sub">{{ d.account }} · {{ d.created }} · {{ d.note }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endif %}
+</div>
+
+{% endif %}
 {% if section == 'market' %}
 <div class="card" id="ideas">
   <div class="card-header">

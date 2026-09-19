@@ -222,6 +222,29 @@ CREATE TABLE IF NOT EXISTS account_people (
     PRIMARY KEY (account_id, person_id)
 );
 
+-- A document archive (Paperless-ngx) the app pulls from — see
+-- archive.py. One filter per account says which documents are its; one
+-- row per document and account remembers what became of it, so a pull
+-- lists once and imports nothing twice, and a document no reader
+-- understood is on record by name rather than skipped in silence.
+CREATE TABLE IF NOT EXISTS archive_filters (
+    account_id    INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+    tags          TEXT NOT NULL DEFAULT '',
+    correspondent TEXT NOT NULL DEFAULT '',
+    query         TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS archive_documents (
+    doc_id     INTEGER NOT NULL,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    title      TEXT,
+    created    TEXT,
+    seen_at    TEXT NOT NULL,
+    result     TEXT NOT NULL,          -- imported | unread | failed
+    note       TEXT,
+    import_id  INTEGER,
+    PRIMARY KEY (doc_id, account_id)
+);
+
 CREATE TABLE IF NOT EXISTS balances (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
