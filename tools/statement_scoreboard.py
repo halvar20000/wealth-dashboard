@@ -215,7 +215,9 @@ def score_fixture(module, text: str, expected: list[dict]) -> tuple[list[dict], 
                 # bank. Either is the truth, so a few days' slack.
                 if not (r["kind"] in ("dividend", "interest", "tax") and _days_apart(r["date"], e["date"]) <= 4):
                     continue
-            if "amount" in e and not _close(r["amount"], e["amount"], 0.011):
+            # A delivery moves units, not money: PP notes a value on it,
+            # this app does not.
+            if "amount" in e and e["kind"] != "transfer" and not _close(r["amount"], e["amount"], 0.011):
                 # A bank that credits a dividend before tax: PP books the
                 # gross, this app the cash with the tax beside it. Same
                 # facts, so it counts — when the two add up.

@@ -13,7 +13,7 @@ from importlib import import_module
 
 from ..statement import Reader
 
-BANKS = ["traderepublic", "degiro", "comdirect", "ingdiba", "consorsbank", "baaderbank", "scalablecapital", "flatex", "dwpbank", "dab", "deutschebank", "targobank", "commerzbank", "bawag", "erstebank", "postfinance", "zkb", "ubs", "keytrade", "kbc", "arkea"]
+BANKS = ["traderepublic", "degiro", "dekabank", "wirbank", "ebase", "comdirect", "ingdiba", "consorsbank", "baaderbank", "scalablecapital", "flatex", "dwpbank", "dab", "deutschebank", "targobank", "commerzbank", "bawag", "erstebank", "postfinance", "zkb", "ubs", "keytrade", "kbc", "arkea"]
 
 
 def _specs(name: str) -> list:

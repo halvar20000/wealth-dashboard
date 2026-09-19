@@ -75,6 +75,7 @@ class Doc:
     when: str                       # regex; found anywhere → this doc applies
     fields: dict = field(default_factory=dict)
     sell: str | None = None         # regex; found → a 'trade' is a sale
+    transfer: str | None = None     # regex; found → a 'trade' is a delivery in or out
     block: str | None = None        # regex; each line matching starts a new transaction
     kinds: dict | None = None       # for `type`: regex → kind ("skip" leaves the row out)
     note: str | None = None         # what a `skip` says
@@ -356,6 +357,8 @@ class Reader:
         kind = d.kind
         if kind == "trade":
             kind = "sell" if (d.sell and re.search(d.sell, piece, re.M)) else "buy"
+            if d.transfer and re.search(d.transfer, piece, re.M):
+                kind = "transfer"
         if kind == "rows":
             kind = None
             word = (g.get("type") or "")
@@ -401,6 +404,8 @@ class Reader:
             taxes_only, seen = _sum(piece, f.get("taxes", []), "tax", style)
             amount = taxes_only if seen else None
             refund = seen and taxes_only < 0
+        if amount is None and kind == "transfer":
+            amount = 0.0                                     # units move, no money does
         if amount is None:
             if d.block is None:
                 result.problems.append(f"{self.LABEL}: no amount found on {date}.")
