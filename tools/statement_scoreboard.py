@@ -54,7 +54,7 @@ def pdf_dir() -> Path:
 
 def _num(expr: str) -> float:
     """`26.40 + 1.50` and the like, as the tests write them."""
-    expr = expr.strip()
+    expr = expr.strip().rstrip("L")                       # Java's long literal: 0L
     if not re.fullmatch(r"[\d.\s+\-*/()]+", expr):
         raise ValueError(expr)
     return float(eval(expr, {"__builtins__": {}}, {}))       # noqa: S307  arithmetic only
@@ -95,7 +95,7 @@ def expectations(test_java: str) -> dict[str, list[dict]]:
         name = m.group(1)
         txns: list[dict] = []
         # New style: hasItem(purchase( ... ))) blocks.
-        for blk in re.finditer(r"hasItem\((\w+)\(\s*//(.*?)\)\)\)", method, re.S):
+        for blk in re.finditer(r"hasItem\((\w+)\(\s*(?://)?(.*?)\)\)\)", method, re.S):
             kind = KIND.get(blk.group(1))
             if not kind:
                 continue
@@ -148,8 +148,13 @@ def expectations(test_java: str) -> dict[str, list[dict]]:
                 if xm:
                     cur["taxes"] = _num(xm.group(1))
         # A bare kind with no date is a test of a failure message, not of
-        # a transaction.
-        txns = [t for t in txns if t.get("date")]
+        # a transaction. The same assertion twice is one expectation —
+        # `hasItem` is satisfied by one item, however often it is asked.
+        seen: list[dict] = []
+        for t in txns:
+            if t.get("date") and t not in seen:
+                seen.append(t)
+        txns = seen
         # The same fixture loaded by a second test method (checked once
         # more with another security currency, say) is one document.
         if txns and name not in out:
@@ -196,9 +201,11 @@ def score_fixture(module, text: str, expected: list[dict]) -> tuple[list[dict], 
     used: set[int] = set()
     for e in expected:
         hit = None
+        best = -1
         for i, r in enumerate(rows):
             # A bond coupon is interest here and a dividend to PP: both
-            # are income, and the test is about the figures.
+            # are income, and the test is about the figures — but a row
+            # of the very kind asked for comes first.
             same_kind = r["kind"] == e["kind"] or {r["kind"], e["kind"]} == {"interest", "dividend"}
             if i in used or not same_kind:
                 continue
@@ -215,8 +222,14 @@ def score_fixture(module, text: str, expected: list[dict]) -> tuple[list[dict], 
                 if not (r["kind"] in ("dividend", "interest")
                         and _close(r["amount"] + (r["taxes"] or 0.0), e["amount"], 0.011)):
                     continue
-            hit = i
-            break
+            # Several trades in one security on one day, asserted by
+            # units alone: the row with those units is the one meant.
+            rank = 2 * (r["kind"] == e["kind"]) + ("shares" not in e or e["kind"] not in ("buy", "sell", "transfer")
+                                                    or _close(r["shares"], e["shares"], 0.0011))
+            if rank > best:
+                hit, best = i, rank
+            if rank == 3:
+                break
         if hit is None:
             misses.append(f"expected {e}, got {[ (r['kind'], r['date'], r['amount']) for r in rows]}"
                           + (f" — problems: {result.problems[:2]}" if result.problems else ""))

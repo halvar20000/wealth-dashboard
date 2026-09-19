@@ -35,7 +35,7 @@ How a spec is read, in order:
 Named groups the engine understands:
 
     isin wkn name name2 shares notation price price_currency date time
-    amount currency fee tax ref sign type gross fx_pair fx_rate year
+    amount currency fee tax ref sign refund type gross fx_pair fx_rate year
 
 `notation`: a bond's nominal ("EUR 2.000,00") becomes 20 units at a
 per-cent price — anything not starting with "St" divides by 100. `sign`
@@ -54,18 +54,18 @@ from datetime import datetime
 from .base import ParsedTxn, ParseResult, find_isin
 
 MONTHS = {
-    "januar": 1, "jan": 1, "january": 1, "janvier": 1, "gennaio": 1, "enero": 1,
-    "februar": 2, "feb": 2, "february": 2, "février": 2, "fevrier": 2, "febbraio": 2, "febrero": 2,
+    "januar": 1, "jan": 1, "january": 1, "janvier": 1, "janv": 1, "gennaio": 1, "gen": 1, "enero": 1, "ene": 1,
+    "februar": 2, "feb": 2, "february": 2, "février": 2, "fevrier": 2, "févr": 2, "fevr": 2, "febbraio": 2, "febrero": 2,
     "märz": 3, "maerz": 3, "mär": 3, "mar": 3, "march": 3, "mars": 3, "marzo": 3,
-    "april": 4, "apr": 4, "avril": 4, "aprile": 4, "abril": 4,
-    "mai": 5, "may": 5, "maggio": 5, "mayo": 5,
-    "juni": 6, "jun": 6, "june": 6, "juin": 6, "giugno": 6, "junio": 6,
-    "juli": 7, "jul": 7, "july": 7, "juillet": 7, "luglio": 7, "julio": 7,
-    "august": 8, "aug": 8, "août": 8, "aout": 8, "agosto": 8,
-    "september": 9, "sep": 9, "sept": 9, "septembre": 9, "settembre": 9, "septiembre": 9,
-    "oktober": 10, "okt": 10, "oct": 10, "october": 10, "octobre": 10, "ottobre": 10, "octubre": 10,
+    "april": 4, "apr": 4, "avril": 4, "avr": 4, "aprile": 4, "abril": 4, "abr": 4,
+    "mai": 5, "may": 5, "maggio": 5, "mag": 5, "mayo": 5,
+    "juni": 6, "jun": 6, "june": 6, "juin": 6, "giugno": 6, "giu": 6, "junio": 6,
+    "juli": 7, "jul": 7, "july": 7, "juillet": 7, "juil": 7, "luglio": 7, "lug": 7, "julio": 7,
+    "august": 8, "aug": 8, "août": 8, "aout": 8, "agosto": 8, "ago": 8,
+    "september": 9, "sep": 9, "sept": 9, "septembre": 9, "settembre": 9, "set": 9, "septiembre": 9,
+    "oktober": 10, "okt": 10, "oct": 10, "october": 10, "octobre": 10, "ottobre": 10, "ott": 10, "octubre": 10,
     "november": 11, "nov": 11, "novembre": 11, "noviembre": 11,
-    "dezember": 12, "dez": 12, "dec": 12, "december": 12, "décembre": 12, "decembre": 12, "dicembre": 12, "diciembre": 12,
+    "dezember": 12, "dez": 12, "dec": 12, "december": 12, "décembre": 12, "decembre": 12, "déc": 12, "dicembre": 12, "diciembre": 12, "dic": 12,
 }
 
 
@@ -76,12 +76,14 @@ class Doc:
     fields: dict = field(default_factory=dict)
     sell: str | None = None         # regex; found → a 'trade' is a sale
     block: str | None = None        # regex; each line matching starts a new transaction
-    kinds: dict | None = None       # for `type`: regex → kind
+    kinds: dict | None = None       # for `type`: regex → kind ("skip" leaves the row out)
     note: str | None = None         # what a `skip` says
     also: bool = False              # runs in addition to the doc that claimed the text
                                     # (a tax settlement printed under a sale)
     merge: bool = False             # an `also` doc whose taxes and after-tax amount go
                                     # onto the primary row instead of making a row
+    split: bool = False             # an `also` row that was part of the primary's booked
+                                    # total (a tax credit under a sale): taken out of it
 
 
 @dataclass
@@ -107,14 +109,14 @@ def parse_number(raw: str | None, style: str = "de") -> float | None:
     s = s.strip("+-() ")
     if not s:
         return None
+    s = s.replace("'", "")                           # a Swiss thousands mark, whatever the style
     if style == "ch":
-        s = s.replace("'", "").replace(",", ".")
+        s = s.replace(",", ".")
     elif style == "en":
         s = s.replace(",", "")
     elif style == "de":
         s = s.replace(".", "").replace(",", ".")
     else:                                            # auto: the last separator is the decimal one
-        s = s.replace("'", "")
         if s.rfind(",") > s.rfind("."):
             s = s.replace(".", "").replace(",", ".")
         else:
@@ -193,9 +195,12 @@ def _sum(text: str, patterns, group: str, style: str, currency: str | None = Non
                     continue
             # A fee or tax line is a charge unless it says otherwise: a
             # "+" or a word like Erstattung makes it a refund. A "-" is
-            # how most banks mark the charge itself.
+            # how most banks mark the charge itself. A spec whose bank
+            # prints charges with a minus and credits bare names the
+            # bare case with a `refund` group instead.
             sign = (m.groupdict().get("sign") or "").strip()
-            if sign == "+" or "rstatt" in sign.lower() or "refund" in sign.lower():
+            refund = m.groupdict().get("refund") is not None
+            if refund or sign == "+" or "rstatt" in sign.lower() or "refund" in sign.lower():
                 v = -abs(v)
             else:
                 v = abs(v)
@@ -294,6 +299,12 @@ class Reader:
                 if row and row.external_id not in seen_ids:
                     seen_ids.add(row.external_id)
                     result.rows.append(row)
+                    if d.split and len(primary_rows) == 1 and primary_rows[0].currency == row.currency:
+                        # The booked total held this credit: the sale
+                        # keeps its own proceeds, the credit its own row.
+                        main = primary_rows[0]
+                        rest = round(abs(main.amount) - abs(row.amount), 2)
+                        main.amount = rest if main.amount >= 0 else -rest
         # A tax page printed under the statement it belongs to: its
         # taxes go onto that row, and its after-tax figure replaces the
         # amount, because that is what reached the account.
@@ -352,6 +363,8 @@ class Reader:
                 if re.search(pattern, word, re.I):
                     kind = k
                     break
+            if kind == "skip":
+                return None
             if kind is None:
                 amount_probe = parse_number(g.get("amount"), style)
                 sign = (g.get("sign") or "").strip()
@@ -380,11 +393,14 @@ class Reader:
             taxes_from_totals = round(abs(abs(gross) - abs(amount)), 2)
             amount = taxes_from_totals
             g["_taxes_override"] = taxes_from_totals
+        refund = False
         if amount is None and d.kind == "tax":
             # A tax statement often has no total of its own: the tax is
-            # the sum of its lines.
+            # the sum of its lines — and when those add up to a credit,
+            # the statement is a refund.
             taxes_only, seen = _sum(piece, f.get("taxes", []), "tax", style)
             amount = taxes_only if seen else None
+            refund = seen and taxes_only < 0
         if amount is None:
             if d.block is None:
                 result.problems.append(f"{self.LABEL}: no amount found on {date}.")
@@ -410,7 +426,7 @@ class Reader:
             amount = -amount
         elif kind == "transfer":
             amount = 0.0
-        if kind == "tax" and re.search(r"(?i)erstattung|refund|gutschrift|rückzahlung", piece[:400] + sign_word):
+        if kind == "tax" and (refund or re.search(r"(?i)erstattung|refund|gutschrift|rückzahlung|optimierung", piece[:400] + sign_word)):
             amount = abs(amount)
         quantity = None
         if shares is not None and kind in ("buy", "sell", "transfer"):
