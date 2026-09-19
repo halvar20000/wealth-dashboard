@@ -27,3 +27,7 @@ SPEC = Spec(
             kinds={r"Zins": "interest", r"steuer|zuschlag": "tax", r"Geb.hr|Entgelt|Jahresbeitrag": "fee"}),
     ],
 )
+
+# BAWAG's German branch took the Barclays card book over, statement and all.
+SPECS = [SPEC, Spec(slug="bawag_card_pdf", label="BAWAG (Barclays Kreditkarte) — Kontoauszug PDF", corpus="bawagag",
+                    marks=[r"BAWAG AG Niederlassung Deutschland"], preprocess=SPEC.preprocess, docs=SPEC.docs)]

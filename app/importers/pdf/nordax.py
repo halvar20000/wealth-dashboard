@@ -23,3 +23,10 @@ SPEC = Spec(
             kinds={r"Kontostand|.bertrag": "skip", r"Zins|Interest": "interest", r"Zahlung an|Auszahlung": "withdrawal", r"Bezahlung von|Einzahlung": "deposit"}),
     ],
 )
+
+# Orange Bank's Raisin statement is the same paper under another letterhead.
+SPECS = [SPEC, Spec(slug="orangebank_pdf", label="Orange Bank — Kontoauszug PDF", corpus="orangebank",
+                    marks=[r"Orange Bank"], docs=[
+                        Doc(kind="rows", when=SPEC.docs[0].when, block=ROW, fields=FIELDS,
+                            kinds={r"Kontostand|.bertrag": "skip", r"Zinsauszahlung|R.ckzahlung": "withdrawal", r"Zins|Interest": "interest",
+                                   r"Zahlung an|Auszahlung": "withdrawal", r"Bezahlung von|Einzahlung": "deposit"})])]

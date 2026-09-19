@@ -1,4 +1,4 @@
-"""Audi Bank / Volkswagen Bank (Plus Konto) — the Kontoauszug /
+"""Audi Bank (Plus Konto) — the Kontoauszug /
 Saldenmitteilung: numbered rows, the interest's taxes on rows of their
 own right after it."""
 
@@ -54,9 +54,9 @@ FIELDS = {
 
 SPEC = Spec(
     slug="audibank_pdf",
-    label="Audi Bank / Volkswagen Bank — Kontoauszug PDF",
+    label="Audi Bank — Kontoauszug PDF",
     corpus="audibank",
-    marks=[r"Audi Bank", r"AUDFDE21", r"Volkswagen Bank", r"VOWADE2B"],
+    marks=[r"Audi Bank", r"AUDFDE21"],
     number="de",
     preprocess=fold,
     docs=[
@@ -64,3 +64,7 @@ SPEC = Spec(
             kinds={r"zinsen": "interest"}),
     ],
 )
+
+# Volkswagen Bank prints the same Plus Konto statement.
+SPECS = [SPEC, Spec(slug="volkswagenbank_pdf", label="Volkswagen Bank — Kontoauszug PDF", corpus="volkswagenbank",
+                    marks=[r"Volkswagen Bank", r"VOWADE2B"], number="de", preprocess=fold, docs=SPEC.docs)]

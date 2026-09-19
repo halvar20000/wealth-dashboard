@@ -26,3 +26,7 @@ SPEC = Spec(
             kinds={r"^Abschluss": "interest"}),
     ],
 )
+
+# Sberbank Europe's German Tagesgeld came on the same statement paper.
+SPECS = [SPEC, Spec(slug="sberbank_pdf", label="Sberbank Europe — Kontoauszug PDF", corpus="sberbankeuropeag",
+                    marks=[r"Sberbank"], number="de", docs=SPEC.docs)]
