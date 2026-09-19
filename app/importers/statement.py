@@ -415,7 +415,7 @@ class Reader:
             if d.block is None:
                 result.problems.append(f"{self.LABEL}: no amount found on {date}.")
             return None
-        currency = (g.get("currency") or account_currency).replace("€", "EUR").upper()[:3]
+        currency = (g.get("currency") or account_currency).replace("€", "EUR").replace("$", "USD").replace("£", "GBP").upper()[:3]
         fx = _fx(piece, f.get("fx", []), style)
         isin = g.get("isin") or find_isin(g.get("isin_text") or "")
         name = " ".join(f"{g.get('name') or ''} {g.get('name2') or ''}".split()) or None
