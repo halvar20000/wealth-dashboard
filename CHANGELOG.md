@@ -11,6 +11,24 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.62.0] — 2026-09-19
+
+### Added
+- **The weekly e-mail.** Once a week, on the weekday you pick, a mail
+  with the week: net worth and its seven-day change, then every broker
+  and crypto account with its value, the week's price move, the gain since
+  purchase, the holdings with their own week, the dividends of the last
+  thirty days and the trailing year — and the indices the app tracks, so
+  a move sits beside what the market did. Set up under Settings →
+  Assistants with your own SMTP server (Gmail with an app password
+  works); *Send a test mail* proves the wiring and *Preview today's mail*
+  shows it in the browser first. It goes out after the daily sync, once
+  per ISO week, catching up a day the machine slept through. The week's
+  move is the price effect only — a deposit during the week is not a
+  gain — and every figure is the one the pages show, never re-priced for
+  the mail. The password is kept beside the bank key. This is the one
+  thing the app sends anywhere but your bank: to your own mailbox.
+
 ## [0.61.0] — 2026-09-19
 
 ### Added

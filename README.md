@@ -48,6 +48,9 @@ a PSD2 API it connects directly, with credentials that are yours.
 - **People** — the household's members, each account ticked for one, several
   or none of them, and a switch in the header between everyone's picture and
   one person's. Every page adds up accordingly.
+- **A weekly e-mail** — net worth and its change, every broker and crypto
+  account with its value, price move, gain, holdings and dividends, and
+  the indices you track; through your own SMTP server, on your weekday.
 - **Statements pulled from Paperless-ngx** — say on each account which
   documents are its, by tag, correspondent or query; every new one arrives
   on the daily sync through the same readers an upload gets.
@@ -528,6 +531,28 @@ to match exactly, and the linking step whose absence looks like a bug here.
 The screenshots are of the English interface in every version, because that is
 what a screenshot is a picture of. Where the app has a translated label, the
 text gives both.
+
+## The weekly e-mail
+
+Once a week, a mail with the week: net worth and its seven-day change,
+then every broker and crypto account — its value, the week's price move,
+the gain since purchase, the holdings with their own week, dividends of
+the last thirty days and the trailing year — and the indices the app
+tracks, so "up 1.2 %" sits beside what the market did.
+
+**Settings → Assistants → Weekly e-mail**: an SMTP server, port (587 for
+STARTTLS, 465 for TLS), user name and password, the recipients, and the
+weekday. Gmail works with an *app password*. *Send a test mail* proves
+the wiring; *Preview today's mail* shows the report in the browser
+before you trust it to a Monday. It goes out after the daily sync on
+the chosen day, once per week — a day the machine slept through is
+caught up later that week.
+
+The week's move is the price effect only: quantity now × (price now −
+price a week ago). A deposit or a purchase during the week is not a
+gain. This mail is the one thing the app sends anywhere but your bank —
+to your own mailbox, through your own SMTP server. The password is kept
+beside the bank key, `0600`.
 
 ## Pulling statements from Paperless-ngx
 

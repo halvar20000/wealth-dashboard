@@ -2597,4 +2597,96 @@ STRINGS: dict[str, str] = {
         "{n} document sera réessayé à la prochaine récupération.",
     "{n} documents will be tried again on the next pull.":
         "{n} documents seront réessayés à la prochaine récupération.",
+
+    # ─── E-mail hebdomadaire ─────────────────────────────────────────
+    "587 for STARTTLS, 465 for TLS":
+        "587 pour STARTTLS, 465 pour TLS",
+    "7d is the price move of what you hold now, in the account's currency — a deposit or a purchase during the week is not a gain. Gain since purchase compares today's value with what you put in. The net worth line at the top is the balance, and moves when money arrives too.":
+        "7j est le mouvement de prix de ce que tu détiens maintenant, dans la devise du compte — un dépôt ou un achat pendant la semaine n'est pas un gain. Le gain depuis l'achat compare la valeur d'aujourd'hui à ce que tu as versé. La ligne du patrimoine en haut est le solde, et bouge aussi quand de l'argent arrive.",
+    "Dividends, 12 months":
+        "Dividendes, 12 mois",
+    "Dividends, last {n} days":
+        "Dividendes des {n} derniers jours",
+    "Forget the e-mail settings":
+        "Oublier les réglages e-mail",
+    "Friday":
+        "Vendredi",
+    "Gain since purchase":
+        "Gain depuis l'achat",
+    "Holding":
+        "Position",
+    "Indices":
+        "Indices",
+    "Last sent {when}.":
+        "Dernier envoi {when}.",
+    "Level":
+        "Niveau",
+    "Monday":
+        "Lundi",
+    "No dividends in the last {n} days.":
+        "Aucun dividende dans les {n} derniers jours.",
+    "Not in the dividend total, no rate on file: {amounts}":
+        "Hors du total des dividendes, pas de taux enregistré : {amounts}",
+    "On":
+        "Le",
+    "Once a week, a mail with the week: net worth and its change, every broker and crypto account with its value, price move, gain since purchase, holdings, dividends of the last thirty days and the trailing year, and the indices the app tracks. Sent through an SMTP server of yours — Gmail with an app password works — after the daily sync on the day you pick. It is the one thing this app sends anywhere but your bank: to your own mailbox. The password is kept beside the bank key.":
+        "Une fois par semaine, un mail avec la semaine : le patrimoine et sa variation, chaque compte courtier et crypto avec sa valeur, le mouvement de prix, le gain depuis l'achat, les positions, les dividendes des trente derniers jours et de l'année écoulée, et les indices que l'app suit. Envoyé par un serveur SMTP à toi — Gmail avec un mot de passe d'application fonctionne — après la synchronisation quotidienne, le jour que tu choisis. C'est la seule chose que cette app envoie ailleurs qu'à ta banque : dans ta propre boîte. Le mot de passe est gardé à côté de la clé bancaire.",
+    "Port":
+        "Port",
+    "Preview today's mail":
+        "Aperçu du mail d'aujourd'hui",
+    "Price move, 7 days":
+        "Mouvement de prix, 7 jours",
+    "SMTP server":
+        "Serveur SMTP",
+    "Saturday":
+        "Samedi",
+    "Send a test mail":
+        "Envoyer un mail de test",
+    "Send the weekly e-mail":
+        "Envoyer l'e-mail hebdomadaire",
+    "Send this week's report now":
+        "Envoyer le rapport de cette semaine maintenant",
+    "Sent to {to}: {subject}":
+        "Envoyé à {to} : {subject}",
+    "Sunday":
+        "Dimanche",
+    "Test mail sent to {to}.":
+        "Mail de test envoyé à {to}.",
+    "Test mail — the e-mail settings work.":
+        "Mail de test — les réglages e-mail fonctionnent.",
+    "The mail could not be sent: {error}":
+        "Le mail n'a pas pu être envoyé : {error}",
+    "Thursday":
+        "Jeudi",
+    "Tuesday":
+        "Mardi",
+    "User name":
+        "Nom d'utilisateur",
+    "Wealth Dashboard — test mail":
+        "Wealth Dashboard — mail de test",
+    "Wednesday":
+        "Mercredi",
+    "Weekly e-mail":
+        "E-mail hebdomadaire",
+    "Weekly e-mail forgotten.":
+        "E-mail hebdomadaire oublié.",
+    "Weekly e-mail settings saved.":
+        "Réglages de l'e-mail hebdomadaire enregistrés.",
+    "Weekly report":
+        "Rapport hebdomadaire",
+    "Weekly report {date}":
+        "Rapport hebdomadaire {date}",
+    "Weekly report — {since} to {date}":
+        "Rapport hebdomadaire — du {since} au {date}",
+    "every {day}":
+        "chaque {day}",
+    "optional; the user name otherwise":
+        "facultatif ; sinon le nom d'utilisateur",
+    "set up, switched off":
+        "configuré, désactivé",
+    "several, separated by commas":
+        "plusieurs, séparés par des virgules",
+    "{since} to {date}":
+        "du {since} au {date}",
 }

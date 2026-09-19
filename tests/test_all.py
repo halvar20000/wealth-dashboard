@@ -2621,7 +2621,7 @@ from app import changelog, i18n, main                      # noqa: E402
 TEMPLATES = pathlib.Path(__file__).resolve().parent.parent / "app" / "templates"
 SOURCES = [pathlib.Path(__file__).resolve().parent.parent / "app" / f
            for f in ("main.py", "categories.py", "auth.py", "manual.py", "loans.py", "splits.py", "allocation.py", "bills.py", "goals.py", "retirement.py",
-                     "screener.py", "screener_etf.py")]
+                     "screener.py", "screener_etf.py", "report.py")]
 
 
 def wanted_keys() -> set:
@@ -6703,6 +6703,102 @@ with db.get_conn() as conn:
 check("forgetting the archive keeps what was imported", (archive.configured(), kept), (False, 2))
 c.post(f"/accounts/{dep}/delete", data={"confirm": "Archive depot"})
 c.post(f"/accounts/{gir}/delete", data={"confirm": "Archive giro"})
+
+# ---------------------------------------------------------------------------
+print("\n49. The weekly e-mail")
+# ---------------------------------------------------------------------------
+from app import report                                                # noqa: E402
+
+# A broker with a holding priced today and a week ago, a dividend in
+# the last month, and cash — the ingredients of one account section.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Mail broker', 'broker', 'EUR')")
+    mb = conn.execute("SELECT id FROM accounts WHERE name = 'Mail broker'").fetchone()["id"]
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, "
+                 "isin, security_name, quantity, price, external_id) VALUES "
+                 "(?, '2026-08-01', 'buy', -1000, 'EUR', 'buy', 'XX0000000009', 'Mail Fund', 10, 100, 'mail-1')", (mb,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, "
+                 "isin, security_name, external_id) VALUES "
+                 "(?, '2026-09-10', 'Dividend', 12.5, 'EUR', 'dividend', 'XX0000000009', 'Mail Fund', 'mail-2')", (mb,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, "
+                 "isin, security_name, external_id) VALUES "
+                 "(?, '2025-01-10', 'Dividend', 7.5, 'EUR', 'dividend', 'XX0000000009', 'Mail Fund', 'mail-3')", (mb,))
+    conn.execute("INSERT INTO balances (account_id, amount, currency, balance_type, as_of) "
+                 "VALUES (?, 250, 'EUR', 'manual', '2026-09-18')", (mb,))
+    conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency) VALUES ('XX0000000009', '2026-09-11', 110, 'EUR')")
+    conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency) VALUES ('XX0000000009', '2026-09-18', 121, 'EUR')")
+    conn.execute("INSERT OR REPLACE INTO securities (isin, symbol, name, symbol_source) VALUES ('XX0000000009', 'MAIL', 'Mail Fund', 'manual')")
+    conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency) VALUES ('BENCH:EUNL.DE', '2026-09-11', 100, 'EUR')")
+    conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency) VALUES ('BENCH:EUNL.DE', '2026-09-18', 102, 'EUR')")
+
+rep = report.build("EUR", today=_date(2026, 9, 18))
+check("the report spans a week", (rep["since"], rep["as_of"]), ("2026-09-11", "2026-09-18"))
+sec = next(x for x in rep["accounts"] if x["name"] == "Mail broker")
+fund = sec["holdings"][0]
+check("a holding is valued at today's price, in the account's currency", fund["value"], 1210.0)
+check("...its week is the price move only: 10 × (121 − 110)", (fund["change_7d"], round(fund["pct_7d"], 4)), (110.0, 0.1))
+check("...and the gain since purchase is value less cost", fund["gain"], 210.0)
+check("the account adds the cash", sec["value"], 1210.0 + 250.0)
+check("...moves by what its holdings moved", (sec["change_7d"], round(sec["pct_7d"], 4)), (110.0, 0.1))
+check("dividends of the trailing year are summed", sec["dividends_12m"], 12.5)
+check("...the last thirty days listed", [d["amount"] for d in sec["dividends_recent"]], [12.5])
+check("...and older ones are not in the year", 7.5 in [d["amount"] for d in sec["dividends_recent"]], False)
+check("the indices the app tracks are included",
+      [(b["label"], round(b["pct_7d"], 4)) for b in rep["benchmarks"]], [("MSCI World", 0.02)])
+check("the net worth is the overview's", rep["net_worth"], overview.summary("EUR")["net_worth"])
+check("...measured against the line a week ago", rep["net_worth_then"] is not None, True)
+
+text = report.render_text(rep)
+html = report.render_html(rep)
+check("the text version carries the account", "== Mail broker" in text and "Mail Fund" in text, True)
+check("...and the week's move, signed", "+110" in text.replace("\xa0", " "), True)
+check("the HTML version is a full mail", ("<h1" in html, "Mail broker" in html, "MSCI World" in html), (True, True, True))
+check("...with nothing unescaped", "<script" not in html, True)
+check("the subject names the day and the change", report.subject(rep).startswith("Weekly report "), True)
+
+# When to send: on the chosen weekday, once per ISO week, catching up.
+cfg = {"report_enabled": True, "report_weekday": 2}
+check("due on the day", report.due(_date(2026, 9, 16), cfg, None), True)              # a Wednesday
+check("not before it", report.due(_date(2026, 9, 14), cfg, None), False)              # the Monday of that week
+check("not twice in a week", report.due(_date(2026, 9, 17), cfg, "2026-W38"), False)
+check("caught up later in the week if the day was missed", report.due(_date(2026, 9, 19), cfg, "2026-W37"), True)
+check("off means off", report.due(_date(2026, 9, 14), {"report_enabled": False}, None), False)
+
+# Sending, through a fake SMTP.
+mails = []
+fake_smtp = lambda host, port, user, password, sender, to, body: mails.append(   # noqa: E731
+    {"host": host, "port": port, "user": user, "password": password, "sender": sender, "to": to, "body": body})
+try:
+    report.send("x", "<p>x</p>", "x", smtp=fake_smtp); check("unset up, sending refuses", False, True)
+except report.NotConfigured:
+    check("unset up, sending refuses and says what is missing", True, True)
+r = c.post("/settings/assistants", data={"form": "report_save", "report_enabled": "1", "smtp_host": "",
+                                        "report_to": "me@example.com"}, follow_redirects=True)
+check("switching it on without a server is refused", b"server and at least one recipient" in r.data, True)
+r = c.post("/settings/assistants", data={"form": "report_save", "report_enabled": "1", "smtp_host": "smtp.example.com",
+                                        "smtp_port": "587", "smtp_user": "me@example.com", "smtp_password": "s3cret",
+                                        "report_to": "me@example.com; other@example.com", "report_weekday": "4"},
+           follow_redirects=True)
+check("the settings are saved", (settings.load()["smtp_host"], settings.load()["report_to"], settings.load()["report_weekday"]),
+      ("smtp.example.com", "me@example.com, other@example.com", 4))
+check("...the password beside the keys, private",
+      oct((settings.SECRETS_DIR / report.PASSWORD_FILE).stat().st_mode & 0o777), "0o600")
+check("...and the card says when", b"every Friday" in r.data, True)
+info = report.send_report("EUR", today=_date(2026, 9, 18), smtp=fake_smtp)
+check("a report goes to every recipient", (info["to"], mails[-1]["to"]), (["me@example.com", "other@example.com"],) * 2)
+check("...with the saved credentials", (mails[-1]["host"], mails[-1]["port"], mails[-1]["password"]), ("smtp.example.com", 587, "s3cret"))
+check("...as text and HTML", ("text/plain" in mails[-1]["body"] and "text/html" in mails[-1]["body"]), True)
+check("...and the week is marked sent", db.get_state(report.STATE_KEY), "2026-W38")
+check("so the same week is not sent again", report.send_if_due("EUR", today=_date(2026, 9, 18), smtp=fake_smtp), None)
+check("the preview renders in the browser", (c.get("/report/preview").status_code, b"Mail broker" in c.get("/report/preview").data), (200, True))
+r = c.post("/settings/assistants", data={"form": "report_save", "smtp_host": "smtp.example.com", "smtp_port": "465",
+                                        "report_to": "me@example.com", "report_weekday": "0"}, follow_redirects=True)
+check("a blank password keeps the saved one", (settings.SECRETS_DIR / report.PASSWORD_FILE).read_text(), "s3cret")
+check("...and an unticked box switches it off", settings.load()["report_enabled"], False)
+c.post("/settings/assistants", data={"form": "report_forget"})
+check("forgetting clears the settings and the password",
+      (settings.load().get("smtp_host"), (settings.SECRETS_DIR / report.PASSWORD_FILE).exists()), (None, False))
+c.post(f"/accounts/{mb}/delete", data={"confirm": "Mail broker"})
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

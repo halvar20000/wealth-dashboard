@@ -290,6 +290,15 @@ def changes(now: float | None, base_currency: str = "EUR",
     return out
 
 
+def net_worth_on(day: date, base_currency: str = "EUR",
+                 account_ids: list[int] | None = None) -> float | None:
+    """The net worth on one day, as the line would draw it — None where
+    no record reaches. What the weekly mail measures a week against."""
+    v = Valuer(base_currency, account_ids)
+    recorded = _recorded(v.base, account_ids)
+    return _point(v, recorded, sorted(recorded), _records_from(account_ids), day)["net_worth"]
+
+
 def _recorded(base: str, account_ids: list[int] | None) -> dict[str, float]:
     """Net worth readings brought over from another app, in the base
     currency. Only for the whole household: another app's total cannot

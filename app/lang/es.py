@@ -2593,4 +2593,96 @@ STRINGS: dict[str, str] = {
         "{n} documento se intentará de nuevo en la próxima recogida.",
     "{n} documents will be tried again on the next pull.":
         "{n} documentos se intentarán de nuevo en la próxima recogida.",
+
+    # ─── Correo semanal ──────────────────────────────────────────────
+    "587 for STARTTLS, 465 for TLS":
+        "587 para STARTTLS, 465 para TLS",
+    "7d is the price move of what you hold now, in the account's currency — a deposit or a purchase during the week is not a gain. Gain since purchase compares today's value with what you put in. The net worth line at the top is the balance, and moves when money arrives too.":
+        "7d es el movimiento de precio de lo que tienes ahora, en la moneda de la cuenta — un ingreso o una compra durante la semana no es una ganancia. La ganancia desde la compra compara el valor de hoy con lo que aportaste. La línea del patrimonio de arriba es el saldo, y también se mueve cuando llega dinero.",
+    "Dividends, 12 months":
+        "Dividendos, 12 meses",
+    "Dividends, last {n} days":
+        "Dividendos de los últimos {n} días",
+    "Forget the e-mail settings":
+        "Olvidar los ajustes de correo",
+    "Friday":
+        "Viernes",
+    "Gain since purchase":
+        "Ganancia desde la compra",
+    "Holding":
+        "Posición",
+    "Indices":
+        "Índices",
+    "Last sent {when}.":
+        "Último envío {when}.",
+    "Level":
+        "Nivel",
+    "Monday":
+        "Lunes",
+    "No dividends in the last {n} days.":
+        "Sin dividendos en los últimos {n} días.",
+    "Not in the dividend total, no rate on file: {amounts}":
+        "Fuera del total de dividendos, sin tipo de cambio registrado: {amounts}",
+    "On":
+        "El",
+    "Once a week, a mail with the week: net worth and its change, every broker and crypto account with its value, price move, gain since purchase, holdings, dividends of the last thirty days and the trailing year, and the indices the app tracks. Sent through an SMTP server of yours — Gmail with an app password works — after the daily sync on the day you pick. It is the one thing this app sends anywhere but your bank: to your own mailbox. The password is kept beside the bank key.":
+        "Una vez por semana, un correo con la semana: el patrimonio y su variación, cada cuenta de bróker y cripto con su valor, movimiento de precio, ganancia desde la compra, posiciones, dividendos de los últimos treinta días y del último año, y los índices que la app sigue. Enviado por un servidor SMTP tuyo — Gmail con una contraseña de aplicación funciona — tras la sincronización diaria, el día que elijas. Es lo único que esta app envía a algún sitio que no sea tu banco: a tu propio buzón. La contraseña se guarda junto a la clave bancaria.",
+    "Port":
+        "Puerto",
+    "Preview today's mail":
+        "Ver el correo de hoy",
+    "Price move, 7 days":
+        "Movimiento de precio, 7 días",
+    "SMTP server":
+        "Servidor SMTP",
+    "Saturday":
+        "Sábado",
+    "Send a test mail":
+        "Enviar un correo de prueba",
+    "Send the weekly e-mail":
+        "Enviar el correo semanal",
+    "Send this week's report now":
+        "Enviar el informe de esta semana ahora",
+    "Sent to {to}: {subject}":
+        "Enviado a {to}: {subject}",
+    "Sunday":
+        "Domingo",
+    "Test mail sent to {to}.":
+        "Correo de prueba enviado a {to}.",
+    "Test mail — the e-mail settings work.":
+        "Correo de prueba — los ajustes de correo funcionan.",
+    "The mail could not be sent: {error}":
+        "No se pudo enviar el correo: {error}",
+    "Thursday":
+        "Jueves",
+    "Tuesday":
+        "Martes",
+    "User name":
+        "Nombre de usuario",
+    "Wealth Dashboard — test mail":
+        "Wealth Dashboard — correo de prueba",
+    "Wednesday":
+        "Miércoles",
+    "Weekly e-mail":
+        "Correo semanal",
+    "Weekly e-mail forgotten.":
+        "Correo semanal olvidado.",
+    "Weekly e-mail settings saved.":
+        "Ajustes del correo semanal guardados.",
+    "Weekly report":
+        "Informe semanal",
+    "Weekly report {date}":
+        "Informe semanal {date}",
+    "Weekly report — {since} to {date}":
+        "Informe semanal — del {since} al {date}",
+    "every {day}":
+        "cada {day}",
+    "optional; the user name otherwise":
+        "opcional; si no, el nombre de usuario",
+    "set up, switched off":
+        "configurado, apagado",
+    "several, separated by commas":
+        "varios, separados por comas",
+    "{since} to {date}":
+        "del {since} al {date}",
 }

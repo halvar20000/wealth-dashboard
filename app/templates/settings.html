@@ -379,6 +379,42 @@ curl -H "Authorization: Bearer {{ mcp_token }}" -X POST -H "Content-Type: applic
   {% endif %}
 </div>
 
+<div class="card" id="report">
+  <div class="card-header"><h2>{{ _("Weekly e-mail") }}</h2>
+    <span class="card-subtitle">{% if report_state.configured and report_state.enabled %}{{ _f("every {day}", day=weekdays[report_state.weekday]) }}{% elif report_state.configured %}{{ _("set up, switched off") }}{% else %}{{ _("not set up") }}{% endif %}</span></div>
+  <p class="sub">{{ _("Once a week, a mail with the week: net worth and its change, every broker and crypto account with its value, price move, gain since purchase, holdings, dividends of the last thirty days and the trailing year, and the indices the app tracks. Sent through an SMTP server of yours — Gmail with an app password works — after the daily sync on the day you pick. It is the one thing this app sends anywhere but your bank: to your own mailbox. The password is kept beside the bank key.") }}
+  <a href="{{ url_for('report_preview') }}" target="_blank" rel="noopener">{{ _("Preview today's mail") }}</a></p>
+  <form method="post" class="form">
+    <input type="hidden" name="form" value="report_save">
+    <label class="check"><input type="checkbox" name="report_enabled" value="1" {{ 'checked' if report_state.enabled }}> {{ _("Send the weekly e-mail") }}</label>
+    <label for="report_weekday">{{ _("On") }}</label>
+    <select id="report_weekday" name="report_weekday" style="width:auto">
+      {% for name in weekdays %}<option value="{{ loop.index0 }}" {{ 'selected' if report_state.weekday == loop.index0 }}>{{ name }}</option>{% endfor %}
+    </select>
+    <label for="report_to">{{ _("To") }} <span class="sub">{{ _("several, separated by commas") }}</span></label>
+    <input id="report_to" name="report_to" value="{{ report_state.to }}" placeholder="you@example.com">
+    <label for="smtp_host">{{ _("SMTP server") }}</label>
+    <input id="smtp_host" name="smtp_host" value="{{ report_state.host }}" placeholder="smtp.gmail.com">
+    <label for="smtp_port">{{ _("Port") }} <span class="sub">{{ _("587 for STARTTLS, 465 for TLS") }}</span></label>
+    <input id="smtp_port" name="smtp_port" value="{{ report_state.port }}" style="width:100px">
+    <label for="smtp_user">{{ _("User name") }}</label>
+    <input id="smtp_user" name="smtp_user" value="{{ report_state.user }}" autocomplete="off">
+    <label for="smtp_password">{{ _("Password") }}{% if report_state.configured %} <span class="sub">{{ _("leave blank to keep the saved one") }}</span>{% endif %}</label>
+    <input id="smtp_password" name="smtp_password" type="password" autocomplete="new-password">
+    <label for="smtp_from">{{ _("From") }} <span class="sub">{{ _("optional; the user name otherwise") }}</span></label>
+    <input id="smtp_from" name="smtp_from" value="{{ report_state.sender }}">
+    <div><button type="submit">{{ _("Save") }}</button></div>
+  </form>
+  {% if report_state.configured %}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+    <form method="post"><input type="hidden" name="form" value="report_test"><button type="submit" class="btn-ghost">{{ _("Send a test mail") }}</button></form>
+    <form method="post"><input type="hidden" name="form" value="report_send"><button type="submit">{{ _("Send this week's report now") }}</button></form>
+    <form method="post"><input type="hidden" name="form" value="report_forget"><button type="submit" class="btn-danger">{{ _("Forget the e-mail settings") }}</button></form>
+  </div>
+  {% if report_state.last_sent %}<p class="sub" style="margin-top:10px">{{ _f("Last sent {when}.", when=report_state.last_sent[:16].replace('T', ' ')) }}</p>{% endif %}
+  {% endif %}
+</div>
+
 <div class="card" id="webhooks">
   <div class="card-header"><h2>{{ _("Webhooks") }}</h2>
     <span class="card-subtitle">{{ _n(hooks | length, "{n} receiver", "{n} receivers") }}</span></div>

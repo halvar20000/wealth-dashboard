@@ -71,6 +71,8 @@ it does not do yet.
 - [x] The app's own CSV template, recognised outright; a row id column.
 - [x] Statements pulled from Paperless-ngx by tag, correspondent or query,
       on the daily sync, through the same readers as an upload.
+- [x] A weekly e-mail with the week's figures, through the user's own
+      SMTP server.
 - [x] CSV export of transactions and holdings, filtered as the page is.
 - [x] Allocation by asset class, region and bucket, with targets and a
       contribution spread.

@@ -46,7 +46,7 @@ from .banks import sync as banksync
 from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, income, loans, retirement, webhooks,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, splits, stages, subscriptions, upcoming)
-from . import archive, brokers
+from . import archive, brokers, report
 from .brokers import kraken, saxo
 from . import db as db_state
 from .db import get_conn, has_users, init_db
@@ -2518,7 +2518,7 @@ SETTINGS_SECTIONS = ("general", "banks", "market", "categories", "people", "assi
 _SETTINGS_ANCHORS = {
     "general": "general",
     "sync": "banks", "saxo": "banks", "kraken": "banks", "mappings": "banks", "enablebanking": "banks",
-    "archive": "banks",
+    "archive": "banks", "report": "assistants",
     "rates": "market", "prices": "market", "ideas": "market",
     "categories": "categories", "people": "people", "mcp": "assistants", "webhooks": "assistants", "api": "assistants",
 }
@@ -2528,6 +2528,17 @@ def _settings_url(anchor: str | None = None, **args) -> str:
     section = _SETTINGS_ANCHORS.get(anchor or "", "general")
     url = url_for("settings_page", section=None if section == "general" else section, **args)
     return f"{url}#{anchor}" if anchor and anchor != section else url
+
+
+@app.route("/report/preview")
+@auth.login_required
+def report_preview():
+    """The weekly mail as it would go out today, in the browser — the
+    way to see it before trusting it to a Monday."""
+    rep = report.build(settings.get("base_currency", "EUR"))
+    body = report.render_html(rep)
+    return (f"<!doctype html><meta charset=utf-8><title>{report.subject(rep)}</title>"
+            f"<body style='background:#fff;margin:0;padding:16px'>{body}</body>")
 
 
 @app.route("/settings", methods=["GET", "POST"])
@@ -2650,6 +2661,33 @@ def settings_page(section: str = "general"):
             flash(_n(n, "{n} document will be tried again on the next pull.",
                      "{n} documents will be tried again on the next pull."), "ok")
             return redirect(_settings_url("archive"))
+        elif request.form.get("form") == "report_save":
+            try:
+                report.save(request.form)
+                flash(_t("Weekly e-mail settings saved."), "ok")
+            except ValueError as exc:
+                flash(str(exc), "error")
+            return redirect(_settings_url("report"))
+        elif request.form.get("form") == "report_forget":
+            report.forget()
+            flash(_t("Weekly e-mail forgotten."), "ok")
+            return redirect(_settings_url("report"))
+        elif request.form.get("form") in ("report_test", "report_send"):
+            try:
+                if request.form.get("form") == "report_test":
+                    to = report.send(_t("Wealth Dashboard — test mail"),
+                                     "<p>" + _t("Test mail — the e-mail settings work.") + "</p>",
+                                     _t("Test mail — the e-mail settings work."))
+                    flash(_f("Test mail sent to {to}.", to=", ".join(to)), "ok")
+                else:
+                    info = report.send_report(cfg.get("base_currency", "EUR"))
+                    flash(_f("Sent to {to}: {subject}", to=", ".join(info["to"]),
+                             subject=info["subject"]), "ok")
+            except report.NotConfigured as exc:
+                flash(str(exc), "error")
+            except Exception as exc:                        # noqa: BLE001
+                flash(_f("The mail could not be sent: {error}", error=str(exc)), "error")
+            return redirect(_settings_url("report"))
         elif request.form.get("form") == "mcp_token":
             if request.form.get("action") == "revoke":
                 mcp.revoke()
@@ -2770,6 +2808,9 @@ def settings_page(section: str = "general"):
                            saxo_state=saxo.describe(),
                            kraken_state=kraken.describe(),
                            archive_state=archive.describe(),
+                           report_state=report.describe(),
+                           weekdays=[_t("Monday"), _t("Tuesday"), _t("Wednesday"), _t("Thursday"),
+                                     _t("Friday"), _t("Saturday"), _t("Sunday")],
                            broker_links=brokers.links(),
                            mcp_url=request.url_root.rstrip("/") + "/mcp",
                            api_url=request.url_root.rstrip("/") + "/api/v1/tools",
@@ -3039,6 +3080,12 @@ def _start_rate_refresher() -> None:
                                        datetime.now().isoformat(timespec="seconds"))
                     loans.write_all_balances()
                     results = banksync.sync_all() + brokers.sync_all()
+                    try:
+                        sent = report.send_if_due(cfg.get("base_currency", "EUR"))
+                        if sent:
+                            print(f"  report: sent to {', '.join(sent['to'])}", flush=True)
+                    except Exception as exc:              # noqa: BLE001
+                        print(f"  report: {exc}", flush=True)
                     if archive.configured():
                         try:
                             for r in archive.pull():
