@@ -831,6 +831,11 @@ is worth hearing.
   [Discussions → Ideas](https://github.com/halvar20000/wealth-dashboard/discussions/categories/ideas),
   or 👍 an idea already there. The [**roadmap** thread](https://github.com/halvar20000/wealth-dashboard/discussions/1) lists what is
   being considered, and the votes decide the order.
+* **A bank whose statements are not read, or read wrong?**
+  [Send a redacted sample](https://github.com/halvar20000/wealth-dashboard/issues/new?template=new_reader.yml)
+  — name, address and account numbers painted over, dates, amounts and
+  labels kept — and it becomes a reader. The app's *Banks & formats* page
+  says which are read already.
 * **A bank that will not connect, or a setup question?**
   [Discussions → Q&A](https://github.com/halvar20000/wealth-dashboard/discussions/categories/q-a).
   Name the bank and country; the thread helps the next person with the same one.

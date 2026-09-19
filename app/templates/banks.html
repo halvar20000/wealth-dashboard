@@ -5,8 +5,16 @@
 <p class="lede">{{ _("What the import page can read, by name: the statement PDFs of banks and brokers, the CSV exports it knows outright, and the statement formats every bank writes alike. Drop the file on an account's import page — it is recognised by what is in it.") }}</p>
 {% endblock %}
 {% block content %}
+<div class="card" id="new-reader">
+  <h2>{{ _("Your bank is not here?") }}</h2>
+  <p>{{ _("Every reader was written from one sample statement, and yours can be the next. Send a redacted statement — name, address, account number and IBAN painted over; dates, amounts, ISINs and every printed label kept — and it becomes a reader in the next release. A PDF with the boxes blacked out is fine, and so is its text layer copied out of a viewer. One document per kind helps most: a purchase, a dividend, a Kontoauszug.") }}</p>
+  <p><a class="btn" href="https://github.com/halvar20000/wealth-dashboard/issues/new?template=new_reader.yml" target="_blank" rel="noopener">{{ _("Send a statement sample") }}</a>
+     <span class="sub">{{ _("opens a GitHub issue with a short form and a place to attach the file") }}</span></p>
+  <p class="sub">{{ _("The same goes for a bank that is listed but reads a figure wrong: the sample that shows it is the fix.") }}</p>
+</div>
+
 <div class="card" id="readers">
-  <p class="sub">{{ _f("{n} banks, brokers and formats. Type a name to find yours; a bank not here is read through a CSV mapping you draw once, or send a redacted statement and it becomes a reader.", n=catalogue | length) }}</p>
+  <p class="sub">{{ _f("{n} banks, brokers and formats. Type a name to find yours; a bank not here is read through a CSV mapping you draw once — or send a statement, above.", n=catalogue | length) }}</p>
   <input type="search" id="reader-filter" placeholder="{{ _('Bank, broker or format') }}" autocomplete="off" style="max-width:320px">
   <table class="grid" id="reader-list">
     <tbody>
@@ -19,7 +27,7 @@
       {% endfor %}
     </tbody>
   </table>
-  <p class="sub" id="reader-none" hidden>{{ _("Nothing by that name — a CSV of it can still be mapped once, below the file field.") }}</p>
+  <p class="sub" id="reader-none" hidden>{{ _("Nothing by that name — send a statement sample, above, or map a CSV of it once on the import page.") }}</p>
 </div>
 <script>
 (function () {

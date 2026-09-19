@@ -1556,6 +1556,8 @@ check("the Banks & formats page lists every reader by name, sorted, one line per
       (len(cat) > 140, cat == sorted(cat, key=lambda e: e["name"].lower()), "Trade Republic" in page and "id=\"reader-filter\"" in page,
        next(e for e in cat if e["name"] == "Trade Republic")["kinds"]),
       (True, True, True, ["PDF", "CSV"]))
+check("...and asks for a redacted sample of a bank that is missing, through the issue form",
+      "issues/new?template=new_reader.yml" in page, True)
 check("...it is in the navigation and linked from the import page",
       ("/banks" in c.get("/accounts").get_data(as_text=True), "/banks" in c.get(f"/accounts/{depot_id}/import").get_data(as_text=True)), (True, True))
 

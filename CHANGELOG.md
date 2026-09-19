@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.67.3] — 2026-09-19
+
+### Added
+- The Banks & formats page asks for what it lacks: a bank not on the
+  list — or one that reads a figure wrong — is a redacted sample away
+  from a reader, and the page says so, with what to black out (name,
+  address, account number, IBAN) and what to keep (dates, amounts,
+  ISINs, every printed label), and a button that opens a GitHub issue
+  form made for it, with a place to attach the file.
+
 ## [0.67.2] — 2026-09-19
 
 ### Changed

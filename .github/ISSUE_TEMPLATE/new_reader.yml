@@ -1,0 +1,71 @@
+name: Statement reader request
+description: Your bank's statement is not read, or is read wrong — send a redacted sample and it becomes a reader.
+title: "[Reader] "
+labels: ["reader"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every reader in this app was written from a sample statement, and yours can be the next one. What is needed is the **layout**, not your money — so before you attach anything, **redact it**:
+
+        * black out or replace your name, address, account number, IBAN, customer and depot numbers
+        * keep the dates, the amounts, the ISINs, the fee and tax lines, and every heading and label exactly as printed — those are what the reader is built from
+        * a PDF with the boxes painted over is fine; so is the PDF's **text layer** (`pdftotext -layout statement.pdf` on a Mac or Linux, or copy-all from a PDF viewer), which is often easier to redact in a text editor
+
+        One statement per document type helps most: a purchase, a sale, a dividend, a Kontoauszug — whatever the bank sends you.
+  - type: input
+    id: bank
+    attributes:
+      label: Bank or broker
+      placeholder: "Sparkasse Leipzig / Interactive Brokers / Bunq"
+    validations:
+      required: true
+  - type: input
+    id: country
+    attributes:
+      label: Country and language of the statement
+      placeholder: "Germany, German"
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of document?
+      multiple: true
+      options:
+        - Purchase / sale (Wertpapierabrechnung)
+        - Dividend / interest / Vorabpauschale
+        - Account statement (Kontoauszug, cash rows)
+        - Credit card statement
+        - Depot or portfolio statement (holdings)
+        - CSV export
+        - Something else (say below)
+    validations:
+      required: true
+  - type: dropdown
+    id: today
+    attributes:
+      label: What happens today when you drop it on the import page?
+      options:
+        - "'not recognised, left out'"
+        - Recognised by another bank's reader, wrong rows
+        - Recognised, but some figures are wrong (say which below)
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything the reader should know
+      placeholder: |
+        The dividend PDF has a second page with the tax; amounts are in CHF but the account is in EUR; the Kontoauszug prints the year only in the header.
+  - type: checkboxes
+    id: redacted
+    attributes:
+      label: Redaction
+      options:
+        - label: I have removed my name, address, account number and IBAN from the attached sample and kept the amounts, dates and labels.
+          required: true
+  - type: markdown
+    attributes:
+      value: |
+        **Attach the redacted sample** to the issue (drag it into the text box). Several files or a ZIP are fine.
