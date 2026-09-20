@@ -6989,5 +6989,220 @@ check("a card table: a bare figure is a charge, CR or brackets a credit",
       ["ROW 2023-11-05 | PAYMENT - THANK YOU | 1200.00 SGD", "ROW 2023-10-14 | BOOKSHOP | -12.50 SGD", "ROW 2023-11-20 | REFUND | 15.00 SGD"])
 
 # ---------------------------------------------------------------------------
+print("\n54. Interactive Brokers, Trading 212, Trade Republic")
+# ---------------------------------------------------------------------------
+from app.brokers import ibkr, trading212, traderepublic           # noqa: E402
+c = flask_app.test_client()
+c.post("/login", data={"username": "alex", "password": "a-good-password"})
+
+# — IBKR: the Flex XML as a file —
+fx_ = importers.ibkr_flex.parse(fixtures.IBKR_FLEX, account_currency="EUR")
+check("a Flex XML dropped on the import page is recognised", importers.sniff(fixtures.IBKR_FLEX.encode()).SLUG, "ibkr_flex")
+check("...trades at execution level only, net of commission; the dividend with its withholding folded; deposit, interest, fee; the FX conversion left out",
+      ([(r.txn_date, r.kind, r.amount, r.currency, r.quantity, r.fee, r.tax) for r in fx_.rows], fx_.skipped, fx_.problems),
+      ([("2026-03-04", "buy", -2502.0, "USD", 10.0, 1.0, None), ("2026-03-10", "sell", 541.25, "EUR", -5.0, 1.25, None),
+        ("2026-03-25", "dividend", 6.97, "USD", None, None, 1.23), ("2026-03-02", "deposit", 3000.0, "EUR", None, None, None),
+        ("2026-03-31", "interest", 1.05, "EUR", None, None, None), ("2026-03-31", "fee", -1.5, "EUR", None, None, None)], 1, []))
+check("...the transactionID is the id, the account's cash the balance", (fx_.rows[0].external_id, fx_.closing_balance),
+      ("ibkr:U1234567:7001", {"amount": 1200.1, "currency": "EUR", "as_of": "2026-03-31"}))
+
+# — IBKR: the Flex Web Service, asked and polled —
+try:
+    ibkr.save_credentials("abc", "1")
+    check("a Flex token that is not a number is refused", False, True)
+except ValueError:
+    check("a Flex token that is not a number is refused", True, True)
+ibkr.save_credentials("123456789012345678", "987654")
+check("the IBKR token and query id are kept 0600", oct((settings.SECRETS_DIR / ibkr.TOKEN_FILE).stat().st_mode & 0o777), "0o600")
+ibkr_calls = []
+def fake_ibkr(method, url, headers, body):
+    ibkr_calls.append(url)
+    if "SendRequest" in url:
+        return 200, b'<FlexStatementResponse><Status>Success</Status><ReferenceCode>REF1</ReferenceCode></FlexStatementResponse>'
+    if len([u for u in ibkr_calls if "GetStatement" in u]) == 1:
+        return 200, b'<FlexStatementResponse><Status>Warn</Status><ErrorCode>1019</ErrorCode><ErrorMessage>Statement generation in progress</ErrorMessage></FlexStatementResponse>'
+    return 200, fixtures.IBKR_FLEX.encode()
+slept = []
+ic = ibkr.Client("123456789012345678", "987654", transport=fake_ibkr, sleep=slept.append)
+check("the statement is requested, then fetched once IBKR says it is ready", "<FlexQueryResponse" in ic.statement() and slept == [ibkr.POLL_SECONDS], True)
+check("...the token and query travel as query parameters, v=3", "t=123456789012345678" in ibkr_calls[0] and "q=987654" in ibkr_calls[0] and "v=3" in ibkr_calls[0], True)
+bad = ibkr.Client("1", "2", transport=lambda m, u, h, b: (200, b'<FlexStatementResponse><ErrorCode>1015</ErrorCode><ErrorMessage>Token expired</ErrorMessage></FlexStatementResponse>'))
+try:
+    bad.statement(); check("an expired token is said so", False, True)
+except ibkr.IbkrError as exc:
+    check("an expired token is said so", "refused the token" in str(exc), True)
+ibkr.client = lambda transport=None, sleep=None: ibkr.Client("123456789012345678", "987654", transport=fake_ibkr, sleep=slept.append)
+r = c.post("/accounts/new", data={"name": "IBKR", "type": "broker", "currency": "EUR"})
+ib_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+check("a broker account offers the IBKR connection once a token exists", b"Connect Interactive Brokers" in c.get(f"/accounts/{ib_id}").data, True)
+r = c.post(f"/accounts/{ib_id}/connect/ibkr", follow_redirects=True)
+check("connecting pulls the statement; the positions IBKR reports beyond the rows are a drift, not a failure",
+      (b"Connected, but the first sync failed" in r.data and b"VANGUARD FTSE AW USDA: IBKR says 25" in r.data,
+       brokers.link_for(ib_id)["provider"], brokers.link_for(ib_id)["last_sync_at"] is not None), (True, "ibkr", True))
+with db.get_conn() as conn:
+    n_ib = conn.execute("SELECT COUNT(*) AS n FROM transactions WHERE account_id = ?", (ib_id,)).fetchone()["n"]
+    ib_bal = conn.execute("SELECT amount, currency FROM balances WHERE account_id = ? ORDER BY as_of DESC, id DESC LIMIT 1", (ib_id,)).fetchone()
+check("...six rows stored, the euro cash as the balance", (n_ib, ib_bal["amount"], ib_bal["currency"]), (6, 1200.1, "EUR"))
+
+# — Trading 212 —
+T212 = {
+    "/equity/account/summary": {"currency": "EUR", "id": 1, "cash": {"availableToTrade": 250.5, "reservedForOrders": 0, "inPies": 0},
+                                "investments": {"currentValue": 1100.0}, "totalValue": 1350.5},
+    "/equity/positions": [{"ticker": "VWCE_EQ", "quantity": 10.0, "instrument": {"isin": "IE00BK5BQT80", "name": "Vanguard FTSE All-World", "currency": "EUR"}}],
+    "/equity/history/orders?limit=50": {"items": [
+        {"order": {"id": 501, "side": "BUY", "status": "FILLED", "ticker": "VWCE_EQ", "createdAt": "2026-03-04T10:00:00Z", "currency": "EUR",
+                   "instrument": {"isin": "IE00BK5BQT80", "name": "Vanguard FTSE All-World", "currency": "EUR"}},
+         "fill": {"id": 9001, "type": "TRADE", "quantity": 10, "price": 105.5, "filledAt": "2026-03-04T10:00:05Z",
+                  "walletImpact": {"currency": "EUR", "netValue": -1055.5, "taxes": [{"name": "CURRENCY_CONVERSION_FEE", "quantity": 0.5, "currency": "EUR"}]}}}],
+        "nextPagePath": "/api/v0/equity/history/orders?limit=50&cursor=1"},
+    "/equity/history/orders?limit=50&cursor=1": {"items": [
+        {"order": {"id": 502, "side": "SELL", "status": "FILLED", "ticker": "AAPL_US_EQ", "createdAt": "2026-03-20T15:00:00Z", "currency": "EUR",
+                   "instrument": {"isin": "US0378331005", "name": "Apple", "currency": "USD"}},
+         "fill": {"id": 9002, "type": "TRADE", "quantity": 2, "price": 180.0, "filledAt": "2026-03-20T15:00:02Z",
+                  "walletImpact": {"currency": "EUR", "netValue": 330.0, "taxes": []}}},
+        {"order": {"id": 503, "side": "BUY", "status": "FILLED", "ticker": "AAPL_US_EQ", "instrument": {"isin": "US0378331005", "name": "Apple"}},
+         "fill": {"id": 9003, "type": "STOCK_SPLIT", "quantity": 8, "filledAt": "2026-03-21T00:00:00Z"}}]},
+    "/equity/history/dividends?limit=50": {"items": [
+        {"reference": "d1", "ticker": "VWCE_EQ", "quantity": 10, "amount": 4.2, "grossAmountPerShare": 0.5, "currency": "EUR", "paidOn": "2026-03-28T00:00:00Z", "type": "ORDINARY",
+         "instrument": {"isin": "IE00BK5BQT80", "name": "Vanguard FTSE All-World", "currency": "EUR"}}]},
+    "/equity/history/transactions?limit=50": {"items": [
+        {"reference": "c1", "type": "DEPOSIT", "amount": 1000.0, "currency": "EUR", "dateTime": "2026-03-01T09:00:00Z"},
+        {"reference": "c2", "type": "INTEREST_ON_FREE_CASH", "amount": 0.8, "currency": "EUR", "dateTime": "2026-03-31T00:00:00Z"},
+        {"reference": "c3", "type": "FEE", "amount": -1.0, "currency": "EUR", "dateTime": "2026-03-31T00:00:00Z"}]},
+}
+t212_hits = []
+def fake_t212(method, url, headers, body):
+    path = url.split("/api/v0", 1)[1]
+    t212_hits.append(path)
+    if headers.get("Authorization") != "Basic " + __import__("base64").b64encode(b"k212:s212").decode():
+        return 401, b"{}", {}
+    if path == "/equity/positions" and t212_hits.count(path) == 1:
+        return 429, b"{}", {"x-ratelimit-reset": str(__import__("time").time() + 2)}
+    return 200, json.dumps(T212[path]).encode(), {"x-ratelimit-remaining": "5"}
+t_slept = []
+tc = trading212.Client("k212", "s212", "live", transport=fake_t212, sleep=t_slept.append)
+parsed_t = trading212.normalise(tc.orders(), tc.dividends(), tc.transactions(), "EUR")
+check("Trading 212 orders come page by page along nextPagePath; a split is units without money and is left out",
+      (len([h for h in t212_hits if "orders" in h]), parsed_t.skipped), (2, 1))
+check("...a buy is money out with the conversion fee, a sale money in, in the wallet's currency",
+      [(r.txn_date, r.kind, r.amount, r.currency, r.quantity, r.price, r.fee, r.isin) for r in parsed_t.rows if r.kind in ("buy", "sell")],
+      [("2026-03-04", "buy", -1055.5, "EUR", 10.0, 105.5, 0.5, "IE00BK5BQT80"), ("2026-03-20", "sell", 330.0, "EUR", -2.0, 180.0, None, "US0378331005")])
+check("...a dividend net, with the tax as the gap to the gross; cash rows by type",
+      [(r.kind, r.amount, r.tax) for r in parsed_t.rows if r.kind not in ("buy", "sell")],
+      [("dividend", 4.2, 0.8), ("deposit", 1000.0, None), ("interest", 0.8, None), ("fee", -1.0, None)])
+check("...a 429 is waited out by the reset header", (tc.positions()[0]["ticker"], len(t_slept) == 1 and 0 < t_slept[0] < 5), ("VWCE_EQ", True))
+try:
+    trading212.Client("x", "y", "live", transport=fake_t212).summary(); check("a wrong key is refused in words", False, True)
+except trading212.Trading212Error as exc:
+    check("a wrong key is refused in words", "refused the key" in str(exc), True)
+trading212.save_credentials("k212", "s212", "live")
+trading212.client = lambda transport=None, sleep=None: trading212.Client("k212", "s212", "live", transport=fake_t212, sleep=t_slept.append)
+r = c.post("/accounts/new", data={"name": "T212", "type": "broker", "currency": "EUR"})
+t2_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+check("a broker account offers the Trading 212 connection once a key exists", b"Connect Trading 212" in c.get(f"/accounts/{t2_id}").data, True)
+r = c.post(f"/accounts/{t2_id}/connect/trading212", follow_redirects=True)
+check("connecting pulls everything and the positions agree", b"Connected. Imported 6 transactions" in r.data, True)
+with db.get_conn() as conn:
+    t2_bal = conn.execute("SELECT amount, currency FROM balances WHERE account_id = ? ORDER BY as_of DESC, id DESC LIMIT 1", (t2_id,)).fetchone()
+check("...the free cash is the balance reading", (t2_bal["amount"], t2_bal["currency"]), (250.5, "EUR"))
+
+# — Trade Republic —
+try:
+    traderepublic.save_credentials("0171 234", "1234"); check("a phone number without country code is refused", False, True)
+except ValueError:
+    check("a phone number without country code is refused", True, True)
+traderepublic.save_credentials("+49 171 2345678", "1234")
+check("...saved 0600, digits only", ((settings.SECRETS_DIR / traderepublic.PHONE_FILE).read_text(),
+                                     oct((settings.SECRETS_DIR / traderepublic.PIN_FILE).stat().st_mode & 0o777)), ("+491712345678", "0o600"))
+tr_http = []
+def fake_tr_http(method, url, headers, body):
+    path = url.split("api.traderepublic.com", 1)[1]
+    tr_http.append((method, path))
+    if path == "/api/v2/auth/web/login":
+        return 200, json.dumps({"processId": "P1", "countdownInSeconds": 120}).encode(), ["tr_login=abc; Path=/; HttpOnly"]
+    if path == "/api/v2/auth/web/login/processes/P1":
+        n = sum(1 for m, p_ in tr_http if p_ == path)
+        return 200, json.dumps({"requiredAction": "AUTHENTICATOR_VERIFICATION", "state": "PENDING" if n < 2 else "CONFIRMED"}).encode(), []
+    if path == "/api/v2/auth/web/login/processes/P1/authenticator-verification":
+        return 200, b"{}", ["tr_session=sess-1; Path=/; Secure"]
+    if path == "/api/v2/auth/account":
+        return 200, json.dumps({"securitiesAccountNumber": "123456789", "currency": "EUR"}).encode(), []
+    if path == "/api/v1/auth/web/session":
+        return 200, b"{}", []
+    return 404, b"{}", []
+started = traderepublic.start_login(transport=fake_tr_http)
+check("a Trade Republic login starts with phone and PIN, and says the app wants a code", started["method"], "code")
+check("...the pending login is kept for the second step", traderepublic.describe()["pending"], {"method": "code"})
+done = traderepublic.finish_login("4321", transport=fake_tr_http)
+check("...the code is posted, the process is confirmed, the session cookie kept",
+      (done, traderepublic.session_present(), traderepublic._cookies().get("tr_session"), traderepublic._pending()),
+      ({"done": True, "account": "123456789", "currency": "EUR"}, True, "sess-1", None))
+
+class FakeWS:
+    """Trade Republic's WebSocket, scripted: connect, then answers by subscription type."""
+    def __init__(self, cookies):
+        self.sent, self.queue = [], []
+        self.cookies = cookies
+    def send_text(self, text):
+        self.sent.append(text)
+        if text.startswith("connect"):
+            self.queue.append("connected"); return
+        if text.startswith("sub"):
+            n, payload = text.split(" ", 2)[1], json.loads(text.split(" ", 2)[2])
+            t = payload["type"]
+            if t == "cash":
+                self.queue.append(f"{n} A " + json.dumps([{"currencyId": "EUR", "amount": 123.45}]))
+            elif t == "compactPortfolioByType":
+                self.queue.append(f"{n} A " + json.dumps({"categories": [{"positions": [{"instrumentId": "IE00BK5BQT80", "netSize": "3", "name": "Vanguard FTSE All-World"}]}]}))
+            elif t == "timelineTransactions" and "after" not in payload:
+                self.queue.append(f"{n} A " + json.dumps({"items": [
+                    {"id": "e1", "timestamp": "2026-03-04T10:00:00.000+0000", "title": "Vanguard FTSE All-World", "subtitle": "Buy order", "eventType": "ORDER_EXECUTED",
+                     "amount": {"currency": "EUR", "value": -316.5, "fractionDigits": 2}, "icon": "logos/IE00BK5BQT80/v2"},
+                    {"id": "e2", "timestamp": "2026-03-28T08:00:00.000+0000", "title": "Vanguard FTSE All-World", "subtitle": "Dividend", "eventType": "CREDIT",
+                     "amount": {"currency": "EUR", "value": 1.2, "fractionDigits": 2}, "icon": "logos/IE00BK5BQT80/v2"},
+                    {"id": "e3", "timestamp": "2026-03-01T08:00:00.000+0000", "title": "Max Mustermann", "subtitle": "Transfer", "eventType": "PAYMENT_INBOUND",
+                     "amount": {"currency": "EUR", "value": 500.0, "fractionDigits": 2}},
+                    {"id": "e4", "timestamp": "2026-03-31T08:00:00.000+0000", "title": "Interest", "eventType": "INTEREST_PAYOUT",
+                     "amount": {"currency": "EUR", "value": 0.75, "fractionDigits": 2}},
+                    {"id": "e5", "timestamp": "2026-03-15T08:00:00.000+0000", "title": "Card order", "eventType": "CARD_ORDER_FEE",
+                     "amount": {"currency": "EUR", "value": -5.0, "fractionDigits": 2}},
+                    {"id": "e6", "timestamp": "2026-03-16T08:00:00.000+0000", "title": "Your documents", "eventType": "DOCUMENTS_ACCEPTED", "amount": None}],
+                    "cursors": {"after": "c2"}}))
+            elif t == "timelineTransactions":
+                self.queue.append(f"{n} A " + json.dumps({"items": [{"id": "old1", "timestamp": "2025-12-01T08:00:00.000+0000", "title": "x", "eventType": "PAYMENT_INBOUND",
+                                                                      "amount": {"currency": "EUR", "value": 10.0}}], "cursors": {}}))
+            elif t == "timelineDetailV2" and payload["id"] == "e1":
+                self.queue.append(f"{n} A " + json.dumps({"sections": [{"title": "Transaction", "data": [
+                    {"title": "Shares", "detail": {"text": "3"}}, {"title": "Share price", "detail": {"text": "€105.50"}},
+                    {"title": "Fee", "detail": {"text": "€1.00"}}, {"title": "Total", "detail": {"text": "€316.50"}}]}]}))
+            elif t == "timelineDetailV2":
+                self.queue.append(f"{n} A " + json.dumps({"sections": [{"title": "Transaction", "data": [
+                    {"title": "Shares", "detail": {"text": "3"}}, {"title": "Tax", "detail": {"text": "€0.30"}}]}]}))
+            else:
+                self.queue.append(f"{n} E " + json.dumps({"errors": [{"errorCode": "UNKNOWN"}]}))
+    def receive(self):
+        return self.queue.pop(0)
+    def close(self):
+        self.closed = True
+fetched = traderepublic.fetch(traderepublic._cookies(), known_ids=set(), http=traderepublic.Http(traderepublic._cookies(), fake_tr_http), ws_factory=FakeWS)
+check("the WebSocket is connected and the cash, the positions and the timeline read; details for the trade and the dividend",
+      (fetched["cash"], fetched["positions"], len(fetched["events"]), sum(1 for _, d in fetched["events"] if d)),
+      (123.45, {"IE00BK5BQT80": (3.0, "Vanguard FTSE All-World")}, 7, 2))
+parsed_tr = traderepublic.normalise(fetched["events"], "EUR")
+check("...a buy with shares, price and fee from the detail; a dividend with its tax; deposit, interest, fee; the document notice left out",
+      ([(r.txn_date, r.kind, r.amount, r.quantity, r.price, r.fee, r.tax, r.isin) for r in parsed_tr.rows], parsed_tr.skipped),
+      ([("2026-03-04", "buy", -316.5, 3.0, 105.5, 1.0, None, "IE00BK5BQT80"), ("2026-03-28", "dividend", 1.2, None, None, None, 0.3, "IE00BK5BQT80"),
+        ("2026-03-01", "deposit", 500.0, None, None, None, None, None), ("2026-03-31", "interest", 0.75, None, None, None, None, None),
+        ("2026-03-15", "fee", -5.0, None, None, None, None, None), ("2025-12-01", "deposit", 10.0, None, None, None, None, None)], 1))
+traderepublic.fetch = lambda cookies, known_ids, http=None, ws_factory=None: fetched
+r = c.post("/accounts/new", data={"name": "TR", "type": "broker", "currency": "EUR"})
+tr_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+check("a broker account offers Trade Republic once it is logged in", b"Connect Trade Republic" in c.get(f"/accounts/{tr_id}").data, True)
+r = c.post(f"/accounts/{tr_id}/connect/traderepublic", follow_redirects=True)
+check("connecting pulls the timeline; the positions agree", b"Connected. Imported 6 transactions" in r.data, True)
+check("...the link names the provider and syncs with the rest", (brokers.link_for(tr_id)["provider"], brokers.link_for(tr_id)["last_error"]), ("traderepublic", None))
+check("the Banks & formats page counts the Flex XML", any(e["name"] == "Interactive Brokers" for e in importers.catalogue()), True)
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

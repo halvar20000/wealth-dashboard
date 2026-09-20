@@ -19,7 +19,7 @@ import io
 
 from .. import categories
 from ..db import get_conn
-from . import (ca_switzerland, camt053, degiro, dkb, dkb_pdf, finary, generic, mt940, ofx, payslip,
+from . import (ca_switzerland, camt053, degiro, dkb, dkb_pdf, finary, generic, ibkr_flex, mt940, ofx, payslip,
                payslip_map, swissquote_beleg_pdf, swissquote_pdf, trade_republic)
 from .base import (ParsedTxn, ParseResult,  # noqa: F401  (re-exported)
                    normalise_csv_text)
@@ -28,7 +28,7 @@ IMPORTERS = [degiro, trade_republic, dkb, ca_switzerland, finary]
 # The statement formats — not one bank's file but a standard every bank
 # writes alike. Looked at before the CSVs: an XML or a SWIFT file is
 # unmistakable, a CSV is anyone's.
-FORMAT_IMPORTERS = [camt053, mt940, ofx]
+FORMAT_IMPORTERS = [camt053, mt940, ofx, ibkr_flex]
 from . import pdf as _pdf_specs
 PDF_IMPORTERS = [dkb_pdf, swissquote_pdf, swissquote_beleg_pdf, payslip] + _pdf_specs.READERS
 

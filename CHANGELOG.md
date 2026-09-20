@@ -11,6 +11,37 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.68.0] — 2026-09-20
+
+### Added
+- **Interactive Brokers**, through the Flex Web Service: a token and a
+  Flex Query id under Settings, no login and no app of your own; the
+  app asks IBKR to generate the statement and fetches it once it is
+  ready. Trades at execution level net of commission, dividends with
+  their withholding tax folded in, interest, deposits and fees; the
+  positions IBKR reports are checked against the rows. The same Flex
+  XML, downloaded by hand for any period, is read on the import page
+  (`importers/ibkr_flex.py`) — same reader, same ids.
+- **Trading 212**, through its public API: a read-only key pair under
+  Settings, live or practice account. Filled orders with their wallet
+  impact and the fees and stamp duty beside it, dividends net with the
+  tax as the gap to the gross, deposits, withdrawals, fees, interest on
+  free cash; the positions checked against the rows. The client follows
+  the cursor pages and waits out the six-calls-a-minute limit by the
+  `x-ratelimit-*` headers.
+- **Trade Republic**, through the unofficial interface its web app
+  uses — phone number and PIN, the app's approval or a code, then the
+  WebSocket protocol (`connect`, `sub`, deltas), spoken with a WebSocket
+  client of some sixty lines in the standard library rather than a
+  dependency. Order and savings-plan executions, dividends, interest,
+  deposits, withdrawals, card payments and tax refunds off the timeline,
+  with units, price, fee and tax from each event's detail; paging stops
+  at the newest event already known. Marked unofficial everywhere it
+  appears: it may stop working any day, and the statement PDFs always
+  read.
+- The broker connection card on an account page knows all five, and the
+  daily sync and *Sync everything* run them like the rest.
+
 ## [0.67.4] — 2026-09-20
 
 ### Added

@@ -82,17 +82,20 @@
 </div>
 {% endif %}
 
-{% if broker or (account.type == 'broker' and not link and (saxo_state.configured or kraken_ready)) %}
+{% if broker or (account.type == 'broker' and not link and (saxo_state.configured or kraken_ready or ibkr_ready or t212_ready or tr_state.configured)) %}
 <div class="card">
   <h2>{{ _("Broker connection") }}</h2>
   {% if broker %}
-    <p><strong>{{ 'Saxo Bank' if broker.provider == 'saxo' else 'Kraken' }}</strong>
+    <p><strong>{{ {'saxo': 'Saxo Bank', 'kraken': 'Kraken', 'ibkr': 'Interactive Brokers', 'trading212': 'Trading 212', 'traderepublic': 'Trade Republic'}[broker.provider] }}</strong>
        {% if broker.remote_label and broker.provider == 'saxo' %}· {{ _f("account {id}", id=broker.remote_label) }}{% endif %}
        {% if broker.provider == 'saxo' and saxo_state.environment == 'sim' %}· {{ _("simulation") }}{% endif %}</p>
     <p class="sub">{{ _f("Last sync: {when}.", when=(d(broker.last_sync_at) if broker.last_sync_at else _("never"))) }}
       {% if broker.provider == 'saxo' %}
         {% if saxo_state.alive %}{{ _("The login is being kept alive.") }}
         {% else %}{{ _("The Saxo login has lapsed — connect again to resume syncing.") }}{% endif %}
+      {% elif broker.provider == 'traderepublic' %}
+        {% if tr_state.logged_in %}{{ _("Unofficial interface; the login is kept until Trade Republic ends it. Syncs with the daily sync.") }}
+        {% else %}{{ _("The Trade Republic login has lapsed — log in again to resume syncing.") }}{% endif %}
       {% else %}{{ _("Read-only key; syncs with the daily sync.") }}{% endif %}
     </p>
     {% if broker.last_error %}<div class="flash flash-error">{{ broker.last_error }}</div>{% endif %}
@@ -101,6 +104,9 @@
     </form>
     {% if broker.provider == 'saxo' and not saxo_state.alive %}
       <p><a class="btn" href="{{ url_for('saxo_connect', account_id=account.id) }}">{{ _("Connect Saxo again") }}</a></p>
+    {% endif %}
+    {% if broker.provider == 'traderepublic' and not tr_state.logged_in %}
+      {% include "_traderepublic_login.html" %}
     {% endif %}
     {% if broker.provider == 'kraken' %}
     <form method="post" action="{{ url_for('account_wallet', account_id=account.id) }}" class="form inline sec-form" style="margin-top:12px">
@@ -134,6 +140,28 @@
         <p class="sub">{{ _("Kraken: link this account to the API key under Settings and pull every trade, deposit and reward.") }}</p>
         <button type="submit">{{ _("Connect Kraken") }}</button>
       </form>
+    {% endif %}
+    {% if ibkr_ready %}
+      <form method="post" action="{{ url_for('ibkr_connect', account_id=account.id) }}">
+        <p class="sub">{{ _("Interactive Brokers: link this account to the Flex query under Settings and pull every trade, dividend and cash movement it covers.") }}</p>
+        <button type="submit">{{ _("Connect Interactive Brokers") }}</button>
+      </form>
+    {% endif %}
+    {% if t212_ready %}
+      <form method="post" action="{{ url_for('trading212_connect', account_id=account.id) }}">
+        <p class="sub">{{ _("Trading 212: link this account to the API key under Settings and pull every order, dividend and cash movement. A long history takes a few minutes — the API allows six calls a minute.") }}</p>
+        <button type="submit">{{ _("Connect Trading 212") }}</button>
+      </form>
+    {% endif %}
+    {% if tr_state.configured %}
+      <p class="sub">{{ _("Trade Republic, through the interface its web app uses — unofficial, and it may stop working any day; the statement PDFs always read.") }}</p>
+      {% if tr_state.logged_in %}
+      <form method="post" action="{{ url_for('traderepublic_connect', account_id=account.id) }}">
+        <button type="submit">{{ _("Connect Trade Republic") }}</button>
+      </form>
+      {% else %}
+      {% include "_traderepublic_login.html" %}
+      {% endif %}
     {% endif %}
   {% endif %}
 </div>

@@ -1,6 +1,6 @@
 """Brokers connected by API, and the table that records the connection.
 
-Two so far, and they could not be more different in how you get in:
+Five, in three ways of getting in:
 
   * **Kraken** — an API key you create once, with read-only rights, and
     paste into Settings. Requests are signed with it; nothing expires.
@@ -8,6 +8,12 @@ Two so far, and they could not be more different in how you get in:
     token that is single-use and dies in an hour. The app keeps the
     chain alive on a thread and asks you to log in again when it
     cannot.
+  * **Interactive Brokers** and **Trading 212** — like Kraken, a token
+    or key pair made once, read-only, pasted into Settings.
+  * **Trade Republic** — no API at all: the web app's own login (phone,
+    PIN, the app's approval) and its WebSocket, unofficial and liable
+    to break; the session cookies are kept until Trade Republic ends
+    them.
 
 What both share is `broker_links`: one row per connected sub-account,
 pointing at an account the user made, so that a lapsed connection
@@ -23,7 +29,9 @@ from datetime import datetime, timezone
 
 from ..db import get_conn
 
-PROVIDERS = ("saxo", "kraken")
+PROVIDERS = ("saxo", "kraken", "ibkr", "trading212", "traderepublic")
+LABELS = {"saxo": "Saxo Bank", "kraken": "Kraken", "ibkr": "Interactive Brokers",
+          "trading212": "Trading 212", "traderepublic": "Trade Republic"}
 
 
 def links(account_id: int | None = None) -> list[dict]:
@@ -88,15 +96,17 @@ def record(link_id: int, error: str | None, synced: bool = False) -> None:
 
 def sync_link(link: dict) -> dict:
     """{account, inserted, error} for one link, whichever provider."""
-    from . import kraken, saxo
-    module = {"saxo": saxo, "kraken": kraken}[link["provider"]]
+    from . import ibkr, kraken, saxo, traderepublic, trading212
+    module = {"saxo": saxo, "kraken": kraken, "ibkr": ibkr, "trading212": trading212,
+              "traderepublic": traderepublic}[link["provider"]]
+    drift = (kraken.HoldingsDrift, ibkr.HoldingsDrift, trading212.HoldingsDrift, traderepublic.HoldingsDrift)
     try:
         inserted = module.sync_link(link)
         record(link["id"], None)
         result = {"account": link["account"], "provider": link["provider"],
                   "inserted": inserted, "error": None}
     except Exception as exc:                          # noqa: BLE001
-        record(link["id"], str(exc), synced=isinstance(exc, getattr(kraken, "HoldingsDrift", ())))
+        record(link["id"], str(exc), synced=isinstance(exc, drift))
         result = {"account": link["account"], "provider": link["provider"],
                   "inserted": 0, "error": str(exc)}
     try:

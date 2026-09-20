@@ -99,6 +99,11 @@ a PSD2 API it connects directly, with credentials that are yours.
   on its own; the app keeps Saxo's short-lived login alive while it runs.
   **Kraken by API key** — a read-only key, and every fill, deposit and
   staking reward is pulled, with the balances checked against the rows.
+  **Interactive Brokers** through its Flex Web Service (a token and a
+  query id, no login), **Trading 212** through its public API (a
+  read-only key), and **Trade Republic** through the unofficial interface
+  its own web app uses — phone, PIN, the app's approval — with the
+  positions checked against the rows every time.
 - **Market prices** from Yahoo Finance — free, no key. Every holding is
   valued at its last market price and every total names the day; a
   holding no price could be found for is valued at your last trade, and
@@ -120,9 +125,9 @@ More PDF parsers, as statements arrive. See
 this stands beside Portfolio Performance, Wealthfolio and Firefly III,
 feature by feature.
 
-## Brokers by API — Saxo Bank and Kraken
+## Brokers by API — Saxo, Kraken, Interactive Brokers, Trading 212, Trade Republic
 
-Two brokers connect directly, each with credentials that are yours.
+Five brokers connect directly, each with credentials that are yours.
 
 **Saxo Bank** speaks OAuth. Once: at
 [developer.saxo](https://www.developer.saxo/openapi/appmanagement) create an
@@ -161,7 +166,50 @@ income in kind, and Kraken's balances are checked against what the rows
 add up to — a gap is reported, never patched. A coin has no ISIN: it is
 keyed `CRYPTO:BTC` and priced as Yahoo's `BTC-EUR`.
 
-Both sync with the daily sync and with *Sync everything*.
+**Interactive Brokers** needs no login and no app of your own: the Flex
+Web Service. In Account Management → Reports → *Flex Queries*, make an
+Activity Flex Query with *Trades*, *Cash Transactions*, *Open Positions*
+and *Cash Report* ticked, period *Last 365 Days*, format XML, and note
+its id; under Reports → Settings → *Flex Web Service*, switch the service
+on and copy the token. Paste both under **Settings → Interactive
+Brokers**; the app runs the query once and says what it covers. Then
+**Connect Interactive Brokers** on a broker account. Trades come at
+execution level, net of commission; a dividend with its withholding tax
+folded in; interest, deposits, fees; a currency conversion is not a
+trade and is left out. IBKR keeps Flex history for about a year — for
+what lies before, run the query once for a custom period and **drop the
+XML on the import page**: the same reader, the same ids, nothing
+doubled. The token can only run Flex queries; it cannot see your login,
+trade or move money.
+
+**Trading 212** has a public API for Invest and Stocks ISA accounts: in
+the app, Settings → *API (Beta)* → Generate key, with only the read
+scopes (account data, portfolio, history). Paste the key and the secret
+under **Settings → Trading 212** — live or the practice account — and
+**Connect Trading 212** on a broker account. Every filled order with
+its wallet impact (the currency-conversion fee and stamp duty listed
+beside it), every dividend net with the tax as the gap to the gross,
+deposits, withdrawals, fees and interest on free cash; the positions are
+checked against the rows. The API allows six history calls a minute, so
+a first sync of years of orders takes a few minutes and waits when it
+must; later syncs are quick.
+
+**Trade Republic** publishes no API. What is here is the interface its
+own web app uses — the phone number and PIN, the app's approval (or a
+code), then the same WebSocket the web app speaks — as the pytr and
+Sure projects do. **It is unofficial and may stop working any day**, as
+it has before; when it does, the statement PDFs still read. Save the
+phone number and PIN under **Settings → Trade Republic** (kept 0600
+beside the other keys), then on a broker account press **Log in to
+Trade Republic**, approve in the app or type the code, and **Finish the
+login**; the account is connected and synced in the same step. Order and
+savings-plan executions, dividends, interest, deposits, withdrawals,
+card payments and tax refunds come off the timeline, with units, price,
+fee and tax from each event's detail; the positions are checked against
+the rows. A login lasts until Trade Republic ends it — weeks, usually —
+and the account page says when it has to be renewed.
+
+All five sync with the daily sync and with *Sync everything*.
 
 ## Swiss accounts — Swissquote, Yuh, Crédit Agricole (Suisse)
 
@@ -711,7 +759,7 @@ data/
   settings.json
   screener*.json         your additions and corrections to the Share Ideas lists
   backups/               wealth.db as it was before each upgrade, the last five
-  secrets/               bank, Saxo and Kraken credentials, session key, MCP token (0600)
+  secrets/               bank, Saxo, Kraken, IBKR, Trading 212 and Trade Republic credentials, session key, MCP token (0600)
 ```
 
 **Back up `data/`.** RAID and snapshots protect against a disk dying, not

@@ -1,0 +1,17 @@
+{# The two-step Trade Republic login: start (phone + PIN from Settings,
+   the app asks to approve), then finish — with the code when it wants one. #}
+<form method="post" action="{{ url_for('traderepublic_connect', account_id=account.id) }}" class="form inline">
+  {% if tr_state.pending %}
+    <input type="hidden" name="step" value="finish">
+    {% if tr_state.pending.method == 'code' %}
+    <div><label for="tr-code">{{ _("Code from the Trade Republic app") }}</label>
+      <input id="tr-code" name="code" inputmode="numeric" autocomplete="one-time-code" style="width:120px"></div>
+    {% else %}
+    <p class="sub">{{ _("Approve the login in the Trade Republic app, then:") }}</p>
+    {% endif %}
+    <button type="submit">{{ _("Finish the login") }}</button>
+  {% else %}
+    <input type="hidden" name="step" value="start">
+    <button type="submit">{{ _("Log in to Trade Republic") }}</button>
+  {% endif %}
+</form>

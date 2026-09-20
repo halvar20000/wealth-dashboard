@@ -255,6 +255,78 @@
   {% endif %}
 </div>
 
+
+<div class="card" id="ibkr">
+  <div class="card-header">
+    <h2>Interactive Brokers</h2>
+    <span class="card-subtitle">{% if ibkr_state.configured %}{{ _("token saved") }}{% else %}{{ _("not set up") }}{% endif %}</span>
+  </div>
+  <p class="sub">{{ _("No login and no app: IBKR's Flex Web Service. In Account Management → Reports → Flex Queries, make an Activity Flex Query with Trades, Cash Transactions, Open Positions and Cash Report ticked, period Last 365 Days, XML; note its id. Under Reports → Settings → Flex Web Service, switch it on and copy the token. The token can only run Flex queries — it cannot see your login, trade or move money. For what lies before the year the query covers, run it once for a custom period and drop the XML on the import page.") }}</p>
+  <form method="post" class="form">
+    <input type="hidden" name="form" value="ibkr_credentials">
+    <label for="ibkr_token">{{ _("Flex Web Service token") }}</label>
+    <input id="ibkr_token" name="token" type="password" autocomplete="off">
+    <label for="ibkr_query">{{ _("Flex Query id") }}</label>
+    <input id="ibkr_query" name="query_id" autocomplete="off" style="width:140px" placeholder="987654">
+    <div><button type="submit">{{ _("Save and run the query once") }}</button></div>
+  </form>
+  {% if ibkr_state.configured %}
+  <form method="post" style="margin-top:8px">
+    <input type="hidden" name="form" value="ibkr_forget">
+    <button type="submit" class="btn-danger">{{ _("Forget the Interactive Brokers token") }}</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card" id="trading212">
+  <div class="card-header">
+    <h2>Trading 212</h2>
+    <span class="card-subtitle">{% if t212_state.configured %}{{ _("key saved") }}{% if t212_state.environment == 'demo' %} · {{ _("practice account") }}{% endif %}{% else %}{{ _("not set up") }}{% endif %}</span>
+  </div>
+  <p class="sub">{{ _("In the Trading 212 app: Settings → API (Beta) → Generate key. Give it only the read scopes — account data, portfolio, history — and paste the key and the secret here; the secret is shown once. Invest and Stocks ISA accounts only. The API allows six history calls a minute, so a first sync of years of orders takes a few minutes; later syncs are quick.") }}</p>
+  <form method="post" class="form">
+    <input type="hidden" name="form" value="trading212_credentials">
+    <label for="t212_key">{{ _("API key") }}</label>
+    <input id="t212_key" name="api_key" autocomplete="off">
+    <label for="t212_secret">{{ _("API secret") }}</label>
+    <input id="t212_secret" name="api_secret" type="password" autocomplete="off">
+    <label for="t212_env">{{ _("Account") }}</label>
+    <select id="t212_env" name="environment" style="width:auto">
+      <option value="live" {{ 'selected' if t212_state.environment != 'demo' }}>{{ _("live") }}</option>
+      <option value="demo" {{ 'selected' if t212_state.environment == 'demo' }}>{{ _("practice") }}</option>
+    </select>
+    <div><button type="submit">{{ _("Save and check the key") }}</button></div>
+  </form>
+  {% if t212_state.configured %}
+  <form method="post" style="margin-top:8px">
+    <input type="hidden" name="form" value="trading212_forget">
+    <button type="submit" class="btn-danger">{{ _("Forget the Trading 212 key") }}</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card" id="traderepublic">
+  <div class="card-header">
+    <h2>Trade Republic</h2>
+    <span class="card-subtitle">{% if tr_state.logged_in %}{{ _("logged in") }}{% elif tr_state.configured %}{{ _("not logged in") }}{% else %}{{ _("not set up") }}{% endif %} · {{ _("unofficial") }}</span>
+  </div>
+  <p class="sub">{{ _("Trade Republic publishes no API. This uses the interface its own web app uses — phone number, PIN, the app's approval, then the same WebSocket — and it may stop working any day, as it has before; the statement PDFs always read. The phone number and PIN are kept 0600 beside the other keys; a login lasts until Trade Republic ends it, and the account page says when it has to be renewed.") }}</p>
+  <form method="post" class="form">
+    <input type="hidden" name="form" value="traderepublic_credentials">
+    <label for="tr_phone">{{ _("Phone number") }}</label>
+    <input id="tr_phone" name="phone" autocomplete="off" placeholder="+49…" style="width:200px">
+    <label for="tr_pin">{{ _("PIN") }}</label>
+    <input id="tr_pin" name="pin" type="password" inputmode="numeric" autocomplete="off" style="width:100px">
+    <div><button type="submit">{{ _("Save") }}</button></div>
+  </form>
+  {% if tr_state.configured %}
+  <p class="sub">{{ _("Then log in from the account page: the app asks to approve, or for a code.") }}</p>
+  <form method="post" style="margin-top:8px">
+    <input type="hidden" name="form" value="traderepublic_forget">
+    <button type="submit" class="btn-danger">{{ _("Forget Trade Republic") }}</button>
+  </form>
+  {% endif %}
+</div>
 {% endif %}
 {% if section == 'banks' %}
 <div class="card" id="archive">

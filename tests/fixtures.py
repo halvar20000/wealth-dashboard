@@ -1311,3 +1311,36 @@ DBS_KONTOAUSZUG = """DBS Bank Ltd
                 Balance Carried Forward                                                         4,897.15
 """
 
+# An Interactive Brokers Activity Flex Query, as downloaded or as the
+# Flex Web Service hands it over.
+IBKR_FLEX = """<FlexQueryResponse queryName="Activity" type="AF">
+<FlexStatements count="1">
+<FlexStatement accountId="U1234567" fromDate="20260301" toDate="20260331" period="LastMonth" whenGenerated="20260401;061500">
+<AccountInformation accountId="U1234567" currency="EUR" name="Max Mustermann"/>
+<CashReport>
+<CashReportCurrency currency="BASE_SUMMARY" endingCash="1523.44"/>
+<CashReportCurrency currency="EUR" endingCash="1200.10"/>
+<CashReportCurrency currency="USD" endingCash="350.00"/>
+</CashReport>
+<OpenPositions>
+<OpenPosition accountId="U1234567" currency="USD" assetCategory="STK" symbol="VTI" description="VANGUARD TOTAL STOCK MKT ETF" isin="US9229087690" position="10" markPrice="255.10" levelOfDetail="SUMMARY"/>
+<OpenPosition accountId="U1234567" currency="EUR" assetCategory="STK" symbol="VWCE" description="VANGUARD FTSE AW USDA" isin="IE00BK5BQT80" position="25" markPrice="110.00" levelOfDetail="SUMMARY"/>
+</OpenPositions>
+<Trades>
+<Trade accountId="U1234567" currency="USD" assetCategory="STK" symbol="VTI" description="VANGUARD TOTAL STOCK MKT ETF" isin="US9229087690" tradeDate="20260304" quantity="10" tradePrice="250.10" proceeds="-2501" ibCommission="-1" taxes="0" netCash="-2502" buySell="BUY" transactionID="7001" tradeID="9001" levelOfDetail="EXECUTION"/>
+<Trade accountId="U1234567" currency="USD" assetCategory="STK" symbol="VTI" description="VANGUARD TOTAL STOCK MKT ETF" isin="US9229087690" tradeDate="20260304" quantity="10" tradePrice="250.10" proceeds="-2501" ibCommission="-1" netCash="-2502" buySell="BUY" transactionID="7001" levelOfDetail="ORDER"/>
+<Trade accountId="U1234567" currency="EUR" assetCategory="STK" symbol="VWCE" description="VANGUARD FTSE AW USDA" isin="IE00BK5BQT80" tradeDate="2026-03-10" quantity="-5" tradePrice="108.5" proceeds="542.5" ibCommission="-1.25" taxes="0" netCash="541.25" buySell="SELL" transactionID="7002" levelOfDetail="EXECUTION"/>
+<Trade accountId="U1234567" currency="USD" assetCategory="CASH" symbol="EUR.USD" description="EUR.USD" tradeDate="20260303" quantity="2500" tradePrice="1.08" proceeds="-2700" ibCommission="-2" netCash="-2702" buySell="BUY" transactionID="7000" levelOfDetail="EXECUTION"/>
+</Trades>
+<CashTransactions>
+<CashTransaction accountId="U1234567" currency="USD" assetCategory="STK" symbol="VTI" isin="US9229087690" description="VTI(US9229087690) CASH DIVIDEND USD 0.82 PER SHARE" dateTime="20260325;202000" amount="8.2" type="Dividends" transactionID="7010" levelOfDetail="DETAIL"/>
+<CashTransaction accountId="U1234567" currency="USD" assetCategory="STK" symbol="VTI" isin="US9229087690" description="VTI(US9229087690) CASH DIVIDEND USD 0.82 PER SHARE - US TAX" dateTime="20260325;202000" amount="-1.23" type="Withholding Tax" transactionID="7011" levelOfDetail="DETAIL"/>
+<CashTransaction accountId="U1234567" currency="EUR" description="CASH RECEIPTS / ELECTRONIC FUND TRANSFERS" dateTime="20260302" amount="3000" type="Deposits/Withdrawals" transactionID="7020" levelOfDetail="DETAIL"/>
+<CashTransaction accountId="U1234567" currency="EUR" description="EUR CREDIT INT FOR MAR-2026" dateTime="20260331" amount="1.05" type="Broker Interest Received" transactionID="7030" levelOfDetail="DETAIL"/>
+<CashTransaction accountId="U1234567" currency="EUR" description="MARKET DATA FEE" dateTime="20260331" amount="-1.5" type="Other Fees" transactionID="7040" levelOfDetail="DETAIL"/>
+</CashTransactions>
+</FlexStatement>
+</FlexStatements>
+</FlexQueryResponse>
+"""
+

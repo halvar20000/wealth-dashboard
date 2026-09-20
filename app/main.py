@@ -47,7 +47,7 @@ from . import (allocation, benchmark, bills, cashflow, categories, crypto, divid
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, splits, stages, subscriptions, upcoming)
 from . import archive, brokers, report
-from .brokers import kraken, saxo
+from .brokers import ibkr, kraken, saxo, traderepublic, trading212
 from . import db as db_state
 from .db import get_conn, has_users, init_db
 
@@ -461,6 +461,9 @@ def account_detail(account_id: int):
                            wallet_choices=_wallet_choices(account_id),
                            saxo_state=saxo.describe(),
                            kraken_ready=kraken.credentials_present(),
+                           ibkr_ready=ibkr.credentials_present(),
+                           t212_ready=trading212.credentials_present(),
+                           tr_state=traderepublic.describe(),
                            positions=importers.positions(account_id),
                            imports=importers.recent_imports(account_id),
                            sources=importers.sources(account_id),
@@ -1566,6 +1569,64 @@ def kraken_connect(account_id: int):
     return redirect(url_for("account_detail", account_id=account_id))
 
 
+def _connect_and_sync(account_id: int, provider: str, remote_id: str, label: str):
+    link_id = brokers.add_link(account_id, provider, remote_id=remote_id, remote_label=label)
+    result = brokers.sync_link(next(l for l in brokers.links() if l["id"] == link_id))
+    if result["error"]:
+        flash(_f("Connected, but the first sync failed: {reason}", reason=result["error"]), "error")
+    else:
+        flash(_n(result["inserted"], "Connected. Imported {n} transaction.",
+                 "Connected. Imported {n} transactions."), "ok")
+    return redirect(url_for("account_detail", account_id=account_id))
+
+
+@app.route("/accounts/<int:account_id>/connect/ibkr", methods=["POST"])
+@auth.login_required
+def ibkr_connect(account_id: int):
+    """The Flex query's account becomes this account."""
+    if not ibkr.credentials_present():
+        flash(_t("Add your Interactive Brokers Flex token under Settings first."), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+    return _connect_and_sync(account_id, "ibkr", "ibkr", "Interactive Brokers")
+
+
+@app.route("/accounts/<int:account_id>/connect/trading212", methods=["POST"])
+@auth.login_required
+def trading212_connect(account_id: int):
+    if not trading212.credentials_present():
+        flash(_t("Add your Trading 212 API key under Settings first."), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+    return _connect_and_sync(account_id, "trading212", "trading212", "Trading 212")
+
+
+@app.route("/accounts/<int:account_id>/connect/traderepublic", methods=["POST"])
+@auth.login_required
+def traderepublic_connect(account_id: int):
+    """Three posts on one route: start the login, finish it with the
+    app's approval or a code, and — once logged in — link and sync."""
+    step = request.form.get("step", "")
+    try:
+        if step == "start":
+            info = traderepublic.start_login()
+            flash(_t("Trade Republic is asking: approve the login in the app, then press Finish.") if info["method"] == "app"
+                  else _t("Trade Republic wants the code from the app: type it and press Finish."), "ok")
+            return redirect(url_for("account_detail", account_id=account_id))
+        if step == "finish":
+            done = traderepublic.finish_login(request.form.get("code", ""))
+            if not done["done"]:
+                flash(_t("Not approved yet — approve the login in the Trade Republic app, then press Finish again."), "error")
+                return redirect(url_for("account_detail", account_id=account_id))
+            flash(_f("Logged in to Trade Republic, securities account {account}.", account=done["account"]), "ok")
+            return _connect_and_sync(account_id, "traderepublic", done["account"], "Trade Republic")
+    except traderepublic.TradeRepublicError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+    if not traderepublic.session_present():
+        flash(_t("Log in to Trade Republic first."), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+    return _connect_and_sync(account_id, "traderepublic", "traderepublic", "Trade Republic")
+
+
 @app.route("/accounts/<int:account_id>/wallet", methods=["POST"])
 @auth.login_required
 def account_wallet(account_id: int):
@@ -2546,7 +2607,8 @@ def _people_with_counts() -> list[dict]:
 SETTINGS_SECTIONS = ("general", "banks", "market", "categories", "people", "assistants")
 _SETTINGS_ANCHORS = {
     "general": "general",
-    "sync": "banks", "saxo": "banks", "kraken": "banks", "mappings": "banks", "enablebanking": "banks",
+    "sync": "banks", "saxo": "banks", "kraken": "banks", "ibkr": "banks", "trading212": "banks",
+    "traderepublic": "banks", "mappings": "banks", "enablebanking": "banks",
     "archive": "banks", "report": "assistants",
     "rates": "market", "prices": "market", "ideas": "market",
     "categories": "categories", "people": "people", "mcp": "assistants", "webhooks": "assistants", "api": "assistants",
@@ -2662,6 +2724,49 @@ def settings_page(section: str = "general"):
             brokers.remove_links("kraken")
             flash(_t("Kraken key forgotten. The account and its history stay."), "ok")
             return redirect(_settings_url("kraken"))
+        elif request.form.get("form") == "ibkr_credentials":
+            try:
+                ibkr.save_credentials(request.form.get("token", ""), request.form.get("query_id", ""))
+                info = ibkr.check()
+                flash(_f("Interactive Brokers answers: account {accounts}, statement {start} to {end}, {trades} trades. "
+                         "Now connect an account from its page.", accounts=", ".join(info["accounts"]),
+                         start=(info["period"] or ("?", "?"))[0], end=(info["period"] or ("?", "?"))[1], trades=info["trades"]), "ok")
+            except (ValueError, ibkr.IbkrError) as exc:
+                flash(str(exc), "error")
+            return redirect(_settings_url("ibkr"))
+        elif request.form.get("form") == "ibkr_forget":
+            ibkr.forget_credentials()
+            brokers.remove_links("ibkr")
+            flash(_t("Interactive Brokers token forgotten. The account and its history stay."), "ok")
+            return redirect(_settings_url("ibkr"))
+        elif request.form.get("form") == "trading212_credentials":
+            try:
+                trading212.save_credentials(request.form.get("api_key", ""), request.form.get("api_secret", ""),
+                                            request.form.get("environment", "live"))
+                info = trading212.check()
+                flash(_f("Trading 212 key works: {cash} {currency} free cash, {invested} invested. "
+                         "Now connect an account from its page.", cash=info["cash"], currency=info["currency"],
+                         invested=info["invested"]), "ok")
+            except (ValueError, trading212.Trading212Error) as exc:
+                flash(str(exc), "error")
+            return redirect(_settings_url("trading212"))
+        elif request.form.get("form") == "trading212_forget":
+            trading212.forget_credentials()
+            brokers.remove_links("trading212")
+            flash(_t("Trading 212 key forgotten. The account and its history stay."), "ok")
+            return redirect(_settings_url("trading212"))
+        elif request.form.get("form") == "traderepublic_credentials":
+            try:
+                traderepublic.save_credentials(request.form.get("phone", ""), request.form.get("pin", ""))
+                flash(_t("Saved. Now log in from the account page — Trade Republic will ask its app to approve."), "ok")
+            except ValueError as exc:
+                flash(str(exc), "error")
+            return redirect(_settings_url("traderepublic"))
+        elif request.form.get("form") == "traderepublic_forget":
+            traderepublic.forget()
+            brokers.remove_links("traderepublic")
+            flash(_t("Trade Republic forgotten — phone, PIN and login. The account and its history stay."), "ok")
+            return redirect(_settings_url("traderepublic"))
         elif request.form.get("form") == "archive_save":
             try:
                 archive.save(request.form.get("archive_url", ""), request.form.get("archive_token", ""))
@@ -2836,6 +2941,9 @@ def settings_page(section: str = "general"):
                            mcp_token=mcp.token(),
                            saxo_state=saxo.describe(),
                            kraken_state=kraken.describe(),
+                           ibkr_state=ibkr.describe(),
+                           t212_state=trading212.describe(),
+                           tr_state=traderepublic.describe(),
                            archive_state=archive.describe(),
                            report_state=report.describe(),
                            weekdays=[_t("Monday"), _t("Tuesday"), _t("Wednesday"), _t("Thursday"),

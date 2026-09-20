@@ -56,7 +56,9 @@ it does not do yet.
 - [x] An MCP endpoint with a revocable token, so an assistant can
       categorise, budget, and read everything the pages show.
 - [x] Saxo Bank by OAuth, with the token chain kept alive in-app, and
-      Kraken by a read-only API key.
+      Kraken by a read-only API key; Interactive Brokers (Flex Web
+      Service), Trading 212 (public API) and Trade Republic (unofficial
+      web-app interface) in 0.68.0.
 - [x] A page per security with every row behind it, correctable, and its
       performance since the first purchase; daily prices backfilled.
 - [x] A Crypto page, and loans and mortgages with a computed schedule.
