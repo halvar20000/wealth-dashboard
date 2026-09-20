@@ -308,19 +308,59 @@
 <div class="card" id="traderepublic">
   <div class="card-header">
     <h2>Trade Republic</h2>
-    <span class="card-subtitle">{% if tr_state.logged_in %}{{ _("logged in") }}{% elif tr_state.configured %}{{ _("not logged in") }}{% else %}{{ _("not set up") }}{% endif %} · {{ _("unofficial") }}</span>
+    <span class="card-subtitle">{% if tr_state.linked %}{{ _("connected") }}{% elif tr_state.logged_in %}{{ _("logged in") }}{% elif tr_state.configured %}{{ _("not logged in") }}{% else %}{{ _("not set up") }}{% endif %} · {{ _("unofficial") }}</span>
   </div>
   <p class="sub">{{ _("Trade Republic publishes no API. This uses the interface its own web app uses — phone number, PIN, the app's approval, then the same WebSocket — and it may stop working any day, as it has before; the statement PDFs always read. The phone number and PIN are kept 0600 beside the other keys; a login lasts until Trade Republic ends it, and the account page says when it has to be renewed.") }}</p>
-  <form method="post" class="form">
-    <input type="hidden" name="form" value="traderepublic_credentials">
-    <label for="tr_phone">{{ _("Phone number") }}</label>
-    <input id="tr_phone" name="phone" autocomplete="off" placeholder="+49…" style="width:200px">
-    <label for="tr_pin">{{ _("PIN") }}</label>
-    <input id="tr_pin" name="pin" type="password" inputmode="numeric" autocomplete="off" style="width:100px">
-    <div><button type="submit">{{ _("Save") }}</button></div>
-  </form>
+  <ol class="steps">
+    <li><strong>{{ _("Phone number and PIN") }}</strong>{% if tr_state.configured %} — <span class="tag tag-muted">{{ _("saved") }}</span>{% endif %}
+      <form method="post" class="form inline">
+        <input type="hidden" name="form" value="traderepublic_credentials">
+        <div><label for="tr_phone">{{ _("Phone number") }}</label>
+          <input id="tr_phone" name="phone" autocomplete="off" placeholder="+49…" style="width:180px"></div>
+        <div><label for="tr_pin">{{ _("PIN") }}</label>
+          <input id="tr_pin" name="pin" type="password" inputmode="numeric" autocomplete="off" style="width:90px"></div>
+        <button type="submit" class="btn-ghost">{{ _("Save") }}</button>
+      </form>
+    </li>
+    <li><strong>{{ _("Log in") }}</strong>{% if tr_state.logged_in %} — <span class="tag tag-muted">{{ _("logged in") }}</span>{% endif %}
+      {% if tr_state.configured and not tr_state.logged_in %}
+      <form method="post" class="form inline">
+        {% if tr_state.pending %}
+          <input type="hidden" name="form" value="traderepublic_finish">
+          {% if tr_state.pending.method == 'code' %}
+          <div><label for="tr-code">{{ _("Code from the Trade Republic app") }}</label>
+            <input id="tr-code" name="code" inputmode="numeric" autocomplete="one-time-code" style="width:120px"></div>
+          {% else %}
+          <p class="sub">{{ _("Approve the login in the Trade Republic app, then:") }}</p>
+          {% endif %}
+          <button type="submit">{{ _("Finish the login") }}</button>
+        {% else %}
+          <input type="hidden" name="form" value="traderepublic_login">
+          <p class="sub">{{ _("Trade Republic will ask its app to approve, or for a code.") }}</p>
+          <button type="submit">{{ _("Log in to Trade Republic") }}</button>
+        {% endif %}
+      </form>
+      {% elif not tr_state.configured %}
+      <p class="sub">{{ _("After step 1.") }}</p>
+      {% endif %}
+    </li>
+    <li><strong>{{ _("Connect to an account") }}</strong>{% if tr_state.linked %} — <span class="tag tag-muted">{{ tr_state.linked }}</span>{% endif %}
+      {% if tr_state.logged_in and not tr_state.linked %}
+      <form method="post" class="form inline">
+        <input type="hidden" name="form" value="traderepublic_link">
+        <div><label for="tr-account">{{ _("Account") }}</label>
+          <select id="tr-account" name="account_id" style="width:auto">
+            <option value="new">{{ _("a new account called Trade Republic") }}</option>
+            {% for a in broker_candidates %}<option value="{{ a.id }}">{{ a.name }} · {{ a.currency }}</option>{% endfor %}
+          </select></div>
+        <button type="submit">{{ _("Connect and sync") }}</button>
+      </form>
+      {% elif not tr_state.logged_in %}
+      <p class="sub">{{ _("After step 2.") }}</p>
+      {% endif %}
+    </li>
+  </ol>
   {% if tr_state.configured %}
-  <p class="sub">{{ _("Then log in from the account page: the app asks to approve, or for a code.") }}</p>
   <form method="post" style="margin-top:8px">
     <input type="hidden" name="form" value="traderepublic_forget">
     <button type="submit" class="btn-danger">{{ _("Forget Trade Republic") }}</button>

@@ -2585,6 +2585,16 @@ def _valid_hhmm(value: str) -> bool:
             and 0 <= int(parts[0]) < 24 and 0 <= int(parts[1]) < 60)
 
 
+def _broker_candidates() -> list[dict]:
+    """Broker accounts not yet connected to any broker or bank: what a
+    connection made from Settings may attach to."""
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT a.id, a.name, a.currency FROM accounts a WHERE a.type = 'broker' "
+            "AND a.id NOT IN (SELECT account_id FROM broker_links) "
+            "AND a.id NOT IN (SELECT account_id FROM bank_links WHERE account_id IS NOT NULL) ORDER BY a.name")]
+
+
 def _connected_count() -> int:
     with get_conn() as conn:
         return conn.execute("SELECT COUNT(*) AS n FROM bank_links "
@@ -2758,10 +2768,45 @@ def settings_page(section: str = "general"):
         elif request.form.get("form") == "traderepublic_credentials":
             try:
                 traderepublic.save_credentials(request.form.get("phone", ""), request.form.get("pin", ""))
-                flash(_t("Saved. Now log in from the account page — Trade Republic will ask its app to approve."), "ok")
+                flash(_t("Saved. Now step 2: log in."), "ok")
             except ValueError as exc:
                 flash(str(exc), "error")
             return redirect(_settings_url("traderepublic"))
+        elif request.form.get("form") == "traderepublic_login":
+            try:
+                info = traderepublic.start_login()
+                flash(_t("Trade Republic is asking: approve the login in the app, then press Finish.") if info["method"] == "app"
+                      else _t("Trade Republic wants the code from the app: type it and press Finish."), "ok")
+            except traderepublic.TradeRepublicError as exc:
+                flash(str(exc), "error")
+            return redirect(_settings_url("traderepublic"))
+        elif request.form.get("form") == "traderepublic_finish":
+            try:
+                done = traderepublic.finish_login(request.form.get("code", ""))
+                if done["done"]:
+                    flash(_f("Logged in to Trade Republic, securities account {account}. Now pick the account below to connect.",
+                             account=done["account"]), "ok")
+                else:
+                    flash(_t("Not approved yet — approve the login in the Trade Republic app, then press Finish again."), "error")
+            except traderepublic.TradeRepublicError as exc:
+                flash(str(exc), "error")
+            return redirect(_settings_url("traderepublic"))
+        elif request.form.get("form") == "traderepublic_link":
+            if not traderepublic.session_present():
+                flash(_t("Log in to Trade Republic first."), "error")
+                return redirect(_settings_url("traderepublic"))
+            choice = request.form.get("account_id", "new")
+            if choice == "new":
+                with get_conn() as conn:
+                    cur = conn.execute("INSERT INTO accounts (name, type, currency) VALUES (?, ?, ?)",
+                                       ("Trade Republic", "broker", "EUR"))
+                    account_id = int(cur.lastrowid)
+                viewing = people.current()
+                if viewing:
+                    people.set_for_account(account_id, [str(viewing["id"])])
+            else:
+                account_id = int(choice)
+            return _connect_and_sync(account_id, "traderepublic", "traderepublic", "Trade Republic")
         elif request.form.get("form") == "traderepublic_forget":
             traderepublic.forget()
             brokers.remove_links("traderepublic")
@@ -2944,6 +2989,7 @@ def settings_page(section: str = "general"):
                            ibkr_state=ibkr.describe(),
                            t212_state=trading212.describe(),
                            tr_state=traderepublic.describe(),
+                           broker_candidates=_broker_candidates(),
                            archive_state=archive.describe(),
                            report_state=report.describe(),
                            weekdays=[_t("Monday"), _t("Tuesday"), _t("Wednesday"), _t("Thursday"),

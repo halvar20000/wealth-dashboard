@@ -686,5 +686,9 @@ def sync_link(link: dict, fetched: dict | None = None) -> int:
 
 def describe() -> dict:
     pending = _pending()
+    with get_conn() as conn:
+        linked = conn.execute("SELECT a.name FROM broker_links bl JOIN accounts a ON a.id = bl.account_id "
+                              "WHERE bl.provider = 'traderepublic' LIMIT 1").fetchone()
     return {"configured": credentials_present(), "logged_in": session_present(),
-            "pending": {"method": "code" if (pending or {}).get("required_action") == "AUTHENTICATOR_VERIFICATION" else "app"} if pending else None}
+            "pending": {"method": "code" if (pending or {}).get("required_action") == "AUTHENTICATOR_VERIFICATION" else "app"} if pending else None,
+            "linked": linked["name"] if linked else None}

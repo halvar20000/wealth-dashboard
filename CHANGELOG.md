@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.68.1] — 2026-09-20
+
+### Changed
+- Connecting Trade Republic is one card now, **Settings → Banks → Trade
+  Republic**, in three numbered steps — phone and PIN, log in (approve
+  in the app or type the code, then Finish), connect — the last one
+  offering a new account called Trade Republic or a broker account you
+  have. 0.68.0 had split it between Settings and the account page, and
+  nothing said where the second half was.
+
 ## [0.68.0] — 2026-09-20
 
 ### Added

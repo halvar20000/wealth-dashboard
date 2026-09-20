@@ -7202,6 +7202,27 @@ r = c.post(f"/accounts/{tr_id}/connect/traderepublic", follow_redirects=True)
 check("connecting pulls the timeline; the positions agree", b"Connected. Imported 6 transactions" in r.data, True)
 check("...the link names the provider and syncs with the rest", (brokers.link_for(tr_id)["provider"], brokers.link_for(tr_id)["last_error"]), ("traderepublic", None))
 check("the Banks & formats page counts the Flex XML", any(e["name"] == "Interactive Brokers" for e in importers.catalogue()), True)
+# The same, driven from the Settings card alone: forget, then the three steps.
+traderepublic.forget(); brokers.remove_links("traderepublic")
+with db.get_conn() as conn:                       # the rows carry Trade Republic's ids: one account may hold them
+    conn.execute("DELETE FROM transactions WHERE account_id = ?", (tr_id,))
+page = c.get("/settings/banks").get_data(as_text=True)
+check("the Settings card walks through the three steps: phone and PIN first, login and connect greyed", "After step 1." in page and "After step 2." in page, True)
+c.post("/settings", data={"form": "traderepublic_credentials", "phone": "+49 171 2345678", "pin": "1234"})
+_start, _finish = traderepublic.start_login, traderepublic.finish_login
+traderepublic.start_login = lambda transport=None: _start(transport=fake_tr_http)
+traderepublic.finish_login = lambda code=None, transport=None: _finish(code, transport=fake_tr_http)
+r = c.post("/settings", data={"form": "traderepublic_login"}, follow_redirects=True)
+check("...step 2 starts the login from Settings and asks for the code", b"wants the code" in r.data and b'name="code"' in r.data, True)
+r = c.post("/settings", data={"form": "traderepublic_finish", "code": "4321"}, follow_redirects=True)
+check("...the code finishes it and step 3 offers the accounts", b"Logged in to Trade Republic" in r.data and b'name="account_id"' in r.data, True)
+r = c.post("/settings", data={"form": "traderepublic_link", "account_id": "new"}, follow_redirects=True)
+check("...'a new account called Trade Republic' makes one, connects it and syncs", b"Connected. Imported" in r.data, True)
+with db.get_conn() as conn:
+    tr_new = conn.execute("SELECT a.name, a.type FROM broker_links bl JOIN accounts a ON a.id = bl.account_id WHERE bl.provider = 'traderepublic'").fetchall()
+check("...one Trade Republic link, on a broker account named after it", [(x["name"], x["type"]) for x in tr_new], [("Trade Republic", "broker")])
+check("...and the card now says which account it is connected to", "connected" in c.get("/settings/banks").get_data(as_text=True), True)
+traderepublic.start_login, traderepublic.finish_login = _start, _finish
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

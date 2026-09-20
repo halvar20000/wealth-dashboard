@@ -198,11 +198,12 @@ must; later syncs are quick.
 own web app uses — the phone number and PIN, the app's approval (or a
 code), then the same WebSocket the web app speaks — as the pytr and
 Sure projects do. **It is unofficial and may stop working any day**, as
-it has before; when it does, the statement PDFs still read. Save the
-phone number and PIN under **Settings → Trade Republic** (kept 0600
-beside the other keys), then on a broker account press **Log in to
-Trade Republic**, approve in the app or type the code, and **Finish the
-login**; the account is connected and synced in the same step. Order and
+it has before; when it does, the statement PDFs still read. Everything
+happens on one card, **Settings → Banks → Trade Republic**, in three
+steps: (1) phone number and PIN, kept 0600 beside the other keys; (2)
+*Log in* — Trade Republic asks its app to approve, or for a code, then
+*Finish the login*; (3) *Connect and sync* — into a new account called
+Trade Republic, or a broker account you already have. Order and
 savings-plan executions, dividends, interest, deposits, withdrawals,
 card payments and tax refunds come off the timeline, with units, price,
 fee and tax from each event's detail; the positions are checked against
