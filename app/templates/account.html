@@ -177,7 +177,12 @@
   {% endif %}
 </div>
 
-<p><a class="btn" href="{{ url_for('account_import', account_id=account.id) }}">{{ _("Import a broker CSV") }}</a>
+<p><a class="btn" href="{{ url_for('account_import', account_id=account.id) }}">{{ _("Import a file") }}</a>
+   {% if archive_on %}
+   <form method="post" action="{{ url_for('account_archive_pull', account_id=account.id) }}" style="display:inline">
+     <button type="submit" class="btn" {% if not archive_filter %}title="{{ _('Say on the edit page which Paperless documents belong to this account first') }}"{% endif %}>{{ _("Pull from Paperless") }}</button>
+   </form>
+   {% endif %}
    <a class="btn" href="{{ url_for('account_add', account_id=account.id) }}">{{ _("Add by hand") }}</a>
    <a class="btn btn-ghost" href="{{ url_for('account_edit', account_id=account.id) }}">{{ _("Edit or delete") }}</a></p>
 

@@ -6710,8 +6710,19 @@ check("...and the last pull", st["last"]["results"][0]["account"], "Archive depo
 r = c.get("/settings/banks")
 check("the Settings card lists the document no reader understood", b"Letter" in r.data, True)
 check("...with a link back into the archive", b"/documents/13/details" in r.data, True)
+page = c.get(f"/accounts/{dep}").get_data(as_text=True)
+check("an account page offers a Pull from Paperless button once an archive is set up", f"/accounts/{dep}/archive/pull" in page, True)
+_real_pull = archive.pull
+archive.pull = lambda account_id=None, transport=None: _real_pull(account_id, transport=fake_archive)
+try:
+    r = c.post(f"/accounts/{dep}/archive/pull", follow_redirects=True)
+    check("...pressing it pulls this one account and reports what it did", b"new documents" in r.data and b"Archive depot" in r.data, True)
+finally:
+    archive.pull = _real_pull
 archive.set_filter(gir, "", "", "")
 check("all three blank means the account pulls nothing", archive.filter_for(gir), None)
+r = c.post(f"/accounts/{gir}/archive/pull")
+check("...an account without a filter is sent to its edit page to set one", r.status_code == 302 and r.headers["Location"].endswith(f"/accounts/{gir}/edit"), True)
 r = c.post("/settings", data={"form": "archive_forget"}, follow_redirects=True)
 with db.get_conn() as conn:
     kept = conn.execute("SELECT COUNT(*) AS n FROM transactions WHERE account_id = ?", (dep,)).fetchone()["n"]

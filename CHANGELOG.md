@@ -11,6 +11,19 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.67.4] — 2026-09-20
+
+### Added
+- **Pull from Paperless** on the account page, next to *Import a file*:
+  this one account against the archive, now, rather than every account
+  from the Settings page or waiting for the daily sync. Shown once an
+  archive is set up; an account that has not yet said which documents
+  are its is sent to its edit page to say so.
+
+### Changed
+- The account page's *Import a broker CSV* button is *Import a file* —
+  it has taken PDFs, ZIPs and the statement formats for a while.
+
 ## [0.67.3] — 2026-09-19
 
 ### Added

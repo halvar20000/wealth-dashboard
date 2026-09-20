@@ -465,6 +465,8 @@ def account_detail(account_id: int):
                            imports=importers.recent_imports(account_id),
                            sources=importers.sources(account_id),
                            other_accounts=_other_accounts(account_id),
+                           archive_on=archive.configured(),
+                           archive_filter=archive.filter_for(account_id) if archive.configured() else None,
                            loan=(loan := loans.for_account(account_id) if account["type"] == "loan" else None),
                            loan_status=loans.status(loan) if loan else None,
                            periods=loans.PERIODS,
@@ -1014,6 +1016,24 @@ def _load_account(account_id: int):
         row = conn.execute("SELECT * FROM accounts WHERE id = ?",
                            (account_id,)).fetchone()
     return dict(row) if row else None
+
+
+@app.route("/accounts/<int:account_id>/archive/pull", methods=["POST"])
+@auth.login_required
+def account_archive_pull(account_id: int):
+    """This one account against the Paperless archive, now — the same
+    pull the daily sync and the Settings button do for all of them."""
+    if not archive.configured():
+        flash(_t("No archive is set up — Settings → Banks → Paperless-ngx."), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+    if not archive.filter_for(account_id):
+        flash(_t("This account does not say which documents are its yet — set the tag, correspondent or query on its edit page."), "error")
+        return redirect(url_for("account_edit", account_id=account_id))
+    try:
+        _flash_archive(archive.pull(account_id))
+    except archive.ArchiveError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("account_detail", account_id=account_id))
 
 
 @app.route("/accounts/<int:account_id>/imports/<int:import_id>/undo", methods=["POST"])

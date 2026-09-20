@@ -173,7 +173,11 @@ STRINGS: dict[str, str] = {
     "Add your Enable Banking Application ID and private key in {settings} first.":
         "Trage zuerst deine Enable-Banking-Application-ID und deinen privaten "
         "Schlüssel unter {settings} ein.",
-    "Import a broker CSV": "Broker-CSV importieren",
+    'Import a file': 'Datei importieren',
+    'Pull from Paperless': 'Aus Paperless holen',
+    "Say on the edit page which Paperless documents belong to this account first": 'Sag zuerst auf der Bearbeiten-Seite, welche Paperless-Dokumente zu diesem Konto gehören',
+    'No archive is set up — Settings → Banks → Paperless-ngx.': 'Kein Archiv eingerichtet — Einstellungen → Banken → Paperless-ngx.',
+    'This account does not say which documents are its yet — set the tag, correspondent or query on its edit page.': 'Dieses Konto sagt noch nicht, welche Dokumente seine sind — Tag, Korrespondent oder Abfrage auf seiner Bearbeiten-Seite setzen.',
     "Edit or delete": "Bearbeiten oder löschen",
     "Recent transactions": "Letzte Transaktionen",
     "No transactions yet.": "Noch keine Transaktionen.",
