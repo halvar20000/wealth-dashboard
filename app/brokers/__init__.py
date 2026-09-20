@@ -131,16 +131,37 @@ def set_wallet(link_id: int, wallet_account_id: int | None) -> None:
 
 # ─── A sync into an account that already has the history ────────────
 
-def _key(date: str, isin: str | None, quantity: float | None, amount: float, kind: str, description: str) -> tuple:
-    """What makes two rows the same booking when their ids differ: a
-    trade by day, security, units and money; a credit by day, kind and
-    money; a payment out also by its text, since two coffees on one
-    day at one price are two coffees."""
-    if isin:
-        return ("sec", date, isin, round(abs(quantity or 0.0), 4), round(abs(amount), 2), amount < 0)
-    if kind == "withdrawal":
-        return ("out", date, round(amount, 2), " ".join((description or "").lower().split()))
-    return ("cash", date, kind, round(amount, 2))
+def _same(a: dict, b: dict) -> bool:
+    """Two rows with different ids that are the same booking. A trade:
+    the security, the units, the direction, the day give or take one
+    (the broker's timestamp is UTC, an export's date is local), and the
+    money within what a fee explains — an export may carry the fee
+    inside the total, a timeline beside it. A credit: day, kind and
+    money. A payment out: also its text, since two coffees on one day
+    at one price are two coffees."""
+    try:
+        days = abs((datetime.fromisoformat(a["txn_date"]) - datetime.fromisoformat(b["txn_date"])).days)
+    except (TypeError, ValueError):
+        return False
+    if a["isin"] or b["isin"]:
+        if a["isin"] != b["isin"] or days > 1 or (a["amount"] < 0) != (b["amount"] < 0):
+            return False
+        if abs(abs(a["quantity"] or 0.0) - abs(b["quantity"] or 0.0)) > 0.0006:
+            return False
+        slack = max(2.0, 0.02 * max(abs(a["amount"]), abs(b["amount"])), (a["fee"] or 0.0) + (b["fee"] or 0.0) + 0.05)
+        return abs(abs(a["amount"]) - abs(b["amount"])) <= slack
+    if a["kind"] != b["kind"] or days > 1 or abs(a["amount"] - b["amount"]) > 0.005:
+        return False
+    if a["kind"] == "withdrawal":
+        return " ".join((a["description"] or "").lower().split()) == " ".join((b["description"] or "").lower().split())
+    return True
+
+
+def _facts(row) -> dict:
+    if isinstance(row, dict):
+        return row
+    return {"txn_date": row.txn_date, "isin": row.isin, "quantity": row.quantity, "amount": row.amount,
+            "kind": row.kind, "description": row.description, "fee": row.fee}
 
 
 def dedupe_against_account(account_id: int, source: str, parsed) -> int:
@@ -150,27 +171,29 @@ def dedupe_against_account(account_id: int, source: str, parsed) -> int:
     duplicate such a row are deleted, so an account that was doubled
     once heals on the next sync. Returns how many rows were dropped."""
     with get_conn() as conn:
-        others = conn.execute(
-            "SELECT txn_date, isin, quantity, amount, kind, description FROM transactions "
-            "WHERE account_id = ? AND COALESCE(source, '') != ?", (account_id, source)).fetchall()
-        held = {_key(r["txn_date"], r["isin"], r["quantity"], r["amount"], r["kind"], r["description"]) for r in others}
-        if held:
-            mine = conn.execute(
-                "SELECT id, txn_date, isin, quantity, amount, kind, description FROM transactions "
-                "WHERE account_id = ? AND source = ?", (account_id, source)).fetchall()
-            doubled = [r["id"] for r in mine
-                       if _key(r["txn_date"], r["isin"], r["quantity"], r["amount"], r["kind"], r["description"]) in held]
+        others = [dict(r) for r in conn.execute(
+            "SELECT txn_date, isin, quantity, amount, kind, description, fee FROM transactions "
+            "WHERE account_id = ? AND COALESCE(source, '') != ?", (account_id, source))]
+        by_isin: dict = {}
+        for r in others:
+            by_isin.setdefault(r["isin"], []).append(r)
+        if others:
+            mine = [dict(r) for r in conn.execute(
+                "SELECT id, txn_date, isin, quantity, amount, kind, description, fee FROM transactions "
+                "WHERE account_id = ? AND source = ?", (account_id, source))]
+            doubled = [r["id"] for r in mine if any(_same(r, o) for o in by_isin.get(r["isin"], []))]
             for i in range(0, len(doubled), 500):
                 chunk = doubled[i:i + 500]
                 conn.execute(f"DELETE FROM transactions WHERE id IN ({','.join('?' * len(chunk))})", chunk)
-    seen: set = set()
-    kept, dropped = [], 0
+    kept: list = []
+    kept_facts: list = []
+    dropped = 0
     for row in parsed.rows:
-        k = _key(row.txn_date, row.isin, row.quantity, row.amount, row.kind, row.description)
-        if k in held or k in seen:
+        f = _facts(row)
+        if any(_same(f, o) for o in by_isin.get(f["isin"], [])) or any(_same(f, k) for k in kept_facts if k["isin"] == f["isin"]):
             dropped += 1
             continue
-        seen.add(k)
         kept.append(row)
+        kept_facts.append(f)
     parsed.rows = kept
     return dropped

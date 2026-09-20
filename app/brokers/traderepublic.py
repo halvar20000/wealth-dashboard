@@ -680,11 +680,16 @@ def sync_link(link: dict, fetched: dict | None = None) -> int:
         held = {r["isin"]: r["q"] for r in conn.execute(
             "SELECT isin, SUM(quantity) AS q FROM transactions WHERE account_id = ? "
             "AND isin IS NOT NULL AND quantity IS NOT NULL GROUP BY isin", (link["account_id"],))}
+        # where the rows came from, so a gap says which source it is in
+        origin: dict = {}
+        for r in conn.execute("SELECT isin, COALESCE(source, '?') AS s, COUNT(*) AS n FROM transactions WHERE account_id = ? "
+                              "AND isin IS NOT NULL AND quantity IS NOT NULL GROUP BY isin, source", (link["account_id"],)):
+            origin.setdefault(r["isin"], []).append(f"{r['s']} {r['n']}")
     drift = []
     for isin, (qty, name) in (data.get("positions") or {}).items():
         have = held.get(isin, 0.0)
         if abs(have - qty) > 1e-4:
-            drift.append(f"{name}: Trade Republic says {qty:g}, the rows add up to {have:g}")
+            drift.append(f"{name}: Trade Republic says {qty:g}, the rows add up to {have:g} (rows: {', '.join(origin.get(isin, ['none']))})")
     if drift:
         raise HoldingsDrift("Synced, but the holdings do not add up — " + "; ".join(drift)
                             + ". The timeline shows a year or two; import the older Abrechnung PDFs for the rest.")

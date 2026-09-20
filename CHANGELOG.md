@@ -11,6 +11,19 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.68.3] — 2026-09-20
+
+### Fixed
+- The de-duplication of 0.68.2 matched a trade only when the money
+  agreed to the cent, and an export carries the order fee inside the
+  total where the timeline lists it beside — so every manual order (a
+  fee of one euro) was still stored twice while every savings-plan
+  execution (no fee) was not. A trade is now the same trade by
+  security, units (to four places) and direction, on the same day give
+  or take one, with the money within what a fee explains. The drift
+  message names how many rows each source holds for a security, so a
+  gap says where it is.
+
 ## [0.68.2] — 2026-09-20
 
 ### Fixed
