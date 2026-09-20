@@ -11,6 +11,22 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.68.2] — 2026-09-20
+
+### Fixed
+- A broker sync into an account that already held its history — from
+  the CSV export, the statement PDFs or a move-in — doubled every
+  booking, since the sync's ids are the broker's own and the older
+  rows' were not. Trade Republic was the first to show it: every
+  holding exactly twice. A booking the account has by day, security,
+  units and money (a credit by day, kind and money; a payment out also
+  by its text) is now the same booking and is not stored again; and
+  the rows a sync stored earlier that duplicate such a row are deleted,
+  so an account doubled by 0.68.0 heals on its next sync. The same
+  guard runs for Interactive Brokers and Trading 212. The timeline's
+  rows carry `trtl:` ids of their own, so an account's ledger cut-off
+  applies to them like to any other source.
+
 ## [0.68.1] — 2026-09-20
 
 ### Changed

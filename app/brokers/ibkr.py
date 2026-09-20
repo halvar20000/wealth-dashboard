@@ -175,6 +175,8 @@ def sync_link(link: dict, api: Client | None = None) -> int:
     if chosen.cash.get(link["account_currency"].upper()) is not None:
         parsed.closing_balance = {"amount": round(chosen.cash[link["account_currency"].upper()], 2),
                                   "currency": link["account_currency"].upper(), "as_of": chosen.to_date}
+    from . import dedupe_against_account
+    dedupe_against_account(link["account_id"], "ibkr", parsed)
     report = store(link["account_id"], parsed, "ibkr")
     # IBKR's positions against what the rows add up to: a gap is a
     # trade older than the query's period, said so, never patched.

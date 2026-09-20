@@ -7223,6 +7223,28 @@ with db.get_conn() as conn:
 check("...one Trade Republic link, on a broker account named after it", [(x["name"], x["type"]) for x in tr_new], [("Trade Republic", "broker")])
 check("...and the card now says which account it is connected to", "connected" in c.get("/settings/banks").get_data(as_text=True), True)
 traderepublic.start_login, traderepublic.finish_login = _start, _finish
+# An account that already holds the history — from the CSV export, the
+# PDFs, a move-in — must not be doubled by the sync, and one that was
+# doubled by 0.68.0 heals on the next sync.
+tr_acc = tr_new_id = None
+with db.get_conn() as conn:
+    tr_new_id = conn.execute("SELECT account_id FROM broker_links WHERE provider = 'traderepublic'").fetchone()["account_id"]
+    conn.execute("DELETE FROM transactions WHERE account_id = ?", (tr_new_id,))
+    # the same buy and the same deposit, as the CSV export brought them years ago
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, external_id, kind, isin, security_name, quantity, price, source) "
+                 "VALUES (?, '2026-03-04', 'Kauf Vanguard FTSE All-World', -316.5, 'EUR', 'tr:csv-1', 'buy', 'IE00BK5BQT80', 'Vanguard FTSE All-World', 3.0, 105.5, 'trade_republic')", (tr_new_id,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, external_id, kind, source) "
+                 "VALUES (?, '2026-03-01', 'Einzahlung', 500.0, 'EUR', 'tr:csv-2', 'deposit', 'trade_republic')", (tr_new_id,))
+    # and a doubled copy the first sync left behind
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, external_id, kind, isin, security_name, quantity, price, source) "
+                 "VALUES (?, '2026-03-04', 'Kauf Vanguard FTSE All-World', -316.5, 'EUR', 'trtl:stale', 'buy', 'IE00BK5BQT80', 'Vanguard FTSE All-World', 3.0, 105.5, 'traderepublic')", (tr_new_id,))
+r = c.post(f"/accounts/{tr_new_id}/sync", follow_redirects=True)
+with db.get_conn() as conn:
+    after = conn.execute("SELECT external_id, kind, amount FROM transactions WHERE account_id = ? ORDER BY txn_date, external_id", (tr_new_id,)).fetchall()
+check("a sync into an account that holds the history adds only what is new, and deletes its own earlier double",
+      ([(x["external_id"], x["kind"]) for x in after], b"Imported 4 new transactions" in r.data),
+      ([("trtl:old1", "deposit"), ("tr:csv-2", "deposit"), ("tr:csv-1", "buy"), ("trtl:e5", "fee"), ("trtl:e2", "dividend"),
+        ("trtl:e4", "interest")], True))
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

@@ -289,6 +289,8 @@ def sync_link(link: dict, api: Client | None = None) -> int:
         parsed.closing_balance = {"amount": round(free + (_f(cash.get("reservedForOrders")) or 0.0), 2),
                                   "currency": (summary.get("currency") or link["account_currency"]).upper(),
                                   "as_of": datetime.now(timezone.utc).date().isoformat()}
+    from . import dedupe_against_account
+    dedupe_against_account(link["account_id"], "trading212", parsed)
     report = store(link["account_id"], parsed, "trading212")
     with get_conn() as conn:
         held = {r["isin"]: r["q"] for r in conn.execute(

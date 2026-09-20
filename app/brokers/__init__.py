@@ -127,3 +127,50 @@ def set_wallet(link_id: int, wallet_account_id: int | None) -> None:
     with get_conn() as conn:
         conn.execute("UPDATE broker_links SET wallet_account_id = ? WHERE id = ?",
                      (wallet_account_id, link_id))
+
+
+# ─── A sync into an account that already has the history ────────────
+
+def _key(date: str, isin: str | None, quantity: float | None, amount: float, kind: str, description: str) -> tuple:
+    """What makes two rows the same booking when their ids differ: a
+    trade by day, security, units and money; a credit by day, kind and
+    money; a payment out also by its text, since two coffees on one
+    day at one price are two coffees."""
+    if isin:
+        return ("sec", date, isin, round(abs(quantity or 0.0), 4), round(abs(amount), 2), amount < 0)
+    if kind == "withdrawal":
+        return ("out", date, round(amount, 2), " ".join((description or "").lower().split()))
+    return ("cash", date, kind, round(amount, 2))
+
+
+def dedupe_against_account(account_id: int, source: str, parsed) -> int:
+    """Rows a sync brings that the account already holds under other
+    ids — from a CSV, a statement PDF, a move-in — are the same
+    bookings and are dropped; rows this source stored earlier that
+    duplicate such a row are deleted, so an account that was doubled
+    once heals on the next sync. Returns how many rows were dropped."""
+    with get_conn() as conn:
+        others = conn.execute(
+            "SELECT txn_date, isin, quantity, amount, kind, description FROM transactions "
+            "WHERE account_id = ? AND COALESCE(source, '') != ?", (account_id, source)).fetchall()
+        held = {_key(r["txn_date"], r["isin"], r["quantity"], r["amount"], r["kind"], r["description"]) for r in others}
+        if held:
+            mine = conn.execute(
+                "SELECT id, txn_date, isin, quantity, amount, kind, description FROM transactions "
+                "WHERE account_id = ? AND source = ?", (account_id, source)).fetchall()
+            doubled = [r["id"] for r in mine
+                       if _key(r["txn_date"], r["isin"], r["quantity"], r["amount"], r["kind"], r["description"]) in held]
+            for i in range(0, len(doubled), 500):
+                chunk = doubled[i:i + 500]
+                conn.execute(f"DELETE FROM transactions WHERE id IN ({','.join('?' * len(chunk))})", chunk)
+    seen: set = set()
+    kept, dropped = [], 0
+    for row in parsed.rows:
+        k = _key(row.txn_date, row.isin, row.quantity, row.amount, row.kind, row.description)
+        if k in held or k in seen:
+            dropped += 1
+            continue
+        seen.add(k)
+        kept.append(row)
+    parsed.rows = kept
+    return dropped

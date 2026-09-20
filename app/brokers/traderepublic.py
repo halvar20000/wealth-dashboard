@@ -26,8 +26,12 @@ What is read, and what it becomes
     the rows add up to.
   * **cash** — the balance reading.
 
-The ids are Trade Republic's event ids, so a re-sync never doubles a
-row, and a sync stops paging as soon as it reaches an event it has.
+The ids are Trade Republic's event ids (`trtl:`), so a re-sync never
+doubles a row, and a sync stops paging as soon as it reaches an event
+it has. An account that already holds its history from the CSV export,
+the statement PDFs or a move-in gets no second copy: a booking the
+account has by day, security, units and money is the same booking —
+see `brokers.dedupe_against_account`.
 """
 
 from __future__ import annotations
@@ -542,7 +546,7 @@ def normalise(events: list[tuple[dict, dict | None]], account_currency: str) -> 
         etype = str(item.get("eventType") or "")
         amount, ccy = _money(item.get("amount"))
         date = str(item.get("timestamp") or "")[:10]
-        ext = f"tr:{item.get('id')}" if item.get("id") else None
+        ext = f"trtl:{item.get('id')}" if item.get("id") else None
         title = str(item.get("title") or "").strip()
         subtitle = str(item.get("subtitle") or "").strip()
         ccy = (ccy or ccy0).upper()
@@ -659,8 +663,9 @@ def sync_link(link: dict, fetched: dict | None = None) -> int:
     if not cookies and fetched is None:
         raise SessionExpired("Trade Republic is not logged in — log in from the account page.")
     with get_conn() as conn:
-        known = {r["external_id"][3:] for r in conn.execute(
-            "SELECT external_id FROM transactions WHERE account_id = ? AND external_id LIKE 'tr:%'", (link["account_id"],))}
+        known = {r["external_id"].split(":", 1)[1] for r in conn.execute(
+            "SELECT external_id FROM transactions WHERE account_id = ? AND (external_id LIKE 'trtl:%' OR external_id LIKE 'tr:%')",
+            (link["account_id"],))}
     data = fetched or fetch(cookies, known)
     if data.get("cookies"):
         _save_cookies(data["cookies"])
@@ -668,6 +673,8 @@ def sync_link(link: dict, fetched: dict | None = None) -> int:
     if data.get("cash") is not None:
         parsed.closing_balance = {"amount": round(data["cash"], 2), "currency": (data.get("cash_currency") or link["account_currency"]).upper(),
                                   "as_of": datetime.now(timezone.utc).date().isoformat()}
+    from . import dedupe_against_account
+    dedupe_against_account(link["account_id"], "traderepublic", parsed)
     report = store(link["account_id"], parsed, "traderepublic")
     with get_conn() as conn:
         held = {r["isin"]: r["q"] for r in conn.execute(
