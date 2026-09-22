@@ -11,7 +11,7 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
-## [0.71.0] — 2026-09-22
+## [0.71.1] — 2026-09-22
 
 ### Added
 - **first direct (HSBC UK) — the 1st Account statement**, read by its
