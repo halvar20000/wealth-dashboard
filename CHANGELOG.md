@@ -11,6 +11,15 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.70.5] — 2026-09-22
+
+### Fixed
+- The *Forget N removed rows* button did not appear when the removals
+  were left behind by an account deleted before 0.70.3 — recorded under
+  an account id that no longer exists, yet keeping the rows out of the
+  account made in its place. The count now includes those, so the
+  button is there, and forgetting takes them too.
+
 ## [0.70.4] — 2026-09-22
 
 ### Added

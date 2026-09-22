@@ -235,8 +235,13 @@ def forget_removed(account_id: int) -> int:
 
 
 def removed_count(account_id: int) -> int:
+    """How many remembered removals stand in this account's way: its
+    own, and those left behind by an account that no longer exists or
+    were recorded under none — a removed id keeps a row out of every
+    account, so those count here too."""
     with get_conn() as conn:
-        return conn.execute("SELECT COUNT(*) FROM removed_rows WHERE account_id = ?", (account_id,)).fetchone()[0]
+        return conn.execute("SELECT COUNT(*) FROM removed_rows WHERE account_id = ? OR account_id IS NULL "
+                            "OR account_id NOT IN (SELECT id FROM accounts)", (account_id,)).fetchone()[0]
 
 
 def removed_ids(conn, account_id: int | None = None) -> set[str]:

@@ -2199,6 +2199,13 @@ check("...and importing the file again does not bring it back", back, 0)
 check("...but the import says so, and offers to forget it", b"removed by hand earlier" in r.data and b"Forget the removed rows" in r.data, True)
 r = c.post(f"/accounts/{imported['account_id']}/removed/forget", follow_redirects=True)
 check("forgetting the removed rows is offered as one click", b"forgotten" in r.data, True)
+# A removal left behind by an account deleted before 0.70.3 blocks
+# every account: the button counts it, and forgetting takes it too.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO removed_rows (external_id, account_id) VALUES ('ghost:1', 999999)")
+r = c.get(f"/accounts/{imported['account_id']}")
+check("a removal orphaned by a deleted account shows on any account's page", b"Forget 1 removed row" in r.data, True)
+check("...and is forgotten with the rest", manual.forget_removed(imported["account_id"]), 1)
 upload(imported["account_id"], fixtures.DEGIRO_CSV)
 with db.get_conn() as conn:
     back = conn.execute("SELECT COUNT(*) n FROM transactions WHERE external_id = ?", (imported["external_id"],)).fetchone()["n"]
