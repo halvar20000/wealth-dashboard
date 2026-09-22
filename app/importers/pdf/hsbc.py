@@ -11,6 +11,6 @@ CARD = Table(row=r"^\s*\d{2} [A-Z][a-z]{2}\s+(?P<date>\d{2} [A-Z][a-z]{2})\s{2,}
 
 SPEC = Spec(
     slug="hsbc_pdf", label="HSBC (Singapore) — credit card statement PDF", corpus="mono:hsbc_credit",
-    marks=[r"HSBC Bank \(Singapore\)", r"HSBC VISA", r"HSBC"], number="en", layout=True, preprocess=lambda t: rows(t, CARD),
+    marks=[r"HSBC Bank \(Singapore\)", r"HSBC VISA", r"HSBC.*Singapore"], number="en", layout=True, preprocess=lambda t: rows(t, CARD),
     docs=[Doc(kind="rows", when=r"^POST\s+TRAN|DESCRIPTION\s+AMOUNT", block=r"^ROW ", fields=fields(), kinds=CARD.kinds)],
 )

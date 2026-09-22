@@ -42,6 +42,10 @@ class Table:
     credit: str | None = None       # regex; …and comes in
     amount: str | None = None       # regex; the label of one signed amount column, when a
                                     # balance column beside it would be taken for it
+    balance: str | None = None      # regex; the running-balance column, whose figures are
+                                    # never the booking's amount
+    more: str | None = None         # regex; a further booking under the date above it —
+                                    # a bank that prints the day once for several rows
     card: bool = False              # one Amount column where a bare figure is a charge and a
                                     # marked one (CR, brackets, a sign) a payment or refund
     stop: str = r"^\s*(?:Total|TOTAL|SUB TOTAL|Balance Carried|BALANCE C/F|NEW BALANCE|End of|Page \d)"
@@ -109,25 +113,33 @@ def _spans(header_line: str, pattern: str | None) -> list[tuple[int, int]]:
     return [(m.start(), m.end()) for m in re.finditer(pattern, header_line)] if pattern else []
 
 
-def _column(m: re.Match, debit: list, credit: list) -> str | None:
+def _column(m: re.Match, debit: list, credit: list, balance: list = ()) -> str | None:
     """Which column a figure sits under: the label whose right edge is
-    nearest the figure's — numbers are right-aligned under their heads."""
+    nearest the figure's — numbers are right-aligned under their heads.
+    A figure under the running balance is none of the two."""
     best, where = None, None
-    for name, spans in (("debit", debit), ("credit", credit)):
+    for name, spans in (("debit", debit), ("credit", credit), ("balance", balance)):
         for start, end in spans:
             d = abs(m.end() - end)
             if best is None or d < best:
                 best, where = d, name
-    return where if best is not None and best <= 24 else None
+    if best is None or best > 24 or where == "balance":
+        return None
+    return where
 
 
-def rows(text: str, table: Table) -> str:
-    """The text with a ROW line per booking appended."""
+def rows(text: str, table: Table, strip_type: str | None = None) -> str:
+    """The text with a ROW line per booking appended. `strip_type` is a
+    regex for the payment-type word a bank prints before the merchant
+    — kept out of the description, where it says nothing the kind does
+    not."""
     year, month = _stmt_date(text, table.stmt)
     row_re = re.compile(table.row)
+    more_re = re.compile(table.more) if table.more else None
     stop_re, skip_re = re.compile(table.stop), re.compile(table.skip)
     header_re = re.compile(table.header) if table.header else None
-    debit = credit = column = []
+    debit = credit = column = balance = []
+    last_date: str | None = None
     out: list[str] = []
     current: list | None = None     # [date, description, amount]
 
@@ -135,6 +147,8 @@ def rows(text: str, table: Table) -> str:
         nonlocal current
         if current and current[2] is not None and not skip_re.search(current[1]):
             desc = " ".join(current[1].split())
+            if strip_type:
+                desc = re.sub(r"^" + strip_type + r"\s+", "", desc)
             if table.strip:
                 desc = " ".join(re.sub(table.strip, " ", desc).split())
             out.append(f"ROW {current[0]} | {desc} | {current[2]:.2f} {table.currency}")
@@ -144,6 +158,7 @@ def rows(text: str, table: Table) -> str:
         if header_re and header_re.search(line):
             flush()
             debit, credit, column = _spans(line, table.debit), _spans(line, table.credit), _spans(line, table.amount)
+            balance = _spans(line, table.balance)
             continue
         if not line.strip():
             flush()
@@ -152,17 +167,24 @@ def rows(text: str, table: Table) -> str:
             flush()
             continue
         m = row_re.match(line)
-        if m:
+        more = more_re.match(line) if (more_re and not m and last_date) else None
+        if m or more:
             flush()
-            date = _row_date(m.group("date"), table.date, year, month)
-            if not date:
-                continue
+            if m:
+                date = _row_date(m.group("date"), table.date, year, month)
+                if not date:
+                    continue
+                last_date = date
+            else:
+                date, m = last_date, more
             rest = line[m.end():]
             amount = None
             figures = list(NUMBER.finditer(rest))
             if table.debit or table.credit:
                 for f in figures:
-                    where = _column(f, [(s - m.end(), e - m.end()) for s, e in debit], [(s - m.end(), e - m.end()) for s, e in credit])
+                    where = _column(f, [(s - m.end(), e - m.end()) for s, e in debit],
+                                    [(s - m.end(), e - m.end()) for s, e in credit],
+                                    [(s - m.end(), e - m.end()) for s, e in balance])
                     if where:
                         v, _, _ = _value(f)
                         amount = v if where == "credit" else -v
@@ -184,8 +206,26 @@ def rows(text: str, table: Table) -> str:
                 rest = rest[:f.start()]
             current = [date, rest.strip(), amount]
             continue
-        if current is not None and not NUMBER.search(line):
+        if current is None:
+            continue
+        if not NUMBER.search(line):
             current[1] += " " + line.strip()
+            continue
+        # A bank that prints the merchant on the booking's line and the
+        # place and the money on the next: the figure under a money
+        # column here is this booking's, and the words are its address.
+        if current[2] is None and (table.debit or table.credit):
+            text_end = len(line)
+            for f in NUMBER.finditer(line):
+                where = _column(f, debit, credit, balance)
+                if where:
+                    v, _, _ = _value(f)
+                    current[2] = v if where == "credit" else -v
+                    text_end = min(text_end, f.start())
+                    break
+            words = line[:text_end].strip()
+            if words:
+                current[1] += " " + words
     flush()
     return text + "\n" + "\n".join(out) + "\n"
 

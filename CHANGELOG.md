@@ -14,6 +14,19 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 ## [0.71.0] — 2026-09-22
 
 ### Added
+- **first direct (HSBC UK) — the 1st Account statement**, read by its
+  columns from a sample a user sent. Its habits needed three things of
+  the column reader, which every layout spec now has: a running-balance
+  column whose figures are never a booking; a day printed once for the
+  bookings that follow under it, each opening with its payment type
+  (VIS, DD, SO, BP, ATM, the contactless three brackets); and a
+  merchant on the booking's line with the place and the money on the
+  next. The payment type is left out of the description, where the kind
+  already says it.
+
+## [0.71.0] — 2026-09-22
+
+### Added
 - **What an app on a phone needs.** A `snapshot` tool that answers with
   everything a home screen shows in one round trip — net worth and its
   parts, the return over every period, the accounts, what is coming,

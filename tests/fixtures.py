@@ -1344,3 +1344,29 @@ IBKR_FLEX = """<FlexQueryResponse queryName="Activity" type="AF">
 </FlexQueryResponse>
 """
 
+# A UK current-account statement of the kind read by its columns: the
+# day printed once for several bookings, each opening with its payment
+# type, the merchant on the booking's line and the place and the money
+# on the next, and a running balance that is never a booking.
+FIRSTDIRECT_STATEMENT = """                                                          firstdirect.com
+                                                          03 456 100 100
+
+ 1 June to 30 June 2026                                   GB42MIDL40006700000000
+
+ Your 1st Account details
+ Date          Payment type and details              £ Paid out        £ Paid in      £ Balance
+
+ 31 May 26     Balance brought forward                                                 6,709.54
+ 01 Jun 26     VIS   SUPERDRY
+               LONDON GB                                  72.36                        6,637.18
+ 02 Jun 26     VIS   OLE&STEEN
+               LONDON GB                                  30.84
+               VIS   ALDO
+               LONDON GB                                  58.93                        6,547.41
+ 25 Jun 26     CR    SALARY ACME LTD
+               MONTHLY PAY                                             2,500.00        9,047.41
+ 30 Jun 26     Balance carried forward                                                 9,047.41
+
+ first direct is a division of HSBC UK Bank plc
+"""
+

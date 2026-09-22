@@ -7053,6 +7053,17 @@ check("...read by the column a figure sits in: deposits positive, withdrawals ne
         ("2025-12-28", "fee", -5.0, "SGD"), ("2026-01-31", "interest", 2.15, "SGD")], []))
 check("...a booking's second line joins its description; the balance lines are not rows",
       (lr.rows[0].description, len(lr.rows)), ("Einzahlung Salary Credit GIRO SALARY REF SLR1234", 4))
+pdf = fixtures.pdf_from_text(fixtures.FIRSTDIRECT_STATEMENT, font="Courier")
+mod = importers.sniff(pdf)
+check("a first direct statement is handed to its reader", mod.SLUG if mod else None, "firstdirect_pdf")
+fd = mod.parse(pdf)
+check("...the day printed once serves the bookings under it; paid out and paid in by their column; the balance is not a booking; the payment type is not the description",
+      ([(r.txn_date, r.kind, r.amount, r.currency, r.description) for r in fd.rows], fd.problems),
+      ([("2026-06-01", "withdrawal", -72.36, "GBP", "Auszahlung SUPERDRY LONDON GB"),
+        ("2026-06-02", "withdrawal", -30.84, "GBP", "Auszahlung OLE&STEEN LONDON GB"),
+        ("2026-06-02", "withdrawal", -58.93, "GBP", "Auszahlung ALDO LONDON GB"),
+        ("2026-06-25", "deposit", 2500.0, "GBP", "Einzahlung SALARY ACME LTD MONTHLY PAY")], []))
+
 from app.importers.pdf.layout import Table, rows as layout_rows
 card = Table(row=r"^\s*(?P<date>\d{2} [A-Z]{3})\s{2,}", date="%d %b", currency="SGD",
              stmt=r"STATEMENT DATE (?P<date>\d{2} [A-Z][a-z]{2} \d{4})", card=True)
