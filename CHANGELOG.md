@@ -11,6 +11,19 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.70.7] — 2026-09-22
+
+### Fixed
+- **The net-worth line fell off a cliff when the house was switched
+  off.** A day recorded by another app is a total with no parts, so
+  nothing can be taken out of it; it was drawn at its full height
+  beside the days this app computes itself, where the house *had* been
+  taken out — a €416,000 step on a day nothing happened, and a change
+  over the range of −23 % that measured today without the house
+  against a recorded total with it. With a switch off, those days are
+  left out: the line starts where the parts are known, the change is
+  measured from there, and the caption says so.
+
 ## [0.70.6] — 2026-09-22
 
 ### Fixed

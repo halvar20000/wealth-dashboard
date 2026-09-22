@@ -59,6 +59,7 @@
     <span class="sub" id="hero-caption">
       {% if history.first_date %}{{ _f("Records go back to {date}; the line fills in with every daily sync.", date=d(history.first_date)) }}
       {% else %}{{ _("No dated readings yet — the line starts with the first balance or trade.") }}{% endif %}
+      <span id="hero-hidden" hidden></span>
     </span>
   </div>
 </section>
@@ -322,9 +323,13 @@ function drawHistory(h) {
   const long = pts.length > 1 && (new Date(pts[pts.length - 1].date) - new Date(pts[0].date)) > 200 * 86400000;
   const labels = pts.map(p => (long ? fmtMonth : fmtDay).format(new Date(p.date)));
   // A day recorded by another app is a total with no parts, so a
-  // switch cannot take anything out of it; the line says so by
-  // keeping its full value there.
-  const data = pts.map(p => p.recorded ? p.net_worth : without(p.net_worth, p.assets));
+  // switch cannot take anything out of it. Drawing it at its full
+  // height beside days that have had the house taken out makes a
+  // cliff where nothing happened, so with a switch off those days
+  // are left out and the line starts where the parts are known.
+  const ex = excluded();
+  const data = pts.map(p => (ex.length && p.recorded) ? null : (p.recorded ? p.net_worth : without(p.net_worth, p.assets)));
+  const hidden = ex.length ? pts.filter(p => p.recorded).length : 0;
   if (heroChart) heroChart.destroy();
   const ctx = el.getContext('2d');
   const grad = ctx.createLinearGradient(0, 0, 0, el.parentElement.clientHeight || 180);
@@ -346,7 +351,13 @@ function drawHistory(h) {
                                 label: c => ' ' + fmtMoney(c.parsed.y) } } },
     },
   });
-  const first = h.start ? (h.start.recorded ? h.start.net_worth : without(h.start.net_worth, h.start.assets)) : null;
+  // The change over the range is measured from the first day the line
+  // actually draws — comparing today without the house against a
+  // recorded total that still has it in would be a fall of its value.
+  const firstDrawn = data.findIndex(v => v !== null && v !== undefined);
+  const first = hidden
+    ? (firstDrawn >= 0 && firstDrawn < data.length - 1 ? data[firstDrawn] : null)
+    : (h.start ? (h.start.recorded ? h.start.net_worth : without(h.start.net_worth, h.start.assets)) : null);
   const delta = document.getElementById('hero-delta');
   if (first !== null && first !== undefined && pts.length > 1) {
     const now = without(NOW, ASSETS);
@@ -357,10 +368,15 @@ function drawHistory(h) {
       + (pct !== null ? ` · ${diff >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(2)} %` : '')
       + (range ? ` · ${range}` : '');
     delta.className = 'hero-delta ' + (diff >= 0 ? 'gain' : 'loss');
-    delta.title = {{ _("since the start of the range") | tojson }};
+    delta.title = hidden ? {{ _("since the first day whose parts are known") | tojson }} : {{ _("since the start of the range") | tojson }};
     delta.hidden = false;
   } else {
     delta.hidden = true;
+  }
+  const note = document.getElementById('hero-hidden');
+  if (note) {
+    note.hidden = !hidden;
+    note.textContent = hidden ? {{ _("Days recorded by another app are totals without parts, so with a switch off the line starts where this app's own daily figures do.") | tojson }} : '';
   }
 }
 applyToggles();

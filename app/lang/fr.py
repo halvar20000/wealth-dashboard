@@ -2810,5 +2810,7 @@ STRINGS: dict[str, str] = {
     'Run the documents already seen through the readers once more — nothing is booked twice': "Repasser les documents déjà vus dans les lecteurs — rien n'est enregistré deux fois",
     '{n} rows stayed out because they fall on or before the day up to which the ledger counts as on record — clear that on the edit page, then pull again.': "{n} lignes sont restées dehors parce qu'elles tombent le jour ou avant jusqu'auquel le grand livre compte comme enregistré — videz-le sur la page de modification, puis récupérez à nouveau.",
     '{n} rows stayed out because they were removed by hand earlier — on the account page, forget the removed rows, then pull again.': "{n} lignes sont restées dehors parce qu'elles ont été supprimées à la main auparavant — sur la page du compte, oubliez les lignes supprimées, puis récupérez à nouveau.",
+    'since the first day whose parts are known': 'depuis le premier jour dont les parties sont connues',
+    "Days recorded by another app are totals without parts, so with a switch off the line starts where this app's own daily figures do.": 'Les jours enregistrés par une autre app sont des totaux sans parties ; avec un interrupteur éteint, la ligne commence donc là où commencent les chiffres quotidiens de cette app.',
     'Bank, broker or format': 'Banque, courtier ou format',
 }
