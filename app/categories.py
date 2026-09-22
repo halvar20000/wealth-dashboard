@@ -459,7 +459,8 @@ def clean_tags(raw: str | None) -> str | None:
 def clean_rule(pattern: str, category: str, field: str = "any", direction: str = "any",
                amount_min=None, amount_max=None, match_mode: str = "contains",
                account_id=None, kind: str | None = None, set_counterparty: str | None = None,
-               set_kind: str | None = None, add_tag: str | None = None) -> dict:
+               set_kind: str | None = None, add_tag: str | None = None,
+               set_owner: str | None = None) -> dict:
     """A rule's terms, checked.
 
     What it matches: the text (three characters at least — or a pattern),
@@ -504,15 +505,55 @@ def clean_rule(pattern: str, category: str, field: str = "any", direction: str =
     set_kind = set_kind if set_kind in KINDS else None
     set_counterparty = " ".join((set_counterparty or "").split())[:200] or None
     add_tag = clean_tag(add_tag)
-    if not category and not set_counterparty and not set_kind and not add_tag:
-        raise ValueError(i18n.t("A rule has to do something: file under a category, rename the counterparty, set the kind, or add a tag."))
+    set_owner = clean_owner(set_owner)
+    if not category and not set_counterparty and not set_kind and not add_tag and not set_owner:
+        raise ValueError(i18n.t("A rule has to do something: file under a category, rename the counterparty, set the kind, add a tag, or say whose spending it is."))
     return {"pattern": pattern, "category": category, "field": field, "direction": direction,
             "amount_min": lo, "amount_max": hi, "match_mode": match_mode, "account_id": account_id,
-            "kind": kind, "set_counterparty": set_counterparty, "set_kind": set_kind, "add_tag": add_tag}
+            "kind": kind, "set_counterparty": set_counterparty, "set_kind": set_kind, "add_tag": add_tag,
+            "set_owner": set_owner}
 
 
 _RULE_COLUMNS = ("pattern", "category", "field", "direction", "amount_min", "amount_max",
-                 "match_mode", "account_id", "kind", "set_counterparty", "set_kind", "add_tag")
+                 "match_mode", "account_id", "kind", "set_counterparty", "set_kind", "add_tag", "set_owner")
+
+
+def clean_owner(raw) -> str | None:
+    """Whose spending: "shared", a person's id as text, or None. A
+    person named must exist; anything else is nobody."""
+    if raw is None:
+        return None
+    s = str(raw).strip().lower()
+    if not s or s in ("none", "0", "nobody", "unassigned", "-"):
+        return None
+    if s == "shared":
+        return "shared"
+    try:
+        pid = int(s)
+    except ValueError:
+        return None
+    with get_conn() as conn:
+        if conn.execute("SELECT 1 FROM people WHERE id = ?", (pid,)).fetchone() is None:
+            return None
+    return str(pid)
+
+
+def owner_columns(owner: str | None) -> tuple[int | None, int]:
+    """(owner_id, owner_shared) for a cleaned owner value."""
+    if owner == "shared":
+        return None, 1
+    if owner:
+        return int(owner), 0
+    return None, 0
+
+
+def set_owner(txn_id: int, owner: str | None) -> str | None:
+    """Say whose spending one row is. Returns the value stored."""
+    owner = clean_owner(owner)
+    oid, shared = owner_columns(owner)
+    with get_conn() as conn:
+        conn.execute("UPDATE transactions SET owner_id = ?, owner_shared = ? WHERE id = ?", (oid, shared, txn_id))
+    return owner
 
 
 def add_rule(pattern: str, category: str, **terms) -> int:
@@ -625,6 +666,12 @@ def _apply_rule(conn, rule: dict, *, only_uncategorised: bool = False,
     if sets:
         conn.execute(f"UPDATE transactions SET {', '.join(sets)} WHERE {where}{scope}",
                      [*set_params, *params, *scope_params])
+    if rule.get("set_owner"):
+        # Whose spending: only where nobody has said yet, like the
+        # category — a row filed to a person by hand stays theirs.
+        oid, shared = owner_columns(rule["set_owner"])
+        conn.execute(f"UPDATE transactions SET owner_id = ?, owner_shared = ? WHERE {where}{scope} "
+                     f"AND owner_id IS NULL AND owner_shared = 0", [oid, shared, *params, *scope_params])
     return changed
 
 

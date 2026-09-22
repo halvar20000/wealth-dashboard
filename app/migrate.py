@@ -149,6 +149,58 @@ def _category(slug: str | None, known: dict[str, dict], to_create: dict[str, str
     return slug
 
 
+def _owner_key(raw: str | None) -> str | None:
+    """The old app's owner as this app names it: "shared" for common,
+    else the name as a title-cased word — "marie_ange" → "Marie-Ange"."""
+    raw = (raw or "").strip().lower()
+    if not raw:
+        return None
+    if raw in ("common", "shared", "both", "household"):
+        return "shared"
+    return "-".join(part.capitalize() for part in re.split(r"[_\s]+", raw) if part)
+
+
+def _match_person(name: str, persons: list[dict]) -> int | None:
+    """A person here whose name is the old app's owner — letters only,
+    case aside, so Marie-Ange, marie_ange and Marie Ange are one."""
+    key = re.sub(r"[^a-z]", "", name.lower())
+    for p in persons:
+        if re.sub(r"[^a-z]", "", p["name"].lower()) == key:
+            return p["id"]
+    return None
+
+
+def read_rules(content: bytes) -> list[dict]:
+    """The old app's category_rules.json: [{pattern, category}]."""
+    import json
+    try:
+        data = json.loads(content.decode("utf-8-sig"))
+    except (UnicodeDecodeError, ValueError):
+        return []
+    rules = data.get("rules") if isinstance(data, dict) else data
+    out = []
+    for r in rules or []:
+        if isinstance(r, dict) and r.get("match") and r.get("category"):
+            out.append({"pattern": " ".join(str(r["match"]).split())[:200], "category": str(r["category"])})
+    return out
+
+
+def attach_rules(plan: dict, content: bytes) -> int:
+    """The old app's category rules onto a plan: their categories
+    mapped the way the rows' were, made here when missing. Returns
+    how many rules the file held."""
+    known = categories.all_categories()
+    rules = []
+    for r in read_rules(content):
+        cat = _category(r["category"], known, plan["categories"])
+        if cat:
+            rules.append({"pattern": r["pattern"], "category": cat})
+    plan["category_rules"] = rules
+    if rules:
+        plan["notes"].append(f"{len(rules)} category rules from category_rules.json come along and apply to what is here.")
+    return len(rules)
+
+
 def read(content: bytes) -> dict:
     """The plan: what the file holds and what would be written. Nothing
     is written. `accounts` carries, per old account, a `target` — the
@@ -240,6 +292,7 @@ def _read(src: sqlite3.Connection) -> dict:
             "category": _category(r["category"], known_cats, plan["categories"]),
             "external_id": ext, "duplicate": dup,
             "source": f"{SOURCE}:{(r['source'] or '').split(':')[0]}",
+            "owner": _owner_key(r["expense_owner"] if "expense_owner" in r.keys() else None),
         })
 
     # What the old app held, per account and holding — kept in the plan,
@@ -346,7 +399,22 @@ def _read(src: sqlite3.Connection) -> dict:
     if plan["net_worth"]:
         plan["notes"].append(f"{len(plan['net_worth'])} days of net worth from before the old app kept per-position lines "
                              f"go on the history line as recorded, up to {first_lines}.")
-    for tbl, what in (("expense_owner_rules", "expense owner rules"), ("retirement_rules", "retirement rules"),
+    # Whose spending: the old app's owners — a first name, or "common"
+    # for the household — become people here (matched by name, made
+    # when missing) and "shared"; its keyword rules become rules here.
+    plan["owners"] = sorted({t["owner"] for t in plan["transactions"] if t["owner"] and t["owner"] != "shared"})
+    plan["owner_rules"] = []
+    try:
+        for r in src.execute("SELECT keyword, owner FROM expense_owner_rules ORDER BY id"):
+            owner = _owner_key(r["owner"])
+            if r["keyword"] and owner:
+                plan["owner_rules"].append({"pattern": r["keyword"], "owner": owner})
+    except sqlite3.Error:
+        pass
+    if plan["owners"] or plan["owner_rules"]:
+        plan["notes"].append(f"Whose spending: {', '.join(plan['owners']) or 'nobody'} and the household's shared rows, "
+                             f"with {len(plan['owner_rules'])} keyword rules, go onto the Who spent page.")
+    for tbl, what in (("retirement_rules", "retirement rules"),
                       ("recurring_contributions", "recurring contributions")):
         try:
             n = src.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
@@ -470,6 +538,25 @@ def apply(plan: dict, targets: dict[int, int | None] | None = None) -> dict:
                                (key, day, close, ccy))
             report["prices"] += cur.rowcount
 
+    # The people the old app's owners name — made when missing.
+    from . import people
+    persons = people.all_people()
+    owner_ids: dict[str, int] = {}
+    for name in plan.get("owners") or []:
+        pid = _match_person(name, persons)
+        if pid is None:
+            pid = people.add(name)
+            persons = people.all_people()
+            report["people_created"] = report.get("people_created", 0) + 1
+        owner_ids[name] = pid
+
+    def owner_cols(owner):
+        if owner == "shared":
+            return None, 1
+        if owner in owner_ids:
+            return owner_ids[owner], 0
+        return None, 0
+
     imports_by_account: dict[int, int] = {}
     for t in plan["transactions"]:
         acc = id_map[t["fp_account"]]
@@ -480,17 +567,23 @@ def apply(plan: dict, targets: dict[int, int | None] | None = None) -> dict:
             acc = id_map[t["fp_account"]]
             cat = t["category"]
             cat = slug_map.get(cat, cat) if cat else None
+            oid, shared = owner_cols(t.get("owner"))
             cur = conn.execute(
                 "INSERT OR IGNORE INTO transactions (account_id, txn_date, description, counterparty, "
                 "amount, currency, external_id, kind, category, isin, security_name, quantity, price, "
-                "fee, source, import_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "fee, source, import_id, owner_id, owner_shared) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (acc, t["txn_date"], t["description"], t["counterparty"], t["amount"], t["currency"],
                  t["external_id"], t["kind"], cat, t["isin"], t["security_name"], t["quantity"],
-                 t["price"], t["fee"], t["source"], imports_by_account[acc]))
+                 t["price"], t["fee"], t["source"], imports_by_account[acc], oid, shared))
             if cur.rowcount:
                 report["rows"] += 1
             else:
                 report["duplicates"] += 1
+                # A row moved in earlier, before owners came across:
+                # it learns whose it is now, unless somebody said since.
+                if oid or shared:
+                    conn.execute("UPDATE transactions SET owner_id = ?, owner_shared = ? WHERE external_id = ? "
+                                 "AND owner_id IS NULL AND owner_shared = 0", (oid, shared, t["external_id"]))
         for o in plan["openings"]:
             acc = id_map[o["fp_account"]]
             cur = conn.execute(
@@ -532,6 +625,29 @@ def apply(plan: dict, targets: dict[int, int | None] | None = None) -> dict:
                 continue
             conn.execute("UPDATE accounts SET ledger_until = MAX(COALESCE(ledger_until, ''), ?) WHERE id = ?",
                          (a["last"], id_map[a["fp_id"]]))
+    # The rules: whose spending, by keyword; and the old app's category
+    # rules when their file was given. Each is applied as it is stored,
+    # to what is already here — that is what a rule is for.
+    report["rules"] = 0
+    existing = {(r["pattern"].lower(), r["category"] or "", r.get("set_owner") or "") for r in categories.rules()}
+    for r in plan.get("owner_rules") or []:
+        owner = "shared" if r["owner"] == "shared" else (str(owner_ids[r["owner"]]) if r["owner"] in owner_ids else None)
+        if not owner or (r["pattern"].lower(), "", owner) in existing:
+            continue
+        try:
+            categories.add_rule(r["pattern"], categories.KEEP, set_owner=owner)
+            report["rules"] += 1
+        except ValueError:
+            pass
+    for r in plan.get("category_rules") or []:
+        cat = slug_map.get(r["category"], r["category"]) if r["category"] in plan["categories"] else r["category"]
+        if cat not in live or (r["pattern"].lower(), cat, "") in existing:
+            continue
+        try:
+            categories.add_rule(r["pattern"], cat)
+            report["rules"] += 1
+        except ValueError:
+            pass
     # The sync may have booked the same days before the move-in — under
     # its own ids, so nothing above caught them. The bare copies go.
     from . import ledger

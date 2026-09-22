@@ -99,6 +99,10 @@
   <div><label>{{ _("set the kind to") }}</label>
     <select name="set_kind" style="width:auto"><option value="">—</option>{% for k in rule_kinds %}<option value="{{ k }}" {{ 'selected' if r and r.set_kind == k }}>{{ kind_label(k) }}</option>{% endfor %}</select></div>
   <div><label>{{ _("add the tag") }}</label><input name="add_tag" value="{{ r.add_tag or '' if r else '' }}" placeholder="—" style="width:120px"></div>
+  {% if persons %}
+  <div><label>{{ _("whose spending") }}</label>
+    <select name="set_owner" style="width:auto"><option value="">—</option>{% for p in persons %}<option value="{{ p.id }}" {{ 'selected' if r and r.set_owner == (p.id | string) }}>{{ p.name }}</option>{% endfor %}<option value="shared" {{ 'selected' if r and r.set_owner == 'shared' }}>{{ _("shared") }}</option></select></div>
+  {% endif %}
   </div>
 {% endmacro %}
 

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Who spent") }} · Wealth Dashboard{% endblock %}
+{% block heading %}{{ _("Who spent") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _("The household's spending split between its people. A row of spending belongs to one of you, or to the household — shared, halved — or to nobody yet; what nobody has claimed sits in its own bucket rather than being quietly absorbed. Say whose a row is on the Transactions page, and it becomes a rule for the next one like it.") }}</p>
+{% endblock %}
+{% block content %}
+{% set t = data.totals %}
+<form method="get" class="card form-inline" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+  <label>{{ _("Month") }}
+    <select name="month" onchange="this.form.submit()">
+      <option value="">{{ _("last 12 months") }}</option>
+      {% for m in data.available_months %}<option value="{{ m }}" {{ 'selected' if data.period.month == m }}>{{ mon(m) }}</option>{% endfor %}
+    </select></label>
+  {% if data.period.partial %}<span class="sub">{{ _("month still running") }}</span>{% endif %}
+</form>
+
+<section class="stat-strip">
+  {% for p in t.people %}
+  <div class="stat-card {{ 'stat-blue' if loop.index0 % 2 == 0 else 'stat-purple' }}">
+    <div class="stat-label">{{ p.name }}</div>
+    <div class="stat-value">{{ money(p.total, data.base_currency) }}</div>
+    <div class="stat-sub">{{ _f("{direct} own + {share} half of shared", direct=money(p.direct, data.base_currency), share=money(p.share, data.base_currency)) }}</div>
+  </div>
+  {% endfor %}
+  <div class="stat-card stat-green">
+    <div class="stat-label">{{ _("Shared") }}</div>
+    <div class="stat-value">{{ money(t.shared, data.base_currency) }}</div>
+    <div class="stat-sub">{{ _("split evenly") }}</div>
+  </div>
+  <div class="stat-card {{ 'stat-gold' if t.unassigned else '' }}">
+    <div class="stat-label">{{ _("Nobody yet") }}</div>
+    <div class="stat-value">{{ money(t.unassigned, data.base_currency) }}</div>
+    <div class="stat-sub">{% if data.counts.unassigned %}<a href="{{ url_for('transactions', unowned=1) }}">{{ _n(data.counts.unassigned, "{n} row to assign", "{n} rows to assign") }}</a>{% else %}{{ _("everything is assigned") }}{% endif %}</div>
+  </div>
+</section>
+
+{% if data.previous and data.previous.totals.total %}
+<p class="sub">{{ _f("The month before, {month}: {total} in all", month=mon(data.previous.month), total=money(data.previous.totals.total, data.base_currency)) }}{% for p in data.previous.totals.people %} · {{ p.name }} {{ money(p.total, data.base_currency) }}{% endfor %}.</p>
+{% endif %}
+
+<section class="card">
+  <div class="card-header"><h2>{{ _("Per month") }}</h2><span class="card-subtitle">{{ _("each person's own spending plus half of what was shared") }}</span></div>
+  <div class="chart-wrap"><canvas id="chart-owners"></canvas></div>
+</section>
+
+{% if data.by_category %}
+<section class="card">
+  <div class="card-header"><h2>{{ _("By category") }}</h2></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Category") }}</th>{% for p in t.people %}<th class="num">{{ p.name }}</th>{% endfor %}<th class="num">{{ _("Shared") }}</th><th class="num">{{ _("Nobody yet") }}</th><th class="num">{{ _("Total") }}</th></tr></thead>
+      <tbody>
+      {% for c in data.by_category %}
+        <tr><td><span class="dot" style="background:{{ c.colour }}"></span> {{ c.label }}</td>
+          {% for p in c.people %}<td class="num">{{ money(p.direct, data.base_currency) if p.direct else '—' }}</td>{% endfor %}
+          <td class="num">{{ money(c.shared, data.base_currency) if c.shared else '—' }}</td>
+          <td class="num">{{ money(c.unassigned, data.base_currency) if c.unassigned else '—' }}</td>
+          <td class="num"><strong>{{ money(c.total, data.base_currency) }}</strong></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<section class="card"><p class="sub">{{ _("No spending in this window.") }}</p></section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+const M = {{ data.by_month | tojson }};
+const PEOPLE = {{ data.people | tojson }};
+const GRID = '#232c44', TICK = '#95a0b9';
+const LABELS = [{% for m in data.by_month %}{{ mon(m.month) | tojson }}{{ "," if not loop.last }}{% endfor %}];
+const COLOURS = ['#5b9dff', '#a78bfa', '#34d399', '#f5d76e', '#f87171'];
+if (M.length) {
+  new Chart(document.getElementById('chart-owners'), {
+    type: 'bar',
+    data: { labels: LABELS, datasets: [
+      ...PEOPLE.map((p, i) => ({ label: p.name, data: M.map(m => (m.people.find(x => x.id === p.id) || {total: 0}).total), backgroundColor: COLOURS[i % COLOURS.length], stack: 's' })),
+      { label: {{ _("Nobody yet") | tojson }}, data: M.map(m => m.unassigned), backgroundColor: '#95a0b9', stack: 's' },
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      scales: { x: { stacked: true, grid: { color: GRID }, ticks: { color: TICK } }, y: { stacked: true, grid: { color: GRID }, ticks: { color: TICK } } },
+      plugins: { legend: { labels: { color: TICK } } } },
+  });
+}
+</script>
+{% endblock %}

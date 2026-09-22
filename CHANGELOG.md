@@ -11,6 +11,32 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.70.0] — 2026-09-22
+
+### Added
+- **Who spent** — the household's spending split between its people,
+  in the Money group. A row of spending belongs to one of the people,
+  or to the household (shared, halved between them), or to nobody yet;
+  the page sums a month or the last twelve per person — their own
+  spending, their share of what was shared, the total — with what
+  nobody has claimed in a bucket of its own, per month for the chart
+  and per category for the table. Whose a row is, is said on the
+  Transactions page (a *Whose* dropdown beside the category, and an
+  *unowned* filter for the queue), and becomes a rule for the same
+  merchant next time, the way a category does; a rule on the
+  Categorize page can say it too (*whose spending*). On the MCP:
+  `who_spent`, `set_owner`, and `set_owner` on `add_rule` /
+  `update_rule`.
+- **The move-in from Financial Planner brings the categorisation
+  along.** Its per-row categories always came; now its owners come too
+  — *thomas* and *marie_ange* become people here (matched by name,
+  made when missing), *common* becomes shared — with its keyword owner
+  rules as rules here, and its `category_rules.json`, dropped on the
+  move-in page beside the database, as category rules with their
+  categories mapped and made the same way. Running the move-in again
+  over a database already moved in writes no row twice and gives the
+  rows already here their owner.
+
 ## [0.69.1] — 2026-09-22
 
 ### Fixed

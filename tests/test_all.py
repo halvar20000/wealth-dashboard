@@ -6488,7 +6488,9 @@ def fp_database() -> bytes:
             (2, 1, 1, 15, 101.0, 1515.0, 'EUR'), (2, 2, 2, 2928.0, 1.0, 2928.0, 'EUR'), (2, 3, 3, 1, 416233.0, 416233.0, 'EUR'), (2, 4, 4, 500000.0, 1.0, 521000.0, 'CHF'),
             (5, 1, 1, 15, 100.0, 1500.0, 'EUR'), (5, 2, 2, 2900.0, 1.0, 2900.0, 'EUR'), (5, 3, 3, 1, 410000.0, 410000.0, 'EUR'), (5, 4, 4, 499000.0, 1.0, 520000.0, 'CHF');
         INSERT INTO prices (asset_id, price_date, close, currency) VALUES (1, '2026-09-12', 100.0, 'EUR'), (1, '2026-09-13', 101.0, 'EUR');
-        INSERT INTO expense_owner_rules VALUES (1, 'simracing', 'thomas', '2026-01-01');
+        INSERT INTO expense_owner_rules VALUES (1, 'simracing', 'thomas', '2026-01-01'), (2, 'assurance', 'common', '2026-01-02');
+        UPDATE transactions SET expense_owner = 'thomas' WHERE id = 7;
+        UPDATE transactions SET expense_owner = 'common' WHERE id = 8;
     """)
     c.commit(); c.close()
     return path.read_bytes()
@@ -6545,13 +6547,15 @@ check("the net worth the old app recorded before it kept lines comes along, up t
       [(x["as_of"], x["amount"]) for x in plan["net_worth"]], [("2026-05-01", 900000.0), ("2026-06-01", 910000.0)])
 check("the bank's cash is a reading per snapshot day", (bal[(2, "2026-09-12")]["amount"], bal[(2, "2026-09-13")]["amount"]), (2900.0, 2928.0))
 check("today's cash from the holdings table where no snapshot has the day", bal[(6, "2026-09-14")]["amount"], 250.0)
-check("what does not cross is said", any("expense owner rules" in n for n in plan["notes"]) and any("days of net worth" in n for n in plan["notes"]), True)
+check("what does not cross is said, and what does", any("retirement rules" in n or "days of net worth" in n for n in plan["notes"]) and any("Whose spending" in n for n in plan["notes"]), True)
 
 # Through the page: upload, look, confirm.
 r = c.post("/move-in", data={"file": (io.BytesIO(b"not a database"), "wealth.db")}, content_type="multipart/form-data", follow_redirects=True)
 check("a file that is not the old app's database is refused", b"not a Financial Planner database" in r.data, True)
-r = c.post("/move-in", data={"file": (io.BytesIO(blob), "wealth.db")}, content_type="multipart/form-data")
+rules_json = json.dumps({"version": 1, "rules": [{"match": "Simracing shop", "category": "simracing"}, {"match": "Assurance", "category": "assurance"}]}).encode()
+r = c.post("/move-in", data={"file": (io.BytesIO(blob), "wealth.db"), "rules": (io.BytesIO(rules_json), "category_rules.json")}, content_type="multipart/form-data")
 check("the plan page shows the accounts and the openings", (r.status_code, b"Old Pension" in r.data, b"Fidelity Contrafund" in r.data, b"Simracing" in r.data), (200, True, True, True))
+check("...and says whose spending and which rules come along", b"Whose spending: Thomas" in r.data and b"2 category rules" in r.data, True)
 tok = re.search(rb'name="token" value="([^"]+)"', r.data).group(1).decode()
 form = {"token": tok, "target_1": str(old_broker_id)}
 r = c.post("/move-in", data=form, follow_redirects=True)
@@ -6564,6 +6568,15 @@ with db.get_conn() as conn:
     secs = {r_["isin"]: r_ for r_ in conn.execute("SELECT * FROM securities WHERE isin IN ('SYM:FCNTX', 'CRYPTO:BTC', 'IE00B4L5Y983')")}
 check("the chosen account was used, the others created, the empty one not",
       (n_broker, "Old Bank" in names, "Maison" in names, "Nothing here" in names), (1, True, True, False))
+with db.get_conn() as conn:
+    thomas = conn.execute("SELECT id FROM people WHERE name = 'Thomas'").fetchone()
+    owned = {r_["description"]: (r_["owner_id"], r_["owner_shared"]) for r_ in conn.execute(
+        "SELECT description, owner_id, owner_shared FROM transactions WHERE source LIKE 'financial_planner%' AND description IN ('Simracing shop', 'Assurance auto', 'Salaire')")}
+    brought = [dict(r_) for r_ in conn.execute("SELECT pattern, category, set_owner FROM category_rules WHERE pattern IN ('simracing', 'assurance', 'Simracing shop', 'Assurance') ORDER BY id")]
+check("the old app's owners became a person and the household's shared rows", thomas is not None and owned["Simracing shop"] == (thomas["id"], 0) and owned["Assurance auto"] == (None, 1) and owned["Salaire"] == (None, 0), True)
+check("...its keyword rules and the category rules file became rules here",
+      [(b_["pattern"], b_["category"], b_["set_owner"]) for b_ in brought],
+      [("simracing", "", str(thomas["id"])), ("assurance", "", "shared"), ("Simracing shop", "simracing", None), ("Assurance", "insurance", None)])
 check("...with their types", (names["Maison"]["type"], names["Old Pension"]["type"], names["Coins"]["type"]), ("property", "pension", "broker"))
 check("every row not already here and every opening is written, each account with rows as one import", (len(rows), imps), (8 + 1, 3))
 check("the symbols come along as the user's own", (secs["SYM:FCNTX"]["symbol"], secs["SYM:FCNTX"]["symbol_source"], secs["CRYPTO:BTC"]["symbol"]), ("FCNTX", "manual", "BTC-EUR"))
@@ -7307,6 +7320,41 @@ check("healing again finds nothing", (ledger.heal_twins(tw), ledger.doubled(tw))
 tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
 r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "heal_twins", "arguments": {"account_id": tw}}}, headers=HDR)
 check("the MCP exposes the healer", (r.status_code, (r.get_json().get("result") or {}).get("structuredContent")), (200, {"removed": 0}))
+
+# ---------------------------------------------------------------------------
+print("\n56. Who spent — the household split")
+# ---------------------------------------------------------------------------
+from app import expenses, categories                                  # noqa: E402
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM people")
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Split CC', 'checking', 'EUR')")
+    sp = conn.execute("SELECT id FROM accounts WHERE name = 'Split CC'").fetchone()["id"]
+    conn.execute("DELETE FROM transactions WHERE account_id != ?", (sp,))
+pa_, pb_ = people.add("Ana"), people.add("Ben")
+with db.get_conn() as conn:
+    for i, (day, amt, cat, oid, shared) in enumerate([("2026-08-03", -100.0, "food", pa_, 0), ("2026-08-05", -40.0, "restaurants", pb_, 0),
+                                                       ("2026-08-09", -60.0, "housing", None, 1), ("2026-08-12", -20.0, "food", None, 0),
+                                                       ("2026-08-15", 3000.0, "income", None, 0), ("2026-08-20", -500.0, "transfer", None, 0),
+                                                       ("2026-07-02", -10.0, "food", pa_, 0)]):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, category, external_id, owner_id, owner_shared) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                     (sp, day, f"row {i}", amt, "EUR", "other", cat, f"split:{i}", oid, shared))
+sp_ = expenses.split("EUR", None, month="2026-08")
+t_ = sp_["totals"]
+check("a month's split: each person's own spending plus half of what was shared; the unclaimed in its own bucket; income and transfers not spending",
+      ([(p_["name"], p_["direct"], p_["share"], p_["total"]) for p_ in t_["people"]], t_["shared"], t_["unassigned"], t_["total"]),
+      ([("Ana", 100.0, 30.0, 130.0), ("Ben", 40.0, 30.0, 70.0)], 60.0, 20.0, 220.0))
+check("...per category, and the month before for comparison",
+      ({c_["category"]: c_["total"] for c_ in sp_["by_category"]}, sp_["previous"]["month"], sp_["previous"]["totals"]["total"]),
+      ({"food": 120.0, "housing": 60.0, "restaurants": 40.0}, "2026-07", 10.0))
+check("a rule can say whose spending a match is, on rows nobody has claimed",
+      (categories.add_rule("row 3", categories.KEEP, set_owner=str(pb_)), expenses.split("EUR", None, month="2026-08")["totals"]["unassigned"]), (0, 0.0))
+r = c.get("/expenses?month=2026-08")
+check("the Who spent page renders with the people and the picker", (r.status_code, b"Ana" in r.data and b"Ben" in r.data and b"chart-owners" in r.data), (200, True))
+r = c.get("/transactions?unowned=1")
+check("the Transactions page has the whose control and an unowned filter", r.status_code == 200 and b'name="owner"' in r.data, True)
+tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
+r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "who_spent", "arguments": {"month": "2026-08"}}}, headers=HDR)
+check("the MCP answers who spent", (r.get_json().get("result") or {}).get("structuredContent", {}).get("totals", {}).get("total"), 220.0)
 
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")

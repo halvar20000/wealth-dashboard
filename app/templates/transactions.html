@@ -53,7 +53,7 @@
   <div class="table-wrap">
     <table class="grid">
       <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Description") }}</th><th>{{ _("Account") }}</th>
-                 <th>{{ _("Category") }}</th><th class="num">{{ _("Amount") }}</th></tr></thead>
+                 <th>{{ _("Category") }}</th><th>{% if persons %}{{ _("Whose") }}{% endif %}</th><th class="num">{{ _("Amount") }}</th></tr></thead>
       <tbody>
       {% for t in rows %}
         <tr>
@@ -76,6 +76,18 @@
                 {% endfor %}
               </select>
             </form>
+          </td>
+          <td>
+            {% if t.amount < 0 and t.kind not in ('buy', 'sell', 'transfer') and persons %}
+            <form method="post" action="{{ url_for('transaction_owner', txn_id=t.id) }}">
+              <input type="hidden" name="back" value="{{ request.full_path }}">
+              <select name="owner" onchange="this.form.submit()" style="padding:4px 8px;font-size:12px;width:auto;" title="{{ _('Whose spending') }}">
+                <option value="">{{ _("nobody yet") }}</option>
+                {% for p in persons %}<option value="{{ p.id }}" {{ 'selected' if t.owner_id == p.id }}>{{ p.name }}</option>{% endfor %}
+                <option value="shared" {{ 'selected' if t.owner_shared }}>{{ _("shared") }}</option>
+              </select>
+            </form>
+            {% endif %}
           </td>
           <td class="num {{ 'pos' if t.amount > 0 else 'neg' }}">{{ money(t.amount, t.currency) }}</td>
         </tr>

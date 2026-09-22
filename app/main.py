@@ -46,7 +46,7 @@ from .banks import sync as banksync
 from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, income, loans, retirement, webhooks,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, splits, stages, subscriptions, upcoming)
-from . import archive, brokers, report
+from . import archive, brokers, expenses, report
 from .brokers import ibkr, kraken, saxo, traderepublic, trading212
 from . import db as db_state
 from .db import get_conn, has_users, init_db
@@ -632,6 +632,9 @@ def move_in():
     except Exception as exc:                        # noqa: BLE001
         flash(_f("Could not read the file: {reason}", reason=str(exc)[:200]), "error")
         return redirect(url_for("move_in"))
+    rules_file = request.files.get("rules")
+    if rules_file and rules_file.filename:
+        migrate.attach_rules(plan, rules_file.read())
     token = _stash_upload(0, upload.filename or "wealth.db", b"")
     _PENDING[token]["plan"] = plan
     with get_conn() as conn:
@@ -1804,7 +1807,37 @@ def transactions():
     return render_template("transactions.html", active_page="transactions",
                            rows=rows, matched=total["n"], total=total["s"] or 0,
                            accounts=accounts_list, kinds=kinds, tags=categories.all_tags(),
-                           q=q, category=category, account_id=account_id, kind=kind, tag=tag)
+                           q=q, category=category, account_id=account_id, kind=kind, tag=tag,
+                           persons=people.all_people(), unowned=bool(request.args.get("unowned")))
+
+
+@app.route("/transactions/<int:txn_id>/owner", methods=["POST"])
+@auth.login_required
+def transaction_owner(txn_id: int):
+    """Say whose spending one row is — and remember it as a rule, the
+    way a category is: the same merchant next month is theirs too.
+    Clearing it is never a rule."""
+    owner = categories.clean_owner(request.form.get("owner"))
+    categories.set_owner(txn_id, owner)
+    if owner:
+        with get_conn() as conn:
+            row = conn.execute("SELECT description, counterparty FROM transactions WHERE id = ?", (txn_id,)).fetchone()
+        pattern = categories.suggest_pattern(row["description"], row["counterparty"]) if row else ""
+        if pattern:
+            try:
+                categories.add_rule(pattern, categories.KEEP, set_owner=owner)
+            except ValueError as exc:
+                flash(str(exc), "error")
+    return redirect(request.form.get("back") or url_for("transactions"))
+
+
+@app.route("/expenses")
+@auth.login_required
+def expenses_page():
+    month = (request.args.get("month") or "").strip()[:7] or None
+    return render_template("expenses.html", active_page="expenses",
+                           data=expenses.split(settings.get("base_currency", "EUR"), people.scope(),
+                                               month=month, months=None if month else 12))
 
 
 def _transactions_filter():
@@ -1831,6 +1864,9 @@ def _transactions_filter():
     if kind:
         where.append("t.kind = ?")
         params.append(kind)
+    if request.args.get("unowned"):
+        # Spending nobody has claimed — the Who spent page's queue.
+        where.append("t.amount < 0 AND t.owner_id IS NULL AND t.owner_shared = 0 AND t.kind NOT IN ('buy', 'sell', 'transfer')")
     only, only_params = people.sql_in(people.scope(), "t.account_id")
     return q, category, account_id, kind, " AND ".join(where) + only, params + only_params, tag
 
@@ -1990,7 +2026,8 @@ def categorize():
                      "amount_min": f.get("amount_min"), "amount_max": f.get("amount_max"),
                      "match_mode": f.get("match_mode", "contains"), "account_id": f.get("account_id"),
                      "kind": f.get("kind"), "set_counterparty": f.get("set_counterparty"),
-                     "set_kind": f.get("set_kind"), "add_tag": f.get("add_tag")}
+                     "set_kind": f.get("set_kind"), "add_tag": f.get("add_tag"),
+                     "set_owner": f.get("set_owner")}
             try:
                 if f.get("action") == "add_rule":
                     n = categories.add_rule(f.get("pattern", ""), f.get("category", ""), **terms)
@@ -2014,7 +2051,8 @@ def categorize():
                            queue=queue, remaining=remaining,
                            rules=categories.rules(), rule_fields=categories.FIELDS,
                            rule_directions=categories.DIRECTIONS, rule_modes=categories.MATCH_MODES,
-                           rule_kinds=sorted(_kinds), accounts_list=accounts_list)
+                           rule_kinds=sorted(_kinds), accounts_list=accounts_list,
+                           persons=people.all_people())
 
 
 @app.route("/cashflow")

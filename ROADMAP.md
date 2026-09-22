@@ -109,7 +109,7 @@ each security's first trade, so the question is answerable from day one.)*
 | Monthly Gains | enough price history — see 1. |
 | Why It Moved | daily per-holding snapshots; there is no history to decompose until the app has been running |
 | Income | a payslip importer, which is employer-specific in a way no generic parser fixes |
-| Expenses | a per-transaction owner — accounts now have people, transactions do not yet |
+| Expenses | *(Done in 0.70.0 as the Who spent page: a row's owner is one of the people or the household, set on the Transactions page or by rule, moved in from Financial Planner with its keyword rules.)* |
 
 **3. Balance history.** *(Done in 0.17.0 as far as the records reach.)*
 `balances` already stores every reading with its date. A chart over time

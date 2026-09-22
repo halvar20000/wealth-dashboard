@@ -18,6 +18,9 @@
     <tr><td>{{ _("Securities") }}</td><td class="num">{{ report.securities }}</td></tr>
     <tr><td>{{ _("Price days") }}</td><td class="num">{{ report.prices }}</td></tr>
     <tr><td>{{ _("Categories created") }}</td><td class="num">{{ report.categories }}</td></tr>
+    {% if report.rules %}<tr><td>{{ _("Rules brought along") }}</td><td class="num">{{ report.rules }}</td></tr>{% endif %}
+    {% if report.people_created %}<tr><td>{{ _("People created") }}</td><td class="num">{{ report.people_created }}</td></tr>{% endif %}
+    {% if report.twins_removed %}<tr><td>{{ _("Doubled bank rows removed") }}</td><td class="num">{{ report.twins_removed }}</td></tr>{% endif %}
   </tbody></table>
   <p class="sub">{{ _("Each account's rows are one import, so an account page can undo its share. Refresh the prices and the rates next — Settings › Market — and compare the overview with the old app's.") }}</p>
   <p><a class="btn" href="{{ url_for('index') }}">{{ _("To the overview") }}</a> <a class="btn btn-ghost" href="{{ url_for('accounts') }}">{{ _("Accounts") }}</a></p>
@@ -80,6 +83,8 @@
 <form method="post" enctype="multipart/form-data" class="card form">
   <label for="file">{{ _("The wealth.db file") }}</label>
   <input id="file" name="file" type="file" accept=".db,application/x-sqlite3,application/octet-stream" required>
+  <label for="rules">{{ _("Its category_rules.json, if you have one") }} <span class="sub">{{ _("optional") }}</span></label>
+  <input id="rules" name="rules" type="file" accept=".json,application/json">
   <button type="submit">{{ _("Read it") }}</button>
   <p class="sub">{{ _("Take a copy of the old app's wealth.db while it is not running, and upload the copy. Nothing is written until you have seen the plan and confirmed it.") }}</p>
 </form>

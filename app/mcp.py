@@ -436,6 +436,7 @@ _RULE_TERMS = {"pattern": {"type": "string", "description": "Text to match, thre
                "set_counterparty": {"type": "string", "description": "Rename the counterparty to this."},
                "set_kind": {"type": "string", "description": "Set the kind, e.g. transfer."},
                "add_tag": {"type": "string", "description": "Add this tag."},
+               "set_owner": {"type": "string", "description": "Whose spending a match is: a person's id (see `people`), or \"shared\"."},
                "field": {"type": "string", "enum": ["any", "description", "counterparty"],
                          "description": "Where the text is looked for. Default any."},
                "direction": {"type": "string", "enum": ["any", "in", "out"],
@@ -450,23 +451,55 @@ _RULE_TERMS = {"pattern": {"type": "string", "description": "Text to match, thre
       "to a range of amount sizes.",
       _RULE_TERMS, ["pattern"])
 def _add_rule(pattern, category="", field="any", direction="any", amount_min=None, amount_max=None,
-              match_mode="contains", account_id=None, kind=None, set_counterparty=None, set_kind=None, add_tag=None):
+              match_mode="contains", account_id=None, kind=None, set_counterparty=None, set_kind=None, add_tag=None,
+              set_owner=None):
     return {"pattern": pattern, "category": category,
             "applied": categories.add_rule(pattern, category, field=field, direction=direction,
                                            amount_min=amount_min, amount_max=amount_max, match_mode=match_mode,
                                            account_id=account_id, kind=kind, set_counterparty=set_counterparty,
-                                           set_kind=set_kind, add_tag=add_tag)}
+                                           set_kind=set_kind, add_tag=add_tag, set_owner=set_owner)}
 
 
 @tool("update_rule", "Change a rule's terms — the fields given replace the rule's; then "
       "every rule is re-applied, oldest first.",
       {"rule_id": {"type": "integer"}, **_RULE_TERMS}, ["rule_id", "pattern"])
 def _update_rule(rule_id, pattern, category="", field="any", direction="any", amount_min=None, amount_max=None,
-                 match_mode="contains", account_id=None, kind=None, set_counterparty=None, set_kind=None, add_tag=None):
+                 match_mode="contains", account_id=None, kind=None, set_counterparty=None, set_kind=None, add_tag=None,
+                 set_owner=None):
     return {"rule_id": rule_id, "reapplied": categories.update_rule(
         int(rule_id), pattern, category, field=field, direction=direction,
         amount_min=amount_min, amount_max=amount_max, match_mode=match_mode, account_id=account_id,
-        kind=kind, set_counterparty=set_counterparty, set_kind=set_kind, add_tag=add_tag)}
+        kind=kind, set_counterparty=set_counterparty, set_kind=set_kind, add_tag=add_tag, set_owner=set_owner)}
+
+
+@tool("set_owner", "Say whose spending a transaction is: a person's id (see `people`), "
+      "\"shared\" for the household, or empty for nobody. Optionally remember it as a rule "
+      "for the same merchant.",
+      {"txn_id": {"type": "integer"}, "owner": {"type": "string"},
+       "remember": {"type": "boolean", "description": "Also store a rule from the row's text. Default false."}},
+      ["txn_id"])
+def _set_owner(txn_id, owner="", remember=False):
+    owner = categories.set_owner(int(txn_id), owner)
+    rule = None
+    if remember and owner:
+        with get_conn() as conn:
+            row = conn.execute("SELECT description, counterparty FROM transactions WHERE id = ?", (int(txn_id),)).fetchone()
+        pattern = categories.suggest_pattern(row["description"], row["counterparty"]) if row else ""
+        if pattern:
+            categories.add_rule(pattern, categories.KEEP, set_owner=owner)
+            rule = pattern
+    return {"txn_id": int(txn_id), "owner": owner, "rule": rule}
+
+
+@tool("who_spent", "The household's spending split between its people for a month "
+      "(YYYY-MM) or the last N months: each person's own spending, their share of what "
+      "was shared, the total; what nobody has claimed yet; per month and per category.",
+      {"month": {"type": "string", "description": "A calendar month, YYYY-MM."},
+       "months": {"type": "integer", "description": "The last N full months instead. Default 12."}})
+def _who_spent(month=None, months=None):
+    from . import expenses
+    return expenses.split(_base(), people.scope(), month=month or None,
+                          months=None if month else int(months or 12))
 
 
 @tool("set_tags", "Set a transaction's tags — a comma-separated list of words; replaces what was there.",

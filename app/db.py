@@ -818,6 +818,8 @@ _ADDED_COLUMNS = {
         ("set_counterparty", "TEXT"),
         ("set_kind", "TEXT"),
         ("add_tag", "TEXT"),
+        # 0.70.0: whose spending a match is — a person's id, or "shared".
+        ("set_owner", "TEXT"),
     ],
     "securities": [
         ("quote_type", "TEXT"),
@@ -856,6 +858,11 @@ _ADDED_COLUMNS = {
         ("tax", "REAL"),
         ("source", "TEXT"),
         ("category", "TEXT"),
+        # 0.70.0: whose spending a row is — one of the people, or shared
+        # by the household — for the Who spent page. NULL and 0: nobody
+        # has said. See expenses.py.
+        ("owner_id", "INTEGER"),
+        ("owner_shared", "INTEGER NOT NULL DEFAULT 0"),
     ],
 }
 

@@ -34,6 +34,11 @@ a PSD2 API it connects directly, with credentials that are yours.
   fed by an account or by hand — and **Upcoming**: today's cash carried
   forward through the bills, the subscriptions and the salary, with the
   lowest point and the day it would cross zero, before it does.
+- **Who spent.** The household's spending split between its people: a
+  row belongs to one of them, to the household (shared, halved) or to
+  nobody yet, set on the Transactions page and remembered as a rule;
+  the page sums a month per person, with what nobody has claimed in its
+  own bucket rather than quietly absorbed.
 - **Retirement outlook** per person — from their birthday and their own
   accounts to a retire age, and what the sum supports a month — and a
   **retirement plan** with the retirement in it: spending and income
