@@ -307,29 +307,40 @@ function applyToggles() {
 }
 try { const saved = JSON.parse(localStorage.getItem('hero-excluded') || '[]'); toggles.forEach(cb => { cb.checked = !saved.includes(cb.dataset.type); }); } catch (e) {}
 toggles.forEach(cb => cb.addEventListener('change', applyToggles));
-const fmtCompact = v => new Intl.NumberFormat(LANG, { notation: 'compact', maximumFractionDigits: 1 }).format(v);
+// Compact, but with enough decimals for the span on screen: over a
+// narrow range every tick would otherwise read "1M".
+const fmtCompact = (v, span) => new Intl.NumberFormat(LANG, {
+  notation: 'compact',
+  maximumFractionDigits: span == null ? 1 : (span > 5e5 ? 1 : span > 5e4 ? 2 : 3),
+}).format(v);
 const fmtDay = new Intl.DateTimeFormat(LANG, { day: 'numeric', month: 'short' });
 const fmtMonth = new Intl.DateTimeFormat(LANG, { month: 'short', year: 'numeric' });
 let heroChart = null;
 
 function drawHistory(h) {
   lastHistory = h;
-  const pts = h.points;
+  let pts = h.points;
   const el = document.getElementById('chart-networth');
   if (!el) return;
   // Today's live figure closes the line, so the chart ends on the same
   // number as the headline above it.
   if (pts.length) { pts[pts.length - 1].net_worth = NOW; pts[pts.length - 1].assets = ASSETS; }
-  const long = pts.length > 1 && (new Date(pts[pts.length - 1].date) - new Date(pts[0].date)) > 200 * 86400000;
-  const labels = pts.map(p => (long ? fmtMonth : fmtDay).format(new Date(p.date)));
   // A day recorded by another app is a total with no parts, so a
   // switch cannot take anything out of it. Drawing it at its full
   // height beside days that have had the house taken out makes a
   // cliff where nothing happened, so with a switch off those days
   // are left out and the line starts where the parts are known.
   const ex = excluded();
-  const data = pts.map(p => (ex.length && p.recorded) ? null : (p.recorded ? p.net_worth : without(p.net_worth, p.assets)));
+  let data = pts.map(p => (ex.length && p.recorded) ? null : (p.recorded ? p.net_worth : without(p.net_worth, p.assets)));
   const hidden = ex.length ? pts.filter(p => p.recorded).length : 0;
+  // Days that cannot be drawn are dropped rather than left as a blank
+  // stretch of axis: the chart begins where the line does.
+  const from = data.findIndex(v => v !== null && v !== undefined);
+  if (from > 0) { data = data.slice(from); pts = pts.slice(from); }
+  const drawn = data.filter(v => v !== null && v !== undefined);
+  const span = drawn.length ? Math.max(...drawn) - Math.min(...drawn) : null;
+  const long = pts.length > 1 && (new Date(pts[pts.length - 1].date) - new Date(pts[0].date)) > 200 * 86400000;
+  const labels = pts.map(p => (long ? fmtMonth : fmtDay).format(new Date(p.date)));
   if (heroChart) heroChart.destroy();
   const ctx = el.getContext('2d');
   const grad = ctx.createLinearGradient(0, 0, 0, el.parentElement.clientHeight || 180);
@@ -344,7 +355,9 @@ function drawHistory(h) {
       interaction: { mode: 'index', intersect: false },
       scales: {
         x: { grid: { display: false }, ticks: { color: '#5e6a86', maxTicksLimit: 8, maxRotation: 0 } },
-        y: { grid: { color: 'rgba(35,44,68,0.6)' }, ticks: { color: '#5e6a86', callback: fmtCompact, maxTicksLimit: 5 } },
+        y: { grid: { color: 'rgba(35,44,68,0.6)' },
+             ticks: { color: '#5e6a86', maxTicksLimit: 5,
+                      callback: v => fmtCompact(v, span) } },
       },
       plugins: { legend: { display: false },
         tooltip: { callbacks: { title: items => pts[items[0].dataIndex].date,
@@ -354,9 +367,8 @@ function drawHistory(h) {
   // The change over the range is measured from the first day the line
   // actually draws — comparing today without the house against a
   // recorded total that still has it in would be a fall of its value.
-  const firstDrawn = data.findIndex(v => v !== null && v !== undefined);
   const first = hidden
-    ? (firstDrawn >= 0 && firstDrawn < data.length - 1 ? data[firstDrawn] : null)
+    ? (drawn.length > 1 ? drawn[0] : null)
     : (h.start ? (h.start.recorded ? h.start.net_worth : without(h.start.net_worth, h.start.assets)) : null);
   const delta = document.getElementById('hero-delta');
   if (first !== null && first !== undefined && pts.length > 1) {

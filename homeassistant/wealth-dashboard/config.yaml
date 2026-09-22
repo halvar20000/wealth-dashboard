@@ -4,7 +4,7 @@
 # tagged and published. The release check in the workflow refuses a tag
 # where this file and app/__init__.py disagree.
 name: Wealth Dashboard
-version: 0.70.7
+version: 0.70.8
 slug: wealth-dashboard
 description: Self-hosted net worth tracking. One SQLite file, no cloud, no account with anybody.
 url: https://github.com/halvar20000/wealth-dashboard

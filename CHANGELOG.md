@@ -11,6 +11,15 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.70.8] — 2026-09-22
+
+### Fixed
+- The net-worth chart's y-axis read "1M" on every tick where the range
+  on screen was narrow: the labels now carry as many decimals as the
+  span needs (1.02M · 1.04M). And where days cannot be drawn — a class
+  switched off, their parts unknown — the chart starts where the line
+  does instead of opening with months of blank axis.
+
 ## [0.70.7] — 2026-09-22
 
 ### Fixed
