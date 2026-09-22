@@ -2799,5 +2799,12 @@ STRINGS: dict[str, str] = {
     '{n} removed row forgotten — import the file again and it comes back.': '{n} fila eliminada olvidada — importa el archivo de nuevo y vuelve.',
     '{n} removed rows forgotten — import the file again and they come back.': '{n} filas eliminadas olvidadas — importa el archivo de nuevo y vuelven.',
     '{n} rows were removed by hand earlier and stay out — of this account, or of one deleted before it was made again. To let them back in, forget them below and import the file again.': '{n} filas se eliminaron a mano antes y siguen fuera — de esta cuenta, o de una borrada antes de crearla de nuevo. Para dejarlas entrar, olvídalas abajo e importa el archivo de nuevo.',
+    'Forget {n} removed row': 'Olvidar {n} fila eliminada',
+    'Forget {n} removed rows': 'Olvidar {n} filas eliminadas',
+    'Pull again, all documents': 'Traer de nuevo, todos los documentos',
+    'Rows removed by hand stay out of every import; forgetting them lets the next import book them again': 'Las filas eliminadas a mano quedan fuera de toda importación; olvidarlas deja que la siguiente importación las registre de nuevo',
+    'Run the documents already seen through the readers once more — nothing is booked twice': 'Pasar de nuevo por los lectores los documentos ya vistos — nada se registra dos veces',
+    '{n} rows stayed out because they fall on or before the day up to which the ledger counts as on record — clear that on the edit page, then pull again.': '{n} filas quedaron fuera porque caen el día o antes hasta el que el libro cuenta como registrado — vacíalo en la página de edición y trae de nuevo.',
+    '{n} rows stayed out because they were removed by hand earlier — on the account page, forget the removed rows, then pull again.': '{n} filas quedaron fuera porque se eliminaron a mano antes — en la página de la cuenta, olvida las filas eliminadas y trae de nuevo.',
     'Bank, broker or format': 'Banco, bróker o formato',
 }

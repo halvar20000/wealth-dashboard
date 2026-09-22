@@ -471,6 +471,7 @@ def account_detail(account_id: int):
                            other_accounts=_other_accounts(account_id),
                            archive_on=archive.configured(),
                            archive_filter=archive.filter_for(account_id) if archive.configured() else None,
+                           removed_count=manual.removed_count(account_id),
                            loan=(loan := loans.for_account(account_id) if account["type"] == "loan" else None),
                            loan_status=loans.status(loan) if loan else None,
                            periods=loans.PERIODS,
@@ -1069,7 +1070,7 @@ def account_archive_pull(account_id: int):
         flash(_t("This account does not say which documents are its yet — set the tag, correspondent or query on its edit page."), "error")
         return redirect(url_for("account_edit", account_id=account_id))
     try:
-        _flash_archive(archive.pull(account_id))
+        _flash_archive(archive.pull(account_id, again=bool(request.form.get("again"))))
     except archive.ArchiveError as exc:
         flash(str(exc), "error")
     return redirect(url_for("account_detail", account_id=account_id))
@@ -2647,6 +2648,12 @@ def _flash_archive(results: list[dict]) -> None:
                  new=sum(r["new"] for r in ok), imported=sum(r["imported"] for r in ok),
                  rows=sum(r["inserted"] for r in ok), unread=sum(r["unread"] for r in ok),
                  failed=sum(r["failed"] for r in ok)), "ok")
+        kept_out = sum(r.get("kept_out", 0) for r in ok)
+        on_record = sum(r.get("on_record", 0) for r in ok)
+        if kept_out:
+            flash(_f("{n} rows stayed out because they were removed by hand earlier — on the account page, forget the removed rows, then pull again.", n=kept_out), "warn")
+        if on_record:
+            flash(_f("{n} rows stayed out because they fall on or before the day up to which the ledger counts as on record — clear that on the edit page, then pull again.", n=on_record), "warn")
 
 
 def _valid_hhmm(value: str) -> bool:

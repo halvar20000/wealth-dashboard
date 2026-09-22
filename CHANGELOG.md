@@ -11,6 +11,19 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.70.4] — 2026-09-22
+
+### Added
+- **Pull again, all documents** on the account page: the Paperless
+  documents already seen go through the readers once more — for the
+  account that has since forgotten its removed rows, lifted its ledger
+  mark or gained a reader. Nothing is booked twice; a plain pull still
+  fetches only what is new. The pull now says when rows stayed out
+  because they were removed by hand or fall inside the on-record span,
+  instead of "0 read". And the account page offers *Forget N removed
+  rows* whenever there are any, so the button is not only on the
+  import page after an upload.
+
 ## [0.70.3] — 2026-09-22
 
 ### Fixed

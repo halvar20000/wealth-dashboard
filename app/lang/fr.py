@@ -2803,5 +2803,12 @@ STRINGS: dict[str, str] = {
     '{n} removed row forgotten — import the file again and it comes back.': '{n} ligne supprimée oubliée — réimportez le fichier et elle revient.',
     '{n} removed rows forgotten — import the file again and they come back.': '{n} lignes supprimées oubliées — réimportez le fichier et elles reviennent.',
     '{n} rows were removed by hand earlier and stay out — of this account, or of one deleted before it was made again. To let them back in, forget them below and import the file again.': "{n} lignes ont été supprimées à la main auparavant et restent dehors — de ce compte, ou d'un compte supprimé avant d'être recréé. Pour les laisser revenir, oubliez-les ci-dessous et réimportez le fichier.",
+    'Forget {n} removed row': 'Oublier {n} ligne supprimée',
+    'Forget {n} removed rows': 'Oublier {n} lignes supprimées',
+    'Pull again, all documents': 'Récupérer à nouveau, tous les documents',
+    'Rows removed by hand stay out of every import; forgetting them lets the next import book them again': 'Les lignes supprimées à la main restent hors de toute importation ; les oublier laisse la prochaine importation les enregistrer à nouveau',
+    'Run the documents already seen through the readers once more — nothing is booked twice': "Repasser les documents déjà vus dans les lecteurs — rien n'est enregistré deux fois",
+    '{n} rows stayed out because they fall on or before the day up to which the ledger counts as on record — clear that on the edit page, then pull again.': "{n} lignes sont restées dehors parce qu'elles tombent le jour ou avant jusqu'auquel le grand livre compte comme enregistré — videz-le sur la page de modification, puis récupérez à nouveau.",
+    '{n} rows stayed out because they were removed by hand earlier — on the account page, forget the removed rows, then pull again.': "{n} lignes sont restées dehors parce qu'elles ont été supprimées à la main auparavant — sur la page du compte, oubliez les lignes supprimées, puis récupérez à nouveau.",
     'Bank, broker or format': 'Banque, courtier ou format',
 }

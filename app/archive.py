@@ -297,13 +297,18 @@ def read_document(content: bytes, name: str, ocr_text: str | None, account_id: i
     return report, module.LABEL
 
 
-def pull(account_id: int | None = None, transport=None) -> list[dict]:
+def pull(account_id: int | None = None, transport=None, again: bool = False) -> list[dict]:
     """Every account with a filter — or one — against the archive.
 
     One result per account: what was listed, what was new, what came
     in, what could not be read, and an error if the listing itself
     failed. A document that fails is recorded and the next one is tried;
     a listing that fails stops that account and moves on to the next.
+
+    `again` runs the documents already seen through the readers once
+    more — for the account that has since forgotten its removed rows,
+    lifted its ledger mark, or gained a reader; the ids keep a row from
+    being booked twice, so it costs nothing but the fetch.
     """
     api = client(transport)
     out = []
@@ -311,7 +316,8 @@ def pull(account_id: int | None = None, transport=None) -> list[dict]:
         if account_id is not None and f["account_id"] != account_id:
             continue
         res = {"account": f["account"], "account_id": f["account_id"], "listed": 0,
-               "new": 0, "imported": 0, "inserted": 0, "unread": 0, "failed": 0, "error": None}
+               "new": 0, "imported": 0, "inserted": 0, "unread": 0, "failed": 0, "error": None,
+               "kept_out": 0, "on_record": 0}
         try:
             docs = api.documents(f)
         except ArchiveError as exc:
@@ -320,7 +326,7 @@ def pull(account_id: int | None = None, transport=None) -> list[dict]:
             continue
         res["listed"] = len(docs)
         with get_conn() as conn:
-            seen = _seen(conn, f["account_id"])
+            seen = set() if again else _seen(conn, f["account_id"])
         for doc in docs:
             if doc["id"] in seen:
                 continue
@@ -348,9 +354,12 @@ def pull(account_id: int | None = None, transport=None) -> list[dict]:
                 else:
                     res["imported"] += 1
                     res["inserted"] += report["inserted"]
+                    res["kept_out"] += report.get("kept_out", 0)
+                    res["on_record"] += report.get("on_record", 0)
                     _record(conn, doc, f["account_id"], "imported",
                             f"{label}: {report['inserted']} new, {report['duplicates']} already had"
-                            + (f" ({report['on_record']} on or before the account's ledger-on-record day {report['until']})" if report.get("on_record") else ""),
+                            + (f" ({report['on_record']} on or before the account's ledger-on-record day {report['until']})" if report.get("on_record") else "")
+                            + (f" ({report['kept_out']} removed by hand earlier, kept out)" if report.get("kept_out") else ""),
                             report.get("import_id"))
         out.append(res)
     set_state("archive_last_pull", json.dumps({

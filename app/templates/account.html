@@ -209,9 +209,16 @@
    {% if archive_on %}
    <form method="post" action="{{ url_for('account_archive_pull', account_id=account.id) }}" style="display:inline">
      <button type="submit" class="btn" {% if not archive_filter %}title="{{ _('Say on the edit page which Paperless documents belong to this account first') }}"{% endif %}>{{ _("Pull from Paperless") }}</button>
+     <button type="submit" class="btn btn-ghost" name="again" value="1" title="{{ _('Run the documents already seen through the readers once more — nothing is booked twice') }}">{{ _("Pull again, all documents") }}</button>
    </form>
    {% endif %}
    <a class="btn" href="{{ url_for('account_add', account_id=account.id) }}">{{ _("Add by hand") }}</a>
+   {% if removed_count %}
+   <form method="post" action="{{ url_for('account_forget_removed', account_id=account.id) }}" style="display:inline">
+     <input type="hidden" name="back" value="{{ url_for('account_detail', account_id=account.id) }}">
+     <button type="submit" class="btn btn-ghost" title="{{ _('Rows removed by hand stay out of every import; forgetting them lets the next import book them again') }}">{{ _n(removed_count, "Forget {n} removed row", "Forget {n} removed rows") }}</button>
+   </form>
+   {% endif %}
    <a class="btn btn-ghost" href="{{ url_for('account_edit', account_id=account.id) }}">{{ _("Edit or delete") }}</a></p>
 
 {% if positions %}

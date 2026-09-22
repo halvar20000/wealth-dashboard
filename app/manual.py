@@ -234,6 +234,11 @@ def forget_removed(account_id: int) -> int:
         return cur.rowcount
 
 
+def removed_count(account_id: int) -> int:
+    with get_conn() as conn:
+        return conn.execute("SELECT COUNT(*) FROM removed_rows WHERE account_id = ?", (account_id,)).fetchone()[0]
+
+
 def removed_ids(conn, account_id: int | None = None) -> set[str]:
     """The ids the user removed — what an import or a sync leaves out."""
     if account_id is None:

@@ -2797,5 +2797,12 @@ STRINGS: dict[str, str] = {
     '{n} removed row forgotten — import the file again and it comes back.': '{n} entfernte Zeile vergessen — importiere die Datei erneut, und sie kommt zurück.',
     '{n} removed rows forgotten — import the file again and they come back.': '{n} entfernte Zeilen vergessen — importiere die Datei erneut, und sie kommen zurück.',
     '{n} rows were removed by hand earlier and stay out — of this account, or of one deleted before it was made again. To let them back in, forget them below and import the file again.': '{n} Zeilen wurden früher von Hand entfernt und bleiben draußen — aus diesem Konto oder aus einem, das vor dem Neuanlegen gelöscht wurde. Um sie wieder hereinzulassen, vergiss sie unten und importiere die Datei erneut.',
+    'Forget {n} removed row': '{n} entfernte Zeile vergessen',
+    'Forget {n} removed rows': '{n} entfernte Zeilen vergessen',
+    'Pull again, all documents': 'Erneut holen, alle Dokumente',
+    'Rows removed by hand stay out of every import; forgetting them lets the next import book them again': 'Von Hand entfernte Zeilen bleiben aus jedem Import draußen; sie zu vergessen lässt den nächsten Import sie wieder buchen',
+    'Run the documents already seen through the readers once more — nothing is booked twice': 'Die bereits gesehenen Dokumente noch einmal durch die Leser laufen lassen — nichts wird doppelt gebucht',
+    '{n} rows stayed out because they fall on or before the day up to which the ledger counts as on record — clear that on the edit page, then pull again.': '{n} Zeilen blieben draußen, weil sie am oder vor dem Tag liegen, bis zu dem das Buch als erfasst gilt — leere das auf der Bearbeiten-Seite und hole dann erneut.',
+    '{n} rows stayed out because they were removed by hand earlier — on the account page, forget the removed rows, then pull again.': '{n} Zeilen blieben draußen, weil sie früher von Hand entfernt wurden — auf der Kontoseite die entfernten Zeilen vergessen und dann erneut holen.',
     'Bank, broker or format': 'Bank, Broker oder Format',
 }

@@ -6756,6 +6756,9 @@ n_calls = len(archive_calls)
 again = {r["account"]: r for r in archive.pull(transport=fake_archive)}
 check("a second pull fetches nothing", (again["Archive depot"]["new"], again["Archive giro"]["new"]), (0, 0))
 check("...only the listings are asked for", len(archive_calls) - n_calls <= 6, True)
+forced = {r["account"]: r for r in archive.pull(transport=fake_archive, again=True)}
+check("a pull 'again' runs every document through the readers once more, and books nothing twice",
+      (forced["Archive depot"]["new"], forced["Archive depot"]["inserted"], forced["Archive giro"]["inserted"]), (3, 0, 0))
 check("retrying forgets the unread ones only", archive.retry_unread(), 1)
 check("...so the next pull tries the letter again, and only it",
       {r["account"]: r["new"] for r in archive.pull(transport=fake_archive)}, {"Archive depot": 1, "Archive giro": 0})
@@ -6776,7 +6779,7 @@ check("...with a link back into the archive", b"/documents/13/details" in r.data
 page = c.get(f"/accounts/{dep}").get_data(as_text=True)
 check("an account page offers a Pull from Paperless button once an archive is set up", f"/accounts/{dep}/archive/pull" in page, True)
 _real_pull = archive.pull
-archive.pull = lambda account_id=None, transport=None: _real_pull(account_id, transport=fake_archive)
+archive.pull = lambda account_id=None, transport=None, again=False: _real_pull(account_id, transport=fake_archive, again=again)
 try:
     r = c.post(f"/accounts/{dep}/archive/pull", follow_redirects=True)
     check("...pressing it pulls this one account and reports what it did", b"new documents" in r.data and b"Archive depot" in r.data, True)
