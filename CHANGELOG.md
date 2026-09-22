@@ -11,6 +11,18 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.71.3] — 2026-09-22
+
+### Changed
+- The install guide says how to add OCR: *Scanned statements — adding
+  OCR* covers letting Paperless-ngx do it, the one `docker exec` line
+  that installs `ocrmypdf` and its language packs into the running
+  container, why an update undoes that and the two ways to make it
+  stick (a User Script, or a four-line image of your own), the
+  `WD_OCR` and `WD_OCR_LANGUAGE` variables, and what OCR is and is not
+  good for. Linked from the README's bank section and its
+  configuration table.
+
 ## [0.71.2] — 2026-09-22
 
 ### Added

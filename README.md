@@ -694,12 +694,13 @@ the end. **A scanned statement** is a picture of a page: it holds no text, so no
 reader can read it, whatever bank it is from. The app says exactly that
 instead of "not recognised". Two ways round it: let **Paperless-ngx**
 OCR it — the app pulls the OCR text through the same readers — or
-install **ocrmypdf** on the server (`apt install ocrmypdf`), which the
-app uses by itself when it meets a scan, writing a text layer into a
-copy and reading that. Neither ships in the image: a tesseract and a
-ghostscript are a few hundred megabytes for something a downloaded
-statement never needs. `WD_OCR=0` turns the attempt off,
-`WD_OCR_LANGUAGE` picks the languages (default `eng+deu+fra`).
+install **ocrmypdf** on the server, which the app uses by itself when it
+meets a scan, writing a text layer into a copy and reading that —
+[how to add it, container and all](docs/INSTALL.md#scanned-statements--adding-ocr-optional).
+Neither ships in the image: a tesseract and a ghostscript are a few
+hundred megabytes for something a downloaded statement never needs.
+`WD_OCR=0` turns the attempt off, `WD_OCR_LANGUAGE` picks the languages
+(default `eng+deu+fra`).
 
 The corpus is EPL-licensed and stays out of this repository;
 the specs are this project's own. A bank not read: send a redacted
@@ -867,6 +868,8 @@ breaking the page.
 | `WD_SECRET_KEY` | generated and stored | Session signing key |
 | `WD_BASE_CURRENCY` | `EUR` | Reporting currency |
 | `WD_REDIRECT_URL` | `http://localhost:8000/connect/callback` | Where the bank sends you back |
+| `WD_OCR` | `1` | `0` stops the app from OCR-ing a scan, even where `ocrmypdf` is installed |
+| `WD_OCR_LANGUAGE` | `eng+deu+fra` | Which languages Tesseract recognises — [adding OCR](docs/INSTALL.md#scanned-statements--adding-ocr-optional) |
 | `TZ` | `UTC` in the image | Which day it is, for the monthly pages |
 | `PUID`, `PGID` | `1000` in the image | The user the container runs as; `/data` is given to it on start |
 

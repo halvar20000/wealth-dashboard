@@ -143,6 +143,90 @@ expires rather than after. Re-connecting is the same three clicks.
 
 ---
 
+## Scanned statements — adding OCR (optional)
+
+A statement **downloaded** from a bank is a PDF that carries its text, and the
+app reads it as it is. A statement **scanned** from paper is a picture of a
+page: there is no text in it, so no reader can read it, whatever bank it is
+from. The app says so rather than "not recognised" — and there are two ways to
+give it text.
+
+### The easy way: let Paperless-ngx do it
+
+If you already run [Paperless-ngx](https://docs.paperless-ngx.com/), it OCRs
+every document it takes in. Point the app at the archive (**Settings → Banks &
+brokers → Document archive**, then say on each account's edit page which
+documents are its) and scans arrive readable. Nothing to install here.
+
+### The other way: `ocrmypdf` in this container
+
+The image does **not** ship OCR: a tesseract and a ghostscript are a few
+hundred megabytes for something a downloaded statement never needs. Where the
+`ocrmypdf` binary is present, the app uses it by itself — a PDF with no text
+goes through it once, the recognised words are written into a *copy* as a text
+layer, and every reader then works on it, the column ones included. The file
+you uploaded is not modified.
+
+Install it **inside the container**, from Unraid's terminal:
+
+```
+docker exec -u 0 wealth-dashboard sh -c "apt-get update && apt-get install -y --no-install-recommends ocrmypdf tesseract-ocr-eng tesseract-ocr-deu tesseract-ocr-fra"
+```
+
+Replace `wealth-dashboard` with the container's name if you changed it, and add
+the language packs you need (`tesseract-ocr-spa`, `-ita`, `-nld` …). To check:
+
+```
+docker exec wealth-dashboard ocrmypdf --version
+```
+
+Then upload the scan again — no restart needed.
+
+**This is undone by an update.** A container is replaced when it is updated, so
+the packages go with it and the command above has to be run again. Two ways to
+make it stick:
+
+* **A User Script** (Unraid's *User Scripts* plugin) with that one `docker exec`
+  line, set to run *At Startup of Array* — or run it by hand after each update.
+* **Your own image**, built once and pinned in the container's **Repository**
+  field:
+
+  ```Dockerfile
+  FROM ghcr.io/halvar20000/wealth-dashboard:latest
+  RUN apt-get update \
+   && apt-get install -y --no-install-recommends \
+        ocrmypdf tesseract-ocr-eng tesseract-ocr-deu tesseract-ocr-fra \
+   && rm -rf /var/lib/apt/lists/*
+  ```
+
+  The image's entrypoint still drops to `PUID:PGID` before the app runs, so
+  nothing else changes.
+
+  ```
+  docker build -t wealth-dashboard-ocr /mnt/user/appdata/wealth-dashboard-ocr/
+  ```
+
+Outside a container — a pip or source install — it is the host's package
+manager: `apt install ocrmypdf` (Debian, Ubuntu), `brew install ocrmypdf`
+(macOS), `pacman -S ocrmypdf` (Arch).
+
+### Settings
+
+| Variable | Default | What it does |
+|---|---|---|
+| `WD_OCR` | `1` | `0` stops the app from trying, even where `ocrmypdf` is installed |
+| `WD_OCR_LANGUAGE` | `eng+deu+fra` | Which languages Tesseract recognises; the packs must be installed |
+
+### What to expect
+
+OCR *recognises* letters; it does not read them off the file the way a
+downloaded PDF is read. A clean 300 dpi scan of a layout the app knows usually
+comes out right; a crooked phone photo of a crumpled sheet does not, and a
+figure misread is a figure misread. Where a bank offers the statement as a
+download, that is always the better file.
+
+---
+
 ## Updating
 
 `latest` follows the default branch, and the image is built for amd64 and
