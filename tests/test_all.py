@@ -7361,7 +7361,39 @@ check("...and the twins' ids are remembered so a sync cannot bring them back", l
 check("healing again finds nothing", (ledger.heal_twins(tw), ledger.doubled(tw)), (0, {}))
 tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
 r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "heal_twins", "arguments": {"account_id": tw}}}, headers=HDR)
-check("the MCP exposes the healer", (r.status_code, (r.get_json().get("result") or {}).get("structuredContent")), (200, {"removed": 0}))
+check("the MCP exposes the healer", (r.status_code, (r.get_json().get("result") or {}).get("structuredContent")), (200, {"removed": 0, "trades": {"twins": 0, "openings": 0}}))
+
+# The same trade twice — the reader's row and the move-in's copy — and
+# the opening position the move-in wrote to make the units add up,
+# which counted the pair twice: the copy goes and the opening with it.
+# Where the copy was removed by hand already, the opening still negates
+# the reader's buy exactly, and goes.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Twin trades', 'broker', 'CHF')")
+    tt = conn.execute("SELECT id FROM accounts WHERE name = 'Twin trades'").fetchone()["id"]
+    rows_ = [("2026-02-05", "buy", -6862.64, 30.0, 228.0, "IE00B44Z5B48", "swissquote_pdf", "sq:x:1", None),
+             ("2026-02-04", "transfer", 0.0, -30.0, 228.75, "IE00B44Z5B48", "financial_planner", "fp:open:9:IE00B44Z5B48", None),
+             ("2025-11-07", "buy", -251.45, 2.5741, 97.68, "CH0025751329", "swissquote_pdf", "sq:x:2", None),
+             ("2025-11-07", "buy", -251.45, 2.5741, 97.68, "CH0025751329", "financial_planner:swissquote_pdf", "sq:hash2", None),
+             ("2026-01-07", "buy", -251.44, 3.1686, 79.35, "CH0025751329", "swissquote_pdf", "sq:x:3", None),
+             ("2026-01-07", "buy", -251.44, 3.1686, 79.35, "CH0025751329", "financial_planner:swissquote_pdf", "sq:hash3", None),
+             ("2025-11-06", "transfer", 0.0, -5.7427, 90.0, "CH0025751329", "financial_planner", "fp:open:9:CH0025751329", None)]
+    for day, kind, amt, qty, px, isin, src, ext, _ in rows_:
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, quantity, price, isin, security_name, source, external_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                     (tt, day, kind, amt, "CHF", kind, qty, px, isin, isin, src, ext))
+before = {p_["isin"]: round(p_["quantity"], 4) for p_ in importers.positions(tt)}
+fixed = ledger.heal_trade_twins(tt)
+after = {p_["isin"]: round(p_["quantity"], 4) for p_ in importers.positions(tt)}
+with db.get_conn() as conn:
+    left_ = [(r_["txn_date"], r_["kind"], r_["quantity"], (r_["source"] or "").split(":")[0]) for r_ in conn.execute(
+        "SELECT txn_date, kind, quantity, source FROM transactions WHERE account_id = ? ORDER BY isin, txn_date", (tt,))]
+check("before the heal: the ACWI buy is cancelled by its opening, Logitech is right in units but every trade is there twice",
+      (before.get("IE00B44Z5B48"), before.get("CH0025751329"), len(left_) if False else 7), (None, 5.7427, 7))
+check("the heal removes the two moved-in copies and both openings", fixed, {"twins": 2, "openings": 2})
+check("...leaving the reader's rows alone, and the positions as the broker has them",
+      (left_, after), ([("2025-11-07", "buy", 2.5741, "swissquote_pdf"), ("2026-01-07", "buy", 3.1686, "swissquote_pdf"), ("2026-02-05", "buy", 30.0, "swissquote_pdf")],
+                       {"IE00B44Z5B48": 30.0, "CH0025751329": 5.7427}))
+check("healing again changes nothing", ledger.heal_trade_twins(tt), {"twins": 0, "openings": 0})
 
 # ---------------------------------------------------------------------------
 print("\n56. Who spent — the household split")

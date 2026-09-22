@@ -683,7 +683,9 @@ def init_db(path: Path | None = None) -> Path:
         conn.execute("INSERT INTO app_state (key, value, updated_at) VALUES ('last_version', ?, datetime('now')) "
                      "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
                      (__version__,))
-        heal = "eb_twins_of_moved_in_rows" not in {r[0] for r in conn.execute("SELECT key FROM app_state")}
+        done_keys = {r[0] for r in conn.execute("SELECT key FROM app_state")}
+        heal = "eb_twins_of_moved_in_rows" not in done_keys
+        heal_trades = "fp_trade_twins_and_openings" not in done_keys
         conn.commit()
     finally:
         conn.close()
@@ -699,6 +701,16 @@ def init_db(path: Path | None = None) -> Path:
                          "('eb_twins_of_moved_in_rows', ?, datetime('now'))", (str(gone),))
         if gone:
             print(f"  healed:  {gone} doubled bank rows", flush=True)
+    if heal_trades:
+        # 0.70.6: a trade booked by a reader and again by the move-in,
+        # and the opening position that counted the pair twice.
+        from . import ledger
+        fixed = ledger.heal_trade_twins(path=path)
+        with get_conn(path) as conn:
+            conn.execute("INSERT OR REPLACE INTO app_state (key, value, updated_at) VALUES "
+                         "('fp_trade_twins_and_openings', ?, datetime('now'))", (str(fixed),))
+        if fixed["twins"] or fixed["openings"]:
+            print(f"  healed:  {fixed['twins']} doubled trades, {fixed['openings']} opening positions", flush=True)
     return path
 
 

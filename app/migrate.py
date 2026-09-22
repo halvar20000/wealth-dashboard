@@ -430,6 +430,37 @@ def _read(src: sqlite3.Connection) -> dict:
     return plan
 
 
+def mark_same_trades(plan: dict, targets: dict[int, int | None]) -> int:
+    """Mark as duplicate every planned trade that the chosen account
+    already holds under another id: same security, same units, the
+    same day or the next, an amount within a percent — one to one.
+    Returns how many."""
+    marked = 0
+    with get_conn() as conn:
+        for fp_account, target in targets.items():
+            if not target:
+                continue
+            have = [dict(r) for r in conn.execute(
+                "SELECT id, txn_date, isin, quantity, amount FROM transactions WHERE account_id = ? "
+                "AND isin IS NOT NULL AND quantity IS NOT NULL AND kind IN ('buy', 'sell')", (int(target),))]
+            if not have:
+                continue
+            for t in plan["transactions"]:
+                if t["fp_account"] != fp_account or t["duplicate"] or not t["isin"] or t["quantity"] is None \
+                        or t["kind"] not in ("buy", "sell"):
+                    continue
+                day = date.fromisoformat(t["txn_date"])
+                for i, h in enumerate(have):
+                    if h["isin"] == t["isin"] and abs(h["quantity"] - t["quantity"]) < 1e-6 \
+                            and abs((date.fromisoformat(h["txn_date"]) - day).days) <= 1 \
+                            and abs(abs(h["amount"]) - abs(t["amount"])) <= 0.01 * max(abs(t["amount"]), 1.0) + 0.05:
+                        t["duplicate"] = True
+                        have.pop(i)
+                        marked += 1
+                        break
+    return marked
+
+
 def openings(plan: dict, targets: dict[int, int | None], held: dict | None = None) -> list[dict]:
     """The rows that make the holdings agree, given where each old
     account's rows go: what the old app held, less what the rows to be
@@ -512,6 +543,11 @@ def apply(plan: dict, targets: dict[int, int | None] | None = None) -> dict:
             slug_map[slug] = next((s for s, e in live.items() if e["label"].casefold() == label.casefold()), None)
 
     chosen_targets = {a["fp_id"]: targets.get(a["fp_id"], a["target"]) for a in plan["accounts"]}
+    # A trade the target account already holds under another id — the
+    # same fill read from the same statement by this app's reader — is
+    # the same trade: not written again, and not counted twice in the
+    # opening position, which would otherwise cancel the real row.
+    report["same_trades"] = mark_same_trades(plan, chosen_targets)
     plan["openings"] = openings(plan, chosen_targets)
     id_map: dict[int, int] = {}
     with get_conn() as conn:
@@ -652,6 +688,8 @@ def apply(plan: dict, targets: dict[int, int | None] | None = None) -> dict:
     # its own ids, so nothing above caught them. The bare copies go.
     from . import ledger
     report["twins_removed"] = sum(ledger.heal_twins(acc) for acc in imports_by_account)
+    for acc in imports_by_account:
+        ledger.heal_trade_twins(acc)
     for acc in imports_by_account:
         categories.categorise_new(acc)
     report["imports"] = list(imports_by_account.values())

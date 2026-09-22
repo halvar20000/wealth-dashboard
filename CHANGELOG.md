@@ -11,6 +11,23 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.70.6] — 2026-09-22
+
+### Fixed
+- **A trade this app had read from a statement was booked again by the
+  move-in — and the opening position the move-in wrote then counted
+  the pair twice.** The move-in makes the units add up by writing an
+  opening row of what the old app held less what the rows add up to;
+  with the reader's row already there and the old app's copy coming
+  in, that was one buy too many, and the opening came out *negative*
+  by exactly that buy. Delete the old app's copy by hand — the natural
+  thing — and the negative opening cancels the real trade: 30 ACWI
+  bought, 0 held. Now the move-in marks such trades as duplicates
+  before it computes the openings; and once at the next start (and
+  after every move-in, and with `heal_twins` on the MCP) the copies
+  already there are removed and the openings corrected by them, or
+  removed where they only negate the reader's buy of the next day.
+
 ## [0.70.5] — 2026-09-22
 
 ### Fixed

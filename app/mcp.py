@@ -734,7 +734,8 @@ def _forget_removed(account_id):
       {"account_id": {"type": "integer", "description": "One account; all when left out."}})
 def _heal_twins(account_id=None):
     from . import ledger
-    return {"removed": ledger.heal_twins(int(account_id) if account_id else None)}
+    acc = int(account_id) if account_id else None
+    return {"removed": ledger.heal_twins(acc), "trades": ledger.heal_trade_twins(acc)}
 
 
 @tool("sync_banks", "Pull balance and transactions from every connected bank, now. "
