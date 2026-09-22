@@ -291,10 +291,16 @@ def sync_link(link_id: int) -> dict:
                 "UPDATE bank_links SET last_sync_at = ?, last_error = NULL "
                 "WHERE id = ?",
                 (datetime.now(timezone.utc).isoformat(timespec="seconds"), link_id))
+        # A row another road already booked — a move-in, a file — is
+        # the same booking under another id: the bare copy goes, and
+        # an account that was doubled once heals here. See ledger.py.
+        if result["inserted"]:
+            from .. import ledger
+            result["inserted"] -= ledger.heal_twins(link["account_id"])
         # The user's rules apply to what arrives next, not only to what
         # was there when the rule was made — that is the promise on the
         # Categorize page, and this is where it is kept.
-        if result["inserted"]:
+        if result["inserted"] > 0:
             categories.categorise_new(link["account_id"])
     except Exception as exc:                        # noqa: BLE001
         # The error is stored on the link, not raised into the page. A

@@ -7266,5 +7266,48 @@ check("a sync into an account that holds the history adds only what is new — t
         ("trtl:e4", "interest")], True))
 
 # ---------------------------------------------------------------------------
+print("\n55. A ledger doubled by the sync running before the move-in heals")
+# ---------------------------------------------------------------------------
+from app import ledger                                                # noqa: E402
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Twins CC', 'checking', 'EUR')")
+    tw = conn.execute("SELECT id FROM accounts WHERE name = 'Twins CC'").fetchone()["id"]
+    # The sync's bare copies first — no source, kind other, no category …
+    for i, (day, amt, desc) in enumerate([("2026-08-03", -61.95, "CARTE X1234 SUPERMARCHE"), ("2026-08-03", -61.95, "CARTE X1234 SUPERMARCHE"),
+                                          ("2026-08-05", 2500.0, "VIR SALAIRE"), ("2026-08-09", -12.5, "PRLV NETFLIX"),
+                                          ("2026-09-15", -30.0, "CARTE X1234 CAFE")]):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, external_id) VALUES (?,?,?,?,?,?)",
+                     (tw, day, desc, amt, "EUR", f"eb:h1:{day}:{abs(amt):.2f}:{i}"))
+    # … then the move-in's enriched ones for the same bookings: the
+    # salary a day off, one of the two identical card rows, the
+    # subscription with its category. A manual entry that matches is
+    # nobody's twin.
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, counterparty, amount, currency, kind, category, external_id, source) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                 (tw, "2026-08-03", "Supermarché", "Supermarché", -61.95, "EUR", "withdrawal", "groceries", "fp:1", "financial_planner:enablebanking"))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, counterparty, amount, currency, kind, category, external_id, source) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                 (tw, "2026-08-04", "Salaire", "Employer", 2500.0, "EUR", "deposit", "income", "fp:2", "financial_planner:enablebanking"))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, counterparty, amount, currency, kind, external_id, source) VALUES (?,?,?,?,?,?,?,?,?)",
+                 (tw, "2026-08-09", "Netflix", "Netflix", -12.5, "EUR", "withdrawal", "fp:3", "financial_planner:enablebanking"))
+    conn.execute("UPDATE transactions SET category = 'subscriptions' WHERE account_id = ? AND external_id LIKE 'eb:%' AND amount = -12.5", (tw,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, external_id, source) VALUES (?,?,?,?,?,?,?,?)",
+                 (tw, "2026-09-15", "Café", -30.0, "EUR", "withdrawal", "man:1", "manual"))
+check("the diagnosis counts the bare rows with an enriched twin", ledger.doubled(tw), {tw: 3})
+gone = ledger.heal_twins(tw)
+with db.get_conn() as conn:
+    left = [dict(r) for r in conn.execute("SELECT txn_date, amount, source, category, external_id FROM transactions WHERE account_id = ? ORDER BY txn_date, external_id", (tw,))]
+    remembered = {r["external_id"] for r in conn.execute("SELECT external_id FROM removed_rows WHERE account_id = ?", (tw,))}
+check("three bare twins go — one of two identical card rows, the salary a day apart, the subscription", gone, 3)
+check("...the enriched copies stay, the unmatched bare card row stays, the manual row and its bare mate both stay",
+      [(r["txn_date"], r["amount"], (r["source"] or "").split(":")[0]) for r in left],
+      [("2026-08-03", -61.95, ""), ("2026-08-03", -61.95, "financial_planner"), ("2026-08-04", 2500.0, "financial_planner"),
+       ("2026-08-09", -12.5, "financial_planner"), ("2026-09-15", -30.0, ""), ("2026-09-15", -30.0, "manual")])
+check("...a category the bare row had picked up goes onto the survivor", next(r["category"] for r in left if r["amount"] == -12.5), "subscriptions")
+check("...and the twins' ids are remembered so a sync cannot bring them back", len(remembered), 3)
+check("healing again finds nothing", (ledger.heal_twins(tw), ledger.doubled(tw)), (0, {}))
+tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
+r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "heal_twins", "arguments": {"account_id": tw}}}, headers=HDR)
+check("the MCP exposes the healer", (r.status_code, (r.get_json().get("result") or {}).get("structuredContent")), (200, {"removed": 0}))
+
+# ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)

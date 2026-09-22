@@ -676,7 +676,24 @@ def _watch(symbol, status, note=None):
 @tool("sync_health", "Every bank connection, graded green/yellow/red, with the "
       "last sync and when the consent expires.")
 def _health():
-    return banksync.health()
+    out = banksync.health()
+    # A ledger that holds a booking twice — the sync's bare copy beside
+    # a move-in's — is a health matter too: every sum over it is doubled.
+    from . import ledger
+    twins = ledger.doubled()
+    if twins:
+        out["doubled_rows"] = {str(k): v for k, v in twins.items()}
+        out["doubled_hint"] = "bank rows with an enriched twin, per account; `heal_twins` removes the bare copies"
+    return out
+
+
+@tool("heal_twins", "Remove the bank sync's bare copy of every booking a move-in or a file "
+      "import also holds — the same booking under two ids, which doubles every sum. "
+      "The enriched copy is kept. Returns how many rows went.",
+      {"account_id": {"type": "integer", "description": "One account; all when left out."}})
+def _heal_twins(account_id=None):
+    from . import ledger
+    return {"removed": ledger.heal_twins(int(account_id) if account_id else None)}
 
 
 @tool("sync_banks", "Pull balance and transactions from every connected bank, now. "

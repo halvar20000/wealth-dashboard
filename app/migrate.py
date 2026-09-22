@@ -532,6 +532,10 @@ def apply(plan: dict, targets: dict[int, int | None] | None = None) -> dict:
                 continue
             conn.execute("UPDATE accounts SET ledger_until = MAX(COALESCE(ledger_until, ''), ?) WHERE id = ?",
                          (a["last"], id_map[a["fp_id"]]))
+    # The sync may have booked the same days before the move-in — under
+    # its own ids, so nothing above caught them. The bare copies go.
+    from . import ledger
+    report["twins_removed"] = sum(ledger.heal_twins(acc) for acc in imports_by_account)
     for acc in imports_by_account:
         categories.categorise_new(acc)
     report["imports"] = list(imports_by_account.values())

@@ -11,6 +11,26 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.69.1] — 2026-09-22
+
+### Fixed
+- **A bank account whose sync ran before its move-in from Financial
+  Planner held every booking twice** — the sync's bare copy (no
+  source, no kind, no category) beside the move-in's enriched one,
+  under different ids, so the unique index never met them and every
+  sum over the ledger was doubled while every single amount looked
+  right. `accounts.ledger_until` had stopped the sync from booking
+  the span again *after* the move-in; the copies from *before* it
+  stayed. Now (`ledger.py`) the bare twins are paired one to one with
+  the enriched rows — same account, amount and currency, a day apart
+  at most — and removed, once at the first start after this upgrade
+  and again after every move-in and every sync; a category or
+  counterparty the bare row had picked up goes onto the survivor, the
+  twin's id is remembered so no sync brings it back, and a claim is
+  remembered so two identical bookings the bank really made stay two.
+  `sync_health` on the MCP reports doubled rows per account and
+  `heal_twins` removes them on demand.
+
 ## [0.69.0] — 2026-09-22
 
 ### Added

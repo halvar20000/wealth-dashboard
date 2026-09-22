@@ -483,6 +483,15 @@ CREATE TABLE IF NOT EXISTS removed_rows (
     removed_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Which enriched row took which bare twin's place (ledger.py): a row
+-- that has claimed its twin does not claim another on the next pass,
+-- so two identical bookings the bank really made stay two.
+CREATE TABLE IF NOT EXISTS twin_claims (
+    kept_id             INTEGER NOT NULL,
+    removed_external_id TEXT NOT NULL,
+    PRIMARY KEY (kept_id, removed_external_id)
+);
+
 -- Net worth as another app recorded it, day by day, from before this
 -- app's own records reach. The history line uses these up to the day
 -- the records take over; nothing else does — a total nobody here can
@@ -674,9 +683,22 @@ def init_db(path: Path | None = None) -> Path:
         conn.execute("INSERT INTO app_state (key, value, updated_at) VALUES ('last_version', ?, datetime('now')) "
                      "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
                      (__version__,))
+        heal = "eb_twins_of_moved_in_rows" not in {r[0] for r in conn.execute("SELECT key FROM app_state")}
         conn.commit()
     finally:
         conn.close()
+    if heal:
+        # 0.69.1: an account whose bank sync ran before its move-in from
+        # Financial Planner held every booking twice — the sync's bare
+        # copy and the move-in's enriched one. Paired and healed once,
+        # in Python because the pairing is one to one; see ledger.py.
+        from . import ledger
+        gone = ledger.heal_twins(path=path)
+        with get_conn(path) as conn:
+            conn.execute("INSERT OR REPLACE INTO app_state (key, value, updated_at) VALUES "
+                         "('eb_twins_of_moved_in_rows', ?, datetime('now'))", (str(gone),))
+        if gone:
+            print(f"  healed:  {gone} doubled bank rows", flush=True)
     return path
 
 
