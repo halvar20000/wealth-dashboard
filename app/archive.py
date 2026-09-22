@@ -284,6 +284,8 @@ def read_document(content: bytes, name: str, ocr_text: str | None, account_id: i
             except Exception:                       # noqa: BLE001
                 continue
     if module is None:
+        if importers.is_scan(content) and not (ocr_text or "").strip():
+            return None, "a scan with no OCR text — Paperless has not recognised it either"
         return None, "not recognised"
     if isinstance(module, importers.generic.Mapped):
         parsed = module.parse(content, account_currency=currency, account_id=account_id)

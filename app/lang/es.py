@@ -2820,5 +2820,6 @@ STRINGS: dict[str, str] = {
     'a code, not a token typed by thumb': 'un código, no un token escrito con el pulgar',
     '{n} second left': 'queda {n} segundo',
     '{n} seconds left': 'quedan {n} segundos',
+    'a scan, with no text in it — nothing can be read from a picture of a page. Run it through OCR first (Paperless-ngx does this on its own), or install ocrmypdf on the server and upload it again.': 'un escaneo, sin texto dentro — de una imagen de una página no se puede leer nada. Pásalo primero por OCR (Paperless-ngx lo hace solo) o instala ocrmypdf en el servidor y vuelve a subirlo.',
     'Bank, broker or format': 'Banco, bróker o formato',
 }

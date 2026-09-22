@@ -690,7 +690,18 @@ would be welcome.
 Many of the German ones share one layout — dwpbank's, which also
 prints DKB's and any Sparkasse's securities statements — so a bank not
 in the list that prints the same paper is read by the catch-all spec at
-the end. The corpus is EPL-licensed and stays out of this repository;
+the end. **A scanned statement** is a picture of a page: it holds no text, so no
+reader can read it, whatever bank it is from. The app says exactly that
+instead of "not recognised". Two ways round it: let **Paperless-ngx**
+OCR it — the app pulls the OCR text through the same readers — or
+install **ocrmypdf** on the server (`apt install ocrmypdf`), which the
+app uses by itself when it meets a scan, writing a text layer into a
+copy and reading that. Neither ships in the image: a tesseract and a
+ghostscript are a few hundred megabytes for something a downloaded
+statement never needs. `WD_OCR=0` turns the attempt off,
+`WD_OCR_LANGUAGE` picks the languages (default `eng+deu+fra`).
+
+The corpus is EPL-licensed and stays out of this repository;
 the specs are this project's own. A bank not read: send a redacted
 statement, or the text layer of one, and it becomes a spec.
 

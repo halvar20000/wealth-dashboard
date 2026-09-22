@@ -724,6 +724,12 @@ def account_import(account_id: int):
                     if importers.payslip_map.looks_like_payslip(text):
                         token = _stash_upload(account_id, n, c)
                         return redirect(url_for("payslip_map_page", account_id=account_id, token=token))
+            # A picture of a page is not an unknown bank: there is no
+            # text in it at all, and saying "no importer matches" sends
+            # somebody hunting for a reader that may well exist.
+            if any(importers.is_scan(c) for _, c in files):
+                flash(_t("a scan, with no text in it — nothing can be read from a picture of a page. Run it through OCR first (Paperless-ngx does this on its own), or install ocrmypdf on the server and upload it again."), "error")
+                return redirect(url_for("account_import", account_id=account_id))
             flash(_f("None of those files match an importer here. "
                      "Supported: {list}",
                      list=", ".join(m.LABEL for m in importers.IMPORTERS
@@ -1016,13 +1022,15 @@ def _import_files(account_id: int, currency: str, files: list[tuple[str, bytes]]
     """
     total = {"inserted": 0, "duplicates": 0, "skipped": 0, "parsed": 0,
              "problems": [], "notes": [], "closing_balance": None, "files": len(files),
-             "unrecognised": [], "kept_out": 0, "on_record": 0}
+             "unrecognised": [], "scans": [], "kept_out": 0, "on_record": 0}
     labels: list[str] = []
     many = len(files) > 1
     for name, content in files:
         module = importers.sniff(content)
         if module is None:
             total["unrecognised"].append(name)
+            if importers.is_scan(content):
+                total["scans"].append(name)
             continue
         if isinstance(module, importers.generic.Mapped):
             parsed = module.parse(content, account_currency=currency, account_id=account_id)
@@ -1044,9 +1052,18 @@ def _import_files(account_id: int, currency: str, files: list[tuple[str, bytes]]
             labels.append(module.LABEL)
     if not labels:
         return None
+    scans = set(total["scans"])
     for name in total["unrecognised"]:
-        total["problems"].append(
-            f"{os.path.basename(name)}: " + _t("not recognised, left out"))
+        if name in scans:
+            # A picture of a page holds no text, so no reader can read
+            # it — whatever bank it is from. Saying "not recognised"
+            # about a statement the app would otherwise know sends
+            # somebody looking for a reader that already exists.
+            total["problems"].append(
+                f"{os.path.basename(name)}: " + _t("a scan, with no text in it — nothing can be read from a picture of a page. Run it through OCR first (Paperless-ngx does this on its own), or install ocrmypdf on the server and upload it again."))
+        else:
+            total["problems"].append(
+                f"{os.path.basename(name)}: " + _t("not recognised, left out"))
     total["label"] = ", ".join(labels)
     return total
 

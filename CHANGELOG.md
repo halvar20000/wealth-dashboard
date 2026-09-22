@@ -11,6 +11,22 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.71.2] — 2026-09-22
+
+### Added
+- **A scan says it is a scan.** A PDF that is a picture of a page holds
+  no text, so no reader can read it — and the import page said "not
+  recognised, left out", which is what it says about a bank it does not
+  know, and sends somebody looking for a reader that may well exist.
+  Such a file is now named for what it is, with the two ways round it.
+- **OCR where the server has it.** If `ocrmypdf` is on PATH, a PDF with
+  no text goes through it once — the text layer is written into a copy,
+  the original is untouched, and every reader then works on it, the
+  column ones included. Nothing is added to the image: `apt install
+  ocrmypdf` on the host is the opt-in, `WD_OCR=0` turns it off and
+  `WD_OCR_LANGUAGE` picks the languages. Paperless-ngx's OCR text
+  remains the other way, unchanged.
+
 ## [0.71.1] — 2026-09-22
 
 ### Added

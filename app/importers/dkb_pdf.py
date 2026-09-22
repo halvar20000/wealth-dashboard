@@ -112,20 +112,36 @@ def matches(header: list[str], sample: str) -> bool:
         _lines(sample)) is not None
 
 
-def pdf_text(content: bytes, layout: bool = False) -> str:
+def pdf_text(content: bytes, layout: bool = False, ocr: bool = True) -> str:
     """The text of every page, in reading order, one line per printed
     line. pypdf is pure Python and the only dependency this needs.
     `layout` keeps the columns where they were printed, padded with
-    blanks, for a statement whose meaning sits in the column."""
+    blanks, for a statement whose meaning sits in the column.
+
+    A scan carries no text. Where `ocrmypdf` is installed it is asked
+    for one, once per file, and the readers see the result; where it
+    is not, the empty string comes back and the caller says what kind
+    of file this is — see importers/ocr.py."""
     try:
         from pypdf import PdfReader
     except ImportError as exc:                       # pragma: no cover
         raise RuntimeError(
             "Reading PDFs needs the pypdf package: pip install pypdf") from exc
-    reader = PdfReader(io.BytesIO(content))
-    if layout:
-        return "\n".join((page.extract_text(extraction_mode="layout") or "") for page in reader.pages)
-    return "\n".join((page.extract_text() or "") for page in reader.pages)
+
+    def extract(raw: bytes) -> str:
+        reader = PdfReader(io.BytesIO(raw))
+        if layout:
+            return "\n".join((page.extract_text(extraction_mode="layout") or "") for page in reader.pages)
+        return "\n".join((page.extract_text() or "") for page in reader.pages)
+
+    text = extract(content)
+    if ocr:
+        from . import ocr as _ocr
+        if _ocr.looks_scanned(content, text) and _ocr.available():
+            done = _ocr.text_layer(content)
+            if done:
+                text = extract(done)
+    return text
 
 
 def _num(raw: str | None) -> float | None:

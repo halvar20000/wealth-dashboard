@@ -33,6 +33,20 @@ from . import pdf as _pdf_specs
 PDF_IMPORTERS = [dkb_pdf, swissquote_pdf, swissquote_beleg_pdf, payslip] + _pdf_specs.READERS
 
 
+def is_scan(content: bytes | str) -> bool:
+    """A PDF that is a picture of a page: no text to read, and none to
+    be had here — see importers/ocr.py. What the import page says
+    instead of "not recognised"."""
+    if not isinstance(content, bytes) or not content.startswith(b"%PDF"):
+        return False
+    try:
+        text = dkb_pdf.pdf_text(content, ocr=False)
+    except Exception:                                # noqa: BLE001
+        return False
+    from . import ocr as _ocr
+    return _ocr.looks_scanned(content, text)
+
+
 def catalogue() -> list[dict]:
     """Every reader, for the import page's list: {name, what, kinds}
     — one line per bank or format, its readers' papers joined, sorted

@@ -7053,6 +7053,20 @@ check("...read by the column a figure sits in: deposits positive, withdrawals ne
         ("2025-12-28", "fee", -5.0, "SGD"), ("2026-01-31", "interest", 2.15, "SGD")], []))
 check("...a booking's second line joins its description; the balance lines are not rows",
       (lr.rows[0].description, len(lr.rows)), ("Einzahlung Salary Credit GIRO SALARY REF SLR1234", 4))
+from app.importers import ocr as ocr_mod                              # noqa: E402
+blank = fixtures.pdf_from_text("\n" * 3)
+check("a PDF with no text in it is a scan, whatever bank it is from",
+      (importers.is_scan(blank), importers.is_scan(fixtures.pdf_from_text(fixtures.DBS_KONTOAUSZUG)), importers.is_scan(b"date,amount\n")),
+      (True, False, False))
+check("...and OCR is offered only where the machine has it",
+      (ocr_mod.available() == bool(__import__("shutil").which("ocrmypdf")), ocr_mod.text_layer(blank) if not ocr_mod.available() else None),
+      (True, None))
+scan_client = flask_app.test_client()
+scan_client.post("/login", data={"username": "alex", "password": "a-good-password"})
+scan_report = scan_client.post(f"/accounts/{account_id}/import", data={"file": (io.BytesIO(blank), "scan.pdf")},
+                               content_type="multipart/form-data", follow_redirects=True)
+check("...the import says so instead of 'not recognised'", b"a scan, with no text in it" in scan_report.data, True)
+
 pdf = fixtures.pdf_from_text(fixtures.FIRSTDIRECT_STATEMENT, font="Courier")
 mod = importers.sniff(pdf)
 check("a first direct statement is handed to its reader", mod.SLUG if mod else None, "firstdirect_pdf")
