@@ -238,3 +238,68 @@ def for_accounts(base_currency: str = "EUR", account_ids: list[int] | None = Non
     return {"twr": total, "twr_annual": annualise(total, days),
             "mwr": mwr(cashflows, last_day, last_value), "days": days,
             "since": begin.isoformat()}
+
+
+# ─── The periods: a day, a week, a month … since the first trade ─────
+
+# key → (label key, days back); None is the year to date or everything.
+PERIODS = (("1d", 1), ("1w", 7), ("1m", 30), ("3m", 91), ("ytd", None), ("1y", 365),
+           ("3y", 3 * 365), ("all", None))
+
+
+def _window(values: list[tuple[str, float | None]], flows: dict[str, float],
+            cashflows: list[tuple[str, float]], anchor: str, today: date) -> dict:
+    """One period's figures from the whole series: the days from the
+    anchor on, the flows after it, the value the anchor day closed at.
+
+    TWR chains the days after the anchor; the P&L is what the value did
+    beyond the money that crossed in the meantime — a gain, not a
+    deposit; MWR takes what was held on the anchor day as money put in
+    that day, as `for_accounts` does for a start date.
+    """
+    idx = bisect_right([d for d, _ in values], anchor) - 1
+    if idx < 0 or values[idx][0] != anchor:
+        return {"since": anchor, "twr": None, "twr_annual": None, "mwr": None, "pnl": None,
+                "from": None, "to": None, "days": 0}
+    window = values[idx:]
+    start_value, end_value = window[0][1], window[-1][1]
+    net_flows = sum(a for d, a in flows.items() if anchor < d <= window[-1][0])
+    pnl = (end_value - start_value - net_flows) if start_value is not None and end_value is not None else None
+    later = [(d, a) for d, a in cashflows if d > anchor]
+    if start_value is not None and start_value > 1e-9:
+        later = [(anchor, -start_value)] + later
+    days = (today - date.fromisoformat(anchor)).days
+    total = twr(window, flows)
+    return {"since": anchor, "twr": total, "twr_annual": annualise(total, days),
+            "mwr": mwr(later, window[-1][0], end_value), "pnl": pnl,
+            "from": start_value, "to": end_value, "days": days}
+
+
+def periods(base_currency: str = "EUR", account_ids: list[int] | None = None,
+            today: date | None = None) -> dict:
+    """The securities of these accounts as one investment, over every
+    period at once — a day, a week, a month, three, the year so far, a
+    year, three years, since the first trade — from one walk of the
+    daily series. {key: {since, twr, twr_annual, mwr, pnl, from, to, days}};
+    a period the records do not reach back to is measured from the
+    first day they do, and `since` says so. Empty when nothing is held.
+    """
+    today = today or date.today()
+    values, flows, cashflows, begin = accounts_series(base_currency, account_ids, None, today)
+    if begin is None or not values:
+        return {}
+    out = {}
+    for key, back in PERIODS:
+        if key == "all":
+            anchor = begin
+        elif key == "ytd":
+            anchor = date(today.year - 1, 12, 31)
+        else:
+            anchor = today - timedelta(days=back)
+        anchor = max(anchor, begin)
+        if anchor >= today:
+            out[key] = {"since": anchor.isoformat(), "twr": None, "twr_annual": None, "mwr": None,
+                        "pnl": None, "from": None, "to": None, "days": 0}
+            continue
+        out[key] = _window(values, flows, cashflows, anchor.isoformat(), today)
+    return out

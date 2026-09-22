@@ -905,3 +905,25 @@ a.period-btn:hover { text-decoration: none; }
 
 /* The schedule: what is still to come, faded. */
 tr.future td { color: var(--text-tertiary); }
+
+/* ─── Performance strip: the portfolio's return per period ──── */
+
+.perf-strip {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 10px;
+}
+.perf-tile {
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; min-width: 0;
+}
+.perf-tile.is-empty { opacity: 0.55; }
+.perf-key {
+  color: var(--text-tertiary); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.perf-pct {
+  font-size: 20px; font-weight: 800; margin-top: 6px; line-height: 1.1;
+  letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+}
+.perf-abs { font-size: 13px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.perf-sub { color: var(--text-tertiary); font-size: 11px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

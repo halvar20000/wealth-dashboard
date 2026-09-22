@@ -108,6 +108,14 @@
   {% endfor %}
 </section>
 
+{% if perf %}
+<section class="card">
+  <div class="card-header"><h2>{{ _("Portfolio performance") }}</h2>
+    <span class="card-subtitle"><a href="{{ url_for('portfolio_page') }}">{{ _("the securities, time-weighted — cash left out") }}</a></span></div>
+  {% include "_perf_strip.html" %}
+</section>
+{% endif %}
+
 {% if by_class or s.by_account %}
 <section class="grid-2">
   <div class="card">

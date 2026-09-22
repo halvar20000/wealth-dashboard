@@ -5240,11 +5240,29 @@ pa_ytd = performance.for_accounts("EUR", [pid], start=date(2026, 8, 10), today=d
 check("a later start measures from what was held that day",
       pa_ytd["since"] == "2026-08-10" and pa_ytd["twr"] is not None and pa_ytd["twr"] < pf["twr"], True)
 check("an account with no trades has nothing to say", performance.for_accounts("EUR", [account_id])["twr"], None)
+# Every period from one series. On the 20th: the last day was 1 650 →
+# 1 815 with nothing moved, +10 % and +165; the week back to the 13th
+# saw the 30 paid out, so its gain is 1 815 − 1 650 + 30; "all" agrees
+# with for_accounts; a period the records do not reach back to starts
+# where they do and says so.
+pp = performance.periods("EUR", [pid], today=date(2026, 8, 20))
+check("the periods: a day with nothing moved is the price move alone",
+      (round(pp["1d"]["twr"], 4), round(pp["1d"]["pnl"], 2), pp["1d"]["since"]), (0.1, 165.0, "2026-08-19"))
+check("...a week's gain has the dividend paid out in it, not against it",
+      round(pp["1w"]["pnl"], 2), round(1815 - 1650 + 30, 2))
+check("...since the start agrees with the whole-series figure, and the 3-year window is measured from the first trade",
+      (round(pp["all"]["twr"], 4), pp["3y"]["since"], pp["1y"]["since"]), (round(pa["twr"], 4), "2026-08-01", "2026-08-01"))
+check("...the year to date is anchored on the last day of the year before, or the first trade", pp["ytd"]["since"], "2026-08-01")
+check("...a purchase is not a gain: the month's P&L is the value beyond the money put in",
+      round(pp["1m"]["pnl"], 2), round(1815 - 1000 - 550 + 30, 2))
+check("nothing held: no periods", performance.periods("EUR", [account_id]), {})
+r = c.get("/")
+check("the overview shows the performance strip", b"Portfolio performance" in r.data and b"perf-tile" in r.data, True)
 r = c.get("/securities/XX0000007777")
 check("the security page shows both returns", b"Return (TWR)" in r.data and b"Your money (MWR)" in r.data, True)
 r = c.get("/portfolio")
-check("the portfolio page has the return table and the columns",
-      b"Time-weighted (TWR)" in r.data and b"Last twelve months" in r.data and b">TWR<" in r.data, True)
+check("the portfolio page has the strip, the return table and the columns",
+      b"perf-strip" in r.data and b"Time-weighted (TWR)" in r.data and b"Last twelve months" in r.data and b">TWR<" in r.data, True)
 tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
 r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call",
                          "params": {"name": "performance", "arguments": {}}}, headers=HDR)

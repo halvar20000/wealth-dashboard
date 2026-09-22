@@ -1,0 +1,24 @@
+{# The portfolio's return over every period at once — a day, a week, a
+   month, three, the year so far, a year, three years, since the first
+   trade. Each tile: the time-weighted return and the gain in money,
+   both with the flows of the period taken out, so a deposit is not a
+   gain and a withdrawal not a loss. Needs `perf` (performance.periods)
+   and `s.base_currency`. #}
+{% set labels = {"1d": _("1 day"), "1w": _("1 week"), "1m": _("1 month"), "3m": _("3 months"),
+                 "ytd": _("YTD"), "1y": _("1 year"), "3y": _("3 years"), "all": _("Since start")} %}
+<div class="perf-strip">
+  {% for key in ("1d", "1w", "1m", "3m", "ytd", "1y", "3y", "all") if key in perf %}
+  {% set p = perf[key] %}
+  <div class="perf-tile{% if p.twr is none %} is-empty{% endif %}" title="{% if p.twr is not none %}{{ _f("from {date}: time-weighted return, and the gain beyond the money moved in the meantime", date=d(p.since)) }}{% else %}{{ _("nothing to measure yet") }}{% endif %}">
+    <div class="perf-key">{{ labels[key] }}</div>
+    {% if p.twr is not none %}
+    <div class="perf-pct {{ 'gain' if p.twr > 0 else ('loss' if p.twr < 0) }}">{{ '%+.2f' | format(100 * p.twr) }} %</div>
+    <div class="perf-abs {{ 'gain' if p.pnl and p.pnl > 0 else ('loss' if p.pnl and p.pnl < 0) }}">{% if p.pnl is not none %}{{ '+' if p.pnl >= 0 else '−' }}{{ big(p.pnl | abs, s.base_currency) }}{% else %}—{% endif %}</div>
+    {% if key in ("all", "3y", "1y") and p.twr_annual is not none and p.days > 366 %}<div class="perf-sub">{{ _f("{pct} % a year", pct='%+.1f' | format(100 * p.twr_annual)) }}</div>{% elif key not in ("1d", "1w", "1m", "3m") and p.since %}<div class="perf-sub">{{ _f("since {date}", date=d(p.since)) }}</div>{% endif %}
+    {% else %}
+    <div class="perf-pct">—</div>
+    <div class="perf-abs">&nbsp;</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>

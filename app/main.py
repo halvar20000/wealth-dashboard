@@ -355,6 +355,7 @@ def index():
         "overview.html", active_page="overview", s=s, by_class=by_class,
         history=history.series(base, people.scope(), "ytd"),
         changes=history.changes(s["net_worth"], base, people.scope()),
+        perf=performance.periods(base, people.scope()),
         seps={"group": fmt["group"], "decimal": fmt["decimal"],
               "symbol": i18n.SYMBOLS.get(base.upper())},
         health=banksync.health())
@@ -2368,12 +2369,11 @@ def _holdings_with_figures():
     # The returns: the securities as one investment, since the first
     # trade, this year and the last twelve months — and each holding's
     # own, in its table row.
-    today = date.today()
-    perf = {
-        "all": performance.for_accounts(base, scope),
-        "ytd": performance.for_accounts(base, scope, start=date(today.year, 1, 1)),
-        "1y": performance.for_accounts(base, scope, start=today - timedelta(days=365)),
-    }
+    # One walk of the daily series gives every period at once; the
+    # Return table below the strip reads the same figures.
+    perf = performance.periods(base, scope)
+    for key in ("all", "ytd", "1y"):
+        perf.setdefault(key, {"twr": None, "twr_annual": None, "mwr": None, "since": None})
     for h in s["holdings"]:
         h["perf"] = performance.for_security(h["isin"], scope)
         # The gain by lots: what the sales of this holding made, and

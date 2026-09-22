@@ -11,6 +11,21 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.69.0] — 2026-09-22
+
+### Added
+- **The portfolio's performance by period** — a day, a week, a month,
+  three months, the year so far, a year, three years, since the first
+  trade — as a strip of tiles on the Overview and at the top of the
+  Portfolio page. Each tile is the time-weighted return of the
+  securities and, underneath, the gain in money: what the value did
+  beyond the deposits and withdrawals of the period, so a purchase is
+  not a gain and a sale not a loss. All eight come from one walk of
+  the daily series (`performance.periods`), which the Portfolio page's
+  TWR/MWR table now reads too instead of walking it three times. A
+  period the records do not reach back to is measured from the first
+  day they do, and the tile says since when.
+
 ## [0.68.3] — 2026-09-20
 
 ### Fixed

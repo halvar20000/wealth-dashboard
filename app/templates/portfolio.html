@@ -38,8 +38,15 @@
 {% if s.holdings %}
 {% macro pct(v) %}{% if v is none %}—{% else %}<span class="{{ 'pos' if v > 0 else ('neg' if v < 0) }}">{{ '%+.1f' | format(100 * v) }} %</span>{% endif %}{% endmacro %}
 <section class="card">
-  <div class="card-header"><h2>{{ _("Return") }}</h2>
+  <div class="card-header"><h2>{{ _("Performance") }}</h2>
     <span class="card-subtitle">{{ _("the securities as one investment, in the base currency; cash left out on purpose") }}</span></div>
+  {% include "_perf_strip.html" %}
+  <p class="sub">{{ _("Each period: the time-weighted return, and underneath the gain in money — what the value did beyond the deposits and withdrawals of the period, so a purchase is not a gain and a sale not a loss. A period the records do not reach back to is measured from the first day they do.") }}</p>
+</section>
+
+<section class="card">
+  <div class="card-header"><h2>{{ _("Return") }}</h2>
+    <span class="card-subtitle">{{ _("time-weighted and money-weighted, side by side") }}</span></div>
   <div class="table-wrap">
     <table class="grid perf-grid">
       <thead><tr><th></th><th class="num">{{ _("Since the first trade") }}</th><th class="num">{{ _("This year") }}</th><th class="num">{{ _("Last twelve months") }}</th></tr></thead>
