@@ -720,6 +720,14 @@ def _health():
     return out
 
 
+@tool("forget_removed", "Forget the rows removed by hand from an account, so the next import or "
+      "sync books them again. A removed row's id is remembered forever otherwise — even "
+      "across deleting and re-making the account.",
+      {"account_id": {"type": "integer"}}, ["account_id"])
+def _forget_removed(account_id):
+    return {"forgotten": manual.forget_removed(int(account_id))}
+
+
 @tool("heal_twins", "Remove the bank sync's bare copy of every booking a move-in or a file "
       "import also holds — the same booking under two ids, which doubles every sum. "
       "The enriched copy is kept. Returns how many rows went.",

@@ -224,6 +224,16 @@ def _remember_removed(conn, external_id: str | None, account_id: int | None) -> 
                      (external_id, account_id))
 
 
+def forget_removed(account_id: int) -> int:
+    """Forget the rows removed by hand from this account — and any
+    remembered under no account, or under an account that no longer
+    exists, since those can only stand in the way. Returns how many."""
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM removed_rows WHERE account_id = ? OR account_id IS NULL "
+                           "OR account_id NOT IN (SELECT id FROM accounts)", (account_id,))
+        return cur.rowcount
+
+
 def removed_ids(conn, account_id: int | None = None) -> set[str]:
     """The ids the user removed — what an import or a sync leaves out."""
     if account_id is None:

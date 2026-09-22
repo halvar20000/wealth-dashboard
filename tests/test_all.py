@@ -2196,8 +2196,9 @@ r = upload(imported["account_id"], fixtures.DEGIRO_CSV)
 with db.get_conn() as conn:
     back = conn.execute("SELECT COUNT(*) n FROM transactions WHERE external_id = ?", (imported["external_id"],)).fetchone()["n"]
 check("...and importing the file again does not bring it back", back, 0)
-with db.get_conn() as conn:
-    conn.execute("DELETE FROM removed_rows WHERE external_id = ?", (imported["external_id"],))
+check("...but the import says so, and offers to forget it", b"removed by hand earlier" in r.data and b"Forget the removed rows" in r.data, True)
+r = c.post(f"/accounts/{imported['account_id']}/removed/forget", follow_redirects=True)
+check("forgetting the removed rows is offered as one click", b"forgotten" in r.data, True)
 upload(imported["account_id"], fixtures.DEGIRO_CSV)
 with db.get_conn() as conn:
     back = conn.execute("SELECT COUNT(*) n FROM transactions WHERE external_id = ?", (imported["external_id"],)).fetchone()["n"]

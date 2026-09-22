@@ -11,6 +11,19 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.70.3] — 2026-09-22
+
+### Fixed
+- **A row removed by hand stayed out forever — even from an account
+  deleted and made again.** Removing an imported row remembers its id
+  so the next import does not bring it back, which is right; but the
+  memory outlived the account, so a Swissquote statement re-imported
+  into a fresh account brought its deposits and not its purchases,
+  with nothing to say why. Deleting an account now forgets what was
+  removed from it; the import says how many rows stayed out for that
+  reason and offers *Forget the removed rows* in one click; and the
+  MCP has `forget_removed`.
+
 ## [0.70.2] — 2026-09-22
 
 ### Fixed

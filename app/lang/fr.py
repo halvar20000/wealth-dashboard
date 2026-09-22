@@ -2798,7 +2798,10 @@ STRINGS: dict[str, str] = {
     '{direct} own + {share} half of shared': '{direct} propre + {share} moitié du partagé',
     '{n} row to assign': '{n} ligne à attribuer',
     '{n} rows to assign': '{n} lignes à attribuer',
-    '{n} rows were removed by hand earlier and stay out.': '{n} lignes ont été supprimées à la main auparavant et restent dehors.',
     '{n} rows fall on or before {date}, up to which the ledger of this account counts as on record from elsewhere — a move-in, say — so a file adds nothing before that day. If the account does not in fact hold those rows, clear ‘Ledger on record until’ on its edit page and import the file again.': "{n} lignes tombent le {date} ou avant, date jusqu'à laquelle le grand livre de ce compte compte comme enregistré ailleurs — un emménagement, par exemple — si bien qu'un fichier n'ajoute rien avant ce jour. Si le compte ne contient pas ces lignes en réalité, videz ‘Grand livre enregistré jusqu'au’ sur sa page de modification et réimportez le fichier.",
+    'Forget the removed rows': 'Oublier les lignes supprimées',
+    '{n} removed row forgotten — import the file again and it comes back.': '{n} ligne supprimée oubliée — réimportez le fichier et elle revient.',
+    '{n} removed rows forgotten — import the file again and they come back.': '{n} lignes supprimées oubliées — réimportez le fichier et elles reviennent.',
+    '{n} rows were removed by hand earlier and stay out — of this account, or of one deleted before it was made again. To let them back in, forget them below and import the file again.': "{n} lignes ont été supprimées à la main auparavant et restent dehors — de ce compte, ou d'un compte supprimé avant d'être recréé. Pour les laisser revenir, oubliez-les ci-dessous et réimportez le fichier.",
     'Bank, broker or format': 'Banque, courtier ou format',
 }

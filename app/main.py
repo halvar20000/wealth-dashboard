@@ -594,9 +594,24 @@ def account_delete(account_id: int):
                   "error")
             return redirect(url_for("account_edit", account_id=account_id))
         # ON DELETE CASCADE takes the transactions, balances and links.
+        # The rows removed by hand from it are forgotten with it: an
+        # account made again from scratch starts with no memory of
+        # what its predecessor threw out.
+        conn.execute("DELETE FROM removed_rows WHERE account_id = ?", (account_id,))
         conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
     flash(_f("Deleted {name}.", name=account["name"]), "ok")
     return redirect(url_for("accounts"))
+
+
+@app.route("/accounts/<int:account_id>/removed/forget", methods=["POST"])
+@auth.login_required
+def account_forget_removed(account_id: int):
+    """Let the rows removed by hand from this account come back with
+    the next import — the memory of them is what kept them out."""
+    n = manual.forget_removed(account_id)
+    flash(_n(n, "{n} removed row forgotten — import the file again and it comes back.",
+             "{n} removed rows forgotten — import the file again and they come back."), "ok")
+    return redirect(request.form.get("back") or url_for("account_import", account_id=account_id))
 
 
 @app.route("/move-in", methods=["GET", "POST"])
@@ -986,7 +1001,7 @@ def _store_notes(r: dict) -> list[str]:
     if r.get("on_record"):
         notes.append(_f("{n} rows fall on or before {date}, up to which the ledger of this account counts as on record from elsewhere — a move-in, say — so a file adds nothing before that day. If the account does not in fact hold those rows, clear ‘Ledger on record until’ on its edit page and import the file again.", n=r["on_record"], date=r.get("until")))
     if r.get("kept_out"):
-        notes.append(_f("{n} rows were removed by hand earlier and stay out.", n=r["kept_out"]))
+        notes.append(_f("{n} rows were removed by hand earlier and stay out — of this account, or of one deleted before it was made again. To let them back in, forget them below and import the file again.", n=r["kept_out"]))
     return notes
 
 
@@ -1000,7 +1015,7 @@ def _import_files(account_id: int, currency: str, files: list[tuple[str, bytes]]
     """
     total = {"inserted": 0, "duplicates": 0, "skipped": 0, "parsed": 0,
              "problems": [], "notes": [], "closing_balance": None, "files": len(files),
-             "unrecognised": []}
+             "unrecognised": [], "kept_out": 0, "on_record": 0}
     labels: list[str] = []
     many = len(files) > 1
     for name, content in files:
@@ -1015,8 +1030,8 @@ def _import_files(account_id: int, currency: str, files: list[tuple[str, bytes]]
         import_id = importers.begin_import(account_id, os.path.basename(name), module.SLUG)
         r = importers.store(account_id, parsed, module.SLUG, import_id)
         total.setdefault("imports", []).append(import_id)
-        for key in ("inserted", "duplicates", "skipped", "parsed"):
-            total[key] += r[key]
+        for key in ("inserted", "duplicates", "skipped", "parsed", "kept_out", "on_record"):
+            total[key] += r.get(key, 0)
         total["problems"].extend(
             f"{os.path.basename(name)}: {p}" if many else p for p in r["problems"])
         for note in _store_notes(r):

@@ -29,6 +29,12 @@
     </tbody>
   </table>
   {% for n in report.notes or [] %}<div class="flash flash-warn">{{ n }}</div>{% endfor %}
+  {% if report.kept_out %}
+  <form method="post" action="{{ url_for('account_forget_removed', account_id=account.id) }}" style="margin:0 0 12px">
+    <input type="hidden" name="back" value="{{ url_for('account_import', account_id=account.id) }}">
+    <button type="submit" class="btn-ghost">{{ _("Forget the removed rows") }}</button>
+  </form>
+  {% endif %}
   {% if report.problems %}
   <div class="flash flash-warn">
     <strong>{{ _n(report.problems|length, "{n} line could not be read.", "{n} lines could not be read.") }}</strong>
