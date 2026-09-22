@@ -7501,6 +7501,43 @@ check("an ntfy hook gets a line a phone can show, titled and tagged",
 check("...and no signature, because there is no JSON to sign",
       "X-wealth-signature" in {k.lower(): v for k, v in ntfy[0]["headers"].items()}, False)
 
+# The Cash Flow page's window, and what a single big payment does to it.
+from app import cashflow as cf_                                       # noqa: E402
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Flow test', 'checking', 'EUR')")
+    fl = conn.execute("SELECT id FROM accounts WHERE name = 'Flow test'").fetchone()["id"]
+    today_ = date.today()
+    for k in range(6):
+        y_, m_ = (today_.year, today_.month - k) if today_.month - k > 0 else (today_.year - 1, today_.month - k + 12)
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, category, external_id) VALUES (?,?,?,?,?,?,?,?)",
+                     (fl, f"{y_:04d}-{m_:02d}-05", "Rent", -1000.0, "EUR", "other", "housing", f"flow:rent:{k}"))
+    car_y, car_m = (today_.year, today_.month - 3) if today_.month > 3 else (today_.year - 1, today_.month + 9)
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, category, external_id) VALUES (?,?,?,?,?,?,?,?)",
+                 (fl, f"{car_y:04d}-{car_m:02d}-10", "Car, paid in one go", -24000.0, "EUR", "other", "car", "flow:car"))
+before = cf_.monthly(6, "EUR", [fl])
+check("a one-off purchase lands in its own month and drags the average with it",
+      round(before["average_spending"]), round((6 * 1000 + 24000) / 6))
+big = cf_.large(6, "EUR", [fl])
+check("the page can find it: the largest payments of the window, biggest first",
+      (big[0]["description"], big[0]["amount"], big[0]["spread_months"]), ("Car, paid in one go", -24000.0, None))
+cf_.set_spread(big[0]["id"], 48)
+spread_ = cf_.monthly(6, "EUR", [fl])
+# Four years of €500 a month, and the six-month window holds the four
+# months from the purchase on: 6 000 of rent plus 2 000 of car.
+check("spread over four years it costs its share a month, in the months from the purchase on",
+      (round(spread_["average_spending"]), [round(m["spending"]) for m in spread_["months"]]),
+      (round(8000 / 6), [1000, 1000, 1500, 1500, 1500, 1500]))
+cf_.set_spread(big[0]["id"], 0)
+out_ = cf_.monthly(6, "EUR", [fl])
+check("left out, it is not in the monthly figures at all", round(out_["average_spending"]), 1000)
+with db.get_conn() as conn:
+    amount_ = conn.execute("SELECT amount FROM transactions WHERE external_id = 'flow:car'").fetchone()["amount"]
+check("...and the row itself is untouched, whatever the page was told", amount_, -24000.0)
+r = c.get("/cashflow?months=4")
+check("the page offers the windows and the big ones", b"The big ones" in r.data and b"months=7" in r.data, True)
+cf_.set_spread(big[0]["id"], None)
+check("back to its own month", cf_.monthly(6, "EUR", [fl])["average_spending"] == before["average_spending"], True)
+
 # ---------------------------------------------------------------------------
 print("\n56. Who spent — the household split")
 # ---------------------------------------------------------------------------

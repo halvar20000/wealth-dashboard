@@ -11,6 +11,22 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.72.0] — 2026-09-22
+
+### Added
+- **The Cash Flow page takes a window**: three, six, twelve, twenty-four
+  or sixty months. An average over months that are only half recorded
+  is half an average, and a household that has not backfilled its older
+  statements now says so instead of being told a number it cannot use.
+- **A big payment counts the way it is actually lived.** The page lists
+  the largest single payments of the window and lets each one be left
+  out of the monthly figures, or spread over months — a car paid in one
+  go over 48 months is €500 a month from the month it was bought, not
+  €24,000 in one month that makes the year unreadable. The transaction
+  keeps the amount the bank booked: balances, net worth and the budget
+  see what was really paid; only the monthly figures change. On the
+  MCP: `cashflow_large` and `set_cashflow_spread`.
+
 ## [0.71.3] — 2026-09-22
 
 ### Changed

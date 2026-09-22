@@ -881,6 +881,14 @@ _ADDED_COLUMNS = {
         # has said. See expenses.py.
         ("owner_id", "INTEGER"),
         ("owner_shared", "INTEGER NOT NULL DEFAULT 0"),
+        # 0.72.0: how a row counts on the Cash Flow page. NULL is the
+        # ordinary case, the amount on its own month; 0 leaves it out of
+        # the averages — a one-off nobody wants in a monthly figure; N
+        # spreads it over N months from its own, which is what a car
+        # bought in one payment actually costs per month. The row's
+        # amount is untouched: a balance, a net worth and a budget see
+        # what was really paid. See cashflow.py.
+        ("spread_months", "INTEGER"),
     ],
 }
 

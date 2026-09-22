@@ -18,6 +18,14 @@
 {% endif %}
 {% endmacro %}
 
+<form method="get" class="card form-inline" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+  <span class="sub">{{ _("Over") }}</span>
+  {% for p in periods %}
+  <a class="btn {{ 'btn-ghost' if months != p + 1 }}" href="{{ url_for('cashflow_page', months=p + 1) }}">{{ _n(p, "{n} month", "{n} months") }}</a>
+  {% endfor %}
+  <span class="sub">{{ _("An average over months you have only half recorded is half an average; pick a window you trust.") }}</span>
+</form>
+
 <section class="stat-strip">
   <div class="stat-card stat-green">
     <div class="stat-label">{{ _("Income") }}</div>
@@ -42,6 +50,43 @@
   </div>
 </section>
 {{ fx_note(data) }}
+
+{% if large %}
+<section class="card">
+  <div class="card-header"><h2>{{ _("The big ones") }}</h2>
+    <span class="card-subtitle">{{ _("a single payment can be left out of the monthly figures, or spread over the years it is used — the amount on the row does not change") }}</span></div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Description") }}</th><th>{{ _("Category") }}</th>
+                 <th class="num">{{ _("Amount") }}</th><th>{{ _("Counts as") }}</th><th class="num">{{ _("A month") }}</th></tr></thead>
+      <tbody>
+      {% for t in large %}
+        <tr>
+          <td class="sub nowrap">{{ d(t.txn_date) }}</td>
+          <td>{{ (t.description or '')[:60] }}<span class="sub">{{ t.account }}</span></td>
+          <td class="sub">{{ t.label }}</td>
+          <td class="num neg">{{ money(t.amount, t.currency) }}</td>
+          <td>
+            <form method="post" action="{{ url_for('cashflow_spread') }}">
+              <input type="hidden" name="back" value="{{ request.full_path }}">
+              <input type="hidden" name="txn_id" value="{{ t.id }}">
+              <select name="spread" onchange="this.form.submit()" style="padding:4px 8px;font-size:12px;width:auto">
+                <option value="normal" {{ 'selected' if t.spread_months is none }}>{{ _("its own month") }}</option>
+                <option value="0" {{ 'selected' if t.spread_months == 0 }}>{{ _("left out") }}</option>
+                {% for n in spreads if n %}
+                <option value="{{ n }}" {{ 'selected' if t.spread_months == n }}>{{ _n(n, "over {n} month", "over {n} months") }}{% if n % 12 == 0 %} · {{ _n(n // 12, "{n} year", "{n} years") }}{% endif %}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </td>
+          <td class="num sub">{% if t.per_month %}{{ money(t.per_month, t.currency) }}{% else %}—{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
 
 {% if data.months %}
 <section class="card">

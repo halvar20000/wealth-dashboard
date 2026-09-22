@@ -273,9 +273,10 @@ def _snapshot(person=None, days=30):
         "performance": performance.periods(base, scope),
         "accounts": [{k: a.get(k) for k in ("id", "name", "type", "currency", "bank",
                                             "balance", "balance_base", "as_of")} for a in s["accounts"]],
-        "upcoming": {k: ahead.get(k) for k in ("days", "lowest", "lowest_on", "crosses_zero_on",
-                                               "start_cash", "end_cash") if ahead and k in ahead} if ahead else None,
-        "events": (ahead or {}).get("events", [])[:12],
+        "upcoming": {k: ahead.get(k) for k in ("today", "until", "days", "starting", "ending",
+                                               "total_in", "total_out", "lowest", "below_zero",
+                                               "counts")} if ahead else None,
+        "events": (ahead or {}).get("entries", [])[:12],
         "waiting": {"uncategorised": waiting,
                     "unassigned_spending": split["counts"]["unassigned"]},
         "sync": {"links": len(health),
@@ -618,6 +619,23 @@ def _tags():
 def _delete_rule(rule_id):
     categories.delete_rule(int(rule_id))
     return {"deleted": int(rule_id), "reapplied": categories.apply_all()}
+
+
+@tool("set_cashflow_spread", "How one payment counts on the Cash Flow page: \"normal\" as it was "
+      "booked, 0 to leave it out of the monthly figures, or a number of months to spread it "
+      "over from its own month — a car over 48. The transaction's amount is not changed.",
+      {"txn_id": {"type": "integer"},
+       "spread": {"type": "string", "description": "normal | 0 | a number of months"}},
+      ["txn_id", "spread"])
+def _set_spread(txn_id, spread):
+    cashflow.set_spread(int(txn_id), spread)
+    return {"txn_id": int(txn_id), "spread": spread}
+
+
+@tool("cashflow_large", "The largest single payments in the window, with how each counts on the "
+      "Cash Flow page.", {"months": {"type": "integer", "description": "Default 13."}})
+def _cashflow_large(months=13):
+    return {"large": cashflow.large(int(months or 13), _base(), people.scope())}
 
 
 @tool("budget_report", "This month's spending per category against its budget, "

@@ -46,6 +46,30 @@ def _month_rates(month: str) -> tuple[str | None, dict[str, float]]:
     return as_of, rates
 
 
+def _spread_rows(rows, since: str, months: int) -> list[dict]:
+    """A row spread over N months becomes N rows of a share each, and
+    only those months the page shows are kept. A purchase whose
+    spreading reaches into the future is counted for the months it
+    reaches, which is the point of spreading it.
+    """
+    out: list[dict] = []
+    first = since[:7]
+    last = _month_floor(0)[:7]
+    for r in rows:
+        n = int(r["spread_months"] or 0)
+        if n <= 0 or not r["txn_date"]:
+            continue
+        share = r["amount"] / n
+        y, m = int(r["txn_date"][:4]), int(r["txn_date"][5:7])
+        for step in range(n):
+            mm = m + step
+            month = f"{y + (mm - 1) // 12:04d}-{(mm - 1) % 12 + 1:02d}"
+            if first <= month <= last:
+                out.append({"month": month, "category": r["category"], "currency": r["currency"],
+                            "total": share, "n": 1})
+    return out
+
+
 def monthly(months: int = 13, base_currency: str = "EUR",
             account_ids: list[int] | None = None) -> dict:
     """Income, spending and investment per calendar month.
@@ -71,10 +95,24 @@ def monthly(months: int = 13, base_currency: str = "EUR",
                    COUNT(*)    AS n
               FROM transactions
              WHERE txn_date >= ?
-               AND kind NOT IN ('buy', 'sell'){only}
+               AND kind NOT IN ('buy', 'sell')
+               AND spread_months IS NULL{only}
              GROUP BY month, category, currency
              ORDER BY month
             """, (since, *params)).fetchall()
+        # A row the user has taken out of the monthly figures, or asked
+        # to have spread over months: those cannot be summed in SQL,
+        # because one row becomes one line per month it reaches. There
+        # are a handful of them, so they are read as they are.
+        spread = conn.execute(
+            f"""
+            SELECT txn_date, COALESCE(NULLIF(category, ''), 'other') AS category,
+                   UPPER(currency) AS currency, amount, spread_months
+              FROM transactions
+             WHERE kind NOT IN ('buy', 'sell')
+               AND spread_months IS NOT NULL AND spread_months > 0{only}
+            """, params).fetchall()
+    rows = list(rows) + _spread_rows(spread, since, months)
 
     # Read once, not per row: the user can change which categories count
     # as spending or as income, so this cannot be a constant fixed at
@@ -156,6 +194,50 @@ def monthly(months: int = 13, base_currency: str = "EUR",
                               key=lambda x: -x["amount"]),
         "fx_as_of": fx_as_of,
     }
+
+
+# ─── The big ones, and what to do with them ─────────────────────────
+
+SPREADS = (0, 12, 24, 36, 48, 60, 120)          # 0 = leave out; else months
+
+
+def large(months: int = 13, base_currency: str = "EUR", account_ids: list[int] | None = None,
+          limit: int = 12) -> list[dict]:
+    """The largest single payments in the window, and how each counts:
+    a car bought in one payment sits in one month and makes that month
+    look like a disaster, which is what the page offers to change."""
+    since = _month_floor(months - 1)
+    only, params = people.sql_in(account_ids)
+    spending = set(categories.spending())
+    with get_conn() as conn:
+        rows = [dict(r) for r in conn.execute(
+            f"""SELECT t.id, t.txn_date, t.description, t.amount, t.currency, t.spread_months,
+                       COALESCE(NULLIF(t.category, ''), 'other') AS category, a.name AS account
+                  FROM transactions t JOIN accounts a ON a.id = t.account_id
+                 WHERE t.amount < 0 AND t.kind NOT IN ('buy', 'sell')
+                   AND (t.txn_date >= ? OR t.spread_months > 0){only}
+                 ORDER BY t.amount ASC LIMIT 200""", (since, *params))]
+    out = []
+    for r in rows:
+        if r["category"] not in spending:
+            continue
+        r["label"] = categories.label(r["category"])
+        r["per_month"] = (r["amount"] / r["spread_months"]) if (r["spread_months"] or 0) > 0 else None
+        out.append(r)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def set_spread(txn_id: int, spread_months) -> None:
+    """How one row counts: None the ordinary way, 0 left out of the
+    monthly figures, N spread over N months from its own."""
+    if spread_months in (None, "", "normal"):
+        value = None
+    else:
+        value = max(0, min(600, int(spread_months)))
+    with get_conn() as conn:
+        conn.execute("UPDATE transactions SET spread_months = ? WHERE id = ?", (value, txn_id))
 
 
 def budgets() -> dict[str, float]:

@@ -2165,12 +2165,34 @@ def categorize():
 @app.route("/cashflow")
 @auth.login_required
 def cashflow_page():
-    months = int(request.args.get("months") or 13)
+    """Income against spending, over a window the user picks.
+
+    Twelve months is the default, but a household whose older months
+    are half-recorded says more over three or six — and one payment of
+    €24,000 for a car says nothing at all about a month unless it is
+    spread over the years it is actually used. Both are settings of
+    the page, not of the ledger: the rows keep the amounts the bank
+    booked. See cashflow.py.
+    """
+    months = max(1, min(120, int(request.args.get("months") or 13)))
+    base = settings.get("base_currency", "EUR")
     return render_template(
         "cashflow.html", active_page="cashflow",
-        data=cashflow.monthly(months, settings.get("base_currency", "EUR"),
-                              account_ids=people.scope()),
-        months=months)
+        data=cashflow.monthly(months, base, account_ids=people.scope()),
+        large=cashflow.large(months, base, account_ids=people.scope()),
+        spreads=cashflow.SPREADS, months=months, periods=(3, 6, 12, 24, 60))
+
+
+@app.route("/cashflow/spread", methods=["POST"])
+@auth.login_required
+def cashflow_spread():
+    """How one payment counts on the Cash Flow page: as it was booked,
+    left out of the monthly figures, or spread over months."""
+    try:
+        cashflow.set_spread(int(request.form["txn_id"]), request.form.get("spread"))
+    except (KeyError, ValueError):
+        flash(_t("That is not a transaction."), "error")
+    return redirect(request.form.get("back") or url_for("cashflow_page"))
 
 
 @app.route("/budget", methods=["GET", "POST"])
