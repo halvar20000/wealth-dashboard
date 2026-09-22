@@ -395,21 +395,35 @@ def suggest(description: str | None, counterparty: str | None = None) -> str | N
 MIN_PATTERN = 3
 
 
-def suggest_pattern(description: str | None,
-                    counterparty: str | None = None) -> str | None:
-    """The text a rule should remember this transaction by, or None.
+# The words a bank puts in front of every booking of a kind — the
+# payment type, not the merchant. A pattern made of these alone would
+# file every card payment under the category of one restaurant.
+BOILERPLATE = {
+    # French
+    "paiement", "par", "carte", "cb", "prelevement", "prélèvement", "prlv", "virement", "vir", "emis", "émis",
+    "recu", "reçu", "web", "inst", "sepa", "en", "votre", "faveur", "vers", "de", "du", "des", "le", "la", "les",
+    "achat", "retrait", "dab", "cheque", "chèque", "remise", "frais", "commission", "facture", "transfer",
+    # German
+    "kartenzahlung", "lastschrift", "sepa-lastschrift", "ueberweisung", "überweisung", "online-ueberweisung",
+    "gutschrift", "dauerauftrag", "basislastschrift", "einzug", "debitk", "girocard", "kreditkarte", "abrechnung",
+    "zahlung", "bargeldauszahlung", "auszahlung", "einzahlung", "entgelt", "gebuehr", "gebühr", "an", "von", "für", "fuer",
+    "und", "der", "die", "das", "mit",
+    # English
+    "payment", "card", "purchase", "pos", "debit", "credit", "direct", "transfer", "from", "to", "the", "at", "on",
+    "online", "contactless", "atm", "withdrawal", "deposit", "fee", "ref", "reference", "trx", "txn",
+    # markers and card brands
+    "visa", "mastercard", "maestro", "eref", "mref", "svwz", "cred", "kref", "iban", "bic", "ipa",
+}
 
-    The counterparty is the merchant's name as the bank has it, and is
-    the right answer whenever there is one. Card payments often come
-    without one, and then the description is all there is — but a
-    description is a merchant name buried in a booking date, a card
-    number and a reference, none of which the next payment to the same
-    shop will share. So: the longest run of words in it with no digit,
-    and only the first few of them, which is the name and not the noise.
-    """
+
+def _candidates(description: str | None, counterparty: str | None) -> list[str]:
+    """What a rule could remember the row by: the counterparty, and
+    every run of words in the description with no digit in it, the
+    bank's boilerplate stripped from its front. Longest first."""
+    out: list[str] = []
     party = " ".join((counterparty or "").split())
-    if len(party) >= MIN_PATTERN:
-        return party[:40]
+    if len(party) >= MIN_PATTERN and not all(w.lower().strip(".,:*") in BOILERPLATE for w in party.split()):
+        out.append(party[:40])
     words = (description or "").split()
     runs: list[list[str]] = [[]]
     for w in words:
@@ -417,9 +431,49 @@ def suggest_pattern(description: str | None,
             runs.append([])
         else:
             runs[-1].append(w)
-    best = max(runs, key=len)
-    pattern = " ".join(best[:4])[:40].strip()
-    return pattern if len(pattern) >= MIN_PATTERN else None
+    for run in runs:
+        while run and run[0].lower().strip(".,:*") in BOILERPLATE:
+            run = run[1:]
+        while run and run[-1].lower().strip(".,:*") in BOILERPLATE:
+            run = run[:-1]
+        text = " ".join(run[:4])[:40].strip()
+        if len(text) >= MIN_PATTERN and text not in out:
+            out.append(text)
+    return sorted(out, key=len, reverse=True)
+
+
+def suggest_pattern(description: str | None,
+                    counterparty: str | None = None) -> str | None:
+    """The text a rule should remember this transaction by, or None.
+
+    The merchant's name, not the bank's wording around it. The
+    counterparty is the merchant as the bank names it and is the right
+    answer whenever there is one — unless it is only the payment type
+    ("Carte"). A description is a merchant name buried in a booking
+    date, a card number and a reference, and prefixed by what kind of
+    booking it was: the runs of words with no digit in them, the
+    boilerplate cut off, are the candidates. Among them the one that
+    matches the *fewest* other rows in the ledger is the name — a
+    payment type matches thousands, a shop a handful — and, with
+    nothing to count against, the longest.
+    """
+    cands = _candidates(description, counterparty)
+    if not cands:
+        return None
+    if len(cands) == 1:
+        return cands[0]
+    try:
+        with get_conn() as conn:
+            counts = {}
+            for c in cands[:6]:
+                counts[c] = conn.execute(
+                    "SELECT COUNT(*) FROM transactions WHERE LOWER(description) LIKE ? OR LOWER(COALESCE(counterparty,'')) LIKE ?",
+                    (f"%{c.lower()}%", f"%{c.lower()}%")).fetchone()[0]
+    except Exception:                                    # noqa: BLE001 — no database: the longest
+        return cands[0]
+    if not any(counts.values()):
+        return cands[0]
+    return min(cands[:6], key=lambda c: (counts[c], -len(c)))
 
 
 def rules(conn=None) -> list[dict]:

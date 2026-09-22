@@ -11,6 +11,22 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.70.1] — 2026-09-22
+
+### Fixed
+- **A rule made from a card payment remembered the bank's wording, not
+  the shop.** Filing "PAIEMENT PAR CARTE X5030 Tenmanya Loerrach 17/09"
+  under Restaurants made a rule for "PAIEMENT PAR CARTE" — the longest
+  digit-free run of words — or for the counterparty "Carte", and every
+  card payment followed it. The suggested pattern is now the merchant:
+  the bank's boilerplate (payment types, prepositions, card brands,
+  SEPA markers, in French, German and English) is cut off the runs,
+  a counterparty that is only the payment type is passed over, and
+  of the candidates left, the one the ledger holds *fewest* of is the
+  name — a payment type matches a thousand rows, a shop a handful. The
+  same suggestion serves the *Whose* dropdown. A rule made before this
+  with such a pattern is still there: delete it on the Categorize page.
+
 ## [0.70.0] — 2026-09-22
 
 ### Added

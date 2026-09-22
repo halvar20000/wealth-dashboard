@@ -1682,6 +1682,17 @@ check("...and is a substring of it, so the rule will actually match",
 check("a description that is only numbers yields no pattern",
       cat.suggest_pattern("4711 0815 2026", "  "), None)
 check("a one-word merchant is enough", cat.suggest_pattern("Netflix", None), "Netflix")
+check("the bank's wording around the merchant is not the pattern, nor a counterparty that is only the payment type",
+      cat.suggest_pattern("PAIEMENT PAR CARTE X5030 Tenmanya Loerrach 17/09", "Carte"), "Tenmanya Loerrach")
+check("...in German too", cat.suggest_pattern("Kartenzahlung girocard 12.06 Baeckerei Mueller Debitk.4", None), "Baeckerei Mueller")
+with db.get_conn() as conn:
+    for i in range(20):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, external_id) VALUES (?, '2026-05-01', ?, -1, 'EUR', 'other', ?)",
+                     (account_id, f"MONTHLY SERVICE PLAN / Shop{i}", f"freq:{i}"))
+check("of two candidate runs, the one the ledger has fewest of is the merchant, whatever its length",
+      cat.suggest_pattern("MONTHLY SERVICE PLAN / Tenmanya", None), "Tenmanya")
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM transactions WHERE external_id LIKE 'freq:%'")
 
 # ---------------------------------------------------------------------------
 print("\n14b. Categories the user owns")
