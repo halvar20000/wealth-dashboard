@@ -2792,5 +2792,7 @@ STRINGS: dict[str, str] = {
     '{direct} own + {share} half of shared': '{direct} eigene + {share} halbes Gemeinsames',
     '{n} row to assign': '{n} Zeile zuzuordnen',
     '{n} rows to assign': '{n} Zeilen zuzuordnen',
+    '{n} rows were removed by hand earlier and stay out.': '{n} Zeilen wurden früher von Hand entfernt und bleiben draußen.',
+    '{n} rows fall on or before {date}, up to which the ledger of this account counts as on record from elsewhere — a move-in, say — so a file adds nothing before that day. If the account does not in fact hold those rows, clear ‘Ledger on record until’ on its edit page and import the file again.': '{n} Zeilen liegen am oder vor dem {date}, bis zu dem das Buch dieses Kontos als anderweitig erfasst gilt — etwa durch einen Umzug — sodass eine Datei vor diesem Tag nichts hinzufügt. Hält das Konto diese Zeilen tatsächlich nicht, leere ‚Journal erfasst bis‘ auf seiner Bearbeiten-Seite und importiere die Datei erneut.',
     'Bank, broker or format': 'Bank, Broker oder Format',
 }

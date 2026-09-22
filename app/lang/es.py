@@ -2794,5 +2794,7 @@ STRINGS: dict[str, str] = {
     '{direct} own + {share} half of shared': '{direct} propio + {share} mitad de lo compartido',
     '{n} row to assign': '{n} fila por asignar',
     '{n} rows to assign': '{n} filas por asignar',
+    '{n} rows were removed by hand earlier and stay out.': '{n} filas se eliminaron a mano antes y siguen fuera.',
+    '{n} rows fall on or before {date}, up to which the ledger of this account counts as on record from elsewhere — a move-in, say — so a file adds nothing before that day. If the account does not in fact hold those rows, clear ‘Ledger on record until’ on its edit page and import the file again.': '{n} filas caen el {date} o antes, fecha hasta la que el libro de esta cuenta cuenta como registrado desde otra fuente — una mudanza, por ejemplo — así que un archivo no añade nada antes de ese día. Si la cuenta no tiene en realidad esas filas, vacía ‘Libro registrado hasta’ en su página de edición e importa el archivo de nuevo.',
     'Bank, broker or format': 'Banco, bróker o formato',
 }

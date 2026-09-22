@@ -2798,5 +2798,7 @@ STRINGS: dict[str, str] = {
     '{direct} own + {share} half of shared': '{direct} propre + {share} moitié du partagé',
     '{n} row to assign': '{n} ligne à attribuer',
     '{n} rows to assign': '{n} lignes à attribuer',
+    '{n} rows were removed by hand earlier and stay out.': '{n} lignes ont été supprimées à la main auparavant et restent dehors.',
+    '{n} rows fall on or before {date}, up to which the ledger of this account counts as on record from elsewhere — a move-in, say — so a file adds nothing before that day. If the account does not in fact hold those rows, clear ‘Ledger on record until’ on its edit page and import the file again.': "{n} lignes tombent le {date} ou avant, date jusqu'à laquelle le grand livre de ce compte compte comme enregistré ailleurs — un emménagement, par exemple — si bien qu'un fichier n'ajoute rien avant ce jour. Si le compte ne contient pas ces lignes en réalité, videz ‘Grand livre enregistré jusqu'au’ sur sa page de modification et réimportez le fichier.",
     'Bank, broker or format': 'Banque, courtier ou format',
 }

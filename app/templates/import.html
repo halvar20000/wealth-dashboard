@@ -28,6 +28,7 @@
       {% endif %}
     </tbody>
   </table>
+  {% for n in report.notes or [] %}<div class="flash flash-warn">{{ n }}</div>{% endfor %}
   {% if report.problems %}
   <div class="flash flash-warn">
     <strong>{{ _n(report.problems|length, "{n} line could not be read.", "{n} lines could not be read.") }}</strong>

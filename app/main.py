@@ -721,6 +721,8 @@ def account_import(account_id: int):
         flash(_f("{importer}: {new} new, {had} already had.",
                  importer=report["label"], new=report["inserted"],
                  had=report["duplicates"]), "ok")
+        for note in report.get("notes") or []:
+            flash(note, "warn")
 
     return render_template("import.html", account=dict(account), report=report,
                            catalogue=importers.catalogue())
@@ -976,6 +978,18 @@ def _unpack(name: str, content: bytes) -> list[tuple[str, bytes]]:
     return out
 
 
+def _store_notes(r: dict) -> list[str]:
+    """Why rows a file plainly holds were not booked — said, because
+    "already had" about rows the account visibly lacks sends someone
+    looking in the wrong place."""
+    notes = []
+    if r.get("on_record"):
+        notes.append(_f("{n} rows fall on or before {date}, up to which the ledger of this account counts as on record from elsewhere — a move-in, say — so a file adds nothing before that day. If the account does not in fact hold those rows, clear ‘Ledger on record until’ on its edit page and import the file again.", n=r["on_record"], date=r.get("until")))
+    if r.get("kept_out"):
+        notes.append(_f("{n} rows were removed by hand earlier and stay out.", n=r["kept_out"]))
+    return notes
+
+
 def _import_files(account_id: int, currency: str, files: list[tuple[str, bytes]]):
     """Every file through its own importer; one report for all of them.
 
@@ -985,7 +999,7 @@ def _import_files(account_id: int, currency: str, files: list[tuple[str, bytes]]
     the whole upload for one stray document.
     """
     total = {"inserted": 0, "duplicates": 0, "skipped": 0, "parsed": 0,
-             "problems": [], "closing_balance": None, "files": len(files),
+             "problems": [], "notes": [], "closing_balance": None, "files": len(files),
              "unrecognised": []}
     labels: list[str] = []
     many = len(files) > 1
@@ -1005,6 +1019,9 @@ def _import_files(account_id: int, currency: str, files: list[tuple[str, bytes]]
             total[key] += r[key]
         total["problems"].extend(
             f"{os.path.basename(name)}: {p}" if many else p for p in r["problems"])
+        for note in _store_notes(r):
+            if note not in total["notes"]:
+                total["notes"].append(note)
         if r["closing_balance"]:
             total["closing_balance"] = r["closing_balance"]
         if module.LABEL not in labels:

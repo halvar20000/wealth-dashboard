@@ -349,7 +349,8 @@ def pull(account_id: int | None = None, transport=None) -> list[dict]:
                     res["imported"] += 1
                     res["inserted"] += report["inserted"]
                     _record(conn, doc, f["account_id"], "imported",
-                            f"{label}: {report['inserted']} new, {report['duplicates']} already had",
+                            f"{label}: {report['inserted']} new, {report['duplicates']} already had"
+                            + (f" ({report['on_record']} on or before the account's ledger-on-record day {report['until']})" if report.get("on_record") else ""),
                             report.get("import_id"))
         out.append(res)
     set_state("archive_last_pull", json.dumps({

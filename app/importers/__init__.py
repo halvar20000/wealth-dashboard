@@ -131,12 +131,22 @@ def _save_payslip(conn, account_id: int, slip: dict, import_id: int | None) -> N
 def undo_import(account_id: int, import_id: int) -> int:
     """Remove every row this import brought — and only those: a row a
     re-import found already there belongs to the import that first
-    brought it. The balance it wrote stays; a balance is a reading."""
+    brought it. The balance it wrote stays; a balance is a reading.
+
+    A move-in had marked the account's ledger as on record up to its
+    last row; with its rows gone that mark would keep every later file
+    out, so it is set back to what the remaining moved-in rows cover,
+    or cleared."""
     with get_conn() as conn:
+        src = conn.execute("SELECT source FROM imports WHERE id = ? AND account_id = ?", (import_id, account_id)).fetchone()
         cur = conn.execute("DELETE FROM transactions WHERE account_id = ? AND import_id = ?",
                            (account_id, import_id))
         conn.execute("DELETE FROM payslips WHERE account_id = ? AND import_id = ?", (account_id, import_id))
         conn.execute("DELETE FROM imports WHERE id = ? AND account_id = ?", (import_id, account_id))
+        if src and (src["source"] or "").startswith("financial_planner"):
+            last = conn.execute("SELECT MAX(txn_date) AS d FROM transactions WHERE account_id = ? "
+                                "AND source LIKE 'financial_planner%'", (account_id,)).fetchone()["d"]
+            conn.execute("UPDATE accounts SET ledger_until = ? WHERE id = ?", (last, account_id))
         return cur.rowcount
 
 
@@ -197,11 +207,13 @@ def store(account_id: int, parsed: ParseResult, source: str, import_id: int | No
     top of this month's is free and correct rather than something the
     user has to think about.
     """
-    inserted = duplicates = 0
+    inserted = duplicates = on_record = kept_out = 0
     with get_conn() as conn:
         # Rows the account already has from elsewhere, under other ids
         # — see accounts.ledger_until. They count as duplicates, which
-        # is what they are.
+        # is what they are — and are counted apart, because "already
+        # had" about rows the account visibly does not have is the
+        # one message that sends someone looking in the wrong place.
         until = conn.execute("SELECT ledger_until FROM accounts WHERE id = ?",
                              (account_id,)).fetchone()
         until = until["ledger_until"] if until else None
@@ -209,9 +221,11 @@ def store(account_id: int, parsed: ParseResult, source: str, import_id: int | No
         for row in parsed.rows:
             if until and row.txn_date <= until and not (row.external_id or "").startswith(SHARED_ID_PREFIXES):
                 duplicates += 1
+                on_record += 1
                 continue
             if row.external_id in removed:
                 duplicates += 1           # the user removed it; it stays removed
+                kept_out += 1
                 continue
             cur = conn.execute(
                 "INSERT OR IGNORE INTO transactions "
@@ -256,6 +270,7 @@ def store(account_id: int, parsed: ParseResult, source: str, import_id: int | No
 
     return {"inserted": inserted, "duplicates": duplicates,
             "skipped": parsed.skipped, "problems": parsed.problems,
+            "on_record": on_record, "until": until, "kept_out": kept_out,
             "parsed": len(parsed.rows),
             "closing_balance": parsed.closing_balance}
 

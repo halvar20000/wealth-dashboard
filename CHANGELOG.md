@@ -11,6 +11,22 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.70.2] — 2026-09-22
+
+### Fixed
+- **A statement whose rows the account visibly lacked was reported as
+  "already had".** An account marked as on record up to a day — the
+  mark a move-in leaves, so a later file does not book the moved-in
+  span twice — keeps every earlier row of a file out, silently, under
+  "already had". Where the moved-in rows are no longer there (the
+  move-in undone, the rows deleted, the account mapped elsewhere) that
+  meant a Swissquote Kontoauszug imported nothing but its closing
+  balance and said so in the words for a success. The import now says
+  how many rows fell on or before that day and where to clear the
+  mark; a Paperless pull records the same; and undoing a move-in's
+  import sets the mark back to what the remaining moved-in rows cover,
+  or clears it. Rows removed by hand are reported apart as well.
+
 ## [0.70.1] — 2026-09-22
 
 ### Fixed

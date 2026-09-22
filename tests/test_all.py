@@ -6622,6 +6622,26 @@ check("the account page shows how far the ledger is on record", b"Ledger on reco
 # reaching past them adds only what is new.
 r = upload(old_broker_id, fixtures.DEGIRO_CSV)
 check("an export over the recorded span is not booked again", b"0 new" in r.data or b"already had" in r.data, True)
+# An account marked as on record up to a day — by a move-in — keeps a
+# file's earlier rows out, and says so; undoing the move-in's import
+# takes the mark with it, so the same file then books its rows.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency, ledger_until) VALUES ('On record', 'broker', 'EUR', '2030-01-01')")
+    onrec = conn.execute("SELECT id FROM accounts WHERE name = 'On record'").fetchone()["id"]
+imp_fp = importers.begin_import(onrec, "wealth.db", "financial_planner")
+ONREC_CSV = "txn_date,amount,currency,description,id\n2026-05-02,-10,EUR,On record one,onrec:1\n2026-05-03,-20,EUR,On record two,onrec:2\n"
+r = upload(onrec, ONREC_CSV)
+check("a file over the recorded span books nothing, and the page says why and where to change it",
+      b"0 new" in r.data and b"counts as on record" in r.data and b"Ledger on record until" in r.data, True)
+importers.undo_import(onrec, imp_fp)
+with db.get_conn() as conn:
+    lu = conn.execute("SELECT ledger_until FROM accounts WHERE id = ?", (onrec,)).fetchone()["ledger_until"]
+check("undoing the move-in clears the on-record mark", lu, None)
+r = upload(onrec, ONREC_CSV)
+check("...so the same file now books its rows", b"2 new" in r.data and b"counts as on record" not in r.data, True)
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM transactions WHERE account_id = ?", (onrec,))
+    conn.execute("DELETE FROM accounts WHERE id = ?", (onrec,))
 with db.get_conn() as conn:
     conn.execute("UPDATE accounts SET ledger_until = NULL WHERE id = ?", (old_broker_id,))
     conn.execute("DELETE FROM transactions WHERE account_id = ?", (old_broker_id,))
