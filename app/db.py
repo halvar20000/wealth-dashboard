@@ -833,6 +833,12 @@ _ADDED_COLUMNS = {
         # 0.70.0: whose spending a match is — a person's id, or "shared".
         ("set_owner", "TEXT"),
     ],
+    # 0.71.0: what the receiver speaks. "json" is this app's own
+    # payload with its signature; "ntfy" is a line of prose to a
+    # phone, which is what a push server wants. See webhooks.py.
+    "webhooks": [
+        ("kind", "TEXT NOT NULL DEFAULT 'json'"),
+    ],
     "securities": [
         ("quote_type", "TEXT"),
     ],

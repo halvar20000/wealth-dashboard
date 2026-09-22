@@ -98,6 +98,65 @@ def revoke() -> None:
         pass
 
 
+# ─── Pairing a device ────────────────────────────────────────────────
+#
+# A phone should not have a 43-character token typed into it, and a
+# token shown as a QR is a token anyone who photographs the screen
+# owns. So: a six-digit code, good for five minutes and for one
+# exchange, which a device trades for the token over the same HTTPS the
+# dashboard is reached by. The code lives in app_state, not in a table
+# of its own — it is one value at a time, and it expires.
+
+PAIR_TTL = 300                                    # seconds
+_PAIR_KEY = "pair_code"
+
+
+def start_pairing() -> dict:
+    """A fresh pairing code; any earlier one stops working. Returns
+    {code, expires_at, expires_in}."""
+    from .db import set_state
+    from datetime import datetime, timedelta, timezone
+    if not token():
+        new_token()
+    code = f"{secrets.randbelow(1000000):06d}"
+    until = datetime.now(timezone.utc) + timedelta(seconds=PAIR_TTL)
+    set_state(_PAIR_KEY, json.dumps({"code": code, "until": until.isoformat(timespec="seconds")}))
+    return {"code": code, "expires_at": until.isoformat(timespec="seconds"), "expires_in": PAIR_TTL}
+
+
+def pending_code() -> dict | None:
+    """The code still waiting, or None — what the Settings page shows
+    when the browser is reloaded within the five minutes."""
+    from .db import get_state
+    from datetime import datetime, timezone
+    raw = get_state(_PAIR_KEY)
+    if not raw:
+        return None
+    try:
+        held = json.loads(raw)
+        until = datetime.fromisoformat(held["until"])
+    except (ValueError, KeyError, TypeError):
+        return None
+    left = int((until - datetime.now(timezone.utc)).total_seconds())
+    if left <= 0:
+        return None
+    return {"code": held["code"], "expires_at": held["until"], "expires_in": left}
+
+
+def redeem(code: str | None) -> str | None:
+    """The token, for the right code, once. Wrong, late or already
+    used: None, and the code is burnt either way — six digits guessed
+    at leisure are six digits guessed."""
+    from .db import set_state
+    held = pending_code()
+    set_state(_PAIR_KEY, "")
+    if not held or not code:
+        return None
+    if not hmac.compare_digest(str(code).strip(), held["code"]):
+        return None
+    return token()
+
+
 def authorised(header: str | None) -> bool:
     """`Authorization: Bearer <token>`, compared in constant time."""
     want = token()
@@ -183,6 +242,46 @@ def _net_worth(person=None):
                                             "balance", "balance_base", "as_of", "people")}
                      for a in s["accounts"]],
         "by_class": s["by_class"],
+    }
+
+
+@tool("snapshot",
+      "Everything a home screen needs, in one call: net worth and its parts, the "
+      "return over every period, the accounts, what is coming in the next days, how "
+      "many rows wait to be categorised or assigned, and whether the syncs are "
+      "healthy. Meant for a phone or a widget, where each round trip costs.",
+      {"person": PERSON, "days": {"type": "integer", "description": "How far ahead to "
+                                  "look for bills and subscriptions. Default 30."}})
+def _snapshot(person=None, days=30):
+    from datetime import datetime, timezone
+    from . import expenses, performance, upcoming
+    scope = _scope(person)
+    base = _base()
+    s = overview.summary(base, account_ids=scope)
+    try:
+        ahead = upcoming.project(base, max(1, min(int(days or 30), 365)), scope)
+    except Exception:                                   # noqa: BLE001 — a widget still wants the rest
+        ahead = None
+    _, waiting = categories.uncategorised(1, account_ids=scope)
+    split = expenses.split(base, scope, months=1)
+    health = banksync.health()
+    return {
+        "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "base_currency": base,
+        "net_worth": {k: s[k] for k in ("net_worth", "cash", "securities", "assets", "debt",
+                                        "fx_as_of", "prices_as_of") if k in s} | {"by_class": s["by_class"]},
+        "performance": performance.periods(base, scope),
+        "accounts": [{k: a.get(k) for k in ("id", "name", "type", "currency", "bank",
+                                            "balance", "balance_base", "as_of")} for a in s["accounts"]],
+        "upcoming": {k: ahead.get(k) for k in ("days", "lowest", "lowest_on", "crosses_zero_on",
+                                               "start_cash", "end_cash") if ahead and k in ahead} if ahead else None,
+        "events": (ahead or {}).get("events", [])[:12],
+        "waiting": {"uncategorised": waiting,
+                    "unassigned_spending": split["counts"]["unassigned"]},
+        "sync": {"links": len(health),
+                 "red": sum(1 for h in health if h.get("status") == "red"),
+                 "yellow": sum(1 for h in health if h.get("status") == "yellow"),
+                 "last_sync_at": max([h.get("last_sync_at") or "" for h in health] or [""]) or None},
     }
 
 
@@ -709,15 +808,20 @@ def _watch(symbol, status, note=None):
 @tool("sync_health", "Every bank connection, graded green/yellow/red, with the "
       "last sync and when the consent expires.")
 def _health():
-    out = banksync.health()
+    links = banksync.health()
     # A ledger that holds a booking twice — the sync's bare copy beside
     # a move-in's — is a health matter too: every sum over it is doubled.
+    # It goes on the link of the account it concerns; `health()` returns
+    # a list and always has.
     from . import ledger
     twins = ledger.doubled()
-    if twins:
-        out["doubled_rows"] = {str(k): v for k, v in twins.items()}
-        out["doubled_hint"] = "bank rows with an enriched twin, per account; `heal_twins` removes the bare copies"
-    return out
+    for link in links:
+        n = twins.get(link.get("account_id"))
+        if n:
+            link["doubled_rows"] = n
+            link["doubled_hint"] = ("bank rows with an enriched twin — `heal_twins` "
+                                    "removes the bare copies")
+    return links
 
 
 @tool("forget_removed", "Forget the rows removed by hand from an account, so the next import or "

@@ -11,6 +11,33 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.71.0] — 2026-09-22
+
+### Added
+- **What an app on a phone needs.** A `snapshot` tool that answers with
+  everything a home screen shows in one round trip — net worth and its
+  parts, the return over every period, the accounts, what is coming,
+  the queues waiting to be categorised or assigned, the health of the
+  syncs — because on a mobile connection each request costs. A
+  `POST /api/v1/accounts/<id>/import` that takes a file under the same
+  bearer token and runs it through the same readers and the same store
+  as the import page, so a statement can come straight from a phone's
+  share sheet. And pairing: Settings → Assistants shows a six-digit
+  code, good for five minutes and one exchange, which a device trades
+  at `POST /api/v1/pair` for the token — nobody types forty-three
+  characters on a phone, and a token shown on a screen belongs to
+  whoever photographs the screen.
+- **Webhooks speak ntfy.** A hook set to ntfy sends a line of prose
+  with a title, a tag and a priority rather than signed JSON, which is
+  all a push server needs to put "CA Devise: read timeout" on a lock
+  screen — no Firebase, no Google project, no service-account key on
+  the server.
+
+### Fixed
+- `sync_health` returned a list and 0.69.1 tried to set a key on it;
+  the doubled-rows note now goes on the link of the account it
+  concerns, where a client can see it.
+
 ## [0.70.8] — 2026-09-22
 
 ### Fixed

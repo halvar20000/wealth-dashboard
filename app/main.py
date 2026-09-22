@@ -1811,6 +1811,63 @@ def api_tools(name: str | None = None):
     return jsonify({"ok": True, "result": payload})
 
 
+@app.route("/api/v1/pair", methods=["POST"])
+def api_pair():
+    """A device trades the six-digit code shown under Settings for the
+    token — so nobody types forty-three characters on a phone, and the
+    token never sits on a screen to be photographed.
+
+    No login and no token: the code is the credential, it is good for
+    five minutes and one exchange, and a wrong guess burns it.
+    """
+    if not has_users():
+        return jsonify({"ok": False, "error": "This dashboard has no user yet."}), 503
+    body = request.get_json(silent=True) or {}
+    code = body.get("code") or request.form.get("code")
+    token = mcp.redeem(code)
+    if not token:
+        return jsonify({"ok": False, "error": "That code is wrong, used or expired."}), 403
+    return jsonify({"ok": True, "token": token, "server": mcp.SERVER_INFO,
+                    "base_currency": settings.get("base_currency", "EUR"),
+                    "mcp_url": url_for("mcp_endpoint", _external=True),
+                    "api_url": url_for("api_tools", _external=True)})
+
+
+@app.route("/api/v1/accounts/<int:account_id>/import", methods=["POST"])
+def api_import(account_id: int):
+    """A statement or an export, uploaded by a program — the phone's
+    share sheet, a script, a scanner's hot folder.
+
+    The same readers, the same store, the same report the page shows,
+    behind the same bearer token as the tools. Several files at once,
+    under the field name `file`, as the browser form does.
+    """
+    if not has_users():
+        return jsonify({"ok": False, "error": "This dashboard has no user yet."}), 503
+    if not mcp.authorised(request.headers.get("Authorization")):
+        return (jsonify({"ok": False, "error": "A bearer token from Settings is required."}),
+                401, {"WWW-Authenticate": 'Bearer realm="wealth-dashboard"'})
+    account = _load_account(account_id)
+    if account is None:
+        return jsonify({"ok": False, "error": f"No account with id {account_id}."}), 404
+    files = []
+    for item in request.files.getlist("file"):
+        content = item.read()
+        if content:
+            files.extend(_unpack(item.filename or "upload", content))
+    if not files:
+        return jsonify({"ok": False, "error": "No file was sent under the field name 'file'."}), 400
+    report = _import_files(account_id, account["currency"], files)
+    if report is None:
+        return jsonify({"ok": False, "error": "No reader recognised any of those files.",
+                        "files": [os.path.basename(n) for n, _ in files]}), 422
+    report["notes"] = report.get("notes") or []
+    return jsonify({"ok": True, "account": {"id": account["id"], "name": account["name"]},
+                    "result": {k: report.get(k) for k in
+                               ("label", "inserted", "duplicates", "skipped", "parsed",
+                                "problems", "notes", "closing_balance", "unrecognised", "imports")}})
+
+
 # ─── Settings ────────────────────────────────────────────────────────
 
 # ─── Spending ────────────────────────────────────────────────────────
@@ -2944,6 +3001,11 @@ def settings_page(section: str = "general"):
             except Exception as exc:                        # noqa: BLE001
                 flash(_f("The mail could not be sent: {error}", error=str(exc)), "error")
             return redirect(_settings_url("report"))
+        elif request.form.get("form") == "mcp_pair":
+            code = mcp.start_pairing()
+            flash(_f("Pairing code {code} — good for five minutes, and for one device.",
+                     code=code["code"]), "ok")
+            return redirect(_settings_url("mcp"))
         elif request.form.get("form") == "mcp_token":
             if request.form.get("action") == "revoke":
                 mcp.revoke()
@@ -2969,7 +3031,8 @@ def settings_page(section: str = "general"):
             return redirect(_settings_url("sync"))
         elif request.form.get("form") == "webhook_add":
             try:
-                webhooks.add(request.form.get("url", ""), request.form.getlist("events"))
+                webhooks.add(request.form.get("url", ""), request.form.getlist("events"),
+                             kind=request.form.get("kind", "json"))
                 flash(_t("Webhook added. Its secret is shown in the list; give it to the receiver to check the signature."), "ok")
             except ValueError as exc:
                 flash(str(exc), "error")
@@ -3060,7 +3123,7 @@ def settings_page(section: str = "general"):
                            securities=prices.status(),
                            prices_hours_ago=prices.fetched_hours_ago(),
                            ideas=screener_jobs.status(),
-                           mcp_token=mcp.token(),
+                           mcp_token=mcp.token(), pair_code=mcp.pending_code(),
                            saxo_state=saxo.describe(),
                            kraken_state=kraken.describe(),
                            ibkr_state=ibkr.describe(),

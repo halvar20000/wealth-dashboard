@@ -474,6 +474,21 @@
   </form>
 </div>
 
+<div class="card" id="pair">
+  <div class="card-header"><h2>{{ _("Pair a phone or a tablet") }}</h2>
+    <span class="card-subtitle">{{ _("a code, not a token typed by thumb") }}</span></div>
+  <p class="sub">{{ _("An app on your phone asks for this dashboard's address and a six-digit code. The code is good for five minutes and for one device; it is exchanged once for the token above, over the same address you are reading this on. A token shown on a screen is a token anyone who photographs the screen owns, which is why the screen shows a code instead.") }}</p>
+  {% if pair_code %}
+  <p class="pair-code">{{ pair_code.code }}</p>
+  <p class="sub" id="pair-left" data-left="{{ pair_code.expires_in }}">{{ _n(pair_code.expires_in, "{n} second left", "{n} seconds left") }}</p>
+  {% endif %}
+  <form method="post" class="form inline">
+    <input type="hidden" name="form" value="mcp_pair">
+    <button type="submit">{% if pair_code %}{{ _("New code") }}{% else %}{{ _("Pair a device") }}{% endif %}</button>
+  </form>
+  <p class="sub">{{ _("The address to type into the app:") }} <code>{{ mcp_url[:-4] }}</code></p>
+</div>
+
 {% endif %}
 {% if section == 'assistants' %}
 <div class="card" id="api">
@@ -531,9 +546,15 @@ curl -H "Authorization: Bearer {{ mcp_token }}" -X POST -H "Content-Type: applic
   <div class="card-header"><h2>{{ _("Webhooks") }}</h2>
     <span class="card-subtitle">{{ _n(hooks | length, "{n} receiver", "{n} receivers") }}</span></div>
   <p class="sub">{{ _("A POST to a URL of yours when something happened: a sync ran or failed, a bill is past due. Home Assistant, n8n, a bot, a script. The body is JSON — event, time, data — and the X-Wealth-Signature header is an HMAC-SHA256 of it with the receiver's secret, so it can tell this app from anyone who found the URL. One attempt, five seconds; a receiver that is down misses that event and the list says so.") }}</p>
+  <p class="sub">{{ _("Choose ntfy instead and the body is a line of prose with a title and a priority — which is all a push server needs to put the message on a phone's lock screen. The URL is then your topic, say https://ntfy.sh/my-secret-topic or your own server's; anyone who knows the topic can read it, so make it long and private.") }}</p>
   <form method="post" class="form inline sec-form">
     <input type="hidden" name="form" value="webhook_add">
     <div><label for="hook_url">URL</label><input id="hook_url" name="url" placeholder="https://…" style="width:320px"></div>
+    <div><label for="hook_kind">{{ _("Speaks") }}</label>
+      <select id="hook_kind" name="kind" style="width:auto">
+        <option value="json">{{ _("JSON, signed") }}</option>
+        <option value="ntfy">ntfy</option>
+      </select></div>
     <div><label>{{ _("Events") }}</label>
       <span>{% for e in hook_events %}<label class="check"><input type="checkbox" name="events" value="{{ e }}" checked> {{ e }}</label>{% endfor %}</span></div>
     <button type="submit">{{ _("Add the webhook") }}</button>
@@ -541,13 +562,14 @@ curl -H "Authorization: Bearer {{ mcp_token }}" -X POST -H "Content-Type: applic
   {% if hooks %}
   <div class="table-wrap" style="margin-top:12px">
     <table class="grid">
-      <thead><tr><th>URL</th><th>{{ _("Events") }}</th><th>{{ _("Secret") }}</th><th>{{ _("Last") }}</th><th></th></tr></thead>
+      <thead><tr><th>URL</th><th>{{ _("Speaks") }}</th><th>{{ _("Events") }}</th><th>{{ _("Secret") }}</th><th>{{ _("Last") }}</th><th></th></tr></thead>
       <tbody>
       {% for h in hooks %}
         <tr>
           <td class="nowrap">{{ h.url[:60] }}</td>
+          <td class="sub">{{ h.kind or 'json' }}</td>
           <td class="sub">{{ h.events.replace(',', ', ') }}</td>
-          <td><code>{{ h.secret }}</code></td>
+          <td>{% if (h.kind or 'json') == 'json' %}<code>{{ h.secret }}</code>{% else %}<span class="sub">—</span>{% endif %}</td>
           <td class="sub nowrap">{% if h.last_at %}{{ h.last_at[:16].replace('T', ' ') }}{% if h.last_error %}<span class="neg"> · {{ h.last_error }}</span>{% endif %}{% else %}—{% endif %}</td>
           <td class="num"><form method="post" style="display:inline"><input type="hidden" name="form" value="webhook_delete"><input type="hidden" name="hook_id" value="{{ h.id }}"><button type="submit" class="btn-ghost">{{ _("Remove") }}</button></form></td>
         </tr>

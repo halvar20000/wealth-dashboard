@@ -29,7 +29,17 @@ from datetime import datetime, timezone
 from .db import get_conn
 
 EVENTS = ("sync.completed", "sync.failed", "bill.missed")
+KINDS = ("json", "ntfy")
 TIMEOUT = 5
+
+# What a phone should see on its lock screen. The JSON payload is for a
+# program; ntfy carries a line of prose, a title and a priority, and
+# nothing else is needed to get a notification on Android.
+_NTFY = {
+    "sync.completed": ("Sync done", "white_check_mark", 2),
+    "sync.failed": ("Sync failed", "warning", 4),
+    "bill.missed": ("Bill missed", "rotating_light", 4),
+}
 
 
 def all_hooks() -> list[dict]:
@@ -37,14 +47,15 @@ def all_hooks() -> list[dict]:
         return [dict(r) for r in conn.execute("SELECT * FROM webhooks ORDER BY id")]
 
 
-def add(url: str, events: list[str] | None = None) -> int:
+def add(url: str, events: list[str] | None = None, kind: str = "json") -> int:
     url = (url or "").strip()
     if not url.startswith(("http://", "https://")):
         raise ValueError("A webhook needs an http:// or https:// URL.")
     chosen = [e for e in (events or EVENTS) if e in EVENTS] or list(EVENTS)
+    kind = kind if kind in KINDS else "json"
     with get_conn() as conn:
-        cur = conn.execute("INSERT INTO webhooks (url, events, secret) VALUES (?, ?, ?)",
-                           (url, ",".join(chosen), secrets.token_urlsafe(24)))
+        cur = conn.execute("INSERT INTO webhooks (url, events, secret, kind) VALUES (?, ?, ?, ?)",
+                           (url, ",".join(chosen), secrets.token_urlsafe(24), kind))
         return int(cur.lastrowid)
 
 
@@ -53,11 +64,38 @@ def delete(hook_id: int) -> None:
         conn.execute("DELETE FROM webhooks WHERE id = ?", (hook_id,))
 
 
-def _post(hook: dict, event: str, body: bytes) -> None:
-    sig = hmac.new(hook["secret"].encode(), body, hashlib.sha256).hexdigest()
-    req = urllib.request.Request(hook["url"], data=body, method="POST", headers={
-        "Content-Type": "application/json", "X-Wealth-Event": event,
-        "X-Wealth-Signature": f"sha256={sig}", "User-Agent": "wealth-dashboard"})
+def message(event: str, data: dict) -> str:
+    """One line for a phone. The data a sync sends is a list of what
+    each account did; a bill sends the bill."""
+    if event == "sync.completed":
+        rows = data.get("results") or data.get("accounts") or []
+        got = sum((r.get("inserted") or 0) for r in rows if isinstance(r, dict))
+        names = ", ".join(str(r.get("account")) for r in rows if isinstance(r, dict) and r.get("account"))
+        return f"{got} new rows" + (f" — {names}" if names else "")
+    if event == "sync.failed":
+        who = data.get("account") or data.get("aspsp_name") or "a connection"
+        return f"{who}: {data.get('error') or 'the sync failed'}"
+    if event == "bill.missed":
+        name = data.get("name") or "a bill"
+        due = data.get("due") or data.get("due_on") or ""
+        amount = data.get("amount")
+        return f"{name} was due {due}".strip() + (f" — {amount}" if amount is not None else "")
+    return json.dumps(data, ensure_ascii=False, default=str)[:300]
+
+
+def _post(hook: dict, event: str, body: bytes, data: dict | None = None) -> None:
+    if (hook.get("kind") or "json") == "ntfy":
+        title, tag, priority = _NTFY.get(event, ("Wealth Dashboard", "money_with_wings", 3))
+        body = message(event, data or {}).encode()
+        headers = {"Content-Type": "text/plain; charset=utf-8", "Title": title,
+                   "Tags": tag, "Priority": str(priority), "X-Wealth-Event": event,
+                   "User-Agent": "wealth-dashboard"}
+        req = urllib.request.Request(hook["url"], data=body, method="POST", headers=headers)
+    else:
+        sig = hmac.new(hook["secret"].encode(), body, hashlib.sha256).hexdigest()
+        req = urllib.request.Request(hook["url"], data=body, method="POST", headers={
+            "Content-Type": "application/json", "X-Wealth-Event": event,
+            "X-Wealth-Signature": f"sha256={sig}", "User-Agent": "wealth-dashboard"})
     error = None
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
@@ -82,7 +120,7 @@ def fire(event: str, data: dict, wait: bool = False) -> int:
     body = json.dumps({"event": event, "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                        "data": data}, ensure_ascii=False, default=str).encode()
     for h in hooks:
-        t = threading.Thread(target=_post, args=(h, event, body), daemon=True)
+        t = threading.Thread(target=_post, args=(h, event, body, data), daemon=True)
         t.start()
         if wait:
             t.join(TIMEOUT + 1)

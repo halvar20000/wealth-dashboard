@@ -7396,6 +7396,87 @@ check("...leaving the reader's rows alone, and the positions as the broker has t
 check("healing again changes nothing", ledger.heal_trade_twins(tt), {"twins": 0, "openings": 0})
 
 # ---------------------------------------------------------------------------
+print("\n57. What a phone needs: one snapshot, a pairing code, an upload, a push")
+# ---------------------------------------------------------------------------
+tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
+r = c.get("/api/v1/tools/snapshot", headers=HDR)
+snap = r.get_json()["result"]
+check("one call carries what a home screen shows",
+      (r.status_code, sorted(snap.keys())),
+      (200, ["accounts", "at", "base_currency", "events", "net_worth", "performance", "sync", "upcoming", "waiting"]))
+check("...the net worth and its parts, the periods, the queues, the syncs",
+      (isinstance(snap["net_worth"]["net_worth"], float), "all" in snap["performance"],
+       isinstance(snap["waiting"]["uncategorised"], int), isinstance(snap["sync"]["links"], int)), (True, True, True, True))
+check("sync_health is still a list, with a doubled-rows note on the link it concerns",
+      isinstance(mcp._HANDLERS["sync_health"](), list), True)
+
+# Pairing: a code, five minutes, one exchange.
+r = c.post("/api/v1/pair", json={"code": "000000"})
+check("pairing with no code going is refused", r.status_code, 403)
+start = mcp.start_pairing()
+check("a code is six digits and says how long it lasts",
+      (len(start["code"]), start["code"].isdigit(), start["expires_in"]), (6, True, 300))
+r = c.post("/api/v1/pair", json={"code": "99" + start["code"][2:]})
+check("a wrong code gives nothing away", (r.status_code, r.get_json()["ok"]), (403, False))
+check("...and burns the code, so guessing is not a game", mcp.pending_code(), None)
+start = mcp.start_pairing()
+r = c.post("/api/v1/pair", json={"code": start["code"]})
+paired = r.get_json()
+check("the right code trades for the token and the addresses",
+      (r.status_code, paired["token"] == mcp.token(), paired["server"]["name"], "/mcp" in paired["mcp_url"]),
+      (200, True, "wealth-dashboard", True))
+r = c.post("/api/v1/pair", json={"code": start["code"]})
+check("...once", r.status_code, 403)
+r = c.get("/settings/assistants")
+check("Settings offers to pair a device", b"Pair a device" in r.data or b"Pair a phone" in r.data, True)
+
+# Upload: the same readers, the same report, behind the same token.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Phone import', 'checking', 'EUR')")
+    ph = conn.execute("SELECT id FROM accounts WHERE name = 'Phone import'").fetchone()["id"]
+r = c.post(f"/api/v1/accounts/{ph}/import",
+           data={"file": (io.BytesIO(fixtures.MT940_KONTOAUSZUG.encode("latin-1")), "auszug.sta")},
+           content_type="multipart/form-data")
+check("an upload wants the token", r.status_code, 401)
+r = c.post(f"/api/v1/accounts/{ph}/import",
+           data={"file": (io.BytesIO(fixtures.MT940_KONTOAUSZUG.encode("latin-1")), "auszug.sta")},
+           content_type="multipart/form-data", headers=HDR)
+body = r.get_json()
+check("...and reads what the page would, with the same report",
+      (r.status_code, body["ok"], body["result"]["inserted"], "MT940" in body["result"]["label"]), (200, True, 4, True))
+r = c.post(f"/api/v1/accounts/{ph}/import",
+           data={"file": (io.BytesIO(b"nothing a reader knows"), "notes.txt")},
+           content_type="multipart/form-data", headers=HDR)
+check("a file no reader knows is 422, not a silent success", (r.status_code, r.get_json()["ok"]), (422, False))
+r = c.post(f"/api/v1/accounts/999999/import",
+           data={"file": (io.BytesIO(b"x"), "x.csv")}, content_type="multipart/form-data", headers=HDR)
+check("an account that does not exist is 404", r.status_code, 404)
+
+# Push to a phone: ntfy speaks prose, not signed JSON.
+sent = []
+def _fake_post(req, timeout=None):
+    sent.append({"url": req.full_url, "body": req.data, "headers": dict(req.headers)})
+    class R:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    return R()
+import urllib.request as _ur                                          # noqa: E402
+_real_urlopen = _ur.urlopen
+_ur.urlopen = _fake_post
+try:
+    webhooks.add("https://ntfy.example/my-topic", ["sync.failed"], kind="ntfy")
+    webhooks.fire("sync.failed", {"account": "CA Devise", "error": "read timeout"}, wait=True)
+finally:
+    _ur.urlopen = _real_urlopen
+ntfy = [x for x in sent if "ntfy.example" in x["url"]]
+check("an ntfy hook gets a line a phone can show, titled and tagged",
+      (len(ntfy), ntfy[0]["body"], ntfy[0]["headers"].get("Title"), ntfy[0]["headers"].get("Priority")),
+      (1, b"CA Devise: read timeout", "Sync failed", "4"))
+check("...and no signature, because there is no JSON to sign",
+      "X-wealth-signature" in {k.lower(): v for k, v in ntfy[0]["headers"].items()}, False)
+
+# ---------------------------------------------------------------------------
 print("\n56. Who spent — the household split")
 # ---------------------------------------------------------------------------
 from app import expenses, categories                                  # noqa: E402

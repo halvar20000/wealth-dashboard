@@ -346,7 +346,33 @@ sentence; a wrong argument a 400.
 Webhooks, under Settings → Assistants: a URL of yours receives a JSON
 POST on `sync.completed`, `sync.failed` and `bill.missed`, with the
 event in `X-Wealth-Event` and an HMAC-SHA256 of the body in
-`X-Wealth-Signature`, keyed with the secret the list shows.
+`X-Wealth-Signature`, keyed with the secret the list shows. A hook set
+to **ntfy** sends a line of prose with a title, a tag and a priority
+instead — which is all [ntfy](https://ntfy.sh) needs to put the message
+on a phone's lock screen, with no Firebase and no account anywhere.
+
+### What an app on a phone uses
+
+Three things beyond the tools, for a client that is not a browser:
+
+```bash
+# one round trip for a home screen or a widget
+curl -H "Authorization: Bearer <token>" "http://<host>:8000/api/v1/tools/snapshot"
+
+# a device trades a six-digit code from Settings for the token
+curl -X POST -H "Content-Type: application/json" -d '{"code":"123456"}' \
+     http://<host>:8000/api/v1/pair
+
+# a statement from the share sheet, the same readers as the import page
+curl -H "Authorization: Bearer <token>" -F "file=@Kontoauszug.pdf" \
+     http://<host>:8000/api/v1/accounts/12/import
+```
+
+`snapshot` carries the net worth and its parts, the return over every
+period, the accounts, what is coming, how many rows wait to be
+categorised or assigned, and whether the syncs are healthy. Pairing
+codes last five minutes and one exchange — a token shown on a screen
+is a token anyone who photographs it owns.
 
 ## Exchange rates
 

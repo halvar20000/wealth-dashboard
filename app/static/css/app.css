@@ -927,3 +927,11 @@ tr.future td { color: var(--text-tertiary); }
 }
 .perf-abs { font-size: 13px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .perf-sub { color: var(--text-tertiary); font-size: 11px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* A pairing code: big enough to read across a desk, and monospaced so
+   a 0 is not an O. */
+.pair-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 34px; font-weight: 800; letter-spacing: 0.22em;
+  margin: 6px 0 2px; color: var(--text-primary);
+}
