@@ -2112,6 +2112,24 @@ def transaction_category(txn_id: int):
     return redirect(request.form.get("back") or url_for("categorize"))
 
 
+def _rule_notes(look: dict, filed: int) -> list[str]:
+    """Why a rule filed fewer rows than its words suggest — said, because
+    a rule that quietly does nothing is worse than one that refuses."""
+    notes = []
+    if not look["matched"]:
+        notes.append(_t("Nothing matches those terms today. Check the spelling against the "
+                        "description as the Transactions page shows it, and remember that the "
+                        "direction, the amount range, the account and the kind all have to fit too."))
+    elif not filed and look["trades"] and not look["explicit"]:
+        notes.append(_f("{n} rows match, and every one of them is a purchase or a sale. A rule does "
+                        "not file trades unless it says which account or which kind it means — pick "
+                        "the account (or the kind) in the rule, and it will.", n=look["matched"]))
+    elif look["trades"] and not look["explicit"]:
+        notes.append(_f("{n} of the matching rows are purchases or sales and were left alone: a rule "
+                        "files trades only when it names an account or a kind.", n=look["trades"]))
+    return notes
+
+
 @app.route("/categorize", methods=["GET", "POST"])
 @auth.login_required
 def categorize():
@@ -2137,10 +2155,13 @@ def categorize():
                      "set_owner": f.get("set_owner")}
             try:
                 if f.get("action") == "add_rule":
+                    look = categories.would_match(f.get("pattern", ""), f.get("category", ""), **terms)
                     n = categories.add_rule(f.get("pattern", ""), f.get("category", ""), **terms)
                     flash(_n(n, "Rule saved — {n} transaction matched “{pattern}”.",
                              "Rule saved — {n} transactions matched “{pattern}”.",
                              pattern=f.get("pattern", "").strip()), "ok")
+                    for note in _rule_notes(look, n):
+                        flash(note, "warn")
                 else:
                     categories.update_rule(int(f.get("rule_id") or 0), f.get("pattern", ""),
                                            f.get("category", ""), **terms)

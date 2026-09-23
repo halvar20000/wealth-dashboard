@@ -7501,6 +7501,42 @@ check("an ntfy hook gets a line a phone can show, titled and tagged",
 check("...and no signature, because there is no JSON to sign",
       "X-wealth-signature" in {k.lower(): v for k, v in ntfy[0]["headers"].items()}, False)
 
+# A rule on a broker account: "Kauf", money out, this account. Those
+# rows are trades, and a rule only files trades when it says which
+# account or which kind it means — otherwise a word like "Kauf", which
+# is in every purchase text, would file a year of them.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('DKB Broker', 'broker', 'EUR')")
+    brk = conn.execute("SELECT id FROM accounts WHERE name = 'DKB Broker'").fetchone()["id"]
+    for i, (day, desc, amt) in enumerate([("2026-03-02", "Kauf Amundi MSCI World", -500.0),
+                                          ("2026-04-02", "Kauf Amundi MSCI World", -500.0)]):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, category, isin, quantity, price, external_id) "
+                     "VALUES (?,?,?,?,'EUR','buy','investment','LU0000000001',5,100,?)", (brk, day, desc, amt, f"rule:buy:{i}"))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, external_id) VALUES (?,?,?,?,?,?,?)",
+                 (brk, "2026-04-03", "Kauf im Hofladen", -12.0, "EUR", "other", "rule:shop"))
+look_ = cat.would_match("Kauf Amundi MSCI World", "shopping", direction="out")
+check("a rule of a word alone sees the trades but would not file them",
+      (look_["matched"], look_["trades"], look_["filed"], look_["explicit"]), (2, 2, 0, False))
+n_ = cat.add_rule("Kauf im Hofladen", "shopping", direction="out")
+with db.get_conn() as conn:
+    kinds_ = {r["external_id"]: r["category"] for r in conn.execute("SELECT external_id, category FROM transactions WHERE external_id LIKE 'rule:%'")}
+check("...so the trades keep theirs and only the shop row is filed",
+      (n_, kinds_["rule:buy:0"], kinds_["rule:shop"]), (1, "investment", "shopping"))
+look2_ = cat.would_match("Kauf Amundi", "investment", direction="out", account_id=brk)
+check("a rule that names the account means the trades too", (look2_["explicit"], look2_["filed"]), (True, 2))
+n2_ = cat.add_rule("Kauf Amundi", "capital_income", direction="out", account_id=brk)
+with db.get_conn() as conn:
+    after_ = {r["external_id"]: r["category"] for r in conn.execute("SELECT external_id, category FROM transactions WHERE external_id LIKE 'rule:%'")}
+check("...and files them", (n2_, after_["rule:buy:0"], after_["rule:buy:1"]), (2, "capital_income", "capital_income"))
+r = c.post("/categorize", data={"action": "add_rule", "pattern": "Kauf Amundi", "category": "shopping", "direction": "out"}, follow_redirects=True)
+check("the page says why a rule of a word alone filed no trade",
+      b"every one of them is a purchase or a sale" in r.data, True)
+with db.get_conn() as conn:
+    for rid in [x["id"] for x in conn.execute("SELECT id FROM category_rules WHERE pattern LIKE 'Kauf%'")]:
+        cat.delete_rule(rid)
+    conn.execute("DELETE FROM transactions WHERE external_id LIKE 'rule:%'")
+    conn.execute("DELETE FROM accounts WHERE id = ?", (brk,))
+
 # The Cash Flow page's window, and what a single big payment does to it.
 from app import cashflow as cf_                                       # noqa: E402
 with db.get_conn() as conn:

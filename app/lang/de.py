@@ -2831,5 +2831,8 @@ STRINGS: dict[str, str] = {
     'over {n} months': 'über {n} Monate',
     '{n} year': '{n} Jahr',
     '{n} years': '{n} Jahre',
+    'Nothing matches those terms today. Check the spelling against the description as the Transactions page shows it, and remember that the direction, the amount range, the account and the kind all have to fit too.': 'Auf diese Bedingungen passt heute nichts. Prüfe die Schreibweise gegen die Beschreibung, wie die Seite Transaktionen sie zeigt, und denk daran: Richtung, Betragsbereich, Konto und Art müssen auch passen.',
+    '{n} rows match, and every one of them is a purchase or a sale. A rule does not file trades unless it says which account or which kind it means — pick the account (or the kind) in the rule, and it will.': '{n} Zeilen passen, und jede davon ist ein Kauf oder Verkauf. Eine Regel ordnet Trades nur zu, wenn sie sagt, welches Konto oder welche Art sie meint — wähl in der Regel das Konto (oder die Art), dann tut sie es.',
+    '{n} of the matching rows are purchases or sales and were left alone: a rule files trades only when it names an account or a kind.': '{n} der passenden Zeilen sind Käufe oder Verkäufe und blieben unangetastet: eine Regel ordnet Trades nur zu, wenn sie ein Konto oder eine Art nennt.',
     'Bank, broker or format': 'Bank, Broker oder Format',
 }

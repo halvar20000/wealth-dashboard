@@ -610,6 +610,22 @@ def set_owner(txn_id: int, owner: str | None) -> str | None:
     return owner
 
 
+def would_match(pattern: str, category: str = "", **terms) -> dict:
+    """What a rule would do, before it is saved: how many rows its
+    terms match at all, and how many of those it would file. The two
+    differ where the matches are trades and the rule does not name an
+    account or a kind — the case that otherwise looks like a rule that
+    silently does nothing."""
+    rule = clean_rule(pattern, category or KEEP, **terms)
+    where, params = _rule_where(rule)
+    with get_conn() as conn:
+        matched = conn.execute(f"SELECT COUNT(*) FROM transactions WHERE {where}", params).fetchone()[0]
+        trades = conn.execute(f"SELECT COUNT(*) FROM transactions WHERE {where} AND kind IN ('buy', 'sell')",
+                              params).fetchone()[0]
+    return {"matched": matched, "trades": trades, "explicit": is_explicit(rule),
+            "filed": matched if (is_explicit(rule) or not rule.get("category")) else matched - trades}
+
+
 def add_rule(pattern: str, category: str, **terms) -> int:
     """Store a rule and apply it to everything already imported.
 
@@ -687,6 +703,14 @@ def _rule_where(rule: dict) -> tuple[str, list]:
     return where, params
 
 
+def is_explicit(rule: dict) -> bool:
+    """A rule that names an account or a kind means the rows it names —
+    trades included. A rule that is only a word does not: "Kauf" is in
+    every purchase text a broker writes, and a rule meant for a shop
+    would otherwise file a year of trades under shopping."""
+    return bool(rule.get("account_id") or rule.get("kind"))
+
+
 def _apply_rule(conn, rule: dict, *, only_uncategorised: bool = False,
                 account_id: int | None = None) -> int:
     """Run one rule. The category is set on rows with none when
@@ -694,7 +718,10 @@ def _apply_rule(conn, rule: dict, *, only_uncategorised: bool = False,
     the other actions — a rename, a kind, a tag — are set on every
     match either way, because they say what the row *is* and cannot
     be undone by leaving them off a re-run. Returns the rows the
-    category touched, which is what the page counts."""
+    category touched, which is what the page counts.
+
+    A trade — a buy or a sale — keeps its category unless the rule
+    names an account or a kind: see is_explicit()."""
     where, params = _rule_where(rule)
     scope = ""
     scope_params: list = []
@@ -702,10 +729,18 @@ def _apply_rule(conn, rule: dict, *, only_uncategorised: bool = False,
         scope = " AND account_id = ?"
         scope_params = [account_id]
     changed = 0
+    explicit = is_explicit(rule)
     if rule.get("category"):
-        sql = f"UPDATE transactions SET category = ? WHERE {where} AND kind NOT IN ('buy', 'sell')"
+        sql = f"UPDATE transactions SET category = ? WHERE {where}"
+        if not explicit:
+            sql += " AND kind NOT IN ('buy', 'sell')"
         if only_uncategorised:
-            sql += " AND (category IS NULL OR category = '')"
+            # A trade that only carries what its kind gave it — the
+            # default "investment" — is not a filing anybody chose, so
+            # a rule that names this account may still speak for it.
+            sql += (" AND (category IS NULL OR category = ''"
+                    + (" OR (kind IN ('buy', 'sell') AND category = 'investment')" if explicit else "")
+                    + ")")
         changed = conn.execute(sql + scope, [rule["category"], *params, *scope_params]).rowcount
     sets, set_params = [], []
     if rule.get("set_counterparty"):

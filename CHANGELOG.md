@@ -11,6 +11,21 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.72.1] — 2026-09-23
+
+### Fixed
+- **A rule that named a broker account filed nothing, and said nothing
+  about it.** A rule never touched a purchase or a sale — a guard
+  against "Kauf", a word in every trade's text, filing a year of them
+  under shopping — but the guard applied even to a rule that plainly
+  meant them: *Kauf · money out · DKB Broker* matched two hundred rows
+  and changed none, reported as "Rule saved — 0 transactions matched".
+  Now a rule that names an account or a kind means the trades too, and
+  may also correct what the kind alone had given them; a rule of a word
+  alone still leaves trades be — and the page says so, with how many
+  rows matched and what to add to the rule so they are filed. A rule
+  whose terms match nothing at all says that instead of nothing.
+
 ## [0.72.0] — 2026-09-22
 
 ### Added
