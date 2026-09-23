@@ -11,7 +11,7 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
-## [0.72.2] — 2026-09-23
+## [0.72.3] — 2026-09-23
 
 ### Fixed
 - **first direct, against a real statement.** A user sent one: three of
