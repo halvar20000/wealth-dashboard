@@ -11,6 +11,22 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.72.2] — 2026-09-23
+
+### Fixed
+- **A scanned first direct statement booked the balance as if it were
+  the money.** OCR gives the words back but not the columns, so
+  "18 May 26 DD B/CARD CASHBACK 262.97 540.39" is one line with two
+  figures and nothing to say which is the payment and which the
+  balance after it. The reader now works it out from the arithmetic
+  instead of the geometry: the sheet states its opening balance, most
+  bookings state the balance after them, and the difference is the
+  booking — sign included, which is also what tells paid in from paid
+  out once the columns are gone. A booking whose balance the paper
+  leaves out is signed by the next balance that follows it. The same
+  reading serves the downloaded PDF, so both go through one path.
+  Reported by nodecentral, from a scan of the real thing.
+
 ## [0.72.1] — 2026-09-23
 
 ### Fixed

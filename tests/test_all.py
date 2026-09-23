@@ -7078,6 +7078,14 @@ check("...the day printed once serves the bookings under it; paid out and paid i
         ("2026-06-02", "withdrawal", -58.93, "GBP", "Auszahlung ALDO LONDON GB"),
         ("2026-06-25", "deposit", 2500.0, "GBP", "Einzahlung SALARY ACME LTD MONTHLY PAY")], []))
 
+scan = fixtures.pdf_from_text(fixtures.FIRSTDIRECT_SCANNED, font="Courier")
+sc = importers.sniff(scan)
+sr = sc.parse(scan) if sc else None
+check("a scanned first direct statement, its columns gone, is read from the running balance",
+      (sc.SLUG if sc else None, [(r.txn_date, r.kind, r.amount) for r in (sr.rows if sr else [])]),
+      ("firstdirect_pdf", [("2026-06-01", "withdrawal", -72.36), ("2026-06-02", "withdrawal", -320.06),
+                           ("2026-06-03", "deposit", 558.85), ("2026-06-25", "deposit", 2500.0)]))
+
 from app.importers.pdf.layout import Table, rows as layout_rows
 card = Table(row=r"^\s*(?P<date>\d{2} [A-Z]{3})\s{2,}", date="%d %b", currency="SGD",
              stmt=r"STATEMENT DATE (?P<date>\d{2} [A-Z][a-z]{2} \d{4})", card=True)

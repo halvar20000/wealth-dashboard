@@ -1370,3 +1370,21 @@ FIRSTDIRECT_STATEMENT = """                                                     
  first direct is a division of HSBC UK Bank plc
 """
 
+# The same statement after a scanner and an OCR: the words are back,
+# the columns are gone. Every line carries its amount and, where the
+# paper printed one, the balance after it — which is what tells paid
+# in from paid out once the columns cannot.
+FIRSTDIRECT_SCANNED = """firstdirect.com 03 456 100 100
+1 June to 30 June 2026
+Your 1st Account details
+Date Payment type and details Paid out Paid in Balance
+31 May 26 Balance brought forward 609.35
+01 Jun 26 VIS SUPERDRY LONDON GB 72.36 536.99
+02 Jun 26 DD OT ENERGY
+320.06
+03 Jun 26 CR DELBOY LLP 558.85 775.78
+25 Jun 26 CR SALARY ACME LTD 2,500.00 3,275.78
+30 Jun 26 Balance carried forward 3,275.78
+first direct is a division of HSBC UK Bank plc
+"""
+
