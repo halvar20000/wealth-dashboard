@@ -11,6 +11,26 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.72.6] — 2026-09-23
+
+### Fixed
+- **Rules with an umlaut in them matched nothing, silently.** SQLite's
+  own `LOWER()` folds ASCII and stops there: `LOWER('KATZ DER BÄCKER')`
+  is `katz der bÄcker`, while the pattern had been lowered properly to
+  `…bäcker` — so the two could never meet. Every rule, every search and
+  every suggestion whose text carried Ä, Ö, Ü, É, ß or any letter above
+  ASCII failed to match, and nothing said so. The connection now brings
+  Python's own casing for `LOWER()` and `UPPER()`, which fixes rules,
+  the transaction search and the phone's search in one place. German
+  and French bank text is most of what this app reads; this was not a
+  corner case.
+
+### Added
+- **Re-apply every rule**, as a button on the categorising page and as
+  the `apply_rules` tool. Rules were only ever re-run when one was
+  added, edited or deleted — after a fix like the one above, there was
+  no way to ask for it.
+
 ## [0.72.5] — 2026-09-23
 
 ### Changed

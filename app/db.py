@@ -910,6 +910,14 @@ def get_conn(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     # that matches a pattern needs one. Case-insensitive, as every other
     # match in this app is.
     conn.create_function("regexp", 2, _regexp)
+    # SQLite's own LOWER() and UPPER() fold ASCII and nothing else, so
+    # LOWER('BÄCKER') is 'bÄcker' — while Python lowers the pattern to
+    # 'bäcker'. Every rule and every search whose text carries Ä, Ö, Ü,
+    # É or any other letter above ASCII therefore matched nothing, in
+    # silence. Python's own casing is put in their place, for every
+    # query in the app at once.
+    conn.create_function("lower", 1, _lower, deterministic=True)
+    conn.create_function("upper", 1, _upper, deterministic=True)
     try:
         yield conn
         conn.commit()
@@ -918,6 +926,15 @@ def get_conn(path: Path | None = None) -> Iterator[sqlite3.Connection]:
         raise
     finally:
         conn.close()
+
+
+def _lower(value):
+    """LOWER() as the rest of the world means it. NULL stays NULL."""
+    return None if value is None else str(value).lower()
+
+
+def _upper(value):
+    return None if value is None else str(value).upper()
 
 
 def _regexp(pattern, value) -> bool:

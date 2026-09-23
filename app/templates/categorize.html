@@ -15,6 +15,10 @@
   <div class="stat-card stat-blue">
     <div class="stat-label">{{ _("Rules") }}</div>
     <div class="stat-value">{{ rules | length }}</div>
+    <form method="post" style="margin:0">
+      <input type="hidden" name="action" value="reapply">
+      <button type="submit" class="secondary" style="margin-top:8px">{{ _("Re-apply every rule") }}</button>
+    </form>
     <div class="stat-sub">{{ _("applied to past and future") }}</div>
   </div>
   <div class="stat-card stat-green">

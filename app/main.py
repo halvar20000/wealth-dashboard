@@ -2141,6 +2141,11 @@ def categorize():
                      "already knew.",
                      "{n} transactions categorised from what the importer "
                      "already knew."), "ok")
+        elif request.form.get("action") == "reapply":
+            changed = categories.apply_all()
+            flash(_n(changed,
+                     "Every rule re-applied: {n} transaction filed.",
+                     "Every rule re-applied: {n} transactions filed."), "ok")
         elif request.form.get("action") == "delete_rule":
             categories.delete_rule(int(request.form["rule_id"]))
             categories.apply_all()

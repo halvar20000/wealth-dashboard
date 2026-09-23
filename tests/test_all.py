@@ -1649,6 +1649,37 @@ with db.get_conn() as conn:
                        "WHERE external_id='rule-test-1'").fetchone()["category"]
 check("...to the row that was already there", got, "shopping")
 
+# A word with an umlaut in it, which SQLite's own LOWER() folds only as
+# far as ASCII: LOWER('BÄCKER') is 'bÄcker', so the rule below matched
+# nothing at all until the connection brought its own casing. German and
+# French text is most of what this app reads, so this is not a corner.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "counterparty, amount, currency, kind, external_id) VALUES "
+                 "(?, '2026-06-02', 'PAIEMENT PAR CARTE X6317 KATZ DER BÄCKER GMBH', "
+                 "'KATZ DER BÄCKER GMBH', -18.8, 'EUR', 'withdrawal', 'rule-umlaut-1')",
+                 (broker_id,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                 "amount, currency, kind, external_id) VALUES "
+                 "(?, '2026-06-02', 'MÜLLER DROGERIEMARKT MÜNCHEN', -9.5, 'EUR', "
+                 "'withdrawal', 'rule-umlaut-2')", (broker_id,))
+check("a rule whose text has an uppercase umlaut matches",
+      cat.add_rule("KATZ DER BÄCKER GMBH", "food") >= 1, True)
+check("...and one typed in lower case matches the shouting bank text",
+      cat.add_rule("müller drogeriemarkt", "shopping") >= 1, True)
+with db.get_conn() as conn:
+    filed = {r["external_id"]: r["category"] for r in conn.execute(
+        "SELECT external_id, category FROM transactions "
+        "WHERE external_id IN ('rule-umlaut-1', 'rule-umlaut-2')")}
+check("...the bakery is filed", filed.get("rule-umlaut-1"), "food")
+check("...the chemist too", filed.get("rule-umlaut-2"), "shopping")
+with db.get_conn() as conn:
+    found = conn.execute("SELECT COUNT(*) n FROM transactions "
+                         "WHERE LOWER(description) LIKE ?", ("%münchen%",)).fetchone()["n"]
+check("searching for an umlaut finds the row that shouts it", found >= 1, True)
+check("re-applying every rule touches the rows and says how many",
+      cat.apply_all() >= 2, True)
+
 try:
     cat.add_rule("ab", "shopping")
     tooshort = False
@@ -4358,6 +4389,8 @@ check("categorise_many does what it can and reports the rest",
 check("add_rule refuses a two-letter pattern", "_error" in call("add_rule", pattern="ab", category="food"), True)
 added = call("add_rule", pattern="Bakery Corner", category="restaurants")
 check("add_rule applies retroactively", added["applied"] >= 2, True)
+reapplied = call("apply_rules")
+check("apply_rules re-runs every rule", reapplied["filed"] >= 1 and reapplied["rules"] >= 1, True)
 rules_ = call("rules")
 check("rules lists what was learned", any(r_["pattern"] == "Bakery Corner" for r_ in rules_), True)
 newest = max(r_["id"] for r_ in rules_ if r_["pattern"] == "Bakery Corner")

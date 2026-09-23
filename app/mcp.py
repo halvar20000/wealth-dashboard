@@ -476,6 +476,13 @@ def _rules():
     return categories.rules()
 
 
+@tool("apply_rules", "Re-run every rule over everything already imported, oldest "
+      "first, so the newest rule wins where two match. Returns how many "
+      "transactions were filed. Use it after a fix that changes what rules match.")
+def _apply_rules():
+    return {"filed": categories.apply_all(), "rules": len(categories.rules())}
+
+
 @tool("set_category",
       "File one transaction under a category. With `remember` (the default) the "
       "app also stores a rule on `pattern` — the counterparty, or the merchant "
