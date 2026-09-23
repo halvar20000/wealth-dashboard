@@ -11,6 +11,17 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.72.5] — 2026-09-23
+
+### Changed
+- The README names the phone app that uses the pairing code and the
+  snapshot it documents: **wealth-dashboard-android** — the figures,
+  the uncategorised queue and *who spent this* as a stack of cards
+  decided with one thumb and flushed when there is a network again, a
+  statement shared in from the bank's app or Paperless, a home-screen
+  widget and a *Sync now* tile. The API section described a client that
+  was not named anywhere.
+
 ## [0.72.4] — 2026-09-23
 
 ### Added

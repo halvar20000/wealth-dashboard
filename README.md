@@ -374,6 +374,14 @@ categorised or assigned, and whether the syncs are healthy. Pairing
 codes last five minutes and one exchange — a token shown on a screen
 is a token anyone who photographs it owns.
 
+There is such an app:
+[**wealth-dashboard-android**](https://github.com/halvar20000/wealth-dashboard-android)
+— the figures and the accounts, the uncategorised queue and *who spent
+this* as a stack of cards decided with one thumb and flushed when there
+is a network again, a statement shared straight in from the bank's app
+or from Paperless, a home-screen widget, and a *Sync now* tile. It
+pairs with the six-digit code above and talks to nothing else.
+
 ## Exchange rates
 
 Amounts in another currency are converted at **ECB euro reference rates** —
