@@ -14,6 +14,18 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 ## [0.72.2] — 2026-09-23
 
 ### Fixed
+- **first direct, against a real statement.** A user sent one: three of
+  its four bookings read, and the fourth — the one whose payee is
+  missing, so its figures sit a little right of their column heads —
+  was taken for a running balance and dropped. The column reader now
+  knows that where a table has a balance column, the *last* figure of a
+  line is it; what is left is money, placed between the money columns
+  alone. A booking that is only its payment type keeps that as its
+  description rather than none.
+
+## [0.72.2] — 2026-09-23
+
+### Fixed
 - **A scanned first direct statement booked the balance as if it were
   the money.** OCR gives the words back but not the columns, so
   "18 May 26 DD B/CARD CASHBACK 262.97 540.39" is one line with two

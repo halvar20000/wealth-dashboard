@@ -1348,6 +1348,27 @@ IBKR_FLEX = """<FlexQueryResponse queryName="Activity" type="AF">
 # day printed once for several bookings, each opening with its payment
 # type, the merchant on the booking's line and the place and the money
 # on the next, and a running balance that is never a booking.
+# The same paper as a real first direct PDF lays it out: a booking whose
+# payee is missing sits alone on its date line, and its figures land a
+# little right of their column heads — the running balance last, which
+# is what places the other one. From a sample sent by a user.
+FIRSTDIRECT_SPARSE = """                                                                                              firstdirect.com
+
+19 January to 18 February 2025                                                                Bank          Identifier Code
+                                                                                              HBUKGB41FDQ
+
+Your         1st Account details
+Date                     Payment  type and details                                                             £ Paid out                       £ Paid in                   £ Balance
+
+18 Jan 25                                                                                                                                                                                                          0.00Balance           brought forward.
+20 Jan 25           CR          K MFHD
+                                JFG                                                                                                               65.00                           65.00
+23 Jan 25           CR                                                                                                                                                  505.00                         620.00CEX
+24 Jan 25           BP          YHRHNFG-JHGJHG
+                                                                                                                  620.00                                                                  0.00
+18 Feb 25                       Balance              carried             forward
+"""
+
 FIRSTDIRECT_STATEMENT = """                                                          firstdirect.com
                                                           03 456 100 100
 

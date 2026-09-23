@@ -113,6 +113,21 @@ def _spans(header_line: str, pattern: str | None) -> list[tuple[int, int]]:
     return [(m.start(), m.end()) for m in re.finditer(pattern, header_line)] if pattern else []
 
 
+def _money(figures: list, has_balance: bool) -> tuple[list, bool]:
+    """(the figures of a line that can be money, whether the running
+    balance was taken off the end).
+
+    Where the table has a balance column, the last figure of a line is
+    it: a statement prints the balance after the amount, and a line
+    whose columns sit a little off their heads — pypdf lays a row with
+    no description out differently — is still unambiguous in that
+    order. Once the balance is accounted for, the figures left are
+    money and are placed between the money columns alone."""
+    if has_balance and len(figures) > 1:
+        return figures[:-1], True
+    return figures, False
+
+
 def _column(m: re.Match, debit: list, credit: list, balance: list = ()) -> str | None:
     """Which column a figure sits under: the label whose right edge is
     nearest the figure's — numbers are right-aligned under their heads.
@@ -148,7 +163,9 @@ def rows(text: str, table: Table, strip_type: str | None = None) -> str:
         if current and current[2] is not None and not skip_re.search(current[1]):
             desc = " ".join(current[1].split())
             if strip_type:
-                desc = re.sub(r"^" + strip_type + r"\s+", "", desc)
+                without_type = re.sub(r"^" + strip_type + r"\b\s*", "", desc)
+                desc = without_type or desc      # a row that is only its type keeps it
+
             if table.strip:
                 desc = " ".join(re.sub(table.strip, " ", desc).split())
             out.append(f"ROW {current[0]} | {desc} | {current[2]:.2f} {table.currency}")
@@ -181,10 +198,11 @@ def rows(text: str, table: Table, strip_type: str | None = None) -> str:
             amount = None
             figures = list(NUMBER.finditer(rest))
             if table.debit or table.credit:
-                for f in figures:
+                money, took_balance = _money(figures, bool(balance))
+                left = [] if took_balance else [(s - m.end(), e - m.end()) for s, e in balance]
+                for f in money:
                     where = _column(f, [(s - m.end(), e - m.end()) for s, e in debit],
-                                    [(s - m.end(), e - m.end()) for s, e in credit],
-                                    [(s - m.end(), e - m.end()) for s, e in balance])
+                                    [(s - m.end(), e - m.end()) for s, e in credit], left)
                     if where:
                         v, _, _ = _value(f)
                         amount = v if where == "credit" else -v
@@ -216,8 +234,9 @@ def rows(text: str, table: Table, strip_type: str | None = None) -> str:
         # column here is this booking's, and the words are its address.
         if current[2] is None and (table.debit or table.credit):
             text_end = len(line)
-            for f in NUMBER.finditer(line):
-                where = _column(f, debit, credit, balance)
+            money, took_balance = _money(list(NUMBER.finditer(line)), bool(balance))
+            for f in money:
+                where = _column(f, debit, credit, () if took_balance else balance)
                 if where:
                     v, _, _ = _value(f)
                     current[2] = v if where == "credit" else -v

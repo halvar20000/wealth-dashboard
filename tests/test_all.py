@@ -7086,6 +7086,12 @@ check("a scanned first direct statement, its columns gone, is read from the runn
       ("firstdirect_pdf", [("2026-06-01", "withdrawal", -72.36), ("2026-06-02", "withdrawal", -320.06),
                            ("2026-06-03", "deposit", 558.85), ("2026-06-25", "deposit", 2500.0)]))
 
+sparse = importers.sniff(fixtures.pdf_from_text(fixtures.FIRSTDIRECT_SPARSE, font="Courier"))
+fd2 = sparse.parse(fixtures.pdf_from_text(fixtures.FIRSTDIRECT_SPARSE, font="Courier"))
+check("a booking whose payee is missing still reads: the running balance is the last figure of the line, which places the other one",
+      ([(r.txn_date, r.kind, r.amount) for r in fd2.rows], fd2.problems),
+      ([("2025-01-20", "deposit", 65.0), ("2025-01-23", "deposit", 505.0), ("2025-01-24", "withdrawal", -620.0)], []))
+
 from app.importers.pdf.layout import Table, rows as layout_rows
 card = Table(row=r"^\s*(?P<date>\d{2} [A-Z]{3})\s{2,}", date="%d %b", currency="SGD",
              stmt=r"STATEMENT DATE (?P<date>\d{2} [A-Z][a-z]{2} \d{4})", card=True)
