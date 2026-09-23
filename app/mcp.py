@@ -591,6 +591,29 @@ def _set_owner(txn_id, owner="", remember=False):
     return {"txn_id": int(txn_id), "owner": owner, "rule": rule}
 
 
+@tool("people", "The household: who the app knows, with the accounts each is on. "
+      "An id from here is what `set_owner` and a rule's `set_owner` take.")
+def _people():
+    from . import people as _p
+    by_account = _p.by_account()
+    out = []
+    for person in _p.all_people():
+        out.append({"id": person["id"], "name": person["name"],
+                    "birthday": person.get("birthday"),
+                    "accounts": [acc for acc, names in by_account.items() if person["name"] in names]})
+    return {"people": out}
+
+
+@tool("unowned_spending", "The queue of spending nobody has claimed yet — the other side "
+      "of `uncategorised`, for the Who spent page. Biggest first.",
+      {"limit": {"type": "integer", "description": "Default 60, at most 500."},
+       "person": PERSON})
+def _unowned(limit=60, person=None):
+    from . import expenses
+    rows, total = expenses.unowned(int(limit or 60), _base(), _scope(person))
+    return {"remaining": total, "transactions": rows}
+
+
 @tool("who_spent", "The household's spending split between its people for a month "
       "(YYYY-MM) or the last N months: each person's own spending, their share of what "
       "was shared, the total; what nobody has claimed yet; per month and per category.",

@@ -11,6 +11,15 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.72.4] — 2026-09-23
+
+### Added
+- Two tools the phone needs for its triage: **`people`** (the
+  household, with the accounts each person is on — an id from here is
+  what `set_owner` takes) and **`unowned_spending`** (the queue of
+  spending nobody has claimed, biggest first, the other side of
+  `uncategorised`).
+
 ## [0.72.3] — 2026-09-23
 
 ### Fixed

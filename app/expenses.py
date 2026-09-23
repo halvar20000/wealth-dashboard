@@ -89,6 +89,31 @@ def _totals(buckets: dict, persons: list[dict]) -> dict:
     return out
 
 
+def unowned(limit: int = 60, base: str = "EUR", account_ids: list[int] | None = None) -> tuple[list[dict], int]:
+    """The spending nobody has claimed, biggest first — the other queue,
+    beside the uncategorised one. Only spending: income and transfers
+    belong to nobody in particular."""
+    spending = set(categories.spending())
+    only, params = people.sql_in(account_ids, "t.account_id")
+    if not spending:
+        return [], 0
+    marks = ",".join("?" * len(spending))
+    where = (f"t.amount < 0 AND t.kind NOT IN ('buy', 'sell', 'transfer') "
+             f"AND t.owner_id IS NULL AND t.owner_shared = 0 "
+             f"AND COALESCE(NULLIF(t.category, ''), 'other') IN ({marks}){only}")
+    args = [*spending, *params]
+    with get_conn() as conn:
+        rows = [dict(r) for r in conn.execute(
+            f"SELECT t.id, t.account_id, a.name AS account_name, t.txn_date, t.description, "
+            f"       t.counterparty, t.amount, t.currency, t.kind, t.category "
+            f"  FROM transactions t JOIN accounts a ON a.id = t.account_id "
+            f" WHERE {where} ORDER BY ABS(t.amount) DESC LIMIT ?", (*args, max(1, min(limit, 500))))]
+        total = conn.execute(f"SELECT COUNT(*) FROM transactions t WHERE {where}", args).fetchone()[0]
+    for r in rows:
+        r["label"] = categories.label(r["category"])
+    return rows, total
+
+
 def split(base: str = "EUR", account_ids: list[int] | None = None,
           month: str | None = None, months: int | None = None) -> dict:
     """The split over one calendar month (`month`, YYYY-MM) or the last

@@ -7615,6 +7615,22 @@ check("...per category, and the month before for comparison",
       ({"food": 120.0, "housing": 60.0, "restaurants": 40.0}, "2026-07", 10.0))
 check("a rule can say whose spending a match is, on rows nobody has claimed",
       (categories.add_rule("row 3", categories.KEEP, set_owner=str(pb_)), expenses.split("EUR", None, month="2026-08")["totals"]["unassigned"]), (0, 0.0))
+tok_q = mcp.new_token(); HDRQ = {"Authorization": f"Bearer {tok_q}"}
+def _tool(name, **args):
+    rr = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                              "params": {"name": name, "arguments": args}}, headers=HDRQ)
+    return (rr.get_json().get("result") or {}).get("structuredContent")
+who = _tool("people")
+check("the MCP names the household, for the phone's 'whose spending' queue",
+      sorted(p_["name"] for p_ in who["people"]), ["Ana", "Ben"])
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, category, external_id) VALUES (?,?,?,?,?,?,?,?)",
+                 (sp, "2026-08-22", "nobody's yet", -77.0, "EUR", "other", "food", "split:unowned"))
+queue_ = _tool("unowned_spending", limit=10)
+check("...and hands out the spending nobody has claimed, biggest first",
+      (queue_["remaining"], [round(t["amount"], 2) for t in queue_["transactions"]]), (1, [-77.0]))
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM transactions WHERE external_id = 'split:unowned'")
 r = c.get("/expenses?month=2026-08")
 check("the Who spent page renders with the people and the picker", (r.status_code, b"Ana" in r.data and b"Ben" in r.data and b"chart-owners" in r.data), (200, True))
 r = c.get("/transactions?unowned=1")
