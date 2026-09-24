@@ -11,6 +11,21 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.73.0] — 2026-09-24
+
+### Added
+- **`cashflow`** on the API: income, spending and investment per
+  calendar month, the categories behind them and the average per month
+  — the figures the Cash Flow page has always drawn, now reachable by a
+  phone. Every currency is counted at the ECB rate of its month, and
+  what no rate covered is reported rather than dropped.
+- **`refresh_market`**: quote every holding again and refetch the
+  exchange rates, without touching a bank. Seconds rather than minutes,
+  and the answer carries the fresh net worth — what a phone wants when
+  somebody opens it to see whether the markets moved, which is not the
+  same thing as a full sync. A rate server that is down is reported
+  beside the prices instead of failing the call.
+
 ## [0.72.9] — 2026-09-24
 
 ### Changed

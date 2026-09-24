@@ -4391,6 +4391,16 @@ added = call("add_rule", pattern="Bakery Corner", category="restaurants")
 check("add_rule applies retroactively", added["applied"] >= 2, True)
 reapplied = call("apply_rules")
 check("apply_rules re-runs every rule", reapplied["filed"] >= 1 and reapplied["rules"] >= 1, True)
+
+flow = call("cashflow", months=6)
+check("the cashflow tool answers with months, the categories behind them and an average",
+      (isinstance(flow.get("months"), list), "by_category" in flow,
+       "average_spending" in flow, flow.get("base_currency")),
+      (True, True, True, "EUR"))
+check("...and it counts at most five years back, never fewer than two months",
+      (len(call("cashflow", months=999)["months"]) <= 60,
+       len(call("cashflow", months=0)["months"]) >= 1),
+      (True, True))
 rules_ = call("rules")
 check("rules lists what was learned", any(r_["pattern"] == "Bakery Corner" for r_ in rules_), True)
 newest = max(r_["id"] for r_ in rules_ if r_["pattern"] == "Bakery Corner")
@@ -4454,6 +4464,21 @@ finally:
     banksync.sync_all = _real_sync_all
 check("sync_banks runs the sync and returns its report", synced[0]["inserted"], 3)
 check("refresh_prices prices the holdings", call("refresh_prices")["priced"] >= 1, True)
+# The phone's cheap refresh: quotes and rates, no bank touched. A rate
+# server that is down must not fail the call — the prices are the point.
+from app import fx as _fx                                              # noqa: E402
+_real_fx_refresh = _fx.refresh
+_fx.refresh = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("ECB is down"))
+try:
+    market = call("refresh_market")
+finally:
+    _fx.refresh = _real_fx_refresh
+check("refresh_market quotes the holdings and answers with the fresh net worth",
+      (market["prices"]["priced"] >= 1, "net_worth" in market["net_worth"]), (True, True))
+check("...and a rate server that is down is reported, not raised",
+      "error" in market.get("rates", {}), True)
+check("...while `rates: false` does not ask for rates at all",
+      "rates" in call("refresh_market", rates=False), False)
 _real_start = screener_jobs.start_background
 screener_jobs.start_background = lambda force=False, log=print: True     # never Yahoo from a test
 try:

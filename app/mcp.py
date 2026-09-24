@@ -898,6 +898,41 @@ def _sync():
     return banksync.sync_all()
 
 
+@tool("cashflow",
+      "Income, spending and investment per calendar month, with the categories "
+      "behind them and the average per month. Every currency is counted, "
+      "converted at the ECB rate of its month; what no rate covered is reported "
+      "rather than dropped. Transfers between your own accounts are not a flow "
+      "and are left out.",
+      {"months": {"type": "integer", "description": "How many calendar months "
+                  "back, including this one. Default 13, at most 60."},
+       "person": PERSON})
+def _cashflow(months=13, person=None):
+    from . import cashflow
+    return cashflow.monthly(max(2, min(int(months or 13), 60)), _base(), _scope(person))
+
+
+@tool("refresh_market",
+      "Bring the figures up to date without touching the banks: every holding "
+      "is quoted again and the ECB rates are refetched. This is the cheap "
+      "refresh — seconds, not minutes, and no bank sees a request. Use "
+      "`sync_banks` for balances and new transactions.",
+      {"rates": {"type": "boolean", "description": "Also refetch the exchange "
+                 "rates. Default true."}})
+def _refresh_market(rates=True):
+    out = {"prices": prices.refresh(_base())}
+    if rates is None or rates:
+        from . import fx
+        try:
+            out["rates"] = fx.refresh()
+        except Exception as exc:                 # a rate server down is not a failure
+            out["rates"] = {"error": str(exc)}
+    s = overview.summary(_base())
+    out["net_worth"] = {k: s[k] for k in ("base_currency", "net_worth", "cash",
+                                          "securities", "fx_as_of", "prices_as_of")}
+    return out
+
+
 @tool("refresh_prices", "Fetch the market price of every holding, now.")
 def _refresh_prices():
     return prices.refresh(_base())
