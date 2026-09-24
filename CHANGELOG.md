@@ -11,6 +11,14 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.72.9] — 2026-09-24
+
+### Changed
+- The phone apps' privacy page says why it lives here — because a store
+  dislikes a policy URL that moves, not because the apps' repository is
+  closed. It is open: <https://github.com/halvar20000/wealth-dashboard-mobile>,
+  an Android and an iOS client built to one written contract.
+
 ## [0.72.8] — 2026-09-24
 
 ### Added

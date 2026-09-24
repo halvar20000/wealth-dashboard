@@ -53,6 +53,8 @@ The app is not directed at children and collects nothing from anybody.
 
 Issues and questions: <https://github.com/halvar20000/wealth-dashboard/issues>
 
-*This is the copy Google Play and the App Store link to. It is kept in
-the dashboard's repository because that one is public; the apps' own
-repository is not.*
+*This is the copy Google Play and the App Store link to. It is kept
+here, beside the dashboard the apps talk to, because a store dislikes a
+policy URL that moves — the apps' own repository is
+[wealth-dashboard-mobile](https://github.com/halvar20000/wealth-dashboard-mobile),
+where the same text lives as `android/PRIVACY.md`.*
