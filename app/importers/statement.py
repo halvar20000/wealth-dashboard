@@ -468,6 +468,14 @@ class Reader:
 
     @staticmethod
     def _description(d: Doc, kind: str, name: str | None, isin: str | None) -> str:
+        if d.kind == "rows" and name:
+            # A bank statement's row carries the bank's own words, and
+            # they are the description — "TESCO STORES 3297" says what
+            # happened. A word of ours in front of them is noise, and
+            # on an English, French or Malay statement it is noise in
+            # the wrong language: these lines used to come out as
+            # "Auszahlung TESCO STORES 3297".
+            return name[:500]
         word = {"buy": "Kauf", "sell": "Verkauf", "dividend": "Dividende", "interest": "Zinsen",
                 "tax": "Steuer", "fee": "Gebühr", "deposit": "Einzahlung", "withdrawal": "Auszahlung",
                 "transfer": "Übertrag"}.get(kind, kind)

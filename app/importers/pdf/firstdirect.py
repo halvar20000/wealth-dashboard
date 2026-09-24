@@ -27,8 +27,11 @@ ACCOUNT = Table(
     date="%d %b %y", currency="GBP",
     header=r"Paid out.*Paid in|Payment type and details",
     debit=r"(?:£ )?Paid out", credit=r"(?:£ )?Paid in", balance=r"(?:£ )?Balance",
-    stop=r"^\s*(?:Total|End of statement)",
-    skip=r"(?i)balance (?:brought|carried) forward|opening balance|closing balance",
+    stop=r"(?i)^\s*(?:Total|End of statement|Interest Rates|AER\b|Your interest rates)",
+    # The rates table prints figures too — a limit, a per-cent, an AER.
+    # None of them is a booking, wherever on the line they sit.
+    skip=r"(?i)balance (?:brought|carried) forward|opening balance|closing balance|"
+         r"%|\bAER\b|\bEAR\b|interest rate|overdraft limit|credit interest",
 )
 
 # ─── The same statement, scanned ─────────────────────────────────────
@@ -45,6 +48,14 @@ MONEY = r"-?\d[\d,]*\.\d{2}"
 _LINE = re.compile(r"^\s*(?P<date>\d{2} [A-Za-z]{3} \d{2})?\s*(?P<body>.*?)\s+"
                    r"(?P<figures>" + MONEY + r"(?:\s+" + MONEY + r")?)\s*$")
 _OPENING = re.compile(r"(?i)balance (?:brought forward|b/f)\D*(" + MONEY + r")")
+# After the bookings, the sheet prints its rates: AER, EAR, the £250
+# that costs nothing. Those lines carry figures and words and would
+# otherwise be read as bookings — one user got an "over 250" payment
+# and a "Credit interest is not paid" one out of them. The table ends
+# where the balance is carried forward; anything with a per-cent sign
+# in it was never a booking anyway.
+_RATES = re.compile(r"(?i)\bAER\b|\bEAR\b|interest rate|overdraft (?:rate|limit)|"
+                    r"arranged overdraft|formal overdraft|representative")
 
 
 def _money(raw: str) -> float:
@@ -75,7 +86,16 @@ def by_balance(text: str) -> str:
         if re.search(r"(?i)balance (?:brought forward|b/f)", line):
             started, label = True, []
             continue
-        if not started or not line or re.search(r"(?i)balance (?:carried forward|c/f)", line):
+        if re.search(r"(?i)balance (?:carried forward|c/f)", line):
+            # The end of this page's table. The next page says "brought
+            # forward" and turns it on again; what follows the last one
+            # is the rates, not the money.
+            started, label = False, []
+            continue
+        if not started or not line:
+            continue
+        if "%" in line or _RATES.search(line):
+            label = []
             continue
         day = re.match(r"^(\d{2} [A-Za-z]{3} \d{2})\s*", line)
         if day:

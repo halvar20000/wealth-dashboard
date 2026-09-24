@@ -11,6 +11,29 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.72.7] — 2026-09-24
+
+### Fixed
+- **A bank statement's rows kept a German word nobody asked for.** The
+  spec engine built every description as *the German word for the kind*
+  plus the text — which reads well on the Swiss and German broker
+  statements it was written for ("Kauf ISHARES…") and badly on a
+  British current account, where "VIS SUPERDRY LONDON GB" came out as
+  "Auszahlung SUPERDRY LONDON GB". A statement row now carries the
+  bank's own words and nothing else. This is every column-read
+  statement — first direct, HSBC, DBS, OCBC, UOB, Amex, ZKB and the
+  rest — and it applies to what is imported from now on; rows already
+  in the ledger keep the text they were given.
+- **first direct: the rates table under the bookings was read as
+  money.** The reader ran past "balance carried forward" and into the
+  sheet's small print, where an "Arranged Overdraft Limit 250.00" and
+  an "over 250 39.90%" look enough like figures to be taken for
+  payments — a user reported both as phantom entries. The run now ends
+  at the carried-forward line (the next page's brought-forward starts
+  it again), a line with a per-cent sign in it is never a booking, and
+  AER, EAR, "interest rate" and "overdraft limit" end the table in the
+  column reader too.
+
 ## [0.72.6] — 2026-09-23
 
 ### Fixed

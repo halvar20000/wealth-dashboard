@@ -7084,8 +7084,8 @@ check("...read by the column a figure sits in: deposits positive, withdrawals ne
       ([(r.txn_date, r.kind, r.amount, r.currency) for r in lr.rows], lr.problems),
       ([("2026-01-05", "deposit", 3100.0, "SGD"), ("2026-01-12", "withdrawal", -200.0, "SGD"),
         ("2025-12-28", "fee", -5.0, "SGD"), ("2026-01-31", "interest", 2.15, "SGD")], []))
-check("...a booking's second line joins its description; the balance lines are not rows",
-      (lr.rows[0].description, len(lr.rows)), ("Einzahlung Salary Credit GIRO SALARY REF SLR1234", 4))
+check("...a booking's second line joins its description, in the bank's own words and no word of ours; the balance lines are not rows",
+      (lr.rows[0].description, len(lr.rows)), ("Salary Credit GIRO SALARY REF SLR1234", 4))
 from app.importers import ocr as ocr_mod                              # noqa: E402
 blank = fixtures.pdf_from_text("\n" * 3)
 check("a PDF with no text in it is a scan, whatever bank it is from",
@@ -7106,10 +7106,10 @@ check("a first direct statement is handed to its reader", mod.SLUG if mod else N
 fd = mod.parse(pdf)
 check("...the day printed once serves the bookings under it; paid out and paid in by their column; the balance is not a booking; the payment type is not the description",
       ([(r.txn_date, r.kind, r.amount, r.currency, r.description) for r in fd.rows], fd.problems),
-      ([("2026-06-01", "withdrawal", -72.36, "GBP", "Auszahlung SUPERDRY LONDON GB"),
-        ("2026-06-02", "withdrawal", -30.84, "GBP", "Auszahlung OLE&STEEN LONDON GB"),
-        ("2026-06-02", "withdrawal", -58.93, "GBP", "Auszahlung ALDO LONDON GB"),
-        ("2026-06-25", "deposit", 2500.0, "GBP", "Einzahlung SALARY ACME LTD MONTHLY PAY")], []))
+      ([("2026-06-01", "withdrawal", -72.36, "GBP", "SUPERDRY LONDON GB"),
+        ("2026-06-02", "withdrawal", -30.84, "GBP", "OLE&STEEN LONDON GB"),
+        ("2026-06-02", "withdrawal", -58.93, "GBP", "ALDO LONDON GB"),
+        ("2026-06-25", "deposit", 2500.0, "GBP", "SALARY ACME LTD MONTHLY PAY")], []))
 
 scan = fixtures.pdf_from_text(fixtures.FIRSTDIRECT_SCANNED, font="Courier")
 sc = importers.sniff(scan)
@@ -7118,6 +7118,13 @@ check("a scanned first direct statement, its columns gone, is read from the runn
       (sc.SLUG if sc else None, [(r.txn_date, r.kind, r.amount) for r in (sr.rows if sr else [])]),
       ("firstdirect_pdf", [("2026-06-01", "withdrawal", -72.36), ("2026-06-02", "withdrawal", -320.06),
                            ("2026-06-03", "deposit", 558.85), ("2026-06-25", "deposit", 2500.0)]))
+
+rates = fixtures.pdf_from_text(fixtures.FIRSTDIRECT_RATES, font="Courier")
+rt = importers.sniff(rates)
+rr = rt.parse(rates) if rt else None
+check("the rates table under the bookings is not money: the overdraft limit, the AER and the per-cent stay out",
+      [(r.txn_date, r.amount, r.description) for r in (rr.rows if rr else [])],
+      [("2026-06-01", -72.36, "SUPERDRY LONDON GB"), ("2026-06-25", 2500.0, "SALARY ACME LTD")])
 
 sparse = importers.sniff(fixtures.pdf_from_text(fixtures.FIRSTDIRECT_SPARSE, font="Courier"))
 fd2 = sparse.parse(fixtures.pdf_from_text(fixtures.FIRSTDIRECT_SPARSE, font="Courier"))
