@@ -11,6 +11,21 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.72.8] — 2026-09-24
+
+### Added
+- **`docs/PRIVACY-mobile.md`** — what the phone apps hold and send,
+  which is the page Google Play and the App Store want a public link
+  to. The apps' own repository is private, so the link in the store
+  listing pointed at a page nobody outside could open; the policy lives
+  here, where the licence and the rest of the documentation already do.
+
+### Changed
+- The README names the phone repository by its new name,
+  **wealth-dashboard-mobile** — it now holds an Android and an iOS
+  client side by side, built to one written contract so that the two
+  stay at feature parity.
+
 ## [0.72.7] — 2026-09-24
 
 ### Fixed
