@@ -162,12 +162,19 @@ class Client:
     def correspondents(self) -> list[dict]:
         return self._all("/api/correspondents/", {"ordering": "name"})
 
+    def document_types(self) -> list[dict]:
+        return self._all("/api/document_types/", {"ordering": "name"})
+
     def documents(self, filt: dict) -> list[dict]:
         """The documents a filter matches, newest first.
 
-        Tags and a correspondent are given by name and resolved to ids
-        here, because names are what a person types and ids are what
-        Paperless filters by; every named tag must be on the document.
+        Tags, a correspondent and a document type are given by name and
+        resolved to ids here, because names are what a person types and
+        ids are what Paperless filters by. Everything named has to hold
+        at once — every tag on the document, and that correspondent, and
+        that type — which is what makes the pull surgical: "ISA" and
+        "Active" and "Statement", from first direct, of type Financial,
+        and nothing else in the archive.
         """
         params: dict = {"ordering": "-created",
                         "fields": "id,title,created,original_file_name,archived_file_name"}
@@ -184,6 +191,12 @@ class Client:
             if not match:
                 raise ArchiveError(f"No such correspondent in the archive: {filt['correspondent']}")
             params["correspondent__id"] = match[0]["id"]
+        if (filt.get("document_type") or "").strip():
+            want = filt["document_type"].strip().lower()
+            match = [t for t in self.document_types() if t["name"].lower() == want]
+            if not match:
+                raise ArchiveError(f"No such document type in the archive: {filt['document_type']}")
+            params["document_type__id"] = match[0]["id"]
         if (filt.get("query") or "").strip():
             params["query"] = filt["query"].strip()
         return self._all("/api/documents/", params)
@@ -237,17 +250,20 @@ def filter_for(account_id: int) -> dict | None:
     return dict(r) if r else None
 
 
-def set_filter(account_id: int, tags: str, correspondent: str, query: str) -> None:
-    """What the account pulls. All three blank means: nothing, and the
+def set_filter(account_id: int, tags: str, correspondent: str, query: str,
+               document_type: str = "") -> None:
+    """What the account pulls. All of them blank means: nothing, and the
     row goes — an account with no filter is an account the pull skips."""
     tags = ", ".join(t.strip() for t in (tags or "").split(",") if t.strip())[:200]
     correspondent = " ".join((correspondent or "").split())[:120]
+    document_type = " ".join((document_type or "").split())[:120]
     query = " ".join((query or "").split())[:200]
     with get_conn() as conn:
         conn.execute("DELETE FROM archive_filters WHERE account_id = ?", (account_id,))
-        if tags or correspondent or query:
-            conn.execute("INSERT INTO archive_filters (account_id, tags, correspondent, query) "
-                         "VALUES (?, ?, ?, ?)", (account_id, tags, correspondent, query))
+        if tags or correspondent or query or document_type:
+            conn.execute("INSERT INTO archive_filters (account_id, tags, correspondent, "
+                         "document_type, query) VALUES (?, ?, ?, ?, ?)",
+                         (account_id, tags, correspondent, document_type, query))
 
 
 # ─── The pull ────────────────────────────────────────────────────────

@@ -374,7 +374,7 @@
     <h2>{{ _("Document archive") }}</h2>
     <span class="card-subtitle">{% if archive_state.configured %}Paperless-ngx · {{ archive_state.url }}{% else %}{{ _("not set up") }}{% endif %}</span>
   </div>
-  <p class="sub">{{ _("If your statements live in Paperless-ngx, the app can pull them itself. Give it the archive's address and an API token (Paperless → My Profile → the circular arrow makes one), then say on each account's edit page which documents are its — by tag, correspondent or query. Every new document is fetched on the daily sync and run through the same readers an upload gets; each one is remembered, so nothing comes in twice. The archive is read, never written.") }}
+  <p class="sub">{{ _("If your statements live in Paperless-ngx, the app can pull them itself. Give it the archive's address and an API token (Paperless → My Profile → the circular arrow makes one), then say on each account's edit page which documents are its — by tags, correspondent, document type or query, which hold together so the pull can be surgical. Every new document is fetched on the daily sync and run through the same readers an upload gets; each one is remembered, so nothing comes in twice. The archive is read, never written.") }}
   {{ _("The pull is generic, the reading is not: a document becomes transactions only when there is a reader for its layout. One no reader understood is listed below with a link back, not skipped in silence.") }}</p>
   <form method="post" class="form">
     <input type="hidden" name="form" value="archive_save">
@@ -403,7 +403,7 @@
       {% for f in archive_state.filters %}
         <tr>
           <td><a href="{{ url_for('account_edit', account_id=f.account_id) }}">{{ f.account }}</a></td>
-          <td class="sub">{% if f.tags %}{{ _("tags") }} {{ f.tags }}{% endif %}{% if f.correspondent %} · {{ _("from") }} {{ f.correspondent }}{% endif %}{% if f.query %} · “{{ f.query }}”{% endif %}</td>
+          <td class="sub">{% if f.tags %}{{ _("tags") }} {{ f.tags }}{% endif %}{% if f.correspondent %} · {{ _("from") }} {{ f.correspondent }}{% endif %}{% if f.document_type %} · {{ _("type") }} {{ f.document_type }}{% endif %}{% if f.query %} · “{{ f.query }}”{% endif %}</td>
           <td class="num">{{ f.imported or 0 }}</td><td class="num">{{ f.unread or 0 }}</td><td class="num">{{ f.failed or 0 }}</td>
         </tr>
       {% endfor %}

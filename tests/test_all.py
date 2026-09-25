@@ -6797,12 +6797,16 @@ import urllib.parse as _up                                            # noqa: E4
 BLANK_PDF = fixtures.pdf_from_text("")
 ARCHIVE_DOCS = {
     11: {"title": "DKB Kauf", "created": "2026-03-12", "tags": ["bank", "depot"],
+         "correspondent": 7, "document_type": 5,
          "file": ("kauf.pdf", fixtures.pdf_from_text(fixtures.DKB_PDF_KAUF.replace("611223/44.00", "999001/11.00"))), "content": "some ocr"},
     12: {"title": "DKB Verkauf (scan)", "created": "2026-04-20", "tags": ["bank", "depot"],
+         "correspondent": 7, "document_type": 5,
          "file": ("scan.pdf", BLANK_PDF), "content": fixtures.DKB_PDF_VERKAUF.replace("622334/55.00", "999002/22.00")},
     13: {"title": "Letter", "created": "2026-05-01", "tags": ["bank", "depot"],
+         "correspondent": 7, "document_type": 6,
          "file": ("letter.pdf", fixtures.pdf_from_text("Dear customer, hello.")), "content": "Dear customer"},
     14: {"title": "Own CSV", "created": "2026-06-01", "tags": ["bank", "giro"],
+         "correspondent": 7, "document_type": 5,
          "file": ("mine.csv", b"date,amount,description,id\n2026-06-01,-42.00,Groceries,g-1\n"), "content": ""},
 }
 ARCHIVE_TAGS = {1: "bank", 2: "depot", 3: "giro"}
@@ -6819,10 +6823,17 @@ def fake_archive(method, full, headers, body, token="tok-1"):
         return js({"count": 3, "next": None, "results": [{"id": i, "name": n} for i, n in ARCHIVE_TAGS.items()]})
     if u.path == "/api/correspondents/":
         return js({"count": 1, "next": None, "results": [{"id": 7, "name": "DKB"}]})
+    if u.path == "/api/document_types/":
+        return js({"count": 2, "next": None,
+                   "results": [{"id": 5, "name": "Financial"}, {"id": 6, "name": "Letter"}]})
     if u.path == "/api/documents/":
         want = {int(i) for i in q.get("tags__id__all", [""])[0].split(",") if i}
+        who = q.get("correspondent__id", [None])[0]
+        typ = q.get("document_type__id", [None])[0]
         rows = [{"id": i, "title": d["title"], "created": d["created"]} for i, d in ARCHIVE_DOCS.items()
-                if all(ARCHIVE_TAGS[t] in d["tags"] for t in want)]
+                if all(ARCHIVE_TAGS[t] in d["tags"] for t in want)
+                and (who is None or d.get("correspondent") == int(who))
+                and (typ is None or d.get("document_type") == int(typ))]
         return js({"count": len(rows), "next": None, "results": rows})
     m = re.match(r"^/api/documents/(\d+)/(download/)?$", u.path)
     if m:
@@ -6895,6 +6906,20 @@ check("a pull 'again' runs every document through the readers once more, and boo
 check("retrying forgets the unread ones only", archive.retry_unread(), 1)
 check("...so the next pull tries the letter again, and only it",
       {r["account"]: r["new"] for r in archive.pull(transport=fake_archive)}, {"Archive depot": 1, "Archive giro": 0})
+
+# Tags and a correspondent and a type, all at once — the archive of
+# somebody who files by all three and wants only what belongs to this
+# account out of it.
+archive.set_filter(dep, "bank, depot", "DKB", "", "Financial")
+archive.retry_unread()
+surgical = {r["account"]: r for r in archive.pull(transport=fake_archive, again=True)}
+check("tags and a correspondent and a document type hold together: the letter is left in the archive",
+      surgical["Archive depot"]["listed"], 2)
+archive.set_filter(dep, "bank, depot", "", "", "Nosuchtype")
+missing_type = {r["account"]: r for r in archive.pull(transport=fake_archive, again=True)}
+check("...and a type the archive does not have fails that account and names it",
+      "Nosuchtype" in (missing_type["Archive depot"]["error"] or ""), True)
+archive.set_filter(dep, "bank, depot", "", "")
 
 archive.set_filter(gir, "bank, nosuchtag", "", "")
 bad_tag = {r["account"]: r for r in archive.pull(transport=fake_archive)}

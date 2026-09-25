@@ -231,6 +231,7 @@ CREATE TABLE IF NOT EXISTS archive_filters (
     account_id    INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
     tags          TEXT NOT NULL DEFAULT '',
     correspondent TEXT NOT NULL DEFAULT '',
+    document_type TEXT NOT NULL DEFAULT '',
     query         TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS archive_documents (
@@ -871,6 +872,7 @@ _ADDED_COLUMNS = {
     "goals": [
         ("kind", "TEXT NOT NULL DEFAULT 'saving'"),
     ],
+    "archive_filters": [("document_type", "TEXT NOT NULL DEFAULT ''")],
     "transactions": [
         ("import_id", "INTEGER"),
         # Tags: any number of words on a row, beside the one category.

@@ -11,6 +11,18 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.74.2] — 2026-09-25
+
+### Added
+- **The archive pull takes a document type.** A tag, several tags and a
+  correspondent were already there and already held together; the third
+  thing people file by was missing. An account can now say *ISA* **and**
+  *Active* **and** *Statement*, from **first direct**, of type
+  **Financial** — and gets that and nothing else out of an archive of
+  thousands. A type the archive does not have fails that account by
+  name, like a missing tag does, rather than quietly pulling everything.
+  Asked for in Discussions #2.
+
 ## [0.74.1] — 2026-09-25
 
 ### Added

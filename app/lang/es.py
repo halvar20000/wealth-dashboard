@@ -180,7 +180,6 @@ STRINGS: dict[str, str] = {
     'Pull from Paperless': 'Traer de Paperless',
     "Say on the edit page which Paperless documents belong to this account first": 'Di primero en la página de edición qué documentos de Paperless son de esta cuenta',
     'No archive is set up — Settings → Banks → Paperless-ngx.': 'No hay archivo configurado — Ajustes → Bancos → Paperless-ngx.',
-    'This account does not say which documents are its yet — set the tag, correspondent or query on its edit page.': 'Esta cuenta aún no dice qué documentos son suyos — pon la etiqueta, el corresponsal o la consulta en su página de edición.',
     "Edit or delete": "Editar o eliminar",
     "Recent transactions": "Transacciones recientes",
     "No transactions yet.": "Todavía no hay transacciones.",
@@ -541,6 +540,10 @@ STRINGS: dict[str, str] = {
     "Kept as a subscription.": "Guardada como suscripción.",
     "Dismissed — it stays out of the totals.": "Descartada: queda fuera de los totales.",
     "Put back among the detected.": "Devuelta a las detectadas.",
+    "Document type": "Tipo de documento",
+    "type": "tipo",
+    "A document is pulled into this account when it matches all of these at once: every tag named, that correspondent, that type. Leave them all blank and this account pulls nothing.": "Un documento entra en esta cuenta cuando cumple todo a la vez: cada etiqueta nombrada, ese corresponsal, ese tipo. Si lo deja todo vacío, esta cuenta no trae nada.",
+    "This account does not say which documents are its yet — set the tags, correspondent, type or query on its edit page.": "Esta cuenta aún no dice qué documentos son suyos: indique etiquetas, corresponsal, tipo o consulta en su página de edición.",
     "applied to past and future": "se aplican al pasado y al futuro",
     "Quick start": "Empezar rápido",
     "Categorise what is obvious": "Categorizar lo evidente",
@@ -2565,13 +2568,11 @@ STRINGS: dict[str, str] = {
         "Archivo de documentos",
     "Documents from the archive":
         "Documentos del archivo",
-    "Every document matching all of these is pulled into this account on the daily sync. Leave all three blank and this account pulls nothing.":
-        "Cada documento que cumple todo esto se trae a esta cuenta en la sincronización diaria. Con los tres vacíos, esta cuenta no trae nada.",
     "Failed":
         "Fallido",
     "Forget the archive":
         "Olvidar el archivo",
-    "If your statements live in Paperless-ngx, the app can pull them itself. Give it the archive's address and an API token (Paperless → My Profile → the circular arrow makes one), then say on each account's edit page which documents are its — by tag, correspondent or query. Every new document is fetched on the daily sync and run through the same readers an upload gets; each one is remembered, so nothing comes in twice. The archive is read, never written.":
+    "If your statements live in Paperless-ngx, the app can pull them itself. Give it the archive's address and an API token (Paperless → My Profile → the circular arrow makes one), then say on each account's edit page which documents are its — by tags, correspondent, document type or query, which hold together so the pull can be surgical. Every new document is fetched on the daily sync and run through the same readers an upload gets; each one is remembered, so nothing comes in twice. The archive is read, never written.":
         "Si tus extractos viven en Paperless-ngx, la app puede traerlos sola. Dale la dirección del archivo y un token de API (Paperless → Mi perfil → la flecha circular crea uno) y luego di en la página de edición de cada cuenta qué documentos son suyos — por etiqueta, remitente o búsqueda. Cada documento nuevo se trae en la sincronización diaria y pasa por los mismos lectores que una subida; cada uno se recuerda, así que nada llega dos veces. El archivo se lee, nunca se escribe.",
     "Last pull {when}.":
         "Última recogida {when}.",

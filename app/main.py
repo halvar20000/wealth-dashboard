@@ -546,7 +546,8 @@ def account_edit(account_id: int):
             if archive.configured():
                 archive.set_filter(account_id, request.form.get("archive_tags", ""),
                                    request.form.get("archive_correspondent", ""),
-                                   request.form.get("archive_query", ""))
+                                   request.form.get("archive_query", ""),
+                                   request.form.get("archive_document_type", ""))
             flash(_t("Account updated."), "ok")
             return redirect(url_for("account_detail", account_id=account_id))
 
@@ -1084,7 +1085,7 @@ def account_archive_pull(account_id: int):
         flash(_t("No archive is set up — Settings → Banks → Paperless-ngx."), "error")
         return redirect(url_for("account_detail", account_id=account_id))
     if not archive.filter_for(account_id):
-        flash(_t("This account does not say which documents are its yet — set the tag, correspondent or query on its edit page."), "error")
+        flash(_t("This account does not say which documents are its yet — set the tags, correspondent, type or query on its edit page."), "error")
         return redirect(url_for("account_edit", account_id=account_id))
     try:
         _flash_archive(archive.pull(account_id, again=bool(request.form.get("again"))))

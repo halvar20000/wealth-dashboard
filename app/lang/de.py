@@ -177,7 +177,6 @@ STRINGS: dict[str, str] = {
     'Pull from Paperless': 'Aus Paperless holen',
     "Say on the edit page which Paperless documents belong to this account first": 'Sag zuerst auf der Bearbeiten-Seite, welche Paperless-Dokumente zu diesem Konto gehören',
     'No archive is set up — Settings → Banks → Paperless-ngx.': 'Kein Archiv eingerichtet — Einstellungen → Banken → Paperless-ngx.',
-    'This account does not say which documents are its yet — set the tag, correspondent or query on its edit page.': 'Dieses Konto sagt noch nicht, welche Dokumente seine sind — Tag, Korrespondent oder Abfrage auf seiner Bearbeiten-Seite setzen.',
     "Edit or delete": "Bearbeiten oder löschen",
     "Recent transactions": "Letzte Transaktionen",
     "No transactions yet.": "Noch keine Transaktionen.",
@@ -536,6 +535,10 @@ STRINGS: dict[str, str] = {
     "Kept as a subscription.": "Als Abo behalten.",
     "Dismissed — it stays out of the totals.": "Verworfen — zählt nicht mehr mit.",
     "Put back among the detected.": "Zurück unter die erkannten.",
+    "Document type": "Dokumententyp",
+    "type": "Typ",
+    "A document is pulled into this account when it matches all of these at once: every tag named, that correspondent, that type. Leave them all blank and this account pulls nothing.": "Ein Dokument wird für dieses Konto geholt, wenn alles zugleich passt: jeder genannte Tag, dieser Korrespondent, dieser Typ. Bleibt alles leer, holt dieses Konto nichts.",
+    "This account does not say which documents are its yet — set the tags, correspondent, type or query on its edit page.": "Dieses Konto sagt noch nicht, welche Dokumente seine sind — Tags, Korrespondent, Typ oder Suchbegriff auf seiner Bearbeiten-Seite eintragen.",
     "applied to past and future": "gilt für Vergangenheit und Zukunft",
     "Quick start": "Schnellstart",
     "Categorise what is obvious": "Kategorisiere das Offensichtliche",
@@ -2563,14 +2566,12 @@ STRINGS: dict[str, str] = {
         "Dokumentenarchiv",
     "Documents from the archive":
         "Dokumente aus dem Archiv",
-    "Every document matching all of these is pulled into this account on the daily sync. Leave all three blank and this account pulls nothing.":
-        "Jedes Dokument, auf das all das zutrifft, wird beim täglichen Abgleich in dieses Konto geholt. Bleiben alle drei leer, holt dieses Konto nichts.",
     "Failed":
         "Fehlgeschlagen",
     "Forget the archive":
         "Archiv vergessen",
-    "If your statements live in Paperless-ngx, the app can pull them itself. Give it the archive's address and an API token (Paperless → My Profile → the circular arrow makes one), then say on each account's edit page which documents are its — by tag, correspondent or query. Every new document is fetched on the daily sync and run through the same readers an upload gets; each one is remembered, so nothing comes in twice. The archive is read, never written.":
-        "Liegen deine Auszüge in Paperless-ngx, kann die App sie selbst holen. Gib ihr die Adresse des Archivs und ein API-Token (Paperless → Mein Profil → der runde Pfeil erzeugt eins) und sage dann auf der Bearbeiten-Seite jedes Kontos, welche Dokumente seine sind — nach Tag, Korrespondent oder Suche. Jedes neue Dokument wird beim täglichen Abgleich geholt und durch dieselben Leser geschickt wie ein Upload; jedes wird gemerkt, nichts kommt zweimal. Das Archiv wird gelesen, nie beschrieben.",
+    "If your statements live in Paperless-ngx, the app can pull them itself. Give it the archive's address and an API token (Paperless → My Profile → the circular arrow makes one), then say on each account's edit page which documents are its — by tags, correspondent, document type or query, which hold together so the pull can be surgical. Every new document is fetched on the daily sync and run through the same readers an upload gets; each one is remembered, so nothing comes in twice. The archive is read, never written.":
+        "Liegen deine Auszüge in Paperless-ngx, kann die App sie selbst holen. Gib ihr die Adresse des Archivs und ein API-Token (Paperless → Mein Profil → der runde Pfeil erzeugt eins) und sage dann auf der Bearbeiten-Seite jedes Kontos, welche Dokumente seine sind — nach Tags, Korrespondent, Dokumententyp oder Suche, die zusammen gelten, damit gezielt geholt wird. Jedes neue Dokument wird beim täglichen Abgleich geholt und durch dieselben Leser geschickt wie ein Upload; jedes wird gemerkt, nichts kommt zweimal. Das Archiv wird gelesen, nie beschrieben.",
     "Last pull {when}.":
         "Zuletzt geholt {when}.",
     "No account pulls anything yet — open an account's edit page and say which documents are its.":

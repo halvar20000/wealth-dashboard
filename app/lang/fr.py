@@ -179,7 +179,6 @@ STRINGS: dict[str, str] = {
     'Pull from Paperless': 'Récupérer depuis Paperless',
     "Say on the edit page which Paperless documents belong to this account first": "Indiquez d'abord sur la page de modification quels documents Paperless sont ceux de ce compte",
     'No archive is set up — Settings → Banks → Paperless-ngx.': 'Aucune archive configurée — Réglages → Banques → Paperless-ngx.',
-    'This account does not say which documents are its yet — set the tag, correspondent or query on its edit page.': "Ce compte ne dit pas encore quels documents sont les siens — définissez l'étiquette, le correspondant ou la requête sur sa page de modification.",
     "Edit or delete": "Modifier ou supprimer",
     "Recent transactions": "Transactions récentes",
     "No transactions yet.": "Aucune transaction pour l'instant.",
@@ -542,6 +541,10 @@ STRINGS: dict[str, str] = {
     "Kept as a subscription.": "Conservé comme abonnement.",
     "Dismissed — it stays out of the totals.": "Écarté — il reste hors des totaux.",
     "Put back among the detected.": "Remis parmi les détectés.",
+    "Document type": "Type de document",
+    "type": "type",
+    "A document is pulled into this account when it matches all of these at once: every tag named, that correspondent, that type. Leave them all blank and this account pulls nothing.": "Un document arrive dans ce compte lorsqu’il satisfait tout à la fois : chaque étiquette nommée, ce correspondant, ce type. Tout laisser vide et ce compte ne récupère rien.",
+    "This account does not say which documents are its yet — set the tags, correspondent, type or query on its edit page.": "Ce compte ne dit pas encore quels documents sont les siens — renseignez étiquettes, correspondant, type ou requête sur sa page de modification.",
     "applied to past and future": "appliquées au passé et au futur",
     "Quick start": "Démarrage rapide",
     "Categorise what is obvious": "Catégoriser ce qui est évident",
@@ -2569,13 +2572,11 @@ STRINGS: dict[str, str] = {
         "Archive de documents",
     "Documents from the archive":
         "Documents de l'archive",
-    "Every document matching all of these is pulled into this account on the daily sync. Leave all three blank and this account pulls nothing.":
-        "Chaque document qui correspond à tout cela est récupéré dans ce compte à la synchronisation quotidienne. Les trois vides, ce compte ne récupère rien.",
     "Failed":
         "Échoué",
     "Forget the archive":
         "Oublier l'archive",
-    "If your statements live in Paperless-ngx, the app can pull them itself. Give it the archive's address and an API token (Paperless → My Profile → the circular arrow makes one), then say on each account's edit page which documents are its — by tag, correspondent or query. Every new document is fetched on the daily sync and run through the same readers an upload gets; each one is remembered, so nothing comes in twice. The archive is read, never written.":
+    "If your statements live in Paperless-ngx, the app can pull them itself. Give it the archive's address and an API token (Paperless → My Profile → the circular arrow makes one), then say on each account's edit page which documents are its — by tags, correspondent, document type or query, which hold together so the pull can be surgical. Every new document is fetched on the daily sync and run through the same readers an upload gets; each one is remembered, so nothing comes in twice. The archive is read, never written.":
         "Si tes relevés sont dans Paperless-ngx, l'app peut aller les chercher elle-même. Donne-lui l'adresse de l'archive et un jeton API (Paperless → Mon profil → la flèche circulaire en crée un), puis dis sur la page de modification de chaque compte quels documents sont les siens — par tag, correspondant ou recherche. Chaque nouveau document est récupéré à la synchronisation quotidienne et passe par les mêmes lecteurs qu'un envoi ; chacun est mémorisé, rien n'arrive deux fois. L'archive est lue, jamais écrite.",
     "Last pull {when}.":
         "Dernière récupération {when}.",
