@@ -486,6 +486,17 @@ CREATE TABLE IF NOT EXISTS removed_rows (
 -- Which enriched row took which bare twin's place (ledger.py): a row
 -- that has claimed its twin does not claim another on the next pass,
 -- so two identical bookings the bank really made stay two.
+-- What the user has said about a detected subscription: that it is one
+-- (so it counts even when the rhythm is ragged), or that it is not (so
+-- it stops being offered). The key is the fingerprint subscriptions.py
+-- groups by; a detection nobody has judged has no row here.
+CREATE TABLE IF NOT EXISTS subscription_marks (
+    key        TEXT PRIMARY KEY,
+    state      TEXT NOT NULL,               -- 'confirmed' or 'ignored'
+    name       TEXT,                        -- what it was called when marked
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS twin_claims (
     kept_id             INTEGER NOT NULL,
     removed_external_id TEXT NOT NULL,

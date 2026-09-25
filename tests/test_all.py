@@ -1967,6 +1967,50 @@ check("a current subscription is not marked ended",
 check("the monthly total is the sum of the active ones",
       round(found["monthly_total"], 2), 9.99)
 
+# A charge in another currency is a charge. Converted at the rate of its
+# own day, a foreign subscription is found and costed like any other —
+# before 0.73.0 the query threw away everything that was not in the base
+# currency, which on a household with a British and a Swiss account is
+# most of what it was asked to find.
+with db.get_conn() as conn:
+    for day in _monthly_dates:
+        conn.execute("INSERT OR REPLACE INTO fx_rates (as_of, currency, per_eur) "
+                     "VALUES (?, 'GBP', 0.85)", (day,))
+    for i, day in enumerate(_monthly_dates):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, "
+                     "counterparty, amount, currency, kind, category, external_id) "
+                     "VALUES (?, ?, 'MEMBERSHIP', 'Pounders Club', -10.0, 'GBP', "
+                     "'withdrawal', 'subscription', ?)", (broker_id, day, f"gbp-sub-{i}"))
+fx_found = subs.detect()
+pounders = next((s for s in fx_found["confirmed"] if s["name"] == "Pounders Club"), None)
+check("a subscription charged in another currency is found", pounders is not None, True)
+check("...and it is costed in the base currency, not in its own",
+      ((pounders or {}).get("currencies"), round((pounders or {}).get("amount") or 0, 2)),
+      (["GBP"], round(10.0 / 0.85, 2)))
+
+# What the arithmetic found is a proposal; the user's answer outranks it.
+# Three payments of wandering size: too ragged for the detector, which
+# is why it takes a person to say what it is. The key is the fingerprint
+# the grouping uses, which is what the page hands back.
+subs.mark(subs._fingerprint("SHOP", "Randomshop"), "confirmed", "Randomshop")
+judged = subs.detect()
+check("a charge the user calls a subscription is one, ragged rhythm and all",
+      "Randomshop" in {s["name"] for s in judged["confirmed"]}, True)
+subs.mark(streamly["key"], "ignored", "Streamly")
+judged = subs.detect()
+check("...and one they dismiss leaves the totals but not the page",
+      ("Streamly" in {s["name"] for s in judged["confirmed"]},
+       "Streamly" in {s["name"] for s in judged["ignored"]}), (False, True))
+subs.mark(streamly["key"], None)
+check("...until they put it back",
+      "Streamly" in {s["name"] for s in subs.detect()["confirmed"]}, True)
+with db.get_conn() as conn:
+    # The rates above are a fixture for these five days only. Left in,
+    # they would be the newest table the app knows and would answer
+    # every later question about any other currency with "no rate".
+    conn.execute("DELETE FROM fx_rates WHERE currency = 'GBP' AND as_of IN "
+                 "(" + ",".join("?" * len(_monthly_dates)) + ")", _monthly_dates)
+
 # ---------------------------------------------------------------------------
 print("\n17. Every page in the nav actually renders")
 # ---------------------------------------------------------------------------

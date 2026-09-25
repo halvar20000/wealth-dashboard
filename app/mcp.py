@@ -721,6 +721,19 @@ def _subscriptions(person=None):
     return subs.detect(_base(), account_ids=_scope(person))
 
 
+@tool("set_subscription",
+      "Answer a detection: say that a recurring charge is a subscription, or "
+      "that it is not. A confirmed one counts even where the rhythm is ragged; "
+      "a dismissed one stops being offered. The key is the one `subscriptions` "
+      "prints. Leave `state` empty to forget the judgement.",
+      {"key": {"type": "string", "description": "From `subscriptions`."},
+       "state": {"type": "string", "enum": ["confirmed", "ignored", ""]},
+       "name": {"type": "string", "description": "What to remember it as."}},
+      ["key"])
+def _set_subscription(key, state="", name=None):
+    return {"key": key, "state": subs.mark(key, state or None, name)}
+
+
 @tool("add_transaction",
       "Type a transaction in, for an account nothing reports on. Kinds on a "
       "broker account: buy, sell, dividend, interest, fee, tax, deposit, "

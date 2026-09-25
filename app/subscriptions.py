@@ -30,7 +30,7 @@ import re
 import statistics
 from datetime import date, datetime
 
-from . import people
+from . import fx, people
 from .db import get_conn
 
 # The rhythms worth naming, in days, with how far a gap may drift and
@@ -77,6 +77,32 @@ def _rhythm(gaps: list[float]) -> tuple[str | None, float]:
     return None, 0.0
 
 
+def marks() -> dict[str, str]:
+    """What the user has already judged: fingerprint → state."""
+    with get_conn() as conn:
+        return {r["key"]: r["state"] for r in
+                conn.execute("SELECT key, state FROM subscription_marks")}
+
+
+def mark(key: str, state: str | None, name: str | None = None) -> str | None:
+    """Say that a detection is a subscription, or is not one. `None`
+    forgets the judgement and puts it back among the found."""
+    key = (key or "").strip()[:60]
+    if not key:
+        raise ValueError("A subscription needs its key.")
+    if state not in ("confirmed", "ignored", None, ""):
+        raise ValueError("state must be 'confirmed', 'ignored' or empty.")
+    with get_conn() as conn:
+        if not state:
+            conn.execute("DELETE FROM subscription_marks WHERE key = ?", (key,))
+            return None
+        conn.execute("INSERT INTO subscription_marks (key, state, name) VALUES (?, ?, ?) "
+                     "ON CONFLICT(key) DO UPDATE SET state = excluded.state, "
+                     "name = COALESCE(excluded.name, subscription_marks.name)",
+                     (key, state, (name or "").strip()[:70] or None))
+    return state
+
+
 def detect(base_currency: str = "EUR", min_occurrences: int = 3,
            account_ids: list[int] | None = None) -> dict:
     only, params = people.sql_in(account_ids, "t.account_id")
@@ -86,11 +112,22 @@ def detect(base_currency: str = "EUR", min_occurrences: int = 3,
             SELECT t.id, t.txn_date, t.description, t.counterparty, t.amount,
                    t.currency, t.category, a.name AS account_name
               FROM transactions t JOIN accounts a ON a.id = t.account_id
-             WHERE t.amount < 0 AND t.currency = ?
+             WHERE t.amount < 0
                AND t.kind NOT IN ('buy', 'sell')
                AND COALESCE(t.category, '') NOT IN ('transfer', 'investment'){only}
              ORDER BY t.txn_date
-            """, (base_currency, *params)).fetchall()]
+            """, params).fetchall()]
+    # A charge in another currency is still a charge. It is converted at
+    # the rate of its own day, so a £12.99 subscription on a euro
+    # dashboard is found and costed like any other; where there is no
+    # rate, the row is left out rather than guessed at.
+    for r in rows:
+        if (r["currency"] or base_currency).upper() == base_currency.upper():
+            r["base_amount"] = r["amount"]
+        else:
+            converted, _as_of = fx.convert(r["amount"], r["currency"], base_currency, r["txn_date"])
+            r["base_amount"] = converted
+    rows = [r for r in rows if r["base_amount"] is not None]
 
     groups: dict[str, list[dict]] = {}
     for r in rows:
@@ -98,7 +135,8 @@ def detect(base_currency: str = "EUR", min_occurrences: int = 3,
         if len(key) >= 3:
             groups.setdefault(key, []).append(r)
 
-    confirmed, possible = [], []
+    judged = marks()
+    confirmed, possible, ignored = [], [], []
     for key, items in groups.items():
         if len(items) < min_occurrences:
             continue
@@ -107,7 +145,7 @@ def detect(base_currency: str = "EUR", min_occurrences: int = 3,
         if not gaps:
             continue
         rhythm, fit = _rhythm(gaps)
-        amounts = [abs(i["amount"]) for i in items]
+        amounts = [abs(i["base_amount"]) for i in items]
         median_amount = statistics.median(amounts)
         spread = (statistics.pstdev(amounts) / median_amount) if median_amount else 1.0
 
@@ -128,9 +166,21 @@ def detect(base_currency: str = "EUR", min_occurrences: int = 3,
             "last_seen": last.isoformat(),
             "days_since": (date.today() - last).days,
             "yearly": _yearly_cost(median_amount, rhythm),
+            "currencies": sorted({(i["currency"] or base_currency).upper() for i in items}),
+            "marked": judged.get(key),
         }
-        # A tight amount and a clear rhythm, or it goes in the maybe pile.
-        if rhythm and fit >= 0.6 and spread <= 0.15:
+        # What the user has said outranks what the arithmetic thinks:
+        # a ragged rhythm they call a subscription is one, and a tidy
+        # one they have dismissed stops being offered. Everything else
+        # is judged as before — a tight amount and a clear rhythm, or
+        # it goes in the maybe pile.
+        if judged.get(key) == "ignored":
+            ignored.append(entry)
+        elif judged.get(key) == "confirmed":
+            entry["rhythm"] = rhythm or "monthly"
+            entry["yearly"] = entry["yearly"] or _yearly_cost(median_amount, entry["rhythm"])
+            confirmed.append(entry)
+        elif rhythm and fit >= 0.6 and spread <= 0.15:
             confirmed.append(entry)
         elif len(items) >= 4:
             possible.append(entry)
@@ -144,12 +194,18 @@ def detect(base_currency: str = "EUR", min_occurrences: int = 3,
     for e in confirmed:
         period = next((d for n, d, _ in _RHYTHMS if n == e["rhythm"]), None)
         e["likely_ended"] = bool(period and e["days_since"] > period * 2)
+        # One a person has confirmed is not quietly dropped from the
+        # total because a charge is late; saying it looks ended is
+        # enough.
+        if e.get("marked") == "confirmed":
+            e["likely_ended"] = False
 
     active = [e for e in confirmed if not e["likely_ended"]]
     return {
         "confirmed": confirmed,
         "active": active,
         "possible": possible[:15],
+        "ignored": sorted(ignored, key=lambda e: -e["total_paid"]),
         "yearly_total": sum(e["yearly"] or 0 for e in active),
         "monthly_total": sum((e["yearly"] or 0) / 12 for e in active),
         "base_currency": base_currency,

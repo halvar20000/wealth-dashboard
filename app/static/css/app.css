@@ -935,3 +935,19 @@ tr.future td { color: var(--text-tertiary); }
   font-size: 34px; font-weight: 800; letter-spacing: 0.22em;
   margin: 6px 0 2px; color: var(--text-primary);
 }
+
+/* A button that has to sit in a line of text — "not a subscription"
+   beside "make it a bill". It is a form, because it changes something,
+   but it must not look like a form: a row of grey boxes in a table
+   reads as chrome and nobody presses it. */
+.linklike {
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0 0 0 10px;
+    font: inherit;
+    color: var(--text-tertiary);
+    text-decoration: underline;
+    cursor: pointer;
+}
+.linklike:hover { color: var(--text-primary); }

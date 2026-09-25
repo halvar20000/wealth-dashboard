@@ -63,6 +63,29 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
   client side by side, built to one written contract so that the two
   stay at feature parity.
 
+## [0.73.0] — 2026-09-25
+
+### Added
+- **You can answer the subscription detector.** What the arithmetic
+  finds is a proposal: *it is a subscription* promotes a charge the
+  rhythm test rejected, *not a subscription* sends one away, and a
+  **Dismissed** list keeps a way back. A confirmed one counts even
+  where the rhythm is ragged and is not quietly dropped from the total
+  because a charge is late. The same over the API as `set_subscription`.
+  Asked for in Discussions #4, where the ask was to identify recurring
+  payments and then allocate them as a bill or a subscription; the
+  finding and the *make it a bill* link were already there, the
+  answering was not.
+
+### Fixed
+- **Subscriptions in another currency were invisible.** The detector
+  asked for charges in the base currency and no other, so on a
+  household with a British or a Swiss account most of what it was meant
+  to find never reached it. Each charge is now converted at the rate of
+  its own day — and where there is no rate, the charge is left out
+  rather than guessed at. The page names the currency it is actually
+  billed in.
+
 ## [0.72.7] — 2026-09-24
 
 ### Fixed

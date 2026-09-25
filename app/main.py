@@ -2522,9 +2522,22 @@ def _forecast_plans(cfg: dict) -> dict:
     return dict(stored)
 
 
-@app.route("/subscriptions")
+@app.route("/subscriptions", methods=["GET", "POST"])
 @auth.login_required
 def subscriptions_page():
+    if request.method == "POST":
+        # What the arithmetic found is a proposal; this is the answer.
+        state = (request.form.get("state") or "").strip()
+        try:
+            subscriptions.mark(request.form.get("key", ""), state or None,
+                               request.form.get("name"))
+        except ValueError as exc:
+            flash(str(exc), "error")
+        else:
+            flash({"confirmed": _t("Kept as a subscription."),
+                   "ignored": _t("Dismissed — it stays out of the totals."),
+                   }.get(state, _t("Put back among the detected.")), "ok")
+        return redirect(url_for("subscriptions_page"))
     return render_template(
         "subscriptions.html", active_page="subscriptions",
         data=subscriptions.detect(settings.get("base_currency", "EUR"),
