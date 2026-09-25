@@ -304,6 +304,44 @@ def _holdings(person=None):
             "holdings": s["holdings"]}
 
 
+@tool("security",
+      "One holding, day by day: the units held, the price used, what it was worth and "
+      "what had gone in — with its return and any day the return chain refused to "
+      "believe. For a chart, and for finding a price that is wrong.",
+      {"isin": {"type": "string", "description": "As `holdings` prints it."},
+       "since": {"type": "string", "description": "ISO date. Default: the first row."},
+       "limit": {"type": "integer", "description": "At most this many points, sampled "
+                 "evenly; the days money moved and the suspect days are always kept. "
+                 "Default 400."},
+       "person": PERSON},
+      ["isin"])
+def _security(isin, since=None, limit=400, person=None):
+    from . import performance, prices
+    scope = _scope(person)
+    isin = (isin or "").strip().upper()
+    series = prices.series_for(isin, scope)
+    pts = series.get("points") or []
+    if not pts:
+        raise ValueError(f"Nothing held under {isin!r}.")
+    ret = performance.for_security(isin, scope)
+    keep = {d["date"] for d in ret.get("suspect_days") or []}
+    with get_conn() as conn:
+        only, params = people.sql_in(scope, "account_id")
+        keep |= {r["txn_date"] for r in conn.execute(
+            f"SELECT DISTINCT txn_date FROM transactions WHERE isin = ?{only}", [isin, *params])}
+    if since:
+        pts = [p for p in pts if p["date"] >= since]
+    limit = max(10, min(int(limit or 400), 2000))
+    if len(pts) > limit:
+        step = len(pts) / limit
+        wanted = {pts[int(i * step)]["date"] for i in range(limit)}
+        wanted |= keep | {pts[0]["date"], pts[-1]["date"]}
+        pts = [p for p in pts if p["date"] in wanted]
+    return {"isin": isin, "currency": series.get("currency"),
+            "trade_currency": series.get("trade_currency"),
+            "returns": ret, "points": pts}
+
+
 @tool("performance",
       "Time-weighted (TWR) and money-weighted (MWR) return of the securities held, "
       "as fractions: since the first trade, this year, and the last twelve months; "

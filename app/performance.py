@@ -42,14 +42,28 @@ from .db import get_conn
 YEAR = 365.25
 
 
-def twr(values: list[tuple[str, float | None]], flows: dict[str, float]) -> float | None:
+# A holding that triples or thirds in a day, with no money going in or
+# out, has not done that: a price stored in pence beside prices in
+# pounds, a split nobody recorded, a quote from the wrong listing. The
+# chain multiplies such a link into everything after it, so one bad
+# price makes a 165 % holding read 1367 %. Links past this are left
+# out of the chain and reported instead — see `suspects`.
+IMPOSSIBLE = 3.0
+
+
+def twr(values: list[tuple[str, float | None]], flows: dict[str, float],
+        suspects: list | None = None) -> float | None:
     """Chain-linked daily return over the whole series, as a fraction.
 
     `values` is [(day, value)] on consecutive days, `flows` money added
     (+) or taken out (−) on a day, taken to happen before that day's
     valuation. A day on which the value is unknown breaks the chain
     for that day only; a day on which the position was empty before
-    the flow (the first buy) has no return to measure.
+    the flow (the first buy) has no return to measure. A day whose
+    value moves by more than `IMPOSSIBLE` against a base that no flow
+    explains is not believed: it is appended to `suspects` and left
+    out, because a chain is a product and one bad link poisons all of
+    it.
     """
     growth = 1.0
     prev = None
@@ -66,7 +80,14 @@ def twr(values: list[tuple[str, float | None]], flows: dict[str, float]) -> floa
             if value < 0:
                 return None
             if base > 1e-9:
-                growth *= value / base
+                step = value / base
+                if step >= IMPOSSIBLE or step <= 1.0 / IMPOSSIBLE:
+                    if suspects is not None:
+                        suspects.append({"date": day, "from": round(base, 2),
+                                         "to": round(value, 2), "factor": round(step, 3)})
+                    prev = value
+                    continue
+                growth *= step
                 counted = True
         prev = value
     return (growth - 1.0) if counted else None
@@ -139,12 +160,17 @@ def for_security(isin: str, account_ids: list[int] | None = None,
     # The chain starts at the first day's closing value, which already
     # holds the first buy: the return of the first day itself is not
     # measured, which is how every tool does it.
-    total = twr(values, flows)
+    suspects: list = []
+    total = twr(values, flows, suspects)
     days = (today - date.fromisoformat(pts[0]["date"])).days
     last = pts[-1]
     return {"twr": total, "twr_annual": annualise(total, days),
             "mwr": mwr(cashflows, last["date"], last["value"]),
-            "days": days, "since": pts[0]["date"]}
+            "days": days, "since": pts[0]["date"],
+            # The days the chain refused to believe. Empty is the normal
+            # case; anything in here means the price history needs a look
+            # before the return is quoted to anybody.
+            "suspect_days": suspects}
 
 
 def security_series(isin: str, account_ids: list[int] | None, today: date,

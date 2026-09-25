@@ -11,6 +11,27 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.74.3] — 2026-09-25
+
+### Fixed
+- **One bad price no longer poisons a holding's whole return.** The
+  time-weighted return is a chain of daily returns — a product — so a
+  single day on which a stored price is wrong by a factor multiplies
+  itself into every day after it. A user's Apple read **1367 %** where
+  the money said 166 % and the price said 191 %. A day whose value
+  trebles or thirds with no money going in or out is not a return: it
+  is a price in pence beside prices in pounds, a quote from the wrong
+  listing, or a split nobody recorded. Such a link is left out of the
+  chain and reported instead.
+
+### Added
+- **`security`** on the API: one holding day by day — units held, the
+  price used, what it was worth, what had gone in — with its return and
+  the days the chain refused to believe (`suspect_days`, also on
+  `performance`). It is what a per-holding chart on the phone needs,
+  and what finding a wrong price needs: the figures that make the
+  return, where anybody can see them.
+
 ## [0.74.2] — 2026-09-25
 
 ### Added

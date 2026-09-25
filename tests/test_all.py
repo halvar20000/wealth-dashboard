@@ -4436,6 +4436,24 @@ check("add_rule applies retroactively", added["applied"] >= 2, True)
 reapplied = call("apply_rules")
 check("apply_rules re-runs every rule", reapplied["filed"] >= 1 and reapplied["rules"] >= 1, True)
 
+# One bad price used to poison a whole holding's return: the chain is a
+# product, so a day that trebles for no reason multiplies everything
+# after it. A user's Apple read 1367 % where the money said 166 %.
+from app import performance as _perf                                    # noqa: E402
+_days = [(f"2026-01-{d:02d}", v) for d, v in
+         ((1, 1000.0), (2, 1010.0), (3, 1020.0), (4, 1030.0))]
+check("a normal chain multiplies its days",
+      round(_perf.twr(_days, {}), 4), round(1030 / 1000 - 1, 4))
+_bad = [("2026-01-01", 1000.0), ("2026-01-02", 1010.0),
+        ("2026-01-03", 12000.0), ("2026-01-04", 12100.0)]
+_suspects = []
+check("a day that trebles with no money behind it is not a return",
+      (round(_perf.twr(_bad, {}, _suspects), 4), len(_suspects), _suspects[0]["date"]),
+      (round((1010 / 1000) * (12100 / 12000) - 1, 4), 1, "2026-01-03"))
+_flowed = [("2026-01-01", 1000.0), ("2026-01-02", 12000.0)]
+check("...while the same jump with a purchase behind it is believed",
+      round(_perf.twr(_flowed, {"2026-01-02": 11000.0}, []), 4), 0.0)
+
 # The phone imports through the API and must be able to take it back:
 # the same undo the account page has had all along, over the tools.
 api_acct = call("accounts")[0]["id"]

@@ -6,4 +6,4 @@
 # The one place the version is written. CHANGELOG.md must have an
 # entry matching it, and a release tag must agree with both — the build
 # refuses the tag otherwise.
-__version__ = "0.74.2"
+__version__ = "0.74.3"
