@@ -11,6 +11,20 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.74.0] — 2026-09-25
+
+### Added
+- **`imports` and `undo_import`** on the API. The account page has had
+  an Undo beside every import for a long time; a phone that imported a
+  statement through the share sheet had no way to reach it, although
+  the upload already answered with the ids it would need. Now it does:
+  `imports` lists what went into an account — file, reader, how many
+  rows it brought and how many are still there — and `undo_import`
+  takes one back. Every row that import brought and nothing else: a row
+  a later file found already there belongs to the import that first
+  brought it and stays, and the balance stays too, because a balance is
+  a reading and not a booking.
+
 ## [0.73.0] — 2026-09-24
 
 ### Added

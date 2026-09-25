@@ -4392,6 +4392,30 @@ check("add_rule applies retroactively", added["applied"] >= 2, True)
 reapplied = call("apply_rules")
 check("apply_rules re-runs every rule", reapplied["filed"] >= 1 and reapplied["rules"] >= 1, True)
 
+# The phone imports through the API and must be able to take it back:
+# the same undo the account page has had all along, over the tools.
+api_acct = call("accounts")[0]["id"]
+undo_id = importers.begin_import(api_acct, "undo-me.csv", "test")
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, "
+                 "currency, kind, external_id, import_id) VALUES "
+                 "(?, '2026-05-01', 'UNDO ME PLEASE', -10.0, 'EUR', 'withdrawal', "
+                 "'undo-test-1', ?)", (api_acct, undo_id))
+    conn.execute("UPDATE imports SET inserted = 1 WHERE id = ?", (undo_id,))
+listed = call("imports", account_id=api_acct)["imports"]
+check("the tools list what was imported into an account, newest first",
+      (listed[0]["filename"], listed[0]["still"]), ("undo-me.csv", 1))
+check("...and undo_import takes that file's rows back",
+      call("undo_import", account_id=api_acct, import_id=undo_id)["removed"], 1)
+with db.get_conn() as conn:
+    gone = conn.execute("SELECT COUNT(*) n FROM transactions "
+                        "WHERE external_id = 'undo-test-1'").fetchone()["n"]
+check("...the row is gone, and the import with it",
+      (gone, [i["id"] for i in call("imports", account_id=api_acct)["imports"]].count(undo_id)),
+      (0, 0))
+check("an import id that is not this account's is refused",
+      "_error" in call("undo_import", account_id=api_acct, import_id=999999), True)
+
 flow = call("cashflow", months=6)
 check("the cashflow tool answers with months, the categories behind them and an average",
       (isinstance(flow.get("months"), list), "by_category" in flow,

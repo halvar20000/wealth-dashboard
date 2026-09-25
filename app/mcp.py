@@ -44,7 +44,7 @@ from datetime import date
 
 from flask import g
 
-from . import __version__, categories, cashflow, history, manual, overview
+from . import __version__, categories, cashflow, history, importers, manual, overview
 from . import people, prices, screener, screener_etf, screener_jobs, settings
 from . import subscriptions as subs
 from .banks import sync as banksync
@@ -474,6 +474,35 @@ def _categories():
       "a matching transaction under. Newest first; on a clash the newest wins.")
 def _rules():
     return categories.rules()
+
+
+@tool("imports", "The files imported into an account, newest first: when, under "
+      "which reader, how many rows it brought and how many of those are still "
+      "there. An id from here is what `undo_import` takes.",
+      {"account_id": {"type": "integer"},
+       "limit": {"type": "integer", "description": "Default 8, at most 50."}},
+      ["account_id"])
+def _imports(account_id, limit=8):
+    rows = importers.recent_imports(int(account_id), max(1, min(int(limit or 8), 50)))
+    keep = ("id", "filename", "source", "inserted", "still", "at")
+    return {"account_id": int(account_id),
+            "imports": [{k: r.get(k) for k in keep} for r in rows]}
+
+
+@tool("undo_import", "Take one file import back: every row it brought and nothing "
+      "else — a row a later file found already there belongs to the import that "
+      "first brought it, and stays. The balance it read stays too, because a "
+      "balance is a reading, not a booking. Returns how many rows were removed.",
+      {"account_id": {"type": "integer"}, "import_id": {"type": "integer"}},
+      ["account_id", "import_id"])
+def _undo_import(account_id, import_id):
+    with get_conn() as conn:
+        rec = conn.execute("SELECT id FROM imports WHERE id = ? AND account_id = ?",
+                           (int(import_id), int(account_id))).fetchone()
+    if rec is None:
+        raise ValueError(f"No import {import_id} on account {account_id}.")
+    return {"account_id": int(account_id), "import_id": int(import_id),
+            "removed": importers.undo_import(int(account_id), int(import_id))}
 
 
 @tool("apply_rules", "Re-run every rule over everything already imported, oldest "
