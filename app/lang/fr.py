@@ -8,6 +8,23 @@ alors à sa place. Voir app/i18n.py.
 """
 
 STRINGS: dict[str, str] = {
+    "Documents from Paperless": "Documents de Paperless",
+    "This account's documents": "Les documents de ce compte",
+    "See what matches": "Voir ce qui correspond",
+    "What this would pull": "Ce qui serait récupéré",
+    "{n} document in the archive matches": "{n} document de l’archive correspond",
+    "{n} documents in the archive match": "{n} documents de l’archive correspondent",
+    "Document": "Document",
+    "Filed": "Classé",
+    "State": "État",
+    "already read": "déjà lu",
+    "new": "nouveau",
+    "The first {shown} of {matched} are shown.": "Les {shown} premiers sur {matched} sont affichés.",
+    "Nothing in the archive matches all of these at once.": "Rien dans l’archive ne satisfait tout cela à la fois.",
+    "Leave them all blank and this account pulls nothing.": "Tout laisser vide et ce compte ne récupère rien.",
+    "Which documents in the archive belong to {account}. Everything named has to hold at once — every tag, that correspondent, that type — so the pull can be surgical. The daily sync fetches whatever is new; nothing is read twice.": "Quels documents de l’archive appartiennent à {account}. Tout ce qui est nommé doit valoir en même temps — chaque étiquette, ce correspondant, ce type — pour ne récupérer que le bon. La synchronisation quotidienne prend ce qui est nouveau ; rien n’est lu deux fois.",
+    "Which Paperless documents are this account's — tags, correspondent, type — is set where it is used: {link}.": "Quels documents Paperless sont ceux de ce compte — étiquettes, correspondant, type — se règle là où cela sert : {link}.",
+    "This account does not say which documents are its yet — name the tags, correspondent or type here.": "Ce compte ne dit pas encore quels documents sont les siens — nommez ici les étiquettes, le correspondant ou le type.",
 
     # ─── Navigation et cadre ─────────────────────────────────────────
     "Overview": "Vue d'ensemble",
@@ -177,7 +194,6 @@ STRINGS: dict[str, str] = {
         "dans {settings}.",
     'Import a file': 'Importer un fichier',
     'Pull from Paperless': 'Récupérer depuis Paperless',
-    "Say on the edit page which Paperless documents belong to this account first": "Indiquez d'abord sur la page de modification quels documents Paperless sont ceux de ce compte",
     'No archive is set up — Settings → Banks → Paperless-ngx.': 'Aucune archive configurée — Réglages → Banques → Paperless-ngx.',
     "Edit or delete": "Modifier ou supprimer",
     "Recent transactions": "Transactions récentes",
@@ -543,8 +559,6 @@ STRINGS: dict[str, str] = {
     "Put back among the detected.": "Remis parmi les détectés.",
     "Document type": "Type de document",
     "type": "type",
-    "A document is pulled into this account when it matches all of these at once: every tag named, that correspondent, that type. Leave them all blank and this account pulls nothing.": "Un document arrive dans ce compte lorsqu’il satisfait tout à la fois : chaque étiquette nommée, ce correspondant, ce type. Tout laisser vide et ce compte ne récupère rien.",
-    "This account does not say which documents are its yet — set the tags, correspondent, type or query on its edit page.": "Ce compte ne dit pas encore quels documents sont les siens — renseignez étiquettes, correspondant, type ou requête sur sa page de modification.",
     "applied to past and future": "appliquées au passé et au futur",
     "Quick start": "Démarrage rapide",
     "Categorise what is obvious": "Catégoriser ce qui est évident",

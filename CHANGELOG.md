@@ -11,6 +11,22 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.75.0] — 2026-09-26
+
+### Added
+- **Documents from Paperless, per account, on its own page.** Which
+  documents in the archive belong to an account — the tags, the
+  correspondent, the type, the query — is now set where it is used,
+  beside the *Pull from Paperless* button, instead of two clicks away
+  on the account's edit page.
+- **A dry run: *See what matches*.** It lists the documents the filter
+  would pull — title, the day they were filed, and whether the app has
+  already read them — and fetches not one byte of them. Tuning a
+  surgical filter blind is guesswork: three tags, a correspondent and a
+  type either name the right dozen documents or quietly name four
+  hundred, and until now the only way to find out was to pull them.
+  Proposed in Discussions #2.
+
 ## [0.74.3] — 2026-09-25
 
 ### Fixed

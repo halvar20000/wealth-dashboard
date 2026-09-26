@@ -207,10 +207,13 @@
 
 <p><a class="btn" href="{{ url_for('account_import', account_id=account.id) }}">{{ _("Import a file") }}</a>
    {% if archive_on %}
+   {% if archive_filter %}
    <form method="post" action="{{ url_for('account_archive_pull', account_id=account.id) }}" style="display:inline">
-     <button type="submit" class="btn" {% if not archive_filter %}title="{{ _('Say on the edit page which Paperless documents belong to this account first') }}"{% endif %}>{{ _("Pull from Paperless") }}</button>
+     <button type="submit" class="btn">{{ _("Pull from Paperless") }}</button>
      <button type="submit" class="btn btn-ghost" name="again" value="1" title="{{ _('Run the documents already seen through the readers once more — nothing is booked twice') }}">{{ _("Pull again, all documents") }}</button>
    </form>
+   {% endif %}
+   <a class="btn {% if archive_filter %}btn-ghost{% endif %}" href="{{ url_for('account_archive', account_id=account.id) }}">{{ _("Documents from Paperless") }}</a>
    {% endif %}
    <a class="btn" href="{{ url_for('account_add', account_id=account.id) }}">{{ _("Add by hand") }}</a>
    {% if removed_count %}

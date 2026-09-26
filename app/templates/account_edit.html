@@ -40,15 +40,7 @@
   {% if archive_on %}
   <fieldset class="owners">
     <legend>{{ _("Documents from the archive") }}</legend>
-    <label for="archive_tags">{{ _("Tags, all of which the document carries") }}</label>
-    <input id="archive_tags" name="archive_tags" value="{{ archive_filter.tags or '' }}" placeholder="bank, statement, DKB">
-    <label for="archive_correspondent">{{ _("Correspondent") }} <span class="sub">{{ _("optional") }}</span></label>
-    <input id="archive_correspondent" name="archive_correspondent" value="{{ archive_filter.correspondent or '' }}" placeholder="DKB">
-    <label for="archive_document_type">{{ _("Document type") }} <span class="sub">{{ _("optional") }}</span></label>
-    <input id="archive_document_type" name="archive_document_type" value="{{ archive_filter.document_type or '' }}" placeholder="Financial">
-    <label for="archive_query">{{ _("Search query") }} <span class="sub">{{ _("optional") }}</span></label>
-    <input id="archive_query" name="archive_query" value="{{ archive_filter.query or '' }}" placeholder="Wertpapierabrechnung">
-    <p class="sub">{{ _("A document is pulled into this account when it matches all of these at once: every tag named, that correspondent, that type. Leave them all blank and this account pulls nothing.") }}</p>
+    <p class="sub">{{ _f("Which Paperless documents are this account's — tags, correspondent, type — is set where it is used: {link}.", link=archive_link) | safe }}</p>
   </fieldset>
   {% endif %}
   <button type="submit">{{ _("Save") }}</button>

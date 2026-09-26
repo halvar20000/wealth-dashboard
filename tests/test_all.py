@@ -6890,11 +6890,11 @@ with db.get_conn() as conn:
     dep = conn.execute("SELECT id FROM accounts WHERE name = 'Archive depot'").fetchone()["id"]
     gir = conn.execute("SELECT id FROM accounts WHERE name = 'Archive giro'").fetchone()["id"]
 r = c.get(f"/accounts/{dep}/edit")
-check("the account form offers the archive fields once it is set up", b"archive_tags" in r.data, True)
-c.post(f"/accounts/{dep}/edit", data={"name": "Archive depot", "type": "broker", "currency": "EUR",
-                                      "archive_tags": " bank , depot "})
-c.post(f"/accounts/{gir}/edit", data={"name": "Archive giro", "type": "bank", "currency": "EUR",
-                                      "archive_tags": "bank, giro", "archive_correspondent": "DKB"})
+check("the edit page points at the page that says which documents are the account's",
+      b"/archive" in r.data, True)
+c.post(f"/accounts/{dep}/archive", data={"form": "save", "archive_tags": " bank , depot "})
+c.post(f"/accounts/{gir}/archive", data={"form": "save", "archive_tags": "bank, giro",
+                                         "archive_correspondent": "DKB"})
 check("the filter is kept, tidied", archive.filter_for(dep)["tags"], "bank, depot")
 
 results = {r["account"]: r for r in archive.pull(transport=fake_archive)}
@@ -6928,6 +6928,24 @@ check("...so the next pull tries the letter again, and only it",
 # Tags and a correspondent and a type, all at once — the archive of
 # somebody who files by all three and wants only what belongs to this
 # account out of it.
+# The filter lives on the account's own archive page, beside the pull
+# that uses it — and it can be tried before anything is fetched.
+r = c.get(f"/accounts/{dep}/archive")
+check("an account has a page for its Paperless documents", b"archive_tags" in r.data, True)
+c.post(f"/accounts/{dep}/archive", data={"form": "save", "archive_tags": "bank, depot",
+                                         "archive_correspondent": "DKB",
+                                         "archive_document_type": "Financial"})
+check("...and it saves the whole combination",
+      {k: archive.filter_for(dep)[k] for k in ("tags", "correspondent", "document_type")},
+      {"tags": "bank, depot", "correspondent": "DKB", "document_type": "Financial"})
+seen = archive.preview(dep, transport=fake_archive)
+check("a dry run says what the filter would pull, and fetches none of it",
+      (seen["matched"], sorted(d["title"] for d in seen["documents"])),
+      (2, ["DKB Kauf", "DKB Verkauf (scan)"]))
+check("...and marks what has already been read",
+      {d["title"]: d["state"] for d in seen["documents"]},
+      {"DKB Kauf": "imported", "DKB Verkauf (scan)": "imported"})
+
 archive.set_filter(dep, "bank, depot", "DKB", "", "Financial")
 archive.retry_unread()
 surgical = {r["account"]: r for r in archive.pull(transport=fake_archive, again=True)}

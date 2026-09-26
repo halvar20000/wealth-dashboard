@@ -398,6 +398,30 @@ def retry_unread(account_id: int | None = None) -> int:
         return cur.rowcount
 
 
+def preview(account_id: int, limit: int = 40, transport=None) -> dict:
+    """What this account's filter matches, without fetching a byte of it.
+
+    Tuning a surgical filter blind is guesswork: three tags, a
+    correspondent and a type either name the right dozen documents or
+    quietly name four hundred, and the only way to find out used to be
+    to pull them. This lists the titles, says which the app has already
+    seen, and downloads nothing.
+    """
+    filt = filter_for(account_id)
+    if not filt:
+        return {"matched": 0, "documents": [], "filter": None}
+    docs = client(transport).documents(filt)
+    with get_conn() as conn:
+        seen = {r["doc_id"]: r["result"] for r in conn.execute(
+            "SELECT doc_id, result FROM archive_documents WHERE account_id = ?", (account_id,))}
+    out = []
+    for d in docs[:limit]:
+        out.append({"id": d["id"], "title": d.get("title") or f"#{d['id']}",
+                    "created": (d.get("created") or "")[:10],
+                    "state": seen.get(d["id"])})
+    return {"matched": len(docs), "shown": len(out), "documents": out, "filter": filt}
+
+
 def describe() -> dict:
     """For the Settings page: set-up, the filters with their tallies,
     the last pull, and the documents that could not be read."""

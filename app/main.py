@@ -543,15 +543,12 @@ def account_edit(account_id: int):
                      (request.form.get("currency") or "EUR").upper()[:3],
                      until, account_id))
             people.set_for_account(account_id, request.form.getlist("people"))
-            if archive.configured():
-                archive.set_filter(account_id, request.form.get("archive_tags", ""),
-                                   request.form.get("archive_correspondent", ""),
-                                   request.form.get("archive_query", ""),
-                                   request.form.get("archive_document_type", ""))
             flash(_t("Account updated."), "ok")
             return redirect(url_for("account_detail", account_id=account_id))
 
-    return render_template("account_edit.html", account=dict(account),
+    archive_link = (f'<a href="{url_for("account_archive", account_id=account_id)}">'
+                    f'{_t("Documents from Paperless")}</a>')
+    return render_template("account_edit.html", account=dict(account), archive_link=archive_link,
                            counts=counts, error=error, active_page="accounts",
                            owner_ids={p["id"] for p in people.for_account(account_id)},
                            archive_on=archive.configured(),
@@ -1076,6 +1073,38 @@ def _load_account(account_id: int):
     return dict(row) if row else None
 
 
+@app.route("/accounts/<int:account_id>/archive", methods=["GET", "POST"])
+@auth.login_required
+def account_archive(account_id: int):
+    """Which documents in the archive are this account's — the filter,
+    and what it would pull, on one page beside the pull itself. It was
+    on the account's edit page, two clicks from the button that uses
+    it, and a filter nobody can try is a filter nobody trusts."""
+    with get_conn() as conn:
+        account = conn.execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone()
+    if account is None:
+        abort(404)
+    if not archive.configured():
+        flash(_t("No archive is set up — Settings → Banks → Paperless-ngx."), "error")
+        return redirect(url_for("account_detail", account_id=account_id))
+    preview = None
+    if request.method == "POST":
+        archive.set_filter(account_id, request.form.get("archive_tags", ""),
+                           request.form.get("archive_correspondent", ""),
+                           request.form.get("archive_query", ""),
+                           request.form.get("archive_document_type", ""))
+        if request.form.get("form") == "preview":
+            try:
+                preview = archive.preview(account_id)
+            except archive.ArchiveError as exc:
+                flash(str(exc), "error")
+        else:
+            flash(_t("Saved."), "ok")
+            return redirect(url_for("account_archive", account_id=account_id))
+    return render_template("account_archive.html", account=dict(account), active_page="accounts",
+                           filter=archive.filter_for(account_id), preview=preview)
+
+
 @app.route("/accounts/<int:account_id>/archive/pull", methods=["POST"])
 @auth.login_required
 def account_archive_pull(account_id: int):
@@ -1085,7 +1114,7 @@ def account_archive_pull(account_id: int):
         flash(_t("No archive is set up — Settings → Banks → Paperless-ngx."), "error")
         return redirect(url_for("account_detail", account_id=account_id))
     if not archive.filter_for(account_id):
-        flash(_t("This account does not say which documents are its yet — set the tags, correspondent, type or query on its edit page."), "error")
+        flash(_t("This account does not say which documents are its yet — name the tags, correspondent or type here."), "error")
         return redirect(url_for("account_edit", account_id=account_id))
     try:
         _flash_archive(archive.pull(account_id, again=bool(request.form.get("again"))))

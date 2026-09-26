@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Documents from Paperless") }} · {{ account.name }}{% endblock %}
+{% block heading %}{{ _("Documents from Paperless") }}{% endblock %}
+{% block lede %}
+<p class="lede">{{ _f("Which documents in the archive belong to {account}. Everything named has to hold at once — every tag, that correspondent, that type — so the pull can be surgical. The daily sync fetches whatever is new; nothing is read twice.", account=account.name) }}</p>
+{% endblock %}
+{% block content %}
+
+<section class="card">
+  <div class="card-header"><h2>{{ _("This account's documents") }}</h2></div>
+  <form method="post">
+    <input type="hidden" name="form" value="save">
+    <label for="archive_tags">{{ _("Tags, all of which the document carries") }}</label>
+    <input id="archive_tags" name="archive_tags" value="{{ filter.tags if filter else '' }}" placeholder="ISA, Active, Statement">
+    <label for="archive_correspondent">{{ _("Correspondent") }} <span class="sub">{{ _("optional") }}</span></label>
+    <input id="archive_correspondent" name="archive_correspondent" value="{{ filter.correspondent if filter else '' }}" placeholder="first direct">
+    <label for="archive_document_type">{{ _("Document type") }} <span class="sub">{{ _("optional") }}</span></label>
+    <input id="archive_document_type" name="archive_document_type" value="{{ filter.document_type if filter else '' }}" placeholder="Financial">
+    <label for="archive_query">{{ _("Search query") }} <span class="sub">{{ _("optional") }}</span></label>
+    <input id="archive_query" name="archive_query" value="{{ filter.query if filter else '' }}" placeholder="statement">
+    <p class="sub">{{ _("Leave them all blank and this account pulls nothing.") }}</p>
+    <button type="submit">{{ _("Save") }}</button>
+    <button type="submit" name="form" value="preview" class="btn-ghost">{{ _("See what matches") }}</button>
+  </form>
+</section>
+
+{% if preview %}
+<section class="card">
+  <div class="card-header"><h2>{{ _("What this would pull") }}</h2>
+    <span class="card-subtitle">{{ _n(preview.matched, "{n} document in the archive matches", "{n} documents in the archive match") }}</span></div>
+  {% if preview.documents %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Document") }}</th><th>{{ _("Filed") }}</th><th>{{ _("State") }}</th></tr></thead>
+      <tbody>
+      {% for d in preview.documents %}
+        <tr>
+          <td>{{ d.title }}</td>
+          <td class="sub nowrap">{{ d.created }}</td>
+          <td class="sub">{% if d.state == 'imported' %}{{ _("already read") }}{% elif d.state %}{{ _(d.state) }}{% else %}{{ _("new") }}{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if preview.matched > preview.shown %}
+  <p class="sub">{{ _f("The first {shown} of {matched} are shown.", shown=preview.shown, matched=preview.matched) }}</p>
+  {% endif %}
+  {% else %}
+  <p class="sub">{{ _("Nothing in the archive matches all of these at once.") }}</p>
+  {% endif %}
+</section>
+{% endif %}
+
+<p>
+  <form method="post" action="{{ url_for('account_archive_pull', account_id=account.id) }}" style="display:inline">
+    <button type="submit" class="btn">{{ _("Pull now") }}</button>
+    <button type="submit" class="btn btn-ghost" name="again" value="1">{{ _("Pull again, all documents") }}</button>
+  </form>
+  <a class="btn btn-ghost" href="{{ url_for('account_detail', account_id=account.id) }}">{{ _("Back to the account") }}</a>
+</p>
+{% endblock %}
