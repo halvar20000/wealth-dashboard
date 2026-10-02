@@ -361,6 +361,34 @@ def _performance(person=None):
     return out
 
 
+@tool("tax_if_sold",
+      "Everything sold today: what the positions are worth, the untaxed gain in them, "
+      "what the tax would be under each account's rule, and what would be left — per "
+      "holding, per account and in total. An account with no rule is counted at "
+      "nothing and named. An estimate, not a tax return.",
+      {"person": PERSON})
+def _tax_if_sold(person=None):
+    from . import tax
+    return tax.if_sold(_scope(person))
+
+
+@tool("set_tax_rule",
+      "What a sale out of one account would cost: the rate on the gain, an allowance "
+      "that comes off it first, and a fraction of the gain that is exempt before the "
+      "rate applies. An empty rate forgets the rule, so the account is counted at "
+      "nothing again.",
+      {"account_id": {"type": "integer"},
+       "rate": {"type": "number", "description": "Per cent of the taxable gain."},
+       "allowance": {"type": "number", "description": "Per year, in the base currency."},
+       "exempt": {"type": "number", "description": "Per cent of the gain that is free."},
+       "label": {"type": "string"}},
+      ["account_id"])
+def _set_tax_rule(account_id, rate=None, allowance=0, exempt=0, label=""):
+    from . import tax
+    tax.set_profile(int(account_id), rate, allowance, exempt, label)
+    return {"account_id": int(account_id), "rule": tax.profile_for(int(account_id))}
+
+
 @tool("realised_gains",
       "What the sales made, by lots: per year and all time, per currency, and per "
       "security ever sold. Pass an ISIN for every sale of that one security with the "

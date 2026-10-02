@@ -37,6 +37,25 @@
     <p class="sub">{{ _("No people yet. Add the household under Settings → People, and each account can be somebody's.") }}</p>
     {% endif %}
   </fieldset>
+  {% if account.type in ("broker", "pension") %}
+  <fieldset class="owners">
+    <legend>{{ _("Tax on a sale") }}</legend>
+    <p class="sub">{{ _("What a sale out of this account would cost, so the portfolio can say what would actually be left. An account with nothing here is counted at nothing, and the page says so. An estimate, not advice.") }}</p>
+    <label for="tax_preset">{{ _("Start from") }}</label>
+    <select id="tax_preset" name="tax_preset">
+      <option value="">{{ _("— keep what is set —") }}</option>
+      {% for key, p in tax_presets.items() %}
+      <option value="{{ key }}">{{ p.label }} · {{ '%.3g' | format(p.rate) }} %</option>
+      {% endfor %}
+    </select>
+    <label for="tax_rate">{{ _("Rate on the gain, per cent") }} <span class="sub">{{ _("empty: not counted") }}</span></label>
+    <input id="tax_rate" name="tax_rate" value="{{ tax_profile.rate if tax_profile else '' }}" placeholder="26.375">
+    <label for="tax_allowance">{{ _f("Allowance per year, {currency}", currency=account.currency) }}</label>
+    <input id="tax_allowance" name="tax_allowance" value="{{ tax_profile.allowance if tax_profile else '' }}" placeholder="1000">
+    <label for="tax_exempt">{{ _("Exempt fraction of the gain, per cent") }} <span class="sub">{{ _("Germany's Teilfreistellung, for example") }}</span></label>
+    <input id="tax_exempt" name="tax_exempt" value="{{ tax_profile.exempt if tax_profile else '' }}" placeholder="30">
+  </fieldset>
+  {% endif %}
   {% if archive_on %}
   <fieldset class="owners">
     <legend>{{ _("Documents from the archive") }}</legend>

@@ -2012,6 +2012,56 @@ with db.get_conn() as conn:
                  "(" + ",".join("?" * len(_monthly_dates)) + ")", _monthly_dates)
 
 # ---------------------------------------------------------------------------
+print("\n16b. What a sale would cost in tax")
+# ---------------------------------------------------------------------------
+from app import tax as taxmod                                           # noqa: E402
+
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Tax depot', 'broker', 'EUR')")
+    tax_acc = conn.execute("SELECT id FROM accounts WHERE name = 'Tax depot'").fetchone()["id"]
+    for i, (day, qty, price) in enumerate(((("2020-01-02"), 50, 100.0), ("2021-01-02", 20, 150.0))):
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency,"
+                     " kind, isin, quantity, price, external_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                     (tax_acc, day, "Kauf", -qty * price, "EUR", "buy", "DE0007164600",
+                      qty, price, f"tax-buy-{i}"))
+    # A price on the fixtures' own day, not today: the overview's "prices
+    # as of" is checked further down, and a row dated now would move it.
+    conn.execute("INSERT OR REPLACE INTO prices (isin, as_of, price, currency, fetched_at)"
+                 " VALUES ('DE0007164600', '2026-09-11', 200.0, 'EUR', datetime('now'))")
+
+no_rule = taxmod.if_sold([tax_acc])
+check("an account with no rule is counted at nothing, and named",
+      (no_rule["tax"], no_rule["accounts_without_a_rule"]), (0.0, ["Tax depot"]))
+check("...while the gain in it is still shown", no_rule["gain"], 6000.0)
+taxmod.set_profile(tax_acc, 26.375, allowance=1000, exempt=0, label="Deutschland")
+with_rule = taxmod.if_sold([tax_acc])
+check("the gain is today's value less what the open lots cost",
+      (with_rule["value"], with_rule["gain"]), (14000.0, 6000.0))
+check("...the allowance comes off before the rate",
+      (with_rule["accounts"][0]["taxable"], with_rule["tax"]),
+      (5000.0, round(5000.0 * 0.26375, 2)))
+check("...and what is left is the value less the tax",
+      with_rule["net"], round(14000.0 - 5000.0 * 0.26375, 2))
+taxmod.set_profile(tax_acc, 26.375, allowance=1000, exempt=30, label="Aktienfonds")
+exempt = taxmod.if_sold([tax_acc])
+check("an exempt fraction comes off the gain before the allowance does",
+      exempt["accounts"][0]["taxable"], round(6000.0 * 0.7 - 1000.0, 2))
+taxmod.set_profile(tax_acc, None)
+check("an empty rate forgets the rule", taxmod.profile_for(tax_acc), None)
+try:
+    taxmod.set_profile(tax_acc, 150)
+    silly = False
+except ValueError:
+    silly = True
+check("a rate of 150 % is refused", silly, True)
+taxmod.set_profile(tax_acc, 26.375, allowance=1000, label="Deutschland")
+from app import mcp as _mcp                                             # noqa: E402
+_api_tax = _mcp._HANDLERS["tax_if_sold"]()
+check("the API answers the same figures",
+      round(next(a["tax"] for a in _api_tax["accounts"] if a["account"] == "Tax depot"), 2),
+      round(5000.0 * 0.26375, 2))
+
+# ---------------------------------------------------------------------------
 print("\n17. Every page in the nav actually renders")
 # ---------------------------------------------------------------------------
 for path in ["/", "/portfolio", "/cashflow", "/budget", "/subscriptions",

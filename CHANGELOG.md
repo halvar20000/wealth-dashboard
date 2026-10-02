@@ -11,6 +11,34 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.76.0] — 2026-10-02
+
+### Added
+- **What would be left after tax if you sold everything today.** The
+  portfolio page shows what the shares are worth; what they are worth
+  *to you* is less, because the gain in them has not been taxed yet.
+  The Portfolio page now also says: worth now, the untaxed gain in it,
+  what the tax would be, and what would actually arrive — with the
+  split per account underneath.
+  - The gain is today's value less what the **open lots** cost, walked
+    by the same code and under the same FIFO-or-average rule a real
+    sale uses, so this figure and the one after a sale agree. Losses
+    count against gains within an account.
+  - The rule is **per account**, because depots sit in different
+    countries: a rate, an allowance that comes off the gain first, and
+    a fraction of the gain that is exempt before the rate applies
+    (Germany's Teilfreistellung). Presets to start from for Germany
+    (with and without church tax, and for an equity fund), Austria,
+    Switzerland (private capital gains, nothing), France and the UK.
+  - **An account with no rule is counted at nothing and named**, rather
+    than quietly assumed to be free.
+  - On the API as `tax_if_sold` and `set_tax_rule`.
+  - Two limits said out loud on the page: a cost paid in another
+    currency is converted at today's rate, so the currency's own gain
+    is not separated out; and an exemption that depends on what a fund
+    holds is set per account rather than per fund. An estimate, not a
+    tax return.
+
 ## [0.75.0] — 2026-09-26
 
 ### Added

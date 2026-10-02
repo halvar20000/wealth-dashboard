@@ -45,7 +45,7 @@ from .banks import enablebanking as eb
 from .banks import sync as banksync
 from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, income, loans, retirement, webhooks,
                manual, mcp, overview, people, performance, screener, screener_etf,
-               screener_jobs, splits, stages, subscriptions, upcoming)
+               screener_jobs, splits, stages, subscriptions, tax, upcoming)
 from . import archive, brokers, expenses, report
 from .brokers import ibkr, kraken, saxo, traderepublic, trading212
 from . import db as db_state
@@ -543,12 +543,25 @@ def account_edit(account_id: int):
                      (request.form.get("currency") or "EUR").upper()[:3],
                      until, account_id))
             people.set_for_account(account_id, request.form.getlist("people"))
+            preset = tax.PRESETS.get(request.form.get("tax_preset") or "")
+            try:
+                if preset:
+                    tax.set_profile(account_id, preset["rate"], preset["allowance"],
+                                    preset["exempt"], preset["label"])
+                elif "tax_rate" in request.form:
+                    tax.set_profile(account_id, request.form.get("tax_rate"),
+                                    request.form.get("tax_allowance"),
+                                    request.form.get("tax_exempt"),
+                                    (tax.profile_for(account_id) or {}).get("label", ""))
+            except ValueError as exc:
+                flash(str(exc), "error")
             flash(_t("Account updated."), "ok")
             return redirect(url_for("account_detail", account_id=account_id))
 
     archive_link = (f'<a href="{url_for("account_archive", account_id=account_id)}">'
                     f'{_t("Documents from Paperless")}</a>')
     return render_template("account_edit.html", account=dict(account), archive_link=archive_link,
+                           tax_presets=tax.PRESETS, tax_profile=tax.profile_for(account_id),
                            counts=counts, error=error, active_page="accounts",
                            owner_ids={p["id"] for p in people.for_account(account_id)},
                            archive_on=archive.configured(),
@@ -2592,8 +2605,10 @@ def upcoming_page():
 @auth.login_required
 def portfolio_page():
     holdings, s, perf, realised = _holdings_with_figures()
+    after_tax = tax.if_sold(people.scope())
     return render_template("portfolio.html", active_page="portfolio", s=s, perf=perf,
-                           realised=realised, benchmarks=benchmark.BENCHMARKS)
+                           realised=realised, benchmarks=benchmark.BENCHMARKS,
+                           after_tax=after_tax)
 
 
 def _holdings_with_figures():

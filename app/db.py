@@ -491,6 +491,19 @@ CREATE TABLE IF NOT EXISTS removed_rows (
 -- (so it counts even when the rhythm is ragged), or that it is not (so
 -- it stops being offered). The key is the fingerprint subscriptions.py
 -- groups by; a detection nobody has judged has no row here.
+-- What a sale out of this account would cost in tax: the rate, an
+-- allowance that comes off the gain first, and a fraction of the gain
+-- that is exempt before the rate applies (Germany's Teilfreistellung).
+-- An account with no row here is not counted — see tax.py.
+CREATE TABLE IF NOT EXISTS tax_profiles (
+    account_id INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+    rate       REAL NOT NULL,              -- per cent of the taxable gain
+    allowance  REAL NOT NULL DEFAULT 0,    -- in the base currency, per year
+    exempt     REAL NOT NULL DEFAULT 0,    -- per cent of the gain that is free
+    label      TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS subscription_marks (
     key        TEXT PRIMARY KEY,
     state      TEXT NOT NULL,               -- 'confirmed' or 'ignored'

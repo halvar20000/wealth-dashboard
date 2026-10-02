@@ -35,6 +35,60 @@
   </div>
 </section>
 
+{% if after_tax and after_tax.holdings %}
+<section class="card">
+  <div class="card-header"><h2>{{ _("If you sold everything today") }}</h2>
+    <span class="card-subtitle">{{ _("an estimate, not a tax return") }}</span></div>
+  <div class="stat-strip">
+    <div class="stat-card stat-purple">
+      <div class="stat-label">{{ _("Worth now") }}</div>
+      <div class="stat-value">{{ money(after_tax.value, after_tax.base_currency) }}</div>
+      <div class="stat-sub">{{ _("the positions, at today's prices") }}</div>
+    </div>
+    <div class="stat-card stat-gold">
+      <div class="stat-label">{{ _("Untaxed gain in them") }}</div>
+      <div class="stat-value {{ 'gain' if after_tax.gain >= 0 else 'loss' }}">{{ money(after_tax.gain, after_tax.base_currency) }}</div>
+      <div class="stat-sub">{{ _f("against what the open lots cost, {method}", method=after_tax.method) }}</div>
+    </div>
+    <div class="stat-card stat-blue">
+      <div class="stat-label">{{ _("Tax on selling") }}</div>
+      <div class="stat-value">{{ money(after_tax.tax, after_tax.base_currency) }}</div>
+      <div class="stat-sub">{{ _("at each account's rule") }}</div>
+    </div>
+    <div class="stat-card stat-green">
+      <div class="stat-label">{{ _("Left for you") }}</div>
+      <div class="stat-value">{{ money(after_tax.net, after_tax.base_currency) }}</div>
+      <div class="stat-sub">{{ _("what would actually arrive") }}</div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead><tr><th>{{ _("Account") }}</th><th>{{ _("Rule") }}</th><th class="num">{{ _("Worth now") }}</th>
+                 <th class="num">{{ _("Gain") }}</th><th class="num">{{ _("Taxable") }}</th>
+                 <th class="num">{{ _("Tax") }}</th><th class="num">{{ _("Left") }}</th></tr></thead>
+      <tbody>
+      {% for a in after_tax.accounts %}
+        <tr>
+          <td><a href="{{ url_for('account_detail', account_id=a.account_id) }}">{{ a.account }}</a></td>
+          <td class="sub">{% if a.rule %}{{ a.rule.label or '' }} {{ '%.3g' | format(a.rule.rate) }} %{% if a.rule.allowance %} · {{ money(a.rule.allowance, after_tax.base_currency) }}{% endif %}{% if a.rule.exempt %} · {{ '%.3g' | format(a.rule.exempt) }} % {{ _("exempt") }}{% endif %}
+              {% else %}<a href="{{ url_for('account_edit', account_id=a.account_id) }}">{{ _("no rule yet") }}</a>{% endif %}</td>
+          <td class="num">{{ money(a.value, after_tax.base_currency) }}</td>
+          <td class="num {{ 'gain' if a.gain >= 0 else 'loss' }}">{{ money(a.gain, after_tax.base_currency) }}</td>
+          <td class="num sub">{{ money(a.taxable, after_tax.base_currency) }}</td>
+          <td class="num">{{ money(a.tax, after_tax.base_currency) }}</td>
+          <td class="num">{{ money(a.net, after_tax.base_currency) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if after_tax.accounts_without_a_rule %}
+  <p class="sub">{{ _f("Counted at nothing because no rule says otherwise: {accounts}. Set one on the account's edit page.", accounts=after_tax.accounts_without_a_rule | join(", ")) }}</p>
+  {% endif %}
+  <p class="sub">{{ _("The gain is today's value less what the units still held cost, lot by lot, under the same rule a real sale would use. Losses count against gains within an account. A cost paid in another currency is converted at today's rate, so the currency's own gain is not separated out, and an exemption that depends on what a fund holds is set per account rather than per fund.") }}</p>
+</section>
+{% endif %}
+
 {% if s.holdings %}
 {% macro pct(v) %}{% if v is none %}—{% else %}<span class="{{ 'pos' if v > 0 else ('neg' if v < 0) }}">{{ '%+.1f' | format(100 * v) }} %</span>{% endif %}{% endmacro %}
 <section class="card">
