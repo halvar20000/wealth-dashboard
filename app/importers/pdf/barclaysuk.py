@@ -1,4 +1,4 @@
-"""Barclays (UK) — the Bank Account statement.
+"""Barclays (UK) — the Bank Account and Bank Card statements.
 
 Read by its columns: *Money out*, *Money in* and the running balance,
 which is never a booking. The paper's habits: the day is printed once
@@ -23,9 +23,9 @@ from .layout import Table, fields, rows
 # the same day starts with one of these and no date of its own; a line
 # that does not is the branch, the reference or the time, and belongs to
 # the booking above.
-TYPES = (r"(?:Card Payment|Direct Debit|Cash Machine|Account Credit|Bill Payment|"
-         r"Standing Order|Bank Giro Credit|Giro Received|Received from|Receipt|"
-         r"Transfer|Interest|Charges?|Payment|Cheque|Refund)")
+TYPES = (r"(?:Card \w+ to|Card Payment|Direct Debit|Cash Machine|Account Credit|"
+         r"Bill Payment|Standing Order|Bank Giro Credit|Giro Received|Received from|"
+         r"Receipt|Transfer|Interest|Charges?|Payment|Cheque|Refund)")
 
 ACCOUNT = Table(
     row=r"^\s*(?P<date>\d{1,2} [A-Z][a-z]{2})\s+",
@@ -35,18 +35,21 @@ ACCOUNT = Table(
     stmt=r"Statement date\s+(?P<date>\d{1,2} [A-Z][a-z]{2} \d{4})",
     header=r"Money out\s+Money in|Description.*Money out",
     debit=r"Money out", credit=r"Money in", balance=r"Balance",
-    stop=r"^\s*(?:Continued|Your agreed limits|At a glance|Total payments)",
+    # The small print under the table has no figures in it, so without
+    # this it would be read as the address of the last booking.
+    stop=r"^\s*(?:Continued|Your agreed limits|At a glance|Total payments|"
+         r"Barclays Bank PLC|Registered (?:No|Office))",
     skip=r"(?i)start balance|end balance|balance brought|your transactions",
-    strip=r"(?i)\bRef:\s*\w+(?:\s+\d+)*|\bTransferred \d{1,2}:\d{2}\b.*$",
+    strip=r"(?i)\bRef:?\s*[\w/]+(?:\s+\d+)*|\bTransferred \d{1,2}:\d{2}\b.*$",
 )
 
 
 SPEC = Spec(
     slug="barclaysuk_pdf",
-    label="Barclays (UK) — Bank Account statement PDF",
+    label="Barclays (UK) — Bank Account / Bank Card statement PDF",
     corpus="mono:barclaysuk",
-    marks=[r"Your Barclays Bank Account statement", r"Barclays Bank PLC\. Registered in England",
-           r"BARCGB22"],
+    marks=[r"Your Barclays Bank (?:Account|Card) statement",
+           r"Barclays Bank PLC\. Registered in England", r"BARCGB22"],
     number="en",
     layout=True,
     preprocess=lambda text: rows(text, ACCOUNT),

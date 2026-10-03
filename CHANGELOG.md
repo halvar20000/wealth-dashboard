@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.77.1] — 2026-10-03
+
+### Added
+- **The Barclays UK reader also takes the Bank Card statement.** Same
+  paper, three differences: it is headed *Your Barclays Bank Card
+  statement*, its bookings are called *Card Purchase to* and *Card
+  transfer to*, and the reference under each one carries slashes. The
+  small print at the foot of the page ends the table now, rather than
+  being read as the address of the last booking.
+
 ## [0.77.0] — 2026-10-03
 
 ### Added

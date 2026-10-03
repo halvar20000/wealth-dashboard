@@ -7351,6 +7351,20 @@ check("...the day printed once serves the bookings under it, the columns give th
         ("2014-01-20", 25.0, "Receipt C O Onasile"),
         ("2014-01-22", 126.35, "Received from Stfc AP")], []))
 
+card = fixtures.pdf_from_text(fixtures.BARCLAYS_UK_CARD, font="Courier")
+cardm = importers.sniff(card)
+cardr = cardm.parse(card) if cardm else None
+check("the card statement of the same bank is the same paper: 'Card Purchase', "
+      "'Card transfer' and a reference with slashes in it",
+      (cardm.SLUG if cardm else None,
+       [(r.txn_date, r.amount, r.description) for r in (cardr.rows if cardr else [])]),
+      ("barclaysuk_pdf",
+       [("2024-05-01", -66.83, "Card Purchase to Tesco Express"),
+        ("2024-05-04", -71.27, "Card transfer to **2363"),
+        ("2024-05-06", -76.44, "Card transfer to **2363"),
+        ("2024-05-12", -63.08, "Card Purchase to Lidl"),
+        ("2024-05-20", 1250.0, "Bank Giro Credit from Payroll")]))
+
 pdf = fixtures.pdf_from_text(fixtures.FIRSTDIRECT_STATEMENT, font="Courier")
 mod = importers.sniff(pdf)
 check("a first direct statement is handed to its reader", mod.SLUG if mod else None, "firstdirect_pdf")

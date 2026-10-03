@@ -1424,6 +1424,27 @@ Continued
 Barclays Bank PLC. Registered in England. Registered No. 1026167. Registered Office: 1 Churchill Place, London E14 5HP
 """
 
+# The same paper, the card statement: "Your Barclays Bank Card
+# statement", bookings called "Card Purchase to" and "Card transfer
+# to", and a reference with slashes in it on the line below.
+BARCLAYS_UK_CARD = """BARCLAYS                                          Statement date 31 May 2024
+                                                  Last statement 30 Apr 2024
+Your Barclays Bank Card statement                 Barclays Bank Account
+Current card statement                            01 May 2024 - 31 May 2024
+Date      Description                             Money out    Money in      Balance
+01 May    Start balance                                                    21,096.30
+01 May    Card Purchase to Tesco Express              66.83
+          Ref: 6596/115/1252739987
+04 May    Card transfer to **2363                     71.27                20,958.20
+          Ref: 6596/116/7056263598
+06 May    Card transfer to **2363                     76.44                20,881.76
+          Ref: 6596/120/1034597463
+12 May    Card Purchase to Lidl                       63.08                20,818.68
+          Ref: 6596/126/2960137086
+20 May    Bank Giro Credit from Payroll                          1,250.00  22,068.68
+Barclays Bank PLC. Registered in England. Registered No. 1026167. Registered Office: 1 Churchill Place, London E14 5HP
+"""
+
 # The same scan, with the rates table the sheet prints under the
 # bookings: an overdraft limit in pounds, an AER, a per-cent. A user
 # got "over 250" and "Credit interest is not paid" imported as money.
