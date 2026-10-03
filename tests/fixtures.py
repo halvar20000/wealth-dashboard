@@ -1395,6 +1395,35 @@ FIRSTDIRECT_STATEMENT = """                                                     
 # the columns are gone. Every line carries its amount and, where the
 # paper printed one, the balance after it — which is what tells paid
 # in from paid out once the columns cannot.
+# Barclays (UK), the Bank Account statement: the day printed once with
+# several bookings under it, Money out and Money in as columns, the
+# running balance on the last booking of a day, and the year only in
+# the header. Reconstructed from a sample a user sent.
+BARCLAYS_UK_STATEMENT = """BARCLAYS                                          Statement date 07 Feb 2014
+                                                  Last statement 08 Jan 2014
+Your Barclays Bank Account statement              Barclays Bank Account
+Current account statement                         09 Jan - 07 Feb 2014
+Your transactions
+Date      Description                             Money out    Money in      Balance
+ 9 Jan    Start balance                                                        33.81
+ 9 Jan    Card Payment to Sainsburys 000000            6.00
+          Card Payment to C C Continental             10.00                    17.81
+          SU
+13 Jan    Card Payment to Cks Supermarket              5.95
+          LI
+          Account Credit: Deposit at Barclays                      20.00       31.86
+          Aberystwyth 45
+15 Jan    Direct Debit to Orange                      12.60                    18.26
+          Ref: 98066918104142879 4
+20 Jan    Cash Machine Withdrawal at Link             10.00
+          Aberystwyth
+          Transferred 16:41 on 20 Jan
+          Receipt C O Onasile                                      25.00      130.51
+22 Jan    Received from Stfc AP                                   126.35      244.49
+Continued
+Barclays Bank PLC. Registered in England. Registered No. 1026167. Registered Office: 1 Churchill Place, London E14 5HP
+"""
+
 # The same scan, with the rates table the sheet prints under the
 # bookings: an overdraft limit in pounds, an AER, a per-cent. A user
 # got "over 250" and "Credit interest is not paid" imported as money.

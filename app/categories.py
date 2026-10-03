@@ -865,7 +865,12 @@ _KIND_CATEGORY_BY_ACCOUNT_TYPE = {
     "p2p":    {"deposit": "transfer", "withdrawal": "transfer"},
     "pension": {"deposit": "transfer", "withdrawal": "transfer"},
     "property": {},
-    "card":   {},
+    # Money arriving on a card is almost always the bill being paid from
+    # a current account — your own money moving, not income. Counting it
+    # as income would add a second salary to a household that spends on
+    # a card; a refund that also arrives this way is a row to correct by
+    # hand, which is the cheaper mistake.
+    "card":   {"deposit": "transfer"},
     "other":  {},
 }
 

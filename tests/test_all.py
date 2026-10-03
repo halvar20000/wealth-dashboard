@@ -2012,6 +2012,36 @@ with db.get_conn() as conn:
                  "(" + ",".join("?" * len(_monthly_dates)) + ")", _monthly_dates)
 
 # ---------------------------------------------------------------------------
+print("\n16a. A credit card is a debt, and paying it is not income")
+# ---------------------------------------------------------------------------
+from app import overview as _ov                                         # noqa: E402
+
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Visa', 'card', 'EUR')")
+    card = conn.execute("SELECT id FROM accounts WHERE name = 'Visa'").fetchone()["id"]
+    conn.execute("INSERT INTO balances (account_id, as_of, amount, currency) "
+                 "VALUES (?, '2026-06-30', -842.50, 'EUR')", (card,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, "
+                 "currency, kind, external_id) VALUES "
+                 "(?, '2026-06-05', 'TESCO STORES', -42.0, 'EUR', 'withdrawal', 'card-1')", (card,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, "
+                 "currency, kind, external_id) VALUES "
+                 "(?, '2026-06-28', 'PAYMENT RECEIVED THANK YOU', 500.0, 'EUR', 'deposit', "
+                 "'card-2')", (card,))
+cards = _ov.summary("EUR")
+visa = next(r for a in cards["groups"] for r in a["accounts"] if r["name"] == "Visa")
+check("a card in the red is grouped with what is owed, not with cash", visa["group"], "liabilities")
+cat.seed_from_kind()
+with db.get_conn() as conn:
+    paid = conn.execute("SELECT category FROM transactions WHERE external_id = 'card-2'").fetchone()
+check("paying the card bill is money moved, not income earned", paid["category"], "transfer")
+with db.get_conn() as conn:
+    conn.execute("UPDATE balances SET amount = 25.0 WHERE account_id = ?", (card,))
+in_credit = _ov.summary("EUR")
+visa2 = next(r for a in in_credit["groups"] for r in a["accounts"] if r["name"] == "Visa")
+check("...while a card in credit is money again", visa2["group"], "cash")
+
+# ---------------------------------------------------------------------------
 print("\n16b. What a sale would cost in tax")
 # ---------------------------------------------------------------------------
 from app import tax as taxmod                                           # noqa: E402
@@ -7303,6 +7333,23 @@ scan_client.post("/login", data={"username": "alex", "password": "a-good-passwor
 scan_report = scan_client.post(f"/accounts/{account_id}/import", data={"file": (io.BytesIO(blank), "scan.pdf")},
                                content_type="multipart/form-data", follow_redirects=True)
 check("...the import says so instead of 'not recognised'", b"a scan, with no text in it" in scan_report.data, True)
+
+bc = fixtures.pdf_from_text(fixtures.BARCLAYS_UK_STATEMENT, font="Courier")
+bcm = importers.sniff(bc)
+check("a Barclays UK statement is handed to its own reader, not the German Barclaycard one",
+      bcm.SLUG if bcm else None, "barclaysuk_pdf")
+bcr = bcm.parse(bc)
+check("...the day printed once serves the bookings under it, the columns give the sign, "
+      "the year comes from the statement date, and the balance is not a booking",
+      ([(r.txn_date, r.amount, r.description) for r in bcr.rows], bcr.problems),
+      ([("2014-01-09", -6.0, "Card Payment to Sainsburys 000000"),
+        ("2014-01-09", -10.0, "Card Payment to C C Continental SU"),
+        ("2014-01-13", -5.95, "Card Payment to Cks Supermarket LI"),
+        ("2014-01-13", 20.0, "Account Credit: Deposit at Barclays Aberystwyth 45"),
+        ("2014-01-15", -12.6, "Direct Debit to Orange"),
+        ("2014-01-20", -10.0, "Cash Machine Withdrawal at Link Aberystwyth"),
+        ("2014-01-20", 25.0, "Receipt C O Onasile"),
+        ("2014-01-22", 126.35, "Received from Stfc AP")], []))
 
 pdf = fixtures.pdf_from_text(fixtures.FIRSTDIRECT_STATEMENT, font="Courier")
 mod = importers.sniff(pdf)

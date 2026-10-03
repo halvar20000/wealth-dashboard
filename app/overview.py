@@ -223,6 +223,13 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
             own = False
         r["total_native"] = ((native_cash or 0.0) + sec_native) if own and (native_cash is not None or sec_native) else None
         r["group"] = GROUP_OF.get(r["type"], "cash")
+        # A credit card in the red is not cash, it is what you owe the
+        # card company — and on a card that is not cleared every month
+        # it is a loan with a rate on it. One that is in credit (an
+        # overpayment, a refund after the bill was paid) is money, so
+        # the sign decides rather than the type.
+        if r["type"] == "card" and (r["total_base"] or 0.0) < 0:
+            r["group"] = "liabilities"
     groups = []
     for key, label, _types in GROUPS:
         members = [r for r in rows if r["group"] == key]

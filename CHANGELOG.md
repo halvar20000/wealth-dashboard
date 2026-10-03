@@ -11,6 +11,35 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.77.0] — 2026-10-03
+
+### Added
+- **Barclays (UK) Bank Account statements.** Read by their columns —
+  *Money out*, *Money in* and the running balance, which is never a
+  booking. The day is printed once and the bookings of that day follow
+  under it; the branch, a reference or a till time on the next line
+  belongs to the booking above it; and the year, which no row carries,
+  comes from the statement date in the header. Built from a sample a
+  user sent. The German Barclaycard reader is untouched and does not
+  claim these: it wants the word *Kontoauszug*.
+
+### Fixed
+- **A credit card in the red was grouped with cash.** The net worth was
+  right — a negative balance subtracts — but the accounts table filed
+  what you owe the card company under "Cash & banks", which is where
+  money is. The sign decides now: a card in the red sits with the
+  liabilities, a card in credit (an overpayment, a refund after the
+  bill was paid) is money again.
+- **Paying the card bill looked like income.** A bank account's
+  deposits default to income, which is right for a salary; a card
+  account had no default at all, so the monthly payment from the
+  current account sat uncategorised and, once filed by hand as income,
+  became a second salary in every figure. Money arriving on a card is
+  now a transfer by default — your own money moving. A refund that
+  arrives the same way is a row to correct, which is the cheaper
+  mistake. Both found in a user's question about how to track a credit
+  card.
+
 ## [0.76.0] — 2026-10-02
 
 ### Added
