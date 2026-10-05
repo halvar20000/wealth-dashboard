@@ -11,6 +11,19 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.77.2] — 2026-10-05
+
+### Fixed
+- **A payslip booked under "Bezeichnung".** The small employer's
+  Lohnabrechnung names the earner under its title — except on the
+  sheets that print the table's heading there instead, where
+  *"Bezeichnung Menge Ansatz Betrag"* was read as a person and every
+  row the sheet booked carried it. Where the line under the title is a
+  heading, the recipient's block above the staff number answers
+  instead: an address line starts with a number, a postcode or a
+  Postfach, and the line before the first of them is the person. Found
+  on a real sheet, which is now a fixture.
+
 ## [0.77.1] — 2026-10-03
 
 ### Added

@@ -214,6 +214,56 @@ def _parse_sap(text: str) -> dict:
 _AMT = r"-?\d[\d’'O]*\.[\dO]{2}"
 
 
+
+# The table's own heading, which is not a person: a sheet that prints
+# "Bezeichnung Menge Ansatz Betrag" under its title used to have that
+# read as the earner's name, and every row it booked carried it.
+_HEADING = re.compile(r"(?i)^(?:bezeichnung|designation|libell|description|menge|ansatz|betrag|"
+                      r"lohnart|position)\b")
+# A line of an address: a street with a number, a postcode and a town,
+# a post-office box. The name is the line above the first of them.
+_ADDRESS = re.compile(r"(?i)^(?:\d|postfach|case postale|c/o|b\.?p\.?\s)|^\S+\s+\d+[a-z]?$")
+
+
+def _looks_like_a_person(line: str) -> bool:
+    """Two to four words of letters: a name, not a street and not a
+    heading. Digits settle it — no name carries them, every address
+    does."""
+    words = line.split()
+    return 2 <= len(words) <= 4 and not any(ch.isdigit() for ch in line)
+
+
+def _earner(lines: list[str]) -> str | None:
+    """Who the sheet is for.
+
+    Most of these sheets print the name under the title, which is where
+    this used to look and still looks first. One prints the table's
+    heading there instead — "Bezeichnung Menge Ansatz Betrag" — and
+    that was read as a person, so every row it booked was filed under
+    "Bezeichnung". Where the line under the title is a heading, the
+    recipient's block above the staff number answers instead: an
+    address line starts with a number, a postcode or a Postfach, and
+    the line before the first of them is the person.
+    """
+    for i, line in enumerate(lines):
+        if "Lohnabrechnung" in line.replace(" ", "") and i + 1 < len(lines):
+            nxt = lines[i + 1]
+            if not _HEADING.match(nxt):
+                return _unglue(nxt)
+            break
+    for i, line in enumerate(lines):
+        if re.match(r"(?i)^(?:personalnummer|personal-?nr|mitarbeiter-?nr|soz\.?vers)", line):
+            seen_address = False
+            for back in range(i - 1, -1, -1):
+                if _ADDRESS.match(lines[back]):
+                    seen_address = True
+                    continue
+                candidate = _unglue(lines[back])
+                return candidate if seen_address and _looks_like_a_person(candidate) else None
+            break
+    return None
+
+
 def _parse_lohnabrechnung(text: str) -> dict:
     flat = text.replace(" ", "")
     lines = [l.strip() for l in text.splitlines() if l.strip()]
@@ -227,11 +277,7 @@ def _parse_lohnabrechnung(text: str) -> dict:
     m = re.search(r"Lohnabrechnung\s*([A-Za-zäöüÄÖÜ]+?)\s*(\d{4})", text)
     if m and _month(m.group(1)):
         out["period"] = f"{m.group(2)}-{_month(m.group(1)):02d}"
-        # The line after the title names the earner.
-        for i, l in enumerate(lines):
-            if "Lohnabrechnung" in l.replace(" ", "") and i + 1 < len(lines):
-                out["employee"] = _unglue(lines[i + 1])
-                break
+    out["employee"] = _earner(lines)
     m = re.search(r"Auszahlung\s*am\s*(\d{2})\.(\d{2})\.(\d{4})", flat)
     if m:
         out["paid_on"] = f"{m.group(3)}-{m.group(2)}-{m.group(1)}"

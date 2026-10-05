@@ -846,6 +846,35 @@ Bankschlüssel Bankname Konto Banküberweisung
 Mitteilung
 """
 
+# The same small-employer layout as PAYSLIP_LOHNABRECHNUNG, laid out
+# the other way round: the recipient's block sits above the staff
+# number, and under the title stands the table's heading rather than a
+# person. A real sheet, redacted — it used to book every row under
+# "Bezeichnung".
+PAYSLIP_HEADING_UNDER_TITLE = """Stiftung für Forschung
+Aeschengraben 26
+Postfach 4051
+4051 Basel
+Muster Marie-Ange
+62a rue du Rhin
+68680 Kembs
+Personalnummer: 62
+Soz.Vers.Nr.: 756.0000.0000.00
+Datum: 23. September 2026
+Lohnabrechnung September 2026
+Bezeichnung Menge Ansatz Betrag
+Monatslohn 4’282.40
+Bruttolohn 4’282.40
+AHV-Beitrag 4’282.40 5.30 % -226.95
+ALV-Beitrag 4’282.40 1.10 % -47.10
+NBUV-Beitrag 4’282.40 0.98 % -41.95
+BVG-Beitrag -251.60
+Nettolohn 3’714.80
+Auszahlung 3’714.80
+Auszahlung am 24.09.2026
+Fr. 3’714.80 auf IBAN CH0000000000000000000 - CHF, Musterbank
+"""
+
 PAYSLIP_LOHNABRECHNUNG = """MusterstiftungfürForschung
 Musterstrasse1
 4000Basel

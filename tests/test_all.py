@@ -1311,6 +1311,19 @@ check("...AHV and ALV as social, BVG as pension, no tax at source for a frontali
       (lo["employee_social"], lo["employee_pension"], lo["tax"]), (-448.0, -130.5, 0.0))
 check("...the employer's side as the statutory floor, and flagged as such",
       (lo["employer_social"], lo["employer_pension"], lo["employer_side_known"]), (448.0, 130.5, False))
+# The sheet that prints its table's heading where another prints the
+# name: "Bezeichnung Menge Ansatz Betrag" is not a person, and every
+# row this one booked used to be filed under it.
+head = payslip.parse(fixtures.PAYSLIP_HEADING_UNDER_TITLE).payslip
+check("a table heading under the title is not the earner — the recipient's block is",
+      (head["employee"], head["employer"]),
+      ("Muster Marie-Ange", "Stiftung für Forschung"))
+check("...and the rows carry the person, not the heading",
+      [r.description.split(" 2026")[0] for r in payslip.parse(fixtures.PAYSLIP_HEADING_UNDER_TITLE).rows][:1],
+      ["Muster"])
+check("...with no tax at source on a frontalier's sheet, and the BVG on both sides",
+      (head["tax"], head["employee_pension"], head["employer_pension"]), (0.0, -251.6, 251.6))
+
 check("a sheet with no month is a problem, not a statement",
       payslip.parse("Lohnabrechnung Bruttolohn Nettolohn nothing else").problems, ["the payslip's month or gross could not be read"])
 
