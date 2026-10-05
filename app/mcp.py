@@ -891,6 +891,19 @@ def _delete_transactions(txn_ids):
     return {"deleted": manual.delete_transactions(list(txn_ids))}
 
 
+@tool("merge_earner",
+      "One person, one name. A payslip is stored under the name its sheet gave, and a "
+      "reader that learns to read that sheet better gives a different one — so the same "
+      "earner can appear three times, each with a third of a salary. Moves every "
+      "statement of `wrong` to `right`, and the rows they booked with them; where both "
+      "hold the same employer and month, the one under `right` is kept.",
+      {"wrong": {"type": "string"}, "right": {"type": "string"}},
+      ["wrong", "right"])
+def _merge_earner(wrong, right):
+    from . import income
+    return income.merge_earner(wrong, right)
+
+
 @tool("set_pension_source",
       "Say whose payslips feed a pension account. Its value is then the last balance "
       "reading plus every pension contribution, both sides, paid after the day of that "

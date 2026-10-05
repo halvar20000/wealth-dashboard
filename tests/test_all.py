@@ -2070,6 +2070,44 @@ try:
 except ValueError as exc:
     refused = "Testperson" in str(exc)
 check("...and refuses a name no payslip carries, naming the ones it has", refused, True)
+
+# The same earner under three names, because the reader improved between
+# imports. The Income page would show three people on a third of a
+# salary each, and a pension linked to one of them would grow by a third.
+from app import income as _inc                                          # noqa: E402
+with db.get_conn() as conn:
+    for employee, period in (("Bezeichnung", "2026-07"), ("Testperson Welker", "2026-08"),
+                             ("Testperson", "2026-08")):
+        conn.execute("INSERT OR REPLACE INTO payslips (employer, employee, period, paid_on, currency, "
+                     " gross, net_paid, employee_pension, employer_pension) "
+                     "VALUES ('Werk AG', ?, ?, ?, 'CHF', 10000, 7000, -251.60, 251.60)",
+                     (employee, period, period + "-25"))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, kind, "
+                 " external_id) VALUES (?, '2026-07-25', 'Bezeichnung 2026-07: pension contribution', "
+                 " -251.60, 'CHF', 'transfer', 'payslip:Werk_AG:Bezeichnung:2026-07:pension')",
+                 (broker_id,))
+one = _inc.merge_earner("Bezeichnung", "Testperson")
+check("a statement under the wrong name moves to the right one, with its rows",
+      (one["statements_moved"], one["rows_relabelled"]), (1, 1))
+with db.get_conn() as conn:
+    moved = conn.execute("SELECT description, external_id FROM transactions "
+                         "WHERE external_id LIKE 'payslip:Werk_AG:Testperson:2026-07%'").fetchone()
+check("...the row says the person, not the heading", moved["description"].split()[0], "Testperson")
+two = _inc.merge_earner("Testperson Welker", "Testperson")
+check("...and the same month under both names keeps the better-read one",
+      (two["statements_merged_away"], two["statements_moved"]), (1, 0))
+check("...so the earner is one person again",
+      sorted({e["name"] for e in _inc.earners() if "Testperson" in e["name"] or e["name"] == "Bezeichnung"}),
+      ["Testperson"])
+try:
+    _inc.merge_earner("Nobody", "Testperson")
+    unknown_refused = False
+except ValueError:
+    unknown_refused = True
+check("...a name no payslip carries is refused", unknown_refused, True)
+with db.get_conn() as conn:
+    conn.execute("DELETE FROM payslips WHERE employee = 'Testperson'")
+    conn.execute("DELETE FROM transactions WHERE external_id LIKE 'payslip:Werk_AG:%'")
 with db.get_conn() as conn:
     # Out again: this fixture carries a currency and half a million that
     # the overview's own checks further down would otherwise measure.

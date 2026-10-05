@@ -11,6 +11,20 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.78.2] — 2026-10-05
+
+### Added
+- **`merge_earner`**: one person, one name. A payslip is stored under
+  the name its sheet gave, and a reader that learns to read that sheet
+  better gives a different one — so the same earner can sit in the
+  Income page three times, each on a third of a salary, and a pension
+  linked to one of those names grows by a third of what is paid in.
+  Moving the statements takes the rows they booked with them, name and
+  id alike; where both names hold the same employer and month, the one
+  under the right name is kept, because it came from the better
+  reading, and the other goes with its rows rather than counting the
+  same contribution twice.
+
 ## [0.78.1] — 2026-10-05
 
 ### Added
