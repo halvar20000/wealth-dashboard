@@ -11,6 +11,15 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.78.1] — 2026-10-05
+
+### Added
+- **`set_pension_source`** on the API: which earner's payslips feed a
+  pension account, which until now could only be said in the browser.
+  The answer lists the earners the payslips know, and a name none of
+  them carries is refused rather than quietly stored — a link to a
+  name that does not exist would look like a fund that never grows.
+
 ## [0.78.0] — 2026-10-05
 
 ### Added

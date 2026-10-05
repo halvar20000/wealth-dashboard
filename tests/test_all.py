@@ -2060,6 +2060,16 @@ with db.get_conn() as conn:
 fresh = next(r for g in ov_pension.summary("CHF")["groups"] for r in g["accounts"] if r["name"] == "PK Test")
 check("...and a new certificate starts the counting again from itself",
       (fresh["balance"], fresh["paid_in_since"]), (503624.9, None))
+from app import mcp as _mcp_pension                                     # noqa: E402
+check("the API sets the link, and says which earners it knows",
+      _mcp_pension._HANDLERS["set_pension_source"](account_id=pk, employee="Testperson")["employee"],
+      "Testperson")
+try:
+    _mcp_pension._HANDLERS["set_pension_source"](account_id=pk, employee="Nobody At All")
+    refused = False
+except ValueError as exc:
+    refused = "Testperson" in str(exc)
+check("...and refuses a name no payslip carries, naming the ones it has", refused, True)
 with db.get_conn() as conn:
     # Out again: this fixture carries a currency and half a million that
     # the overview's own checks further down would otherwise measure.

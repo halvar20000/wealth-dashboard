@@ -891,6 +891,33 @@ def _delete_transactions(txn_ids):
     return {"deleted": manual.delete_transactions(list(txn_ids))}
 
 
+@tool("set_pension_source",
+      "Say whose payslips feed a pension account. Its value is then the last balance "
+      "reading plus every pension contribution, both sides, paid after the day of that "
+      "reading — so the fund grows between its certificates instead of standing still. "
+      "An empty name unlinks it. The answer lists the earners the payslips know, so a "
+      "name that is not one of them is refused rather than quietly stored.",
+      {"account_id": {"type": "integer"},
+       "employee": {"type": "string", "description": "As the payslip spells it."}},
+      ["account_id"])
+def _set_pension_source(account_id, employee=""):
+    from . import income
+    known = [e["name"] for e in income.earners()]
+    employee = (employee or "").strip()
+    if employee and employee not in known:
+        raise ValueError(f"No payslip names {employee!r}. Known: {', '.join(known) or 'none yet'}.")
+    with get_conn() as conn:
+        row = conn.execute("SELECT id, name, type FROM accounts WHERE id = ?", (int(account_id),)).fetchone()
+        if row is None:
+            raise ValueError(f"No account with id {account_id}.")
+        if row["type"] != "pension":
+            raise ValueError(f"{row['name']} is a {row['type']} account; only a pension grows this way.")
+        conn.execute("UPDATE accounts SET payslip_employee = ? WHERE id = ?",
+                     (employee or None, int(account_id)))
+    return {"account_id": int(account_id), "account": row["name"],
+            "employee": employee or None, "earners": known}
+
+
 @tool("set_balance", "Record an account's balance as of a day, for an account "
       "nothing reports on.",
       {"account_id": {"type": "integer"}, "amount": {"type": "number"},
