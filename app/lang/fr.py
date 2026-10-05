@@ -8,6 +8,11 @@ alors à sa place. Voir app/i18n.py.
 """
 
 STRINGS: dict[str, str] = {
+    "Fed by payslips": "Alimenté par les bulletins de paie",
+    "Whose payslips": "Les bulletins de qui",
+    "— nobody: the reading stands as it is —": "— personne : le solde relevé reste tel quel —",
+    "{reading} on the certificate, and {paid} paid in by payslips since.": "{reading} selon le certificat, et {paid} versé par les bulletins depuis.",
+    "A pension fund's value is a reading — the certificate it last sent. Between two of them it grows by what is paid in, and the payslips say how much. Name the earner and this account counts their contributions from the day of its last reading; record a new certificate and the counting starts again from there, so nothing is counted twice.": "La valeur d’une caisse de pension est un solde relevé : le dernier certificat. Entre deux certificats, elle croît de ce qui y est versé, et les bulletins de paie disent combien. Nommez la personne et ce compte comptera ses cotisations à partir du jour du dernier relevé ; enregistrez un nouveau certificat et le comptage repart de là, sans rien compter deux fois.",
     "If you sold everything today": "Si tu vendais tout aujourd’hui",
     "an estimate, not a tax return": "une estimation, pas une déclaration",
     "Worth now": "Valeur actuelle",

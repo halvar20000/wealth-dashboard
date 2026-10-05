@@ -2025,6 +2025,49 @@ with db.get_conn() as conn:
                  "(" + ",".join("?" * len(_monthly_dates)) + ")", _monthly_dates)
 
 # ---------------------------------------------------------------------------
+print("\n15c. A pension grows between its certificates")
+# ---------------------------------------------------------------------------
+from app import overview as ov_pension                                  # noqa: E402
+# A fund's value is a reading — the certificate it last sent. Between
+# two of them it grows by what is paid in, which the payslips name. A
+# user watched his pension stand still for a month because of it: the
+# figure was right in August, when the move-in brought it, and wrong in
+# September, when the payslip came and nothing moved.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('PK Test', 'pension', 'CHF')")
+    pk = conn.execute("SELECT id FROM accounts WHERE name = 'PK Test'").fetchone()["id"]
+    conn.execute("INSERT INTO balances (account_id, as_of, amount, currency, balance_type) "
+                 "VALUES (?, '2026-08-25', 500000.0, 'CHF', 'manual')", (pk,))
+    for period, paid in (("2026-08", "2026-08-25"), ("2026-09", "2026-09-25")):
+        conn.execute("INSERT INTO payslips (employer, employee, period, paid_on, currency, gross, "
+                     " net_paid, employee_pension, employer_pension) "
+                     "VALUES ('Werk AG', 'Testperson', ?, ?, 'CHF', 10000, 7000, -927.25, 2697.65)",
+                     (period, paid))
+
+before = next(r for g in ov_pension.summary("CHF")["groups"] for r in g["accounts"] if r["name"] == "PK Test")
+check("a pension nobody has linked to a payslip stands on its reading alone",
+      (before["balance"], before["paid_in_since"]), (500000.0, None))
+with db.get_conn() as conn:
+    conn.execute("UPDATE accounts SET payslip_employee = 'Testperson' WHERE id = ?", (pk,))
+after = next(r for g in ov_pension.summary("CHF")["groups"] for r in g["accounts"] if r["name"] == "PK Test")
+check("...and one that names its earner grows by what was paid in after the reading",
+      (after["paid_in_since"], after["balance"]), (3624.9, 503624.9))
+check("...the payslip of the reading's own day is not counted twice",
+      after["paid_in_since"], 3624.9)
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO balances (account_id, as_of, amount, currency, balance_type) "
+                 "VALUES (?, '2026-09-30', 503624.9, 'CHF', 'manual')", (pk,))
+fresh = next(r for g in ov_pension.summary("CHF")["groups"] for r in g["accounts"] if r["name"] == "PK Test")
+check("...and a new certificate starts the counting again from itself",
+      (fresh["balance"], fresh["paid_in_since"]), (503624.9, None))
+with db.get_conn() as conn:
+    # Out again: this fixture carries a currency and half a million that
+    # the overview's own checks further down would otherwise measure.
+    conn.execute("DELETE FROM balances WHERE account_id = ?", (pk,))
+    conn.execute("DELETE FROM payslips WHERE employee = 'Testperson'")
+    conn.execute("DELETE FROM accounts WHERE id = ?", (pk,))
+
+# ---------------------------------------------------------------------------
 print("\n16a. A credit card is a debt, and paying it is not income")
 # ---------------------------------------------------------------------------
 from app import overview as _ov                                         # noqa: E402

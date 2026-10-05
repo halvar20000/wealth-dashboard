@@ -45,13 +45,18 @@
   <div class="card stat">
     <div class="stat-label">{{ _("Balance") }}</div>
     <div class="stat-value">
-      {% if balance %}{{ money(balance.amount, balance.currency) }}
+      {% if balance %}{{ money((balance.amount or 0) + (paid_in_since or 0), balance.currency) }}
       {% else %}—{% endif %}
     </div>
     <div class="sub">
       {% if balance %}{{ _("typed in") if balance.balance_type == 'manual' else (balance.balance_type or _("reported")) }} · {{ _f("as of {date}", date=d(balance.as_of)) }}
       {% else %}{{ _("nothing reported yet") }}{% endif %}
     </div>
+    {% if paid_in_since %}
+    <div class="sub">{{ _f("{reading} on the certificate, and {paid} paid in by payslips since.",
+                            reading=money(balance.amount, balance.currency),
+                            paid=money(paid_in_since, balance.currency)) }}</div>
+    {% endif %}
     {% if not link %}
     {# No bank reports this balance, so the owner does. A reading, dated:
        the newest one is what the overview adds up. #}

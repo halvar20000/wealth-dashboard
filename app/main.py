@@ -476,6 +476,7 @@ def account_detail(account_id: int):
                            loan_status=loans.status(loan) if loan else None,
                            periods=loans.PERIODS,
                            balance=dict(balance) if balance else None,
+                           paid_in_since=(overview.summary_row(account_id) or {}).get("paid_in_since"),
                            readings=readings,
                            transactions=[dict(t) for t in txns],
                            total_transactions=total,
@@ -543,6 +544,11 @@ def account_edit(account_id: int):
                      (request.form.get("currency") or "EUR").upper()[:3],
                      until, account_id))
             people.set_for_account(account_id, request.form.getlist("people"))
+            if "payslip_employee" in request.form:
+                with get_conn() as conn:
+                    conn.execute("UPDATE accounts SET payslip_employee = ? WHERE id = ?",
+                                 ((request.form.get("payslip_employee") or "").strip() or None,
+                                  account_id))
             preset = tax.PRESETS.get(request.form.get("tax_preset") or "")
             try:
                 if preset:
@@ -562,6 +568,7 @@ def account_edit(account_id: int):
                     f'{_t("Documents from Paperless")}</a>')
     return render_template("account_edit.html", account=dict(account), archive_link=archive_link,
                            tax_presets=tax.PRESETS, tax_profile=tax.profile_for(account_id),
+                           payslip_earners=[e["name"] for e in income.earners()],
                            counts=counts, error=error, active_page="accounts",
                            owner_ids={p["id"] for p in people.for_account(account_id)},
                            archive_on=archive.configured(),

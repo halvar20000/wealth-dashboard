@@ -837,6 +837,10 @@ _ADDED_COLUMNS = {
     # than booking every row a second time. See migrate.py.
     "accounts": [
         ("ledger_until", "TEXT"),
+        # A pension fund grows by what is paid into it between two
+        # certificates. The earner named here is the one whose payslips
+        # do that growing — see overview.summary().
+        ("payslip_employee", "TEXT"),
     ],
     # A rule that says where to look, which way the money went, and
     # how much — see categories.py. Older rows: anywhere, any, any.

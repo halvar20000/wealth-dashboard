@@ -11,6 +11,22 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.78.0] — 2026-10-05
+
+### Added
+- **A pension fund grows between its certificates.** Its value is a
+  reading — the certificate it last sent — and until now that reading
+  was all there was: a fund stood still for a year and then jumped,
+  and the month a payslip arrived looked like a month nothing was paid
+  in. A pension account can now name the earner whose payslips feed it
+  (its edit page), and its value becomes *the reading plus every
+  pension contribution, both sides, paid after the day of that
+  reading*. Record the next certificate and the counting starts again
+  from it, so nothing is counted twice; an account that names nobody,
+  or whose reading carries no date, stands on its reading alone rather
+  than on a guess. The account page prints the make-up: what the
+  certificate said, and what has been paid in since.
+
 ## [0.77.2] — 2026-10-05
 
 ### Fixed

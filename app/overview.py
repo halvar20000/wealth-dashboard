@@ -59,6 +59,42 @@ GROUPS = (("cash", "Cash & banks", ("bank", "savings", "card", "other")),
 GROUP_OF = {t: g for g, _, types in GROUPS for t in types}
 
 
+
+def _pension_since(conn, balances: dict) -> dict[int, float]:
+    """Per pension account: what its earner's payslips have paid into it
+    since the day its balance was last read.
+
+    The certificate is the anchor and stays it — record a new one and
+    this starts again from there, so nothing is counted twice. A fund
+    with no earner named, or with no reading to anchor on, gets nothing:
+    a figure nobody can check is worse than a figure that stands still.
+    """
+    out: dict[int, float] = {}
+    rows = conn.execute(
+        "SELECT id, payslip_employee, currency FROM accounts "
+        "WHERE type = 'pension' AND COALESCE(payslip_employee, '') <> ''").fetchall()
+    for acct in rows:
+        bal = balances.get(acct["id"])
+        if not bal or not bal.get("as_of"):
+            continue
+        since = conn.execute(
+            "SELECT COALESCE(SUM(ABS(employee_pension) + employer_pension), 0) AS paid "
+            "FROM payslips WHERE employee = ? AND currency = ? "
+            "AND COALESCE(paid_on, period || '-28') > ?",
+            (acct["payslip_employee"], acct["currency"], bal["as_of"])).fetchone()
+        if since and since["paid"]:
+            out[acct["id"]] = float(since["paid"])
+    return out
+
+
+def summary_row(account_id: int) -> dict | None:
+    """One account's line of the overview — what the account page needs
+    without computing the whole picture twice."""
+    with get_conn() as conn:
+        balances = _latest_balances(conn)
+        paid = _pension_since(conn, balances)
+    return {"paid_in_since": round(paid.get(account_id) or 0.0, 2) or None}
+
 def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) -> dict:
     """Everything, or one person's share of it — see people.scope()."""
     only, params = people.sql_in(account_ids, "id")
@@ -108,6 +144,14 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
     def to_base(amount: float | None, currency: str | None):
         return between(amount, currency, base_currency)
 
+    # What has been paid into a pension fund since its last certificate.
+    # A fund's value is a reading — the certificate — and between two of
+    # them it grows by the contributions the payslips name. Without this
+    # a pension stands still for a year and then jumps, and the month a
+    # payslip was imported looks like a month nothing was paid in.
+    with get_conn() as conn:
+        paid_in = _pension_since(conn, balances)
+
     cash_by_currency: dict[str, float] = {}
     debt_by_currency: dict[str, float] = {}
     assets_by_currency: dict[str, float] = {}
@@ -117,6 +161,9 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
         bal = balances.get(acct["id"])
         amount = bal["amount"] if bal else None
         currency = (bal["currency"] if bal else None) or acct["currency"]
+        topped_up = paid_in.get(acct["id"]) or 0.0
+        if topped_up and amount is not None:
+            amount += topped_up
         if amount is not None:
             # A loan's reading is negative — money owed — and is debt,
             # not cash: the net worth subtracts it, the cash tile does not.
@@ -134,6 +181,7 @@ def summary(base_currency: str = "EUR", account_ids: list[int] | None = None) ->
             "balance_base": to_base(amount, currency),
             "balance_currency": currency,
             "balance_as_of": bal["as_of"] if bal else None,
+            "paid_in_since": round(paid_in.get(acct["id"]) or 0.0, 2) or None,
             "transactions": counts.get(acct["id"], 0),
             "bank": banks.get(acct["id"]),
             "people": owners.get(acct["id"], []),
