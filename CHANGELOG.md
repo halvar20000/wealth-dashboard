@@ -11,6 +11,27 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.78.3] — 2026-10-06
+
+### Fixed
+- **The third kind of twin: the move-in's copy of a booking a statement
+  also brought.** `heal_twins` paired the bank sync's bare rows,
+  `heal_trade_twins` the trades — and between them sat everything else
+  a broker's statement carries: a dividend, the tax withheld on it, a
+  cash sweep, a transfer. Where a user moved in from the old app and
+  then imported the same statements, both copies sat in the ledger:
+  every single amount right, every sum double. One real ledger had
+  **966 such rows** across nine accounts — 561,000 € of doubled income
+  and 241,000 € of doubled spending, which is what a cash-flow page
+  was reporting as a monthly average.
+  `heal_twins` now also pairs these, one to one, on account, amount,
+  currency, kind and security, a day apart at most. The move-in's copy
+  goes and the statement's stays, because the statement's carries the
+  counterparty and the category; anything only the copy knew moves
+  across first, and each removal is remembered so running the move-in
+  again cannot bring it back. A second, genuine booking of the same
+  size on another day keeps its own row.
+
 ## [0.78.2] — 2026-10-05
 
 ### Added
@@ -62,27 +83,6 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
   instead: an address line starts with a number, a postcode or a
   Postfach, and the line before the first of them is the person. Found
   on a real sheet, which is now a fixture.
-
-## [0.78.0] — 2026-10-06
-
-### Fixed
-- **The third kind of twin: the move-in's copy of a booking a statement
-  also brought.** `heal_twins` paired the bank sync's bare rows,
-  `heal_trade_twins` the trades — and between them sat everything else
-  a broker's statement carries: a dividend, the tax withheld on it, a
-  cash sweep, a transfer. Where a user moved in from the old app and
-  then imported the same statements, both copies sat in the ledger:
-  every single amount right, every sum double. One real ledger had
-  **966 such rows** across nine accounts — 561,000 € of doubled income
-  and 241,000 € of doubled spending, which is what a cash-flow page
-  was reporting as a monthly average.
-  `heal_twins` now also pairs these, one to one, on account, amount,
-  currency, kind and security, a day apart at most. The move-in's copy
-  goes and the statement's stays, because the statement's carries the
-  counterparty and the category; anything only the copy knew moves
-  across first, and each removal is remembered so running the move-in
-  again cannot bring it back. A second, genuine booking of the same
-  size on another day keeps its own row.
 
 ## [0.77.1] — 2026-10-03
 
