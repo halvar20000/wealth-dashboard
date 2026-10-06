@@ -7809,7 +7809,7 @@ check("...and the twins' ids are remembered so a sync cannot bring them back", l
 check("healing again finds nothing", (ledger.heal_twins(tw), ledger.doubled(tw)), (0, {}))
 tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
 r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "heal_twins", "arguments": {"account_id": tw}}}, headers=HDR)
-check("the MCP exposes the healer", (r.status_code, (r.get_json().get("result") or {}).get("structuredContent")), (200, {"removed": 0, "trades": {"twins": 0, "openings": 0}}))
+check("the MCP exposes the healer", (r.status_code, (r.get_json().get("result") or {}).get("structuredContent")), (200, {"removed": 0, "trades": {"twins": 0, "openings": 0}, "moved_in": 0}))
 
 # The same trade twice — the reader's row and the move-in's copy — and
 # the opening position the move-in wrote to make the units add up,
@@ -7842,6 +7842,42 @@ check("...leaving the reader's rows alone, and the positions as the broker has t
       (left_, after), ([("2025-11-07", "buy", 2.5741, "swissquote_pdf"), ("2026-01-07", "buy", 3.1686, "swissquote_pdf"), ("2026-02-05", "buy", 30.0, "swissquote_pdf")],
                        {"IE00B44Z5B48": 30.0, "CH0025751329": 5.7427}))
 check("healing again changes nothing", ledger.heal_trade_twins(tt), {"twins": 0, "openings": 0})
+
+# Between the two healers sat everything a broker's statement carries
+# that is not a trade: a dividend, the tax on it, a cash sweep. A user
+# who moved in and then imported the statements had 966 such rows twice
+# — every amount right, every sum double.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Twin income', 'broker', 'EUR')")
+    ti = conn.execute("SELECT id FROM accounts WHERE name = 'Twin income'").fetchone()["id"]
+    both = [("2026-09-10", "dividend", 16.40, "NL0011683594", "degiro_csv", "dg:1", "Dividend", "capital_income"),
+            ("2026-09-10", "dividend", 16.40, "NL0011683594", "financial_planner:degiro", "fp:7001", None, "income"),
+            ("2026-09-10", "tax", -2.46, "NL0011683594", "degiro_csv", "dg:2", "Dividend tax", "tax"),
+            ("2026-09-10", "tax", -2.46, "NL0011683594", "financial_planner:degiro", "fp:7002", None, None),
+            ("2026-09-10", "transfer", -13.94, None, "degiro_csv", "dg:3", "Cash sweep", "transfer"),
+            ("2026-09-11", "transfer", -13.94, None, "financial_planner:degiro", "fp:7003", None, "transfer"),
+            # A second, genuine dividend of the same size a month later:
+            # one to one means it keeps its own row.
+            ("2026-08-10", "dividend", 16.40, "NL0011683594", "degiro_csv", "dg:4", "Dividend", "capital_income")]
+    for day, kind, amt, isin, src, ext, cp, catg in both:
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, "
+                     "kind, isin, source, external_id, counterparty, category) "
+                     "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                     (ti, day, kind, amt, "EUR", kind, isin, src, ext, cp, catg))
+moved = ledger.heal_moved_twins(ti)
+with db.get_conn() as conn:
+    left_in = [(r_["txn_date"], r_["kind"], (r_["source"] or "").split(":")[0], r_["counterparty"])
+               for r_ in conn.execute("SELECT txn_date, kind, source, counterparty FROM transactions "
+                                      "WHERE account_id = ? ORDER BY txn_date, kind", (ti,))]
+    kept_cat = conn.execute("SELECT category FROM transactions WHERE external_id = 'dg:2'").fetchone()["category"]
+check("the move-in's dividend, tax and sweep go where a statement brought them too", moved, 3)
+check("...the statement's rows stay, with their counterparties",
+      left_in, [("2026-08-10", "dividend", "degiro_csv", "Dividend"),
+                ("2026-09-10", "dividend", "degiro_csv", "Dividend"),
+                ("2026-09-10", "tax", "degiro_csv", "Dividend tax"),
+                ("2026-09-10", "transfer", "degiro_csv", "Cash sweep")])
+check("...a category only the copy carried moves across rather than going with it", kept_cat, "tax")
+check("...and healing again finds nothing", ledger.heal_moved_twins(ti), 0)
 
 # ---------------------------------------------------------------------------
 print("\n57. What a phone needs: one snapshot, a pairing code, an upload, a push")

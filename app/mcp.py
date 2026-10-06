@@ -1028,14 +1028,17 @@ def _forget_removed(account_id):
     return {"forgotten": manual.forget_removed(int(account_id))}
 
 
-@tool("heal_twins", "Remove the bank sync's bare copy of every booking a move-in or a file "
-      "import also holds — the same booking under two ids, which doubles every sum. "
-      "The enriched copy is kept. Returns how many rows went.",
+@tool("heal_twins", "Remove every copy of a booking this ledger holds twice: the bank "
+      "sync's bare row beside an enriched one, the move-in's trade beside the reader's, "
+      "and the move-in's dividend, tax, fee or transfer beside the statement's. The "
+      "enriched copy is kept, and each removal is remembered so it cannot come back. "
+      "Returns how many rows went, by kind of twin.",
       {"account_id": {"type": "integer", "description": "One account; all when left out."}})
 def _heal_twins(account_id=None):
     from . import ledger
     acc = int(account_id) if account_id else None
-    return {"removed": ledger.heal_twins(acc), "trades": ledger.heal_trade_twins(acc)}
+    return {"removed": ledger.heal_twins(acc), "trades": ledger.heal_trade_twins(acc),
+            "moved_in": ledger.heal_moved_twins(acc)}
 
 
 @tool("sync_banks", "Pull balance and transactions from every connected bank, now. "
