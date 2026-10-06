@@ -7879,6 +7879,43 @@ check("...the statement's rows stay, with their counterparties",
 check("...a category only the copy carried moves across rather than going with it", kept_cat, "tax")
 check("...and healing again finds nothing", ledger.heal_moved_twins(ti), 0)
 
+# The two apps read the same statement line and call it different
+# things: one says `other`, the other `transfer`; one knows the ISIN,
+# the other does not. Those are readings, not facts — and insisting
+# they agree left 469 of one user's 966 doubled rows standing.
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Twin readings', 'broker', 'EUR')")
+    tr_ = conn.execute("SELECT id FROM accounts WHERE name = 'Twin readings'").fetchone()["id"]
+    read_ = [("2026-08-15", "transfer", -14.36, None, None, "degiro_csv", "dg:9", "FX conversion",
+              "Opération de change - Débit"),
+             ("2026-08-15", "other", -14.36, None, None, "financial_planner:degiro", "fp:9001", None,
+              "Opération de change - Débit"),
+             # A trade the old app booked with its units and the import
+             # booked as a plain withdrawal: the units must survive.
+             ("2026-08-20", "withdrawal", -500.0, None, None, "degiro_csv", "dg:10", "Degiro",
+              "Achat 4 VWRL"),
+             ("2026-08-20", "buy", -500.0, "IE00B3RBWM25", 4.0, "financial_planner:degiro", "fp:9002", None,
+              "Achat 4 VWRL"),
+             # Same amount, same day, a different booking: it stays.
+             ("2026-08-15", "fee", -14.36, None, None, "degiro_csv", "dg:11", None,
+              "Frais de connectivité Euronext")]
+    for day, kind, amt, isin_, qty_, src, ext, cp, desc in read_:
+        conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency, "
+                     "kind, isin, quantity, source, external_id, counterparty) "
+                     "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                     (tr_, day, desc, amt, "EUR", kind, isin_, qty_, src, ext, cp))
+read_gone = ledger.heal_moved_twins(tr_)
+with db.get_conn() as conn:
+    rest_ = [(r_["txn_date"], r_["kind"], r_["quantity"], r_["isin"], r_["counterparty"])
+             for r_ in conn.execute("SELECT txn_date, kind, quantity, isin, counterparty FROM transactions "
+                                    "WHERE account_id = ? ORDER BY txn_date, kind", (tr_,))]
+check("a kind and an ISIN that only differ in how the two apps read the booking do not stop the pairing",
+      read_gone, 2)
+check("...the row carrying the units is the one that survives, and takes the import's counterparty with it",
+      rest_, [("2026-08-15", "fee", None, None, None),
+              ("2026-08-15", "transfer", None, None, "FX conversion"),
+              ("2026-08-20", "buy", 4.0, "IE00B3RBWM25", "Degiro")])
+
 # ---------------------------------------------------------------------------
 print("\n57. What a phone needs: one snapshot, a pairing code, an upload, a push")
 # ---------------------------------------------------------------------------

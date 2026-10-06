@@ -97,63 +97,110 @@ def doubled(account_id: int | None = None) -> dict:
 
 # ─── The same booking twice: the move-in's row and a reader's ────────
 
+def _norm(text: str | None) -> str:
+    """A description stripped to what two apps can agree on."""
+    import re as _re
+    return " ".join(_re.sub(r"[^\w\s]", " ", (text or "").lower()).split())
+
+
+def _same_booking(a: str | None, b: str | None) -> bool:
+    """Whether two descriptions are the same booking's.
+
+    The two apps read the same statement line and keep slightly
+    different texts of it — one truncates, one adds the reference. So:
+    the same words, or one text beginning the other, or most of the
+    words in common.
+    """
+    x, y = _norm(a), _norm(b)
+    if not x or not y:
+        return True                     # one side says nothing: the figures decide
+    if x == y or x.startswith(y[:24]) or y.startswith(x[:24]):
+        return True
+    xs, ys = set(x.split()), set(y.split())
+    return bool(xs & ys) and len(xs & ys) / len(xs | ys) >= 0.6
+
+
+def _richer(a: dict, b: dict) -> tuple[dict, dict]:
+    """(the row to keep, the row to drop).
+
+    The units decide first: a trade booked with its quantity is worth
+    more than the same money booked as a plain withdrawal, and deleting
+    the one that carries the units would empty the position. Otherwise
+    the move-in's copy is the one that goes, because the reader's row
+    carries the counterparty and the category this app assigns.
+    """
+    a_units = a["quantity"] is not None
+    b_units = b["quantity"] is not None
+    if a_units != b_units:
+        return (a, b) if a_units else (b, a)
+    a_fp = (a["source"] or "").startswith("financial_planner")
+    return (b, a) if a_fp else (a, b)
+
+
 def heal_moved_twins(account_id: int | None = None, path=None) -> int:
     """The move-in's copy of a booking a reader has booked again.
 
     `heal_twins` pairs the bank sync's bare rows, `heal_trade_twins` the
-    trades; between them sat everything else a broker's statement
-    carries — a dividend, the tax withheld on it, a cash sweep, a
-    transfer. Where the move-in brought those and a statement import
-    later brought the same ones, both sit in the ledger: every single
-    amount looks right and every sum is double.
+    trades by their units; between them sits everything else a broker's
+    statement carries — a dividend, the tax withheld on it, a cash
+    sweep, a currency conversion. Where the move-in brought those and a
+    statement import later brought the same ones, both sit in the
+    ledger: every single amount looks right and every sum is double.
 
-    Pairs one to one on account, amount, currency, kind and security,
-    a day apart at most; the move-in's copy goes, the reader's stays,
-    because the reader's carries the counterparty and the category this
-    app assigns. Anything the copy knew that its twin does not is moved
-    across first. The copy's id is remembered, so running the move-in
-    again cannot bring it back.
+    What makes two rows the same booking is the account, the currency,
+    the amount to the cent, the day (one apart at most) and the text.
+    The *kind* and the *security* deliberately do not: they are the two
+    apps' readings of the booking, and they are precisely what differs
+    — one calls a conversion `other`, the other `transfer`; one knows
+    the ISIN, the other does not. Requiring them to agree left 469 of
+    a user's 966 doubled rows standing.
+
+    One copy goes, one to one. Which one is in `_richer`: never the one
+    that carries the units. What the loser knew and the keeper does not
+    — a category, a counterparty, an ISIN — moves across first, and the
+    removal is remembered so a second move-in cannot undo it.
     """
     only = " AND account_id = ?" if account_id is not None else ""
     params = [account_id] if account_id is not None else []
+    columns = ("id, account_id, txn_date, amount, currency, kind, isin, quantity, "
+               "category, counterparty, description, source, external_id")
     gone = 0
     with get_conn(path) as conn:
         pool: dict[tuple, list] = {}
         for r in conn.execute(
-                f"SELECT id, account_id, txn_date, amount, currency, kind, isin, category, counterparty "
-                f"FROM transactions WHERE (source IS NULL OR source NOT LIKE 'financial_planner%') "
-                f"AND kind NOT IN ('buy', 'sell'){only} "
+                f"SELECT {columns} FROM transactions "
+                f"WHERE (source IS NULL OR source NOT LIKE 'financial_planner%'){only} "
                 f"AND id NOT IN (SELECT kept_id FROM twin_claims)", params):
-            pool.setdefault((r["account_id"], round(r["amount"], 2), r["currency"],
-                             r["kind"], r["isin"]), []).append(dict(r))
+            pool.setdefault((r["account_id"], round(r["amount"], 2), r["currency"]), []).append(dict(r))
         if not pool:
             return 0
         for f in conn.execute(
-                f"SELECT id, account_id, txn_date, amount, currency, kind, isin, category, "
-                f"counterparty, external_id FROM transactions "
-                f"WHERE source LIKE 'financial_planner%' AND kind NOT IN ('buy', 'sell'){only} "
-                f"ORDER BY txn_date, id", params).fetchall():
-            mates = pool.get((f["account_id"], round(f["amount"], 2), f["currency"],
-                              f["kind"], f["isin"]))
+                f"SELECT {columns} FROM transactions "
+                f"WHERE source LIKE 'financial_planner%'{only} ORDER BY txn_date, id", params).fetchall():
+            mates = pool.get((f["account_id"], round(f["amount"], 2), f["currency"]))
             if not mates:
                 continue
             day = date.fromisoformat(f["txn_date"])
-            near = [m for m in mates if abs((date.fromisoformat(m["txn_date"]) - day).days) <= 1]
+            near = [m for m in mates
+                    if abs((date.fromisoformat(m["txn_date"]) - day).days) <= 1
+                    and _same_booking(m["description"], f["description"])]
             if not near:
                 continue
             twin = min(near, key=lambda m: abs((date.fromisoformat(m["txn_date"]) - day).days))
             mates.remove(twin)
-            if f["category"] and not twin["category"]:
-                conn.execute("UPDATE transactions SET category = ? WHERE id = ?", (f["category"], twin["id"]))
-            if f["counterparty"] and not twin["counterparty"]:
-                conn.execute("UPDATE transactions SET counterparty = ? WHERE id = ?",
-                             (f["counterparty"], twin["id"]))
-            if f["external_id"]:
+            keep, drop = _richer(dict(f), twin)
+            for field in ("category", "counterparty", "isin", "security_name"):
+                if field == "security_name":
+                    continue
+                if drop.get(field) and not keep.get(field):
+                    conn.execute(f"UPDATE transactions SET {field} = ? WHERE id = ?",
+                                 (drop[field], keep["id"]))
+            if drop["external_id"]:
                 conn.execute("INSERT OR IGNORE INTO removed_rows (external_id, account_id) VALUES (?, ?)",
-                             (f["external_id"], f["account_id"]))
+                             (drop["external_id"], drop["account_id"]))
                 conn.execute("INSERT OR IGNORE INTO twin_claims (kept_id, removed_external_id) VALUES (?, ?)",
-                             (twin["id"], f["external_id"]))
-            conn.execute("DELETE FROM transactions WHERE id = ?", (f["id"],))
+                             (keep["id"], drop["external_id"]))
+            conn.execute("DELETE FROM transactions WHERE id = ?", (drop["id"],))
             gone += 1
     return gone
 

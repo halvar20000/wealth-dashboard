@@ -11,6 +11,25 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.78.4] — 2026-10-06
+
+### Fixed
+- **The twin healer pairs on the facts, not on the reading.** Its first
+  pass on a real ledger removed 598 of 966 doubled rows and left 469
+  standing, every one of them a move-in copy beside a statement's row.
+  They failed because the two apps *read* the same booking differently:
+  210 pairs where one says `other` and the other `transfer`, 114 where
+  only one knows the ISIN, 17 where a trade is a `buy` on one side and
+  a plain `withdrawal` on the other. The account, the currency, the
+  amount to the cent, the day and the text say it is the same booking;
+  the kind and the security are interpretations and no longer have to
+  agree.
+- **…and the row that carries the units is never the one removed.**
+  Where a trade met its plain-withdrawal copy, "the move-in's copy
+  goes" would have deleted the quantity and emptied the position. The
+  richer row stays, whichever side it came from, and what the other
+  knew — a category, a counterparty, an ISIN — moves across first.
+
 ## [0.78.3] — 2026-10-06
 
 ### Fixed
