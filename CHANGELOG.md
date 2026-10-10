@@ -11,6 +11,19 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.79.1] — 2026-10-10
+
+### Added
+- **A holding's return says how its flows fared.** `security` and
+  `performance` now report, per holding, how many rows moved money into
+  or out of it, how many no exchange rate could place, their sum, and
+  how many of those days the value series actually covers. A return
+  whose flows never arrive reads every purchase as growth — a real
+  Apple position showed **1311 %** where the money said 164 % — and
+  from the outside that figure looks merely surprising. The giveaway
+  was `mwr: null`, which is the same flows seen from the other side;
+  now it is stated outright instead of inferred.
+
 ## [0.79.0] — 2026-10-10
 
 ### Added

@@ -4668,6 +4668,12 @@ check("a day that trebles with no money behind it is not a return",
 _flowed = [("2026-01-01", 1000.0), ("2026-01-02", 12000.0)]
 check("...while the same jump with a purchase behind it is believed",
       round(_perf.twr(_flowed, {"2026-01-02": 11000.0}, []), 4), 0.0)
+# A return whose flows never arrive reads every purchase as growth, and
+# from the outside the figure looks merely surprising. It says so now.
+_sec = _perf.for_security("DE0007164600", [tax_acc])
+check("a holding's return says how its flows fared",
+      (_sec["flows"]["seen"], _sec["flows"]["dropped_for_rate"], _sec["flows"]["matched_days"]),
+      (2, 0, 2))
 
 # The phone imports through the API and must be able to take it back:
 # the same undo the account page has had all along, over the tools.

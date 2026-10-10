@@ -170,7 +170,17 @@ def for_security(isin: str, account_ids: list[int] | None = None,
             # The days the chain refused to believe. Empty is the normal
             # case; anything in here means the price history needs a look
             # before the return is quoted to anybody.
-            "suspect_days": suspects}
+            "suspect_days": suspects,
+            # And how the flows fared: how many rows moved money, how
+            # many no exchange rate could place, and how many of the
+            # flow days the value series actually has a day for. A
+            # return whose flows did not land is a return that counts
+            # every purchase as a gain.
+            "flows": {"seen": series.get("flows_seen"),
+                      "dropped_for_rate": series.get("flows_dropped"),
+                      "sum": series.get("flows_sum"),
+                      "matched_days": len([d for d in (series.get("flow_days") or [])
+                                           if d in {p["date"] for p in pts}])}}
 
 
 def security_series(isin: str, account_ids: list[int] | None, today: date,
@@ -197,6 +207,15 @@ def security_series(isin: str, account_ids: list[int] | None, today: date,
             continue
         flows[r["txn_date"]] += -amount
         cashflows.append((r["txn_date"], amount))
+    # What the flows actually came to, for a page that has to explain a
+    # return: a chain whose flows never arrive reads every purchase as
+    # growth, and the figure is then nonsense in a way nobody can see
+    # from the outside. `dropped` counts the rows no rate could turn
+    # into the series' currency.
+    series["flows_seen"] = len(cashflows)
+    series["flows_dropped"] = len(rows) - len(cashflows)
+    series["flows_sum"] = round(sum(a for _, a in cashflows), 2)
+    series["flow_days"] = sorted(flows)[:400]
     return [(p["date"], p["value"]) for p in pts], flows, cashflows, series
 
 
