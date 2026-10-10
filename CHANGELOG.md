@@ -11,6 +11,26 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.79.0] — 2026-10-10
+
+### Added
+- **What the bank said the balance was, and whether the bookings
+  agree.** An account is worth the last balance its bank reported, not
+  the sum of its rows — which is right, and which means a balance can
+  move for a reason no row explains. Until now nothing in the app could
+  show that. Now the account page says it, under the balance: *since
+  the 9th the balance moved €4,427, the bookings in between add up to
+  €0 — €4,427 unaccounted for.* Usually the reason is innocent, a bank
+  crediting a payment before it itemises it; sometimes it is a reading
+  nobody can account for, and either way it is better said than hidden.
+- **`balance_readings`** on the API. Without an account: the newest
+  reading of every account that has two, with the step, what was booked
+  in between and the difference, biggest difference first — one call to
+  answer "which account moved, and why can nobody see it". With one
+  account: its readings, newest first. Written after a €4,427 overnight
+  rise in a real net worth took twenty minutes to explain and could not
+  be pinned to an account at all.
+
 ## [0.78.4] — 2026-10-06
 
 ### Fixed

@@ -8,6 +8,7 @@ alors à sa place. Voir app/i18n.py.
 """
 
 STRINGS: dict[str, str] = {
+    "Since {date} the balance moved {step}, while the bookings in between add up to {booked} — {gap} unaccounted for.": "Depuis le {date} le solde a bougé de {step}, alors que les écritures intermédiaires font {booked} — {gap} inexpliqués.",
     "Fed by payslips": "Alimenté par les bulletins de paie",
     "Whose payslips": "Les bulletins de qui",
     "— nobody: the reading stands as it is —": "— personne : le solde relevé reste tel quel —",

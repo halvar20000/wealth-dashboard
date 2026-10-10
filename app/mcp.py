@@ -931,6 +931,23 @@ def _set_pension_source(account_id, employee=""):
             "employee": employee or None, "earners": known}
 
 
+@tool("balance_readings",
+      "What the bank said the balance was, and whether the bookings agree. Without "
+      "`account_id`: the newest reading of every account that has two, with the step "
+      "from the one before, what the bookings in between add up to, and the "
+      "difference — biggest difference first, which answers 'which account moved and "
+      "why can nobody see it'. With one: that account's readings, newest first.",
+      {"account_id": {"type": "integer"},
+       "limit": {"type": "integer", "description": "Readings per account. Default 30."},
+       "person": PERSON})
+def _balance_readings(account_id=None, limit=30, person=None):
+    from . import balances as bal
+    if account_id:
+        return {"account_id": int(account_id),
+                "readings": bal.readings(int(account_id), int(limit or 30))}
+    return {"accounts": bal.steps(_scope(person))}
+
+
 @tool("set_balance", "Record an account's balance as of a day, for an account "
       "nothing reports on.",
       {"account_id": {"type": "integer"}, "amount": {"type": "number"},

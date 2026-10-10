@@ -8,6 +8,7 @@ original. Ver app/i18n.py.
 """
 
 STRINGS: dict[str, str] = {
+    "Since {date} the balance moved {step}, while the bookings in between add up to {booked} — {gap} unaccounted for.": "Desde el {date} el saldo se movió {step}, mientras que los apuntes intermedios suman {booked}: {gap} sin explicar.",
     "Fed by payslips": "Alimentado por nóminas",
     "Whose payslips": "Nóminas de quién",
     "— nobody: the reading stands as it is —": "— nadie: el saldo registrado queda tal cual —",

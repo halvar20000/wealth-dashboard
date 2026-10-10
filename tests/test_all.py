@@ -2116,6 +2116,37 @@ with db.get_conn() as conn:
     conn.execute("DELETE FROM accounts WHERE id = ?", (pk,))
 
 # ---------------------------------------------------------------------------
+print("\n16. A balance that moved more than its bookings explain")
+# ---------------------------------------------------------------------------
+from app import balances as balmod                                      # noqa: E402
+
+with db.get_conn() as conn:
+    conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Reading test', 'bank', 'EUR')")
+    racc = conn.execute("SELECT id FROM accounts WHERE name = 'Reading test'").fetchone()["id"]
+    conn.execute("INSERT INTO balances (account_id, as_of, amount, currency, balance_type) "
+                 "VALUES (?, '2026-06-01', 1000.0, 'EUR', 'reported')", (racc,))
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, amount, currency,"
+                 " kind, external_id) VALUES (?, '2026-06-05', 'REWE', -40.0, 'EUR', 'withdrawal',"
+                 " 'bal-1')", (racc,))
+    conn.execute("INSERT INTO balances (account_id, as_of, amount, currency, balance_type) "
+                 "VALUES (?, '2026-06-10', 960.0, 'EUR', 'reported')", (racc,))
+rs = balmod.readings(racc)
+check("a reading says the step from the one before it and what was booked in between",
+      (rs[0]["step"], rs[0]["booked"], rs[0]["unexplained"], rs[0]["rows"]), (-40.0, -40.0, 0.0, 1))
+with db.get_conn() as conn:
+    # The bank credits 4,400 to the balance and itemises nothing.
+    conn.execute("INSERT INTO balances (account_id, as_of, amount, currency, balance_type) "
+                 "VALUES (?, '2026-06-11', 5360.0, 'EUR', 'reported')", (racc,))
+rs = balmod.readings(racc)
+check("...and names what no booking explains",
+      (rs[0]["step"], rs[0]["booked"], rs[0]["unexplained"]), (4400.0, 0.0, 4400.0))
+jump = [a for a in balmod.steps() if a["account"] == "Reading test"]
+check("the across-accounts view finds it, biggest gap first",
+      (len(jump), jump[0]["unexplained"] if jump else None), (1, 4400.0))
+check("the account page says so rather than leaving it unexplained",
+      b"unaccounted for" in c.get(f"/accounts/{racc}").data, True)
+
+# ---------------------------------------------------------------------------
 print("\n16a. A credit card is a debt, and paying it is not income")
 # ---------------------------------------------------------------------------
 from app import overview as _ov                                         # noqa: E402

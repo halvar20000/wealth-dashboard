@@ -46,6 +46,7 @@ from .banks import sync as banksync
 from . import (allocation, benchmark, bills, cashflow, categories, crypto, dividends, export, forecast, gains, goals, history, importers, income, loans, retirement, webhooks,
                manual, mcp, overview, people, performance, screener, screener_etf,
                screener_jobs, splits, stages, subscriptions, tax, upcoming)
+from . import balances
 from . import archive, brokers, expenses, report
 from .brokers import ibkr, kraken, saxo, traderepublic, trading212
 from . import db as db_state
@@ -457,7 +458,12 @@ def account_detail(account_id: int):
     link = dict(link) if link else None
     if link:
         link["days_left"] = banksync.days_until_expiry(link.get("valid_until"))
+    # The newest reading against the bookings behind it: when a balance
+    # moves and no row explains the move, the page says so instead of
+    # leaving a net worth nobody can account for.
+    last_step = next(iter(balances.readings(account_id, 2)), None)
     return render_template("account.html", account=dict(account), link=link,
+                           last_step=last_step,
                            broker=brokers.link_for(account_id),
                            wallet_choices=_wallet_choices(account_id),
                            saxo_state=saxo.describe(),

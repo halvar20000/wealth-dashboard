@@ -52,6 +52,15 @@
       {% if balance %}{{ _("typed in") if balance.balance_type == 'manual' else (balance.balance_type or _("reported")) }} · {{ _f("as of {date}", date=d(balance.as_of)) }}
       {% else %}{{ _("nothing reported yet") }}{% endif %}
     </div>
+    {% if last_step and last_step.unexplained is not none and (last_step.unexplained > 0.01 or last_step.unexplained < -0.01) %}
+    {# The balance moved by more than its bookings explain. Usually the
+       bank crediting a payment before it itemises it; sometimes a
+       reading nobody can account for. Either way, say it. #}
+    <div class="sub">{{ _f("Since {date} the balance moved {step}, while the bookings in between add up to {booked} — {gap} unaccounted for.",
+                            date=d(last_step.previous), step=money(last_step.step, balance.currency),
+                            booked=money(last_step.booked, balance.currency),
+                            gap=money(last_step.unexplained, balance.currency)) }}</div>
+    {% endif %}
     {% if paid_in_since %}
     <div class="sub">{{ _f("{reading} on the certificate, and {paid} paid in by payslips since.",
                             reading=money(balance.amount, balance.currency),
