@@ -536,6 +536,53 @@ def _categories():
     return categories.catalogue()
 
 
+def _catalogue_entry(slug: str) -> dict:
+    return next((c for c in categories.catalogue() if c["slug"] == slug), {"slug": slug})
+
+
+_GROUP = {"type": "string", "description": "spending, income or non_spending. "
+          "Default spending."}
+
+
+@tool("add_category",
+      "Create a category, as Settings → Categories does. The slug is made from "
+      "the name and never changes afterwards. Returns the new entry as "
+      "`categories` lists it.",
+      {"label": {"type": "string", "description": "The name, under 40 characters."},
+       "colour": {"type": "string", "description": "A colour like #a78bfa."},
+       "group": _GROUP},
+      ["label", "colour"])
+def _add_category(label, colour, group=categories.SPENDING_GROUP):
+    slug = categories.add_category(label, colour, group or categories.SPENDING_GROUP)
+    return _catalogue_entry(slug)
+
+
+@tool("update_category",
+      "Rename, recolour, or move a category to another group. The slug stays, so "
+      "no transaction is re-filed. A field left out keeps its value; the group of "
+      "income, investment and transfer is fixed.",
+      {"slug": {"type": "string"},
+       "label": {"type": "string"}, "colour": {"type": "string"}, "group": _GROUP},
+      ["slug"])
+def _update_category(slug, label=None, colour=None, group=None):
+    entry = categories.all_categories().get(slug)
+    if entry is None:
+        raise ValueError(f"Unknown category {slug!r}")
+    categories.update_category(slug, label if label is not None else entry["label"],
+                               colour if colour is not None else entry["colour"],
+                               group or entry["group"])
+    return _catalogue_entry(slug)
+
+
+@tool("delete_category",
+      "Remove a category. Its transactions move to 'other' and its rules and "
+      "budget go with it. The four the app reasons about (other, income, "
+      "investment, transfer) cannot be removed. Returns how many rows moved.",
+      {"slug": {"type": "string"}}, ["slug"])
+def _delete_category(slug):
+    return {"slug": slug, "moved": categories.delete_category(slug)}
+
+
 @tool("rules", "The categorisation rules: a substring, and the category it files "
       "a matching transaction under. Newest first; on a clash the newest wins.")
 def _rules():

@@ -8158,6 +8158,21 @@ tok = mcp.new_token(); HDR = {"Authorization": f"Bearer {tok}"}
 r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "who_spent", "arguments": {"month": "2026-08"}}}, headers=HDR)
 check("the MCP answers who spent", (r.get_json().get("result") or {}).get("structuredContent", {}).get("totals", {}).get("total"), 220.0)
 
+# The phone edits the catalogue through three tools, the same functions
+# the settings page uses.
+HDRQ = HDR
+made = _tool("add_category", label="Haustier", colour="#a78bfa")
+check("add_category makes a spending category and answers with its entry",
+      (made["slug"], made["label"], made["group"], made["colour"]), ("haustier", "Haustier", "spending", "#a78bfa"))
+moved_ = _tool("update_category", slug="haustier", label="Tiere")
+check("update_category renames and keeps what was not given",
+      (moved_["label"], moved_["colour"], moved_["group"]), ("Tiere", "#a78bfa", "spending"))
+rr_ = c.post("/api/v1/tools/update_category", json={"slug": "nope", "label": "x"}, headers=HDRQ)
+check("...an unknown slug is a refusal the phone can show", rr_.status_code, 422)
+rr_ = c.post("/api/v1/tools/delete_category", json={"slug": "income"}, headers=HDRQ)
+check("delete_category refuses the four the app reasons about", rr_.status_code, 422)
+check("...and removes any other", _tool("delete_category", slug="haustier"), {"slug": "haustier", "moved": 0})
+
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)
