@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.79.2] — 2026-11-01
+
+### Added
+- **Categories can be made and changed from the phone.** Three tools,
+  `add_category`, `update_category` and `delete_category`, do what
+  Settings → Categories does, with the same checks: a name under 40
+  characters, a colour like `#a78bfa`, the slug fixed once made, and the
+  four categories the app reasons about kept. The mobile apps use them
+  for their own category list.
+
 ## [0.79.1] — 2026-10-10
 
 ### Added
