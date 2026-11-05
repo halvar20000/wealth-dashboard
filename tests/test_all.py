@@ -5640,6 +5640,21 @@ check("...the year to date is anchored on the last day of the year before, or th
 check("...a purchase is not a gain: the month's P&L is the value beyond the money put in",
       round(pp["1m"]["pnl"], 2), round(1815 - 1000 - 550 + 30, 2))
 check("nothing held: no periods", performance.periods("EUR", [account_id]), {})
+# One holding over one window agrees with the accounts it is the only
+# thing in: the same day, week and month, the dividend in the week.
+sp = {k: performance.security_period("XX0000007777", k, "EUR", [pid], today=date(2026, 8, 20))
+      for k in ("1d", "1w", "1m", "3y")}
+check("a holding's day and week are the accounts' day and week",
+      (round(sp["1d"]["pnl"], 2), round(sp["1w"]["pnl"], 2), sp["1d"]["since"]),
+      (165.0, round(1815 - 1650 + 30, 2), "2026-08-19"))
+check("...a window longer than the holding starts at its first day",
+      (sp["3y"]["since"], round(sp["3y"]["twr"], 4)), ("2026-08-01", round(pp["all"]["twr"], 4)))
+try:
+    performance.security_period("XX0000007777", "9y", "EUR", [pid])
+    refused = False
+except ValueError:
+    refused = True
+check("...an unknown window is refused", refused, True)
 r = c.get("/")
 check("the overview shows the performance strip", b"Portfolio performance" in r.data and b"perf-tile" in r.data, True)
 r = c.get("/securities/XX0000007777")
@@ -5653,6 +5668,12 @@ r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call",
 out = r.get_json()["result"]["structuredContent"]
 check("the MCP performance tool answers with the three periods and the holdings",
       ("all" in out and "ytd" in out and "1y" in out, "XX0000007777" in out["holdings"]), (True, True))
+r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                         "params": {"name": "performance", "arguments": {"period": "1w"}}}, headers=HDR)
+out = r.get_json()["result"]["structuredContent"]
+check("...with a period, the securities and each holding over it",
+      (out["period"]["key"], "pnl" in out["period"], "pnl" in out["holdings"]["XX0000007777"]["period"]),
+      ("1w", True, True))
 mcp.revoke()
 c.post(f"/accounts/{pid}/delete", data={"confirm": "Perf test"})
 
