@@ -11,6 +11,16 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.80.0] — 2026-11-05
+
+### Added
+- **The return of each holding over a chosen window.** `performance` takes
+  an optional `period` (`1d`, `1w`, `1m`, `3m`, `ytd`, `1y`, `3y`, `all`)
+  and then also answers the securities over that window, under `period`,
+  and each holding over it, under its own `period`: TWR, MWR and the P&L
+  in the base currency, so the holdings add up. The mobile apps use it to
+  show what each position did in a day, a week or a year.
+
 ## [0.79.2] — 2026-11-01
 
 ### Added

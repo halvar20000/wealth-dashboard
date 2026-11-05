@@ -320,6 +320,45 @@ def _window(values: list[tuple[str, float | None]], flows: dict[str, float],
             "from": start_value, "to": end_value, "days": days}
 
 
+def _anchor(key: str, begin: date, today: date) -> date:
+    """The day a period is measured from: its own day back, the last day
+    of the year before for the year to date, the first record for
+    everything — and never before the first record."""
+    back = dict(PERIODS)[key]
+    if key == "all":
+        anchor = begin
+    elif key == "ytd":
+        anchor = date(today.year - 1, 12, 31)
+    else:
+        anchor = today - timedelta(days=back)
+    return max(anchor, begin)
+
+
+_EMPTY = {"twr": None, "twr_annual": None, "mwr": None, "pnl": None,
+          "from": None, "to": None, "days": 0}
+
+
+def security_period(isin: str, key: str, base_currency: str = "EUR",
+                    account_ids: list[int] | None = None,
+                    today: date | None = None) -> dict:
+    """One holding over one period, in the base currency so the holdings
+    add up: TWR, MWR and the P&L — what its value did beyond what was
+    bought or sold in the meantime, the dividends counted as gain — as
+    `periods` does for the accounts. A holding bought within the period
+    is measured from its first day, and `since` says so."""
+    today = today or date.today()
+    if key not in dict(PERIODS):
+        raise ValueError(f"period must be one of {[k for k, _ in PERIODS]}")
+    values, flows, cashflows, _ = security_series(isin, account_ids, today, base_currency)
+    if not values:
+        return {"since": None, **_EMPTY}
+    begin = date.fromisoformat(values[0][0])
+    anchor = _anchor(key, begin, today)
+    if anchor >= today:
+        return {"since": anchor.isoformat(), **_EMPTY}
+    return _window(values, flows, cashflows, anchor.isoformat(), today)
+
+
 def periods(base_currency: str = "EUR", account_ids: list[int] | None = None,
             today: date | None = None) -> dict:
     """The securities of these accounts as one investment, over every
@@ -334,14 +373,8 @@ def periods(base_currency: str = "EUR", account_ids: list[int] | None = None,
     if begin is None or not values:
         return {}
     out = {}
-    for key, back in PERIODS:
-        if key == "all":
-            anchor = begin
-        elif key == "ytd":
-            anchor = date(today.year - 1, 12, 31)
-        else:
-            anchor = today - timedelta(days=back)
-        anchor = max(anchor, begin)
+    for key, _ in PERIODS:
+        anchor = _anchor(key, begin, today)
         if anchor >= today:
             out[key] = {"since": anchor.isoformat(), "twr": None, "twr_annual": None, "mwr": None,
                         "pnl": None, "from": None, "to": None, "days": 0}

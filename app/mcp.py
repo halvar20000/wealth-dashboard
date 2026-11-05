@@ -345,19 +345,32 @@ def _security(isin, since=None, limit=400, person=None):
 @tool("performance",
       "Time-weighted (TWR) and money-weighted (MWR) return of the securities held, "
       "as fractions: since the first trade, this year, and the last twelve months; "
-      "and per holding. Cash is left out; MWR is annual; TWR total plus annualised.",
-      {"person": PERSON})
-def _performance(person=None):
+      "and per holding. Cash is left out; MWR is annual; TWR total plus annualised. "
+      "With a period, also `period`: the securities over that window (since, twr, mwr, "
+      "pnl, from, to) and the same per holding under its `period`, in the base currency.",
+      {"person": PERSON,
+       "period": {"type": "string", "enum": ["1d", "1w", "1m", "3m", "ytd", "1y", "3y", "all"],
+                  "description": "Optional window for the `period` figures."}})
+def _performance(person=None, period=None):
     from . import performance
     from datetime import date as _date, timedelta as _td
+    keys = [k for k, _ in performance.PERIODS]
+    if period and period not in keys:
+        raise ValueError(f"period must be one of {keys}")
     scope = _scope(person)
     today = _date.today()
     out = {"all": performance.for_accounts(_base(), scope),
            "ytd": performance.for_accounts(_base(), scope, start=_date(today.year, 1, 1)),
            "1y": performance.for_accounts(_base(), scope, start=today - _td(days=365)),
            "holdings": {}}
+    if period:
+        out["period"] = {"key": period,
+                         **(performance.periods(_base(), scope, today).get(period) or {})}
     for h in overview.summary(_base(), account_ids=scope)["holdings"]:
-        out["holdings"][h["isin"]] = {"name": h["name"], **performance.for_security(h["isin"], scope)}
+        row = {"name": h["name"], **performance.for_security(h["isin"], scope)}
+        if period:
+            row["period"] = performance.security_period(h["isin"], period, _base(), scope, today)
+        out["holdings"][h["isin"]] = row
     return out
 
 
