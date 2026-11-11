@@ -11,6 +11,19 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.80.1] — 2026-11-11
+
+### Fixed
+- **One Finish is enough for the Trade Republic login.** After the code
+  from the app is accepted, Trade Republic keeps the login process on
+  `PENDING` for a second or two before the session works, and the first
+  Finish used to land in that gap and say "not approved yet". Finish now
+  waits for the account call itself to answer — up to about 7.5 seconds —
+  before giving up, so the same click completes the login. Found, measured
+  on a live login and fixed by Patrick Pussar (#8).
+- **A login whose account call names no securities account says so**,
+  instead of the wait turning it into an endless "approve in the app".
+
 ## [0.80.0] — 2026-11-05
 
 ### Added

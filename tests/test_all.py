@@ -7709,10 +7709,53 @@ def fake_tr_http(method, url, headers, body):
     if path == "/api/v1/auth/web/session":
         return 200, b"{}", []
     return 404, b"{}", []
+def settling_tr_http(account_answers):
+    """The live v2 flow after the code is accepted: the process reads PENDING
+    with requiredAction cleared while /auth/account still answers 401 for a
+    moment. `account_answers` are the account call's replies, in order."""
+    calls = {"process": 0, "account": 0}
+    def transport(method, url, headers, body):
+        path = url.split("api.traderepublic.com", 1)[1]
+        if path == "/api/v2/auth/web/login":
+            return 200, json.dumps({"processId": "P2"}).encode(), ["tr_login=abc; Path=/"]
+        if path == "/api/v2/auth/web/login/processes/P2":
+            calls["process"] += 1
+            action = "AUTHENTICATOR_VERIFICATION" if calls["process"] == 1 else None
+            return 200, json.dumps({"status": "PENDING", "requiredAction": action}).encode(), []
+        if path.endswith("/authenticator-verification"):
+            return 200, b"{}", ["JSESSIONID=j1; Path=/"]
+        if path == "/api/v2/auth/account":
+            i = min(calls["account"], len(account_answers) - 1); calls["account"] += 1
+            st, ans = account_answers[i]
+            return st, json.dumps(ans).encode(), (["tr_session=sess-2; Path=/"] if st == 200 else [])
+        return 404, b"{}", []
+    transport.calls = calls
+    return transport
+tr_naps = []
+settling = settling_tr_http([(401, {}), (401, {}), (200, {"securitiesAccountNumber": "987654321", "currency": "EUR"})])
+traderepublic.start_login(transport=settling)
+done = traderepublic.finish_login("4321", transport=settling, _sleep=tr_naps.append)
+check("a Trade Republic login still PENDING after the code is waited out on one Finish, not two",
+      (done, len(tr_naps), settling.calls["account"], traderepublic._cookies().get("tr_session"), traderepublic._pending()),
+      ({"done": True, "account": "987654321", "currency": "EUR"}, 2, 3, "sess-2", None))
+tr_naps.clear()
+never = settling_tr_http([(401, {})])
+traderepublic.start_login(transport=never)
+check("...a login that never settles gives up after its polls and can be finished again",
+      (traderepublic.finish_login("4321", transport=never, _sleep=tr_naps.append), len(tr_naps), traderepublic._pending() is not None),
+      ({"done": False}, traderepublic._FINISH_POLLS - 1, True))
+nameless = settling_tr_http([(200, {})])
+traderepublic.start_login(transport=nameless)
+try:
+    traderepublic.finish_login("4321", transport=nameless, _sleep=tr_naps.append)
+    check("...an account call that names no securities account is said, not polled into 'approve in the app'", "no error", "error")
+except traderepublic.TradeRepublicError as exc:
+    check("...an account call that names no securities account is said, not polled into 'approve in the app'",
+          "securities account" in str(exc), True)
 started = traderepublic.start_login(transport=fake_tr_http)
 check("a Trade Republic login starts with phone and PIN, and says the app wants a code", started["method"], "code")
 check("...the pending login is kept for the second step", traderepublic.describe()["pending"], {"method": "code"})
-done = traderepublic.finish_login("4321", transport=fake_tr_http)
+done = traderepublic.finish_login("4321", transport=fake_tr_http, _sleep=lambda s: None)
 check("...the code is posted, the process is confirmed, the session cookie kept",
       (done, traderepublic.session_present(), traderepublic._cookies().get("tr_session"), traderepublic._pending()),
       ({"done": True, "account": "123456789", "currency": "EUR"}, True, "sess-1", None))
@@ -7790,7 +7833,7 @@ check("the Settings card walks through the three steps: phone and PIN first, log
 c.post("/settings", data={"form": "traderepublic_credentials", "phone": "+49 171 2345678", "pin": "1234"})
 _start, _finish = traderepublic.start_login, traderepublic.finish_login
 traderepublic.start_login = lambda transport=None: _start(transport=fake_tr_http)
-traderepublic.finish_login = lambda code=None, transport=None: _finish(code, transport=fake_tr_http)
+traderepublic.finish_login = lambda code=None, transport=None: _finish(code, transport=fake_tr_http, _sleep=lambda s: None)
 r = c.post("/settings", data={"form": "traderepublic_login"}, follow_redirects=True)
 check("...step 2 starts the login from Settings and asks for the code", b"wants the code" in r.data and b'name="code"' in r.data, True)
 r = c.post("/settings", data={"form": "traderepublic_finish", "code": "4321"}, follow_redirects=True)

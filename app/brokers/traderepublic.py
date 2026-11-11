@@ -277,11 +277,16 @@ _FINISH_WAIT_S = 1.5
 
 def _logged_in(http: "Http") -> dict | None:
     """The account, if the session now works; None while it does not.
-    This is the authoritative 'done' signal, not the process status."""
+    This is the authoritative 'done' signal, not the process status.
+    A 200 that names no securities account is not "not yet" — waiting
+    will not change it — so it is said plainly instead of being polled
+    into a misleading "approve in the app"."""
     status, account = http.request("GET", "/api/v2/auth/account", login=True)
-    if status == 200 and isinstance(account, dict) and account.get("securitiesAccountNumber"):
+    if status != 200:
+        return None
+    if isinstance(account, dict) and account.get("securitiesAccountNumber"):
         return account
-    return None
+    raise TradeRepublicError("Logged in, but Trade Republic did not name the securities account.")
 
 
 def finish_login(code: str | None = None, transport=None, _sleep=time.sleep) -> dict:
