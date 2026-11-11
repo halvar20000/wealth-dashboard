@@ -263,10 +263,34 @@ def start_login(transport=None) -> dict:
 
 _DONE = {"CONFIRMED", "COMPLETED", "APPROVED", "SUCCESS", "OK", "DONE"}
 
+# After the code is accepted (or the app approves), Trade Republic's
+# process lingers on status PENDING with requiredAction cleared for a
+# second or two before the full session cookies (tr_refresh/tr_device)
+# are issued and /auth/account answers 200. So the finish is not a
+# single check of a status word — it polls the account call until it
+# works, which is the real signal that the login is done. Measured
+# against the live v2 flow: the first finish click used to land in that
+# window and report "not approved yet", forcing a second click.
+_FINISH_POLLS = 6
+_FINISH_WAIT_S = 1.5
 
-def finish_login(code: str | None = None, transport=None) -> dict:
+
+def _logged_in(http: "Http") -> dict | None:
+    """The account, if the session now works; None while it does not.
+    This is the authoritative 'done' signal, not the process status."""
+    status, account = http.request("GET", "/api/v2/auth/account", login=True)
+    if status == 200 and isinstance(account, dict) and account.get("securitiesAccountNumber"):
+        return account
+    return None
+
+
+def finish_login(code: str | None = None, transport=None, _sleep=time.sleep) -> dict:
     """The second step: the code typed, or the app's approval looked
-    for. On success the session is saved and the account described."""
+    for. On success the session is saved and the account described.
+
+    Returns {"done": False} only after polling has given the login its
+    chance to settle — the caller may call again, but should not have to
+    for a login that is going to succeed."""
     pending = _pending()
     if not pending:
         raise TradeRepublicError("No login is under way — start one first.")
@@ -282,17 +306,32 @@ def finish_login(code: str | None = None, transport=None) -> dict:
         pending["verified"] = True
         pending["cookies"] = http.cookies
         _write(PENDING_FILE, json.dumps(pending))
-    status, process = http.request("GET", f"/api/v2/auth/web/login/processes/{pid}", login=True)
-    if status in (401, 403, 404):
-        raise TradeRepublicError("The login attempt has expired — start again.")
-    state = " ".join(str((process or {}).get(k, "")) for k in ("state", "status", "statusCode", "result")).upper() if isinstance(process, dict) else ""
-    if not any(s in state.split() for s in _DONE):
+
+    # Poll until the session is usable. The account call is the truth:
+    # the process can read PENDING with requiredAction already cleared
+    # while Trade Republic finishes issuing the session cookies.
+    account = None
+    for attempt in range(_FINISH_POLLS):
+        status, process = http.request("GET", f"/api/v2/auth/web/login/processes/{pid}", login=True)
+        if status in (401, 403, 404):
+            raise TradeRepublicError("The login attempt has expired — start again.")
+        req_action = (process or {}).get("requiredAction") if isinstance(process, dict) else None
+        state = " ".join(str((process or {}).get(k, "")) for k in ("state", "status", "statusCode", "result")).upper() if isinstance(process, dict) else ""
+        done_word = any(s in state.split() for s in _DONE)
+        # The login is ready to be harvested once the required action is
+        # cleared (2FA passed) or the status says done. Then the account
+        # call confirms the session cookies have actually landed.
+        if done_word or req_action is None:
+            account = _logged_in(http)
+            if account is not None:
+                break
         pending["cookies"] = http.cookies
         _write(PENDING_FILE, json.dumps(pending))
+        if attempt < _FINISH_POLLS - 1:
+            _sleep(_FINISH_WAIT_S)
+
+    if account is None:
         return {"done": False}
-    status, account = http.request("GET", "/api/v2/auth/account", login=True)
-    if status != 200 or not isinstance(account, dict) or not account.get("securitiesAccountNumber"):
-        raise TradeRepublicError("Logged in, but Trade Republic did not name the securities account.")
     _save_cookies(http.cookies)
     try:
         _path(PENDING_FILE).unlink()
