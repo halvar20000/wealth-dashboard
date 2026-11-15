@@ -233,6 +233,32 @@ def _kind_label(slug: str) -> str:
     return _t(f"{KINDS[slug]} [kind]") if slug in KINDS else (slug or "")
 
 
+def _tidy(text) -> str:
+    """Trimmed, runs of spaces folded into one — banks pad a name to a
+    fixed width ("PayPal Europe S.a.r.l. et Cie S.C.A          ..")."""
+    return " ".join(str(text or "").split())
+
+
+def _row_title(row, limit: int = 80) -> dict:
+    """How a row is named in a list: the merchant first, when the bank
+    gave one. A DKB card payment's description is only "VISA
+    Debitkartenumsatz vom …" and the shop is in the counterparty, so the
+    counterparty leads and the description, if it says something else,
+    becomes the small line. A row without a counterparty reads as it
+    always did. Display only: rules still match on both fields as
+    stored. The apps follow the same rule."""
+    def field(key):
+        try:
+            return row[key]
+        except (KeyError, IndexError):
+            return None
+    who = _tidy(field("counterparty"))
+    what = _tidy(field("description"))
+    if who:
+        return {"title": who[:limit], "sub": what[:limit] if what and what != who else ""}
+    return {"title": what[:limit], "sub": ""}
+
+
 def _update_how(version: str) -> str:
     """One sentence: the newer version, and the one thing this install
     does to get it. Which install it is depends on the request — the
@@ -257,6 +283,7 @@ def _globals():
             "categories": categories,
             "account_types": ACCOUNT_TYPES, "type_label": _type_label,
             "kind_label": _kind_label, "rhythm_label": _rhythm_label,
+            "row_title": _row_title,
             "class_label": allocation.class_label, "region_label": allocation.region_label,
             "asset_version": _ASSET_VERSION,
             "version": __version__,

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_row_name.html" import row_name with context %}
 {% block title %}{{ _("Transactions") }} · Wealth Dashboard{% endblock %}
 {% block heading %}{{ _("Transactions") }}{% endblock %}
 {% block lede %}
@@ -58,8 +59,7 @@
       {% for t in rows %}
         <tr>
           <td class="sub nowrap">{{ d(t.txn_date) }}</td>
-          <td>{{ t.description[:80] }}
-            {% if t.counterparty %}<span class="sub">{{ t.counterparty }}</span>{% endif %}
+          <td>{{ row_name(t, 80) }}
             <form method="post" action="{{ url_for('transaction_tags', txn_id=t.id) }}" class="tag-form">
               <input type="hidden" name="back" value="{{ request.full_path }}">
               {% for tg in (t.tags or '').split(',') if tg %}<a class="tag tag-muted" href="{{ url_for('transactions', tag=tg) }}">{{ tg }}</a>{% endfor %}

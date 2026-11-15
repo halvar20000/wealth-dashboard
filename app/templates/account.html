@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_row_name.html" import row_name with context %}
 {% block title %}{{ account.name }} · Wealth Dashboard{% endblock %}
 {% block heading %}{{ account.name }}{% endblock %}
 {% block content %}
@@ -326,13 +327,12 @@
 <h2>{{ _("Recent transactions") }}{% if transactions %} <a class="sub" style="font-weight:normal; font-size:13px" href="{{ url_for('account_csv', account_id=account.id) }}">{{ _("Export as CSV") }}</a>{% endif %}</h2>
 {% if transactions %}
 <table class="grid">
-  <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Description") }}</th><th>{{ _("Counterparty") }}</th><th class="num">{{ _("Amount") }}</th><th></th></tr></thead>
+  <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Description") }}</th><th class="num">{{ _("Amount") }}</th><th></th></tr></thead>
   <tbody>
   {% for t in transactions %}
     <tr>
       <td class="nowrap">{{ d(t.txn_date) }}</td>
-      <td>{{ t.description }}{% if t.source == 'manual' %}<span class="sub">{{ _("typed in") }}</span>{% endif %}</td>
-      <td class="sub">{{ t.counterparty or '' }}</td>
+      <td>{{ row_name(t, 80) }}{% if t.source == 'manual' %}<span class="sub">{{ _("typed in") }}</span>{% endif %}</td>
       <td class="num {{ 'neg' if t.amount < 0 else 'pos' }}">{{ money(t.amount, t.currency) }}</td>
       <td class="num">
         <form method="post" action="{{ url_for('transaction_delete', account_id=account.id, txn_id=t.id) }}" onsubmit="return confirm({{ _('Remove this row? An import or a sync will not bring it back.') | tojson }})">

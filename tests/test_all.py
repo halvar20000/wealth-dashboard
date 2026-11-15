@@ -8237,6 +8237,31 @@ rr_ = c.post("/api/v1/tools/delete_category", json={"slug": "income"}, headers=H
 check("delete_category refuses the four the app reasons about", rr_.status_code, 422)
 check("...and removes any other", _tool("delete_category", slug="haustier"), {"slug": "haustier", "moved": 0})
 
+# A card payment is named by its merchant: DKB's description is only
+# "VISA Debitkartenumsatz vom ...", the shop is in the counterparty.
+from app.main import _row_title  # noqa: E402
+check("the counterparty leads, the description is the small line",
+      _row_title({"counterparty": "EDEKA.WIRKNER/LUDWIGSBURG", "description": "VISA Debitkartenumsatz vom 12.11.2026"}),
+      {"title": "EDEKA.WIRKNER/LUDWIGSBURG", "sub": "VISA Debitkartenumsatz vom 12.11.2026"})
+check("...a row without one reads as before",
+      _row_title({"counterparty": "  ", "description": "Miete November"}), {"title": "Miete November", "sub": ""})
+check("...padding spaces fold, and a description that only repeats it is not shown twice",
+      _row_title({"counterparty": "PayPal Europe S.a.r.l. et Cie S.C.A          ..",
+                  "description": "PayPal Europe S.a.r.l. et Cie S.C.A .."}),
+      {"title": "PayPal Europe S.a.r.l. et Cie S.C.A ..", "sub": ""})
+check("...and the length limit holds", len(_row_title({"counterparty": "x" * 120}, 80)["title"]), 80)
+with db.get_conn() as conn:
+    rid = conn.execute("INSERT INTO accounts (name, type, currency) VALUES ('Row titles', 'bank', 'EUR')").lastrowid
+    conn.execute("INSERT INTO transactions (account_id, txn_date, description, counterparty, amount, currency, kind, external_id, source) "
+                 "VALUES (?, '2026-11-12', 'VISA Debitkartenumsatz vom 12.11.2026', 'EDEKA.WIRKNER/LUDWIGSBURG', -23.4, 'EUR', 'card', 'rt1', 'manual')", (rid,))
+r = c.get("/transactions?q=Debitkartenumsatz")
+check("the Transactions page names the merchant first, the bank's text below, the tag input still there",
+      (r.status_code, b'EDEKA.WIRKNER/LUDWIGSBURG<span class="sub">VISA Debitkartenumsatz vom 12.11.2026</span>' in r.data,
+       b'name="tags"' in r.data), (200, True, True))
+r = c.get(f"/accounts/{rid}")
+check("...and so does the account page, in one column",
+      (r.status_code, b'EDEKA.WIRKNER/LUDWIGSBURG<span class="sub">VISA Debitkartenumsatz' in r.data), (200, True))
+
 # ---------------------------------------------------------------------------
 print(f"\n{PASS} passed, {FAIL} failed   ({TMP})")
 sys.exit(1 if FAIL else 0)
