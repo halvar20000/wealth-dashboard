@@ -211,7 +211,7 @@ def large(months: int = 13, base_currency: str = "EUR", account_ids: list[int] |
     spending = set(categories.spending())
     with get_conn() as conn:
         rows = [dict(r) for r in conn.execute(
-            f"""SELECT t.id, t.txn_date, t.description, t.amount, t.currency, t.spread_months,
+            f"""SELECT t.id, t.txn_date, t.description, t.counterparty, t.amount, t.currency, t.spread_months,
                        COALESCE(NULLIF(t.category, ''), 'other') AS category, a.name AS account
                   FROM transactions t JOIN accounts a ON a.id = t.account_id
                  WHERE t.amount < 0 AND t.kind NOT IN ('buy', 'sell')

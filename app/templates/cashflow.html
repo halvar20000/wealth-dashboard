@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_row_name.html" import row_name with context %}
 {% block title %}{{ _("Cash Flow") }} · Wealth Dashboard{% endblock %}
 {% block heading %}{{ _("Cash Flow") }}{% endblock %}
 {% block lede %}
@@ -63,7 +64,7 @@
       {% for t in large %}
         <tr>
           <td class="sub nowrap">{{ d(t.txn_date) }}</td>
-          <td>{{ (t.description or '')[:60] }}<span class="sub">{{ t.account }}</span></td>
+          <td>{{ row_name(t, 60) }}<span class="sub">{{ t.account }}</span></td>
           <td class="sub">{{ t.label }}</td>
           <td class="num neg">{{ money(t.amount, t.currency) }}</td>
           <td>

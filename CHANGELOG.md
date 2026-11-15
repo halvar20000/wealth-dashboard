@@ -11,6 +11,21 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.80.2] — 2026-11-15
+
+### Changed
+- **A card payment is named by its merchant.** DKB's description of a
+  card payment is only "VISA Debitkartenumsatz vom …"; the shop is in
+  the counterparty, which the lists showed second or not at all. Where a
+  row has a counterparty it now leads, and the bank's text, if it says
+  something else, is the small grey line under it; runs of padding
+  spaces in the name are folded for display. Rows without a
+  counterparty look as before. One rule (`row_title`, through the
+  `_row_name.html` macro) for Transactions, an account's rows (now one
+  column instead of two), Categorize, Latest activity and the big
+  payments on Cash flow. Display only: stored data, importers and rules
+  are untouched. The phone apps follow the same rule from 1.2.11.
+
 ## [0.80.1] — 2026-11-11
 
 ### Fixed

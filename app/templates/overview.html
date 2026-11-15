@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_row_name.html" import row_name with context %}
 {% block title %}{{ _("Overview") }} · Wealth Dashboard{% endblock %}
 {% block content %}
 
@@ -250,7 +251,7 @@
         <tr>
           <td class="sub nowrap">{{ d(t.txn_date) }}</td>
           <td class="sub">{{ t.account_name }}</td>
-          <td>{{ t.description[:70] }}</td>
+          <td>{{ row_name(t, 70) }}</td>
           <td><span class="tag tag-muted">{{ kind_label(t.kind) }}</span></td>
           <td class="num {{ 'pos' if t.amount > 0 else 'neg' }}">{{ money(t.amount, t.currency) }}</td>
         </tr>

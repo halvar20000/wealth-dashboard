@@ -1,0 +1,6 @@
+{#- A row's name in a list: the merchant leads, the bank's text below.
+    The rule is _row_title in main.py; import this with context. -#}
+{% macro row_name(t, limit=80) -%}
+{%- set n = row_title(t, limit) -%}
+{{ n.title }}{% if n.sub %}<span class="sub">{{ n.sub }}</span>{% endif %}
+{%- endmacro %}
