@@ -11,6 +11,24 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.81.0] — 2026-11-16
+
+### Added
+- **A number format of your own.** Settings → General has a *Number
+  format* beside the language: as the language writes them (as before),
+  1.234,56, 1,234.56, 1 234,56 or 1’234.56. It applies to every amount
+  the pages write and to the weekly e-mail, whatever the language, so
+  English text with German numbers works, and the other way round. The
+  charts still follow the language.
+- **The weekly e-mail has its own language.** A mail has no browser to
+  ask, so with the language on "Follow my browser" it went out in
+  English with 12,234.56 EUR even to a German reader. The e-mail card
+  now has *Language of the mail*, offering the language the page is in;
+  save the card once and the mail, its numbers, percentages, prices and
+  index levels follow it. Index levels and prices in the mail used to be
+  written the English way in every language; they are grouped like the
+  rest now.
+
 ## [0.80.2] — 2026-11-15
 
 ### Changed

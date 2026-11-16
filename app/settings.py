@@ -78,6 +78,12 @@ DEFAULTS: dict[str, Any] = {
     # nothing we speak". A fresh install in a German browser should be
     # in German before anybody finds a setting to put it there.
     "language": "",
+    # How numbers are written: "" follows the language, or one of the
+    # shapes in i18n.NUMBER_FORMATS ("de" 1.234,56, "en" 1,234.56, …).
+    "number_format": "",
+    # The weekly mail's language. A mail has no browser to ask, so ""
+    # means the language above, and English if that is "follow".
+    "report_language": "",
     # Where the bank sends the user back after they authenticate. It has
     # to match a URL registered in the Enable Banking control panel
     # EXACTLY, so it is a setting rather than something derived from the

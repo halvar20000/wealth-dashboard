@@ -279,7 +279,7 @@ def _globals():
             "base_currency": settings.get("base_currency", "EUR"),
             "money": _money, "big": _big, "qty": _qty, "d": _date, "mon": _month,
             "_": _t, "_n": _n, "_f": _f, "lang": current_language(),
-            "languages": i18n.LANGUAGES,
+            "languages": i18n.LANGUAGES, "number_formats": i18n.NUMBER_FORMATS,
             "categories": categories,
             "account_types": ACCOUNT_TYPES, "type_label": _type_label,
             "kind_label": _kind_label, "rhythm_label": _rhythm_label,
@@ -378,7 +378,7 @@ def index():
     classes = allocation.breakdown(s)["dimensions"]["asset_class"]["rows"] if s["accounts"] else []
     by_class = [{"name": allocation.class_label(r["key"]), "value": r["value"]}
                 for r in classes if r["value"] > 0]
-    fmt = i18n.FORMATS.get(current_language(), i18n.FORMATS[i18n.DEFAULT])
+    fmt = i18n.separators(current_language())
     return render_template(
         "overview.html", active_page="overview", s=s, by_class=by_class,
         history=history.series(base, people.scope(), "ytd"),
@@ -3245,6 +3245,8 @@ def settings_page(section: str = "general"):
             # browser", which is also what the blank option posts.
             chosen = (request.form.get("language") or "").strip()
             cfg["language"] = chosen if i18n.known(chosen) else ""
+            shape = (request.form.get("number_format") or "").strip()
+            cfg["number_format"] = shape if shape in i18n.NUMBER_FORMATS else ""
             cfg["auto_sync"] = bool(request.form.get("auto_sync"))
             cfg["check_updates"] = bool(request.form.get("check_updates"))
             how = (request.form.get("gains_method") or "fifo").strip()
@@ -3256,6 +3258,7 @@ def settings_page(section: str = "general"):
             # one. Forget it, so the confirmation of the change is
             # already in the language it changed to.
             g.pop("_language", None)
+            g.pop("_number_format", None)
             flash(_t("Settings saved."), "ok")
             return redirect(url_for("settings_page"))
 

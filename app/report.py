@@ -47,9 +47,10 @@ STATE_LOG = "report_last_sent"
 
 
 def lang() -> str:
-    """The app's configured language; English when none is set. A mail
-    has no browser to ask."""
-    return i18n.resolve(settings.get("language"), None)
+    """The mail's own language if one is picked, else the app's; English
+    when neither is set. A mail has no browser to ask."""
+    cfg = settings.load()
+    return i18n.resolve(cfg.get("report_language") or cfg.get("language"), None)
 
 
 def _t(text: str) -> str:
@@ -214,10 +215,16 @@ def money(v: float | None, ccy: str, signed: bool = False) -> str:
     return f"+{s}" if signed and v > 0 else s
 
 
+def num(v: float) -> str:
+    """A price or an index level, two places, grouped as the reader
+    writes numbers."""
+    return i18n.group(f"{v:,.2f}", lang())
+
+
 def pct(v: float | None, signed: bool = True) -> str:
     if v is None:
         return "—"
-    s = f"{v * 100:.2f}".replace(".", "," if lang() in ("de", "fr", "es") else ".")
+    s = i18n.group(f"{v * 100:.2f}", lang())
     return f"{'+' if signed and v > 0 else ''}{s} %"
 
 
@@ -258,7 +265,7 @@ def render_text(rep: dict) -> str:
     if rep["benchmarks"]:
         L.append(_t("Indices"))
         for x in rep["benchmarks"]:
-            L.append(f"   {x['label']:40} {x['price']:,.2f} {x['currency']}   "
+            L.append(f"   {x['label']:40} {num(x['price'])} {x['currency']}   "
                      f"7d {pct(x['pct_7d'])}")
     return "\n".join(L)
 
@@ -291,7 +298,7 @@ def render_html(rep: dict) -> str:
         parts.append(f'  <table style="width:100%;border-collapse:collapse;margin-bottom:24px">\n'
                      f'    <tr><th {th}>{escape(_t("Indices"))}</th><th {thr}>{escape(_t("Level"))}</th><th {thr}>7d</th></tr>\n')
         for x in rep["benchmarks"]:
-            parts.append(f'    <tr><td {td}>{escape(x["label"])}</td><td {tdr}>{x["price"]:,.2f} {escape(x["currency"])}</td>'
+            parts.append(f'    <tr><td {td}>{escape(x["label"])}</td><td {tdr}>{escape(num(x["price"]))} {escape(x["currency"])}</td>'
                          f'<td {tdr}><span style="color:{_tone(x["pct_7d"])}">{escape(pct(x["pct_7d"]))}</span></td></tr>\n')
         parts.append("  </table>\n")
     for s in rep["accounts"]:
@@ -311,7 +318,7 @@ def render_html(rep: dict) -> str:
     <tr><th {th}>{escape(_t("Holding"))}</th><th {thr}>{escape(_t("Price"))}</th><th {thr}>{escape(_t("Value"))}</th><th {thr}>7d</th></tr>
 ''')
         for h in s["holdings"]:
-            price = "" if h["price"] is None else f"{h['price']:,.2f} {h['price_currency']}"
+            price = "" if h["price"] is None else f"{num(h['price'])} {h['price_currency']}"
             parts.append(f'    <tr><td {td}>{escape(h["name"])}</td><td {tdr}>{escape(price)}</td>'
                          f'<td {tdr}>{escape(money(h["value"], c))}</td><td {tdr}>{move(h["change_7d"], h["pct_7d"], c)}</td></tr>\n')
         if s["cash"]:
@@ -330,7 +337,7 @@ def render_html(rep: dict) -> str:
         if s["dividends_unconverted"]:
             parts.append(f'  <div {muted[:-1]};margin-top:4px">' + escape(_f(
                 "Not in the dividend total, no rate on file: {amounts}",
-                amounts=", ".join(f"{v:,.2f} {k}" for k, v in s["dividends_unconverted"].items()))) + "</div>\n")
+                amounts=", ".join(f"{num(v)} {k}" for k, v in s["dividends_unconverted"].items()))) + "</div>\n")
     parts.append(f'''
   <div style="color:#9ca3af;font-size:11px;margin:28px 0 12px">
     {escape(_t("7d is the price move of what you hold now, in the account's currency — a deposit or a purchase during the week is not a gain. Gain since purchase compares today's value with what you put in. The net worth line at the top is the balance, and moves when money arrives too."))}
@@ -373,6 +380,8 @@ def save(form: dict) -> None:
     except ValueError:
         cfg["report_weekday"] = 0
     cfg["report_enabled"] = bool(form.get("report_enabled"))
+    chosen = (form.get("report_language") or "").strip()
+    cfg["report_language"] = chosen if i18n.known(chosen) else ""
     settings.save(cfg)
     password = (form.get("smtp_password") or "").strip()
     if password:
@@ -388,7 +397,7 @@ def save(form: dict) -> None:
 def forget() -> None:
     cfg = settings.load()
     for k in ("smtp_host", "smtp_port", "smtp_user", "smtp_from", "report_to",
-              "report_weekday", "report_enabled"):
+              "report_weekday", "report_enabled", "report_language"):
         cfg.pop(k, None)
     settings.save(cfg)
     try:
@@ -479,4 +488,5 @@ def describe() -> dict:
             "host": cfg.get("smtp_host") or "", "port": cfg.get("smtp_port") or 587,
             "user": cfg.get("smtp_user") or "", "sender": cfg.get("smtp_from") or "",
             "to": cfg.get("report_to") or "", "weekday": int(cfg.get("report_weekday") or 0),
+            "language": cfg.get("report_language") or "",
             "last_sent": get_state(STATE_LOG), "last_week": get_state(STATE_KEY)}

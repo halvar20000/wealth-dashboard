@@ -69,6 +69,19 @@ FORMATS: dict[str, dict[str, str]] = {
     "fr": {"group": NARROW_NBSP, "decimal": ",", "date": "dmy/"},
 }
 
+# The number shapes a user can pick regardless of the language, for
+# somebody who reads the app in English and their money the German way,
+# or the other way round. The key is what settings.json stores; empty
+# means "as the language writes it", which is the default. The example
+# is what the picker shows, because "1.234,56" says it faster than any
+# name for it.
+NUMBER_FORMATS: dict[str, dict[str, str]] = {
+    "de": {"group": ".", "decimal": ",", "example": "1.234,56"},
+    "en": {"group": ",", "decimal": ".", "example": "1,234.56"},
+    "fr": {"group": NARROW_NBSP, "decimal": ",", "example": "1\u202f234,56"},
+    "ch": {"group": "\u2019", "decimal": ".", "example": "1\u2019234.56"},
+}
+
 MONTHS_SHORT: dict[str, tuple[str, ...]] = {
     "en": ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
@@ -108,6 +121,35 @@ def active() -> str:
                        request.headers.get("Accept-Language"))
         g._language = lang
     return lang
+
+
+def number_format() -> str:
+    """The number shape picked in Settings, or "" for the language's own.
+
+    Cached on `g` like the language: a table of two hundred amounts must
+    not read settings.json two hundred times. Outside a request — the
+    weekly mail, a script — it is read each time, which is cheap next to
+    building a mail.
+    """
+    from flask import g, has_request_context
+
+    from . import settings
+    if has_request_context():
+        chosen = getattr(g, "_number_format", None)
+        if chosen is None:
+            chosen = settings.get("number_format") or ""
+            g._number_format = chosen
+    else:
+        chosen = settings.get("number_format") or ""
+    return chosen if chosen in NUMBER_FORMATS else ""
+
+
+def separators(lang: str) -> dict[str, str]:
+    """The group and decimal separator for a number in this language,
+    or in the shape the user picked instead."""
+    picked = NUMBER_FORMATS.get(number_format())
+    fmt = picked or FORMATS.get(lang, FORMATS[DEFAULT])
+    return {"group": fmt["group"], "decimal": fmt["decimal"]}
 
 
 def t(text: str) -> str:
@@ -211,7 +253,7 @@ def fill(text: str, lang: str, **values) -> str:
 
 def group(number: str, lang: str) -> str:
     """Re-punctuate a Python-formatted number for the language."""
-    fmt = FORMATS.get(lang, FORMATS[DEFAULT])
+    fmt = separators(lang)
     # Python gives 1,234.56. Swap through placeholders, because doing it
     # in two steps turns 1,234.56 into 1.234.56 whenever the group and
     # decimal separators trade places.

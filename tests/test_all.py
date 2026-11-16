@@ -3082,6 +3082,20 @@ r = c.get("/accounts")
 check("amounts are punctuated the German way",
       re.search(rb"\d\.\d{3},\d{2}", r.data) is not None, True)
 
+r = c.post("/settings", data={"form": "general", "language": "de", "number_format": "en",
+                              "base_currency": "EUR",
+                              "redirect_url": "http://localhost:8000/connect/callback"},
+           follow_redirects=True)
+check("a number format can be picked beside the language", settings.load()["number_format"], "en")
+check("...it is offered with an example", "1,234.56".encode() in c.get("/settings").data, True)
+r = c.get("/accounts")
+check("...and German pages then write English numbers",
+      (re.search(rb"\d,\d{3}\.\d{2}", r.data) is not None, re.search(rb"\d\.\d{3},\d{2}", r.data) is None), (True, True))
+c.post("/settings", data={"form": "general", "language": "de", "number_format": "bogus",
+                          "base_currency": "EUR",
+                          "redirect_url": "http://localhost:8000/connect/callback"})
+check("anything else is the language's own again", settings.load()["number_format"], "")
+
 # The catalogue is cached per language, so one reader's page cannot be
 # served out of another reader's cache.
 r = c.post("/settings", data={"form": "general", "language": "fr",
@@ -7284,6 +7298,27 @@ check("the HTML version is a full mail", ("<h1" in html, "Mail broker" in html, 
 check("...with nothing unescaped", "<script" not in html, True)
 check("the subject names the day and the change", report.subject(rep).startswith("Weekly report "), True)
 
+# The mail's own language, and the number shape picked in Settings. A
+# mail has no browser to ask, so without either it is English: the bug
+# that brought these in was a German reader getting "12,234.56 EUR".
+_cfg = settings.load()
+check("without a language the mail is English", report.lang(), "en")
+settings.save({**_cfg, "report_language": "de"})
+check("the mail's own language wins", (report.lang(), report.subject(rep).startswith("Wochenbericht ")), ("de", True))
+check("...and its numbers come with it", report.money(12234.56, "EUR"), "12.234,56\u00a0EUR")
+check("...percentages too", report.pct(0.1234), "+12,34 %")
+check("...and index levels", "102,00 EUR" in report.render_text(rep).replace("\u00a0", " "), True)
+settings.save({**_cfg, "report_language": "", "language": "de"})
+check("without its own language the mail follows the app's", report.lang(), "de")
+settings.save({**_cfg, "report_language": "", "number_format": "de"})
+check("a picked number format applies whatever the language",
+      (report.lang(), report.money(12234.56, "EUR")), ("en", "12.234,56\u00a0EUR"))
+settings.save({**_cfg, "number_format": "ch"})
+check("...the Swiss one too", i18n.money(12234.56, "CHF", "de"), "12\u2019234.56\u00a0CHF")
+settings.save({**_cfg, "number_format": "nonsense"})
+check("an unknown format is the language's own", i18n.money(12234.56, "EUR", "de"), "12.234,56\u00a0EUR")
+settings.save(_cfg)
+
 # When to send: on the chosen weekday, once per ISO week, catching up.
 cfg = {"report_enabled": True, "report_weekday": 2}
 check("due on the day", report.due(_date(2026, 9, 16), cfg, None), True)              # a Wednesday
@@ -7312,6 +7347,12 @@ check("the settings are saved", (settings.load()["smtp_host"], settings.load()["
 check("...the password beside the keys, private",
       oct((settings.SECRETS_DIR / report.PASSWORD_FILE).stat().st_mode & 0o777), "0o600")
 check("...and the card says when", b"every Friday" in r.data, True)
+check("...the mail's language is offered", b'name="report_language"' in r.data, True)
+c.post("/settings/assistants", data={"form": "report_save", "smtp_host": "smtp.example.com", "smtp_port": "587",
+                                     "report_enabled": "1", "report_to": "me@example.com, other@example.com",
+                                     "report_weekday": "4", "report_language": "de"})
+check("...and saved with the rest", settings.load()["report_language"], "de")
+settings.save({**settings.load(), "report_language": ""})
 info = report.send_report("EUR", today=_date(2026, 9, 18), smtp=fake_smtp)
 check("a report goes to every recipient", (info["to"], mails[-1]["to"]), (["me@example.com", "other@example.com"],) * 2)
 check("...with the saved credentials", (mails[-1]["host"], mails[-1]["port"], mails[-1]["password"]), ("smtp.example.com", 587, "s3cret"))

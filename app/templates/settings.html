@@ -26,6 +26,15 @@
     </select>
     <p class="sub">{{ _("Changes the language of the app, and with it how numbers and dates are written. It does not touch what your bank sent: a transaction described in German stays in German.") }}</p>
 
+    <label for="number_format">{{ _("Number format") }}</label>
+    <select id="number_format" name="number_format">
+      <option value="" {{ 'selected' if not cfg.number_format }}>{{ _("As the language writes them") }}</option>
+      {% for code, shape in number_formats.items() %}
+      <option value="{{ code }}" {{ 'selected' if cfg.number_format == code }}>{{ shape.example }}</option>
+      {% endfor %}
+    </select>
+    <p class="sub">{{ _("How amounts are written on these pages and in the weekly e-mail, whatever the language — German text with 1,234.56, or English with 1.234,56. The charts follow the language.") }}</p>
+
     <label for="base_currency">{{ _("Base currency") }}</label>
     <input id="base_currency" name="base_currency" value="{{ cfg.base_currency }}" maxlength="3">
 
@@ -517,6 +526,15 @@ curl -H "Authorization: Bearer {{ mcp_token }}" -X POST -H "Content-Type: applic
     <label for="report_weekday">{{ _("On") }}</label>
     <select id="report_weekday" name="report_weekday" style="width:auto">
       {% for name in weekdays %}<option value="{{ loop.index0 }}" {{ 'selected' if report_state.weekday == loop.index0 }}>{{ name }}</option>{% endfor %}
+    </select>
+    <label for="report_language">{{ _("Language of the mail") }}</label>
+    {# A mail has no browser to ask. Until one is picked, offer the
+       language this page is in, so saving once is enough. #}
+    {% set mail_lang = report_state.language or cfg.language or lang %}
+    <select id="report_language" name="report_language" style="width:auto">
+      {% for code, name in languages.items() %}
+      <option value="{{ code }}" {{ 'selected' if mail_lang == code }}>{{ name }}</option>
+      {% endfor %}
     </select>
     <label for="report_to">{{ _("To") }} <span class="sub">{{ _("several, separated by commas") }}</span></label>
     <input id="report_to" name="report_to" value="{{ report_state.to }}" placeholder="you@example.com">
