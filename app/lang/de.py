@@ -2893,4 +2893,8 @@ STRINGS: dict[str, str] = {
     '{n} rows match, and every one of them is a purchase or a sale. A rule does not file trades unless it says which account or which kind it means — pick the account (or the kind) in the rule, and it will.': '{n} Zeilen passen, und jede davon ist ein Kauf oder Verkauf. Eine Regel ordnet Trades nur zu, wenn sie sagt, welches Konto oder welche Art sie meint — wähl in der Regel das Konto (oder die Art), dann tut sie es.',
     '{n} of the matching rows are purchases or sales and were left alone: a rule files trades only when it names an account or a kind.': '{n} der passenden Zeilen sind Käufe oder Verkäufe und blieben unangetastet: eine Regel ordnet Trades nur zu, wenn sie ein Konto oder eine Art nennt.',
     'Bank, broker or format': 'Bank, Broker oder Format',
+    'Number format': 'Zahlenformat',
+    'As the language writes them': 'Wie die Sprache sie schreibt',
+    'How amounts are written on these pages and in the weekly e-mail, whatever the language — German text with 1,234.56, or English with 1.234,56. The charts follow the language.': 'Wie Beträge auf diesen Seiten und in der wöchentlichen E-Mail geschrieben werden, unabhängig von der Sprache — deutscher Text mit 1,234.56 oder englischer mit 1.234,56. Die Diagramme folgen der Sprache.',
+    'Language of the mail': 'Sprache der Mail',
 }
