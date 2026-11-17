@@ -11,6 +11,15 @@ minor bump is a feature and a patch is a fix; nothing here is a stable API yet.
 > changelog was introduced. They are accurate about what changed and rounded to
 > the day, not the hour.
 
+## [0.81.1] — 2026-11-17
+
+### Fixed
+- **DKB: round amounts without cents.** A DKB export writes a round
+  amount as `-21.000`, with no cents, and that dot was taken for a
+  decimal point: 21,000 euros came in as 21. A dot followed by three
+  digits and no comma is now a thousands mark; the old card export's
+  `12345.67 EUR` still reads as before (issue #11).
+
 ## [0.81.0] — 2026-11-16
 
 ### Added

@@ -115,12 +115,20 @@ def _date(raw: str | None) -> str | None:
         return None
 
 
+_CENTLESS_RE = re.compile(r"^[+-]?\d{1,3}(\.\d{3})+$")
+
+
 def _amount(raw: str | None) -> float | None:
     """`-10,22 €`, `-10,22`, `1234,56 EUR`, `100.000,00 €` — all the same
-    number, in one file or another."""
+    number, in one file or another. And `-21.000`: the current export
+    writes a round amount without its cents, so a dot followed by three
+    digits and no comma is a thousands mark (issue #11). The old card
+    export's `12345.67 EUR` keeps its dot: two digits, a decimal one."""
     if raw is None:
         return None
     s = raw.replace("€", "").replace("EUR", "").strip()
+    if _CENTLESS_RE.match(s):
+        s = s.replace(".", "")
     return parse_decimal(s)
 
 

@@ -1050,6 +1050,17 @@ check("the account fee is a fee", find_row(g.rows, "Kontoführung").kind, "fee")
 check("rent is nothing in particular", find_row(g.rows, "Miete").kind, "other")
 check("a two-digit year lands in the right century",
       find_row(g.rows, "Miete").txn_date, "2026-08-15")
+# Issue #11: a round amount comes without its cents, "-21.000", and the
+# dot there is the thousands mark. It was read as -21.00.
+rnd = dkb.parse(fixtures.DKB_CSV_GIRO.split('"24.08.26"')[0] +
+                '"08.02.26";"08.02.26";"Gebucht";"Jane Roe";"Autohaus Nord";'
+                '"Anzahlung Auto";"Ausgang";"DE11111111115555555555";"-21.000";"";"";""\n'
+                '"09.02.26";"09.02.26";"Gebucht";"Jane Roe";"Bank";"Sparrate";'
+                '"Ausgang";"DE11111111115555555555";"-1.500.000";"";"";""\n')
+check("a round amount without cents keeps its thousands",
+      find_row(rnd.rows, "Anzahlung Auto").amount, -21000.0)
+check("...and so does one in the millions",
+      find_row(rnd.rows, "Sparrate").amount, -1500000.0)
 
 # The overlapping export two weeks later. The ids must line up so that
 # only the newly booked row and the genuinely new one count as new.
